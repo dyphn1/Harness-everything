@@ -15,8 +15,8 @@
 //   qualification object ({ source: 'fake-test-fixture', faked: true }) is a
 //   test-only construct for mechanism tests; production passes no
 //   qualification and stays gated.
-// - Unsupported hosts (opencode/codex) never borrow the Claude exit mapping:
-//   both seam methods report `unavailable` with diagnostics.
+// - The Claude provider accepts only Claude. OpenCode has a separate
+//   fail-closed mapping and never borrows Claude's exit or reviewer rules.
 // - Exit mapping (owner decision row 1): for a given `tool_use_id`, a captured
 //   `PostToolUse` with `interrupted === false` and no `PostToolUseFailure`
 //   arrival maps to exit 0. This is a named mapping of the host's own
@@ -37,6 +37,10 @@ const path = require('path');
 
 const HOST_ID = 'claude-code';
 const CAPTURE_RECORD_VERSION = 'claude-capture-record/1';
+const OPENCODE_HOST_ID = 'opencode';
+const OPENCODE_CAPTURE_RECORD_VERSION = 'opencode-capture-record/1';
+const OPENCODE_CAPTURE_FILE = 'opencode-captures.jsonl';
+const OPENCODE_CAPTURE_LIMIT_BYTES = 4 * 1024 * 1024;
 const QUALIFICATION_EXPORT_SCHEMA = 'harness.doc-reconciliation.qualification.v1';
 const HEX64 = /^[0-9a-f]{64}$/;
 const PRE_CAPTURE_TOOLS = ['Bash', 'PowerShell', 'Task', 'Agent'];
@@ -522,10 +526,14 @@ function observedCorrelation(records) {
 
 // Validates the qualification export against the sanitized capture it names: schema, host, capture-record version, the
 // capture's digest, and every claimed kind, field and correlation. Returns null when valid, else the reason.
-function validateQualificationExport() {
+function validateQualificationExport(expectedHost = HOST_ID) {
   const exported = JSON.parse(fs.readFileSync(path.join(__dirname, EXPORT_FILE), 'utf8'));
   if (!recordOf(exported) || exported.schema !== QUALIFICATION_EXPORT_SCHEMA) return 'qualification export schema is not recognized';
-  if (exported.host !== HOST_ID || !textOf(exported.hostVersion)) return 'qualification export host or host version is missing';
+  if (!textOf(exported.hostVersion)) return 'qualification export host or host version is missing';
+  if (exported.host !== expectedHost) {
+    if (expectedHost === HOST_ID) return 'qualification export host or host version is missing';
+    return 'qualification export host does not match the selected provider';
+  }
   if (exported.captureRecordVersion !== CAPTURE_RECORD_VERSION) return 'qualification export capture record version is not supported';
   const source = recordOf(exported.sanitizedCapture) ? exported.sanitizedCapture : {};
   // The sanitized capture is a sibling of the export, so source and packaged copies resolve it the same way.
@@ -547,7 +555,7 @@ function validateQualificationExport() {
   return null;
 }
 
-function evaluateQualification(input) {
+function evaluateQualification(input, expectedHost = HOST_ID) {
   if (recordOf(input) && input.qualification !== undefined && input.qualification !== null) {
     const supplied = input.qualification;
     // Test-only DI path: an explicitly fake qualification object. Anything else
@@ -567,7 +575,7 @@ function evaluateQualification(input) {
   // against the sanitized capture it names. Nothing is read from the environment, capture flags or ancestor directories.
   let reason = null;
   try {
-    reason = validateQualificationExport();
+    reason = validateQualificationExport(expectedHost);
   } catch (error) {
     reason = `qualification evidence could not be read (${error.code || 'error'})`;
   }
@@ -582,11 +590,11 @@ function evaluateQualification(input) {
 
 // ---- Shared provider state ------------------------------------------------------
 
-function supportedHostCheck(input) {
-  if (recordOf(input) && input.hostId === HOST_ID) return null;
+function supportedHostCheck(input, expectedHost = HOST_ID) {
+  if ([HOST_ID, OPENCODE_HOST_ID].includes(expectedHost) && recordOf(input) && input.hostId === expectedHost) return null;
   const host = recordOf(input) && typeof input.hostId === 'string' ? input.hostId : 'unknown';
   return diagnostic('unsupported-host', {
-    reason: `unsupported host ${host} has no supported capture implementation; OpenCode/Codex must not borrow the Claude exit mapping`,
+    reason: `unsupported host ${host} has no matching capture implementation; hosts must not borrow another host's exit mapping`,
   });
 }
 
@@ -892,6 +900,127 @@ const createClaudeOriginProvider = input => {
   return { resolveContext, resolveEvent };
 };
 
+function opencodeContentSignature(cap) {
+  return captureJson({
+    hostId: cap.hostId,
+    tool: cap.tool === undefined ? null : cap.tool,
+    command: cap.command === undefined ? null : cap.command,
+    cwd: cap.cwd === undefined ? null : cap.cwd,
+    status: cap.status === undefined ? null : cap.status,
+    exit: cap.exit === undefined ? null : cap.exit,
+    resultDigest: cap.result_digest === undefined ? null : cap.result_digest,
+    error: cap.error === undefined ? null : cap.error,
+  });
+}
+
+const createOpencodeOriginProvider = input => {
+  const safeInput = recordOf(input) ? input : {};
+
+  function resolveContext(request) {
+    const hostFail = supportedHostCheck(safeInput, OPENCODE_HOST_ID);
+    if (hostFail) return { status: 'unavailable', diagnostics: [hostFail] };
+    const qualification = evaluateQualification(safeInput, OPENCODE_HOST_ID);
+    if (!qualification.open) return { status: 'unavailable', diagnostics: [qualification.fail] };
+    const workspaceRoot = textOf(safeInput.workspaceRoot) ? safeInput.workspaceRoot : (recordOf(request) && textOf(request.workspaceRoot) ? request.workspaceRoot : '');
+    const sessionId = textOf(safeInput.sessionId) ? safeInput.sessionId : '';
+    const workflowId = textOf(safeInput.workflowId) ? safeInput.workflowId : '';
+    const workflowRevision = Number.isInteger(safeInput.workflowRevision) ? safeInput.workflowRevision : null;
+    const taskId = textOf(safeInput.taskId) ? safeInput.taskId : '';
+    if (!workspaceRoot || !sessionId || !workflowId || workflowRevision === null || !taskId) {
+      return { status: 'unavailable', diagnostics: [diagnostic('invalid-input', { reason: 'OpenCode origin requires the recorded workspace, session, workflow, revision and task identity' })] };
+    }
+    const suppliedPrincipals = recordOf(safeInput.principals) ? safeInput.principals : {};
+    const author = textOf(suppliedPrincipals.author) ? suppliedPrincipals.author : sessionId;
+    const executors = Array.isArray(suppliedPrincipals.executors) ? suppliedPrincipals.executors.filter(textOf) : [sessionId];
+    const originRef = 'origin://opencode/' + digestText(captureJson({
+      hostId: OPENCODE_HOST_ID, sessionId, workspaceRoot, taskId, workflowId, workflowRevision,
+      author, executors, qualificationSource: qualification.source,
+    }));
+    return {
+      status: 'accepted', originRef,
+      context: {
+        workspaceId: 'ws-' + digestText(captureJson({ workspaceRoot })), sessionId, workflowId, workflowRevision, taskId,
+        principals: { author, executors: executors.slice() }, activeHost: OPENCODE_HOST_ID,
+        baselineReference: `retained-live-capture:opencode-341:${digestText(originRef)}`,
+        ...(recordOf(safeInput.baseline) && textOf(safeInput.baseline.commit) && textOf(safeInput.baseline.root)
+          ? { baseline: { commit: safeInput.baseline.commit, root: safeInput.baseline.root } } : {}),
+        workspaceRoot,
+      },
+    };
+  }
+
+  function resolveEvent(request) {
+    if (!recordOf(request) || !textOf(request.reference)) return unavailable('invalid-input', 'resolveEvent requires a nonempty event reference');
+    const hostFail = supportedHostCheck(safeInput, OPENCODE_HOST_ID);
+    if (hostFail) return { status: 'unavailable', diagnostics: [hostFail] };
+    const qualification = evaluateQualification(safeInput, OPENCODE_HOST_ID);
+    if (!qualification.open) return { status: 'unavailable', diagnostics: [qualification.fail] };
+    const [captureRef, capability] = String(request.reference).split('#');
+    const captures = Array.isArray(safeInput.captures) ? safeInput.captures : [];
+    const matches = captures.map((item, index) => ({ item, index })).filter(({ item }) => recordOf(item) && item.call_id === captureRef);
+    if (!matches.length) return unavailable('origin-unavailable', `no captured OpenCode event is retained for reference ${request.reference}`);
+    if (matches.length > 1) return rejected('replayed-record', 'multiple OpenCode records share this call id');
+    const { item: cap, index } = matches[0];
+    if (cap.hostId !== OPENCODE_HOST_ID || cap.schema !== OPENCODE_CAPTURE_RECORD_VERSION
+      || cap.session_id !== safeInput.sessionId) {
+      return rejected('record-origin-mismatch', 'the capture host and session must match this OpenCode provider invocation');
+    }
+    const observed = cap.observedIdentity;
+    const pin = recordOf(safeInput.baseline) ? safeInput.baseline : null;
+    if (!recordOf(observed)) return rejected('identity-missing', 'OpenCode capture lacks workflow identity observed at capture time');
+    const sameWorkflow = observed.workflowId === safeInput.workflowId && observed.workflowRevision === safeInput.workflowRevision;
+    const samePin = !pin || (recordOf(observed.baselinePin) && observed.baselinePin.commit === pin.commit && observed.baselinePin.root === pin.root);
+    if (!sameWorkflow || !samePin) return rejected('identity-mismatch', 'the observed workflow revision or baseline pin differs from the current one; stale evidence loses credit');
+    const signature = opencodeContentSignature(cap);
+    const firstOccurrence = captures.findIndex(item => recordOf(item) && opencodeContentSignature(item) === signature);
+    if (firstOccurrence !== index) return rejected('replayed-record', `identical OpenCode tool content already recorded (first occurrence index ${firstOccurrence})`);
+    if (cap.error !== undefined && cap.error !== null) return rejected('failure-not-credited', 'the native tool event carries an error');
+    if (typeof cap.status !== 'string' || !cap.status) return rejected('outcome-ambiguous', 'the native tool status is missing');
+    if (cap.status !== 'completed') return rejected(cap.status === 'error' ? 'failure-not-credited' : 'outcome-ambiguous', `native tool status ${cap.status} does not prove completion`);
+    const processTool = ['bash', 'shell', 'powershell', 'cmd'].includes(String(cap.tool).toLowerCase());
+    if (processTool && !Number.isInteger(cap.exit)) return rejected('outcome-ambiguous', 'a process result without a numeric native exit is ambiguous');
+    if (processTool && cap.exit !== 0) return rejected('failure-not-credited', `the native process exit was ${cap.exit}`);
+    if (!/^[0-9a-f]{64}$/.test(String(cap.result_digest || '')) || !Number.isInteger(cap.result_bytes) || cap.result_bytes < 0) {
+      return rejected('stdout-withheld', 'the native result digest and byte count are absent');
+    }
+    const author = recordOf(safeInput.principals) && textOf(safeInput.principals.author) ? safeInput.principals.author : safeInput.sessionId;
+    if (capability === 'quality-review') {
+      if (!textOf(cap.agent_id)) return rejected('reviewer-principal-missing', 'OpenCode supplied no host-issued reviewer identity');
+      if (cap.agent_id === author) return rejected('reviewer-not-independent', 'the reviewer identity equals the author session principal');
+      return rejected('reviewer-principal-missing', 'OpenCode supplied no host-issued independent-review record');
+    }
+    if (capability) {
+      if (!['doc-lint', 'link-check'].includes(capability)) return rejected('capability-mismatch', `OpenCode cannot supply capability ${capability}`);
+      if (!textOf(cap.command)) return rejected('command-missing', 'the native record has no command for a registered doc-check');
+      if (!textOf(cap.cwd)) return rejected('unregistered-command', 'the host omitted per-tool cwd, so the doc-check invocation cannot be validated');
+      const registered = resolveDocCheckInvocation(cap.command, cap.cwd);
+      if (registered.kind !== 'accepted') return rejected('unregistered-command', `doc-check invocation rejected (${registered.reason}); no credit`);
+      return rejected('stdout-withheld', 'the OpenCode result body is retained only as a digest and cannot prove doc-check output');
+    }
+    if (!textOf(cap.command)) return rejected('command-missing', 'captured OpenCode record has no retained process command');
+    if (!textOf(cap.cwd)) return rejected('outcome-ambiguous', 'the host omitted per-tool cwd');
+    if (!processTool) return rejected('capture-event-unsupported', `tool ${String(cap.tool)} has no OpenCode process mapping`);
+    if (!recordOf(request.identity)) return rejected('identity-missing', 'execution evidence needs a snapshot identity');
+    const contextResponse = resolveContext(request);
+    if (contextResponse.status !== 'accepted') return unavailable('origin-unavailable', 'origin context did not resolve');
+    const identity = JSON.parse(JSON.stringify(request.identity));
+    const resultRef = `opencode-result/${cap.call_id}/${cap.result_digest}`;
+    const event = {
+      eventId: 'opencode-exec-' + digestText(signature + ':execution'),
+      producerId: 'opencode-origin-provider', originRef: contextResponse.originRef,
+      principalId: cap.session_id, provenance: 'opencode-capture:' + cap.call_id,
+      capability: 'shell-command', kind: 'execution', command: cap.command, argv: [cap.command], cwd: cap.cwd,
+      exitCode: cap.exit, signal: null, toolCorrelationId: cap.call_id, resultRef,
+      identity, startIdentity: identity, endIdentity: identity,
+      paths: [], artifactDigests: {}, captured: { responseRef: resultRef, responseDigest: cap.result_digest },
+    };
+    return { status: 'accepted', originRef: contextResponse.originRef, event,
+      correlation: { toolCorrelationId: cap.call_id, resultRef } };
+  }
+
+  return { resolveContext, resolveEvent };
+};
+
 // ---- Capture record builder (consumed by state-persist.js) ----------------------
 
 // Builds the retained capture record for a Claude hook payload. The field names
@@ -1028,6 +1157,24 @@ function readCaptureView(sessionDir) {
   return { records: view, tampered: false };
 }
 
+function readOpencodeCaptureView(sessionDir) {
+  const file = path.join(sessionDir, OPENCODE_CAPTURE_FILE);
+  try {
+    if (fs.statSync(file).size > OPENCODE_CAPTURE_LIMIT_BYTES) return { records: [], tampered: true };
+    const text = fs.readFileSync(file, 'utf8');
+    const records = text.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
+    if (!records.every(item => recordOf(item) && item.schema === OPENCODE_CAPTURE_RECORD_VERSION
+      && item.hostId === OPENCODE_HOST_ID && textOf(item.session_id) && textOf(item.call_id)
+      && textOf(item.tool) && Object.prototype.hasOwnProperty.call(item, 'status'))) {
+      return { records: [], tampered: true };
+    }
+    return { records, tampered: false };
+  } catch (error) {
+    if (error.code === 'ENOENT') return { records: [], tampered: false };
+    return { records: [], tampered: true };
+  }
+}
+
 // Observation-time identity: the workflow and pin the host event was captured under. Absent before a workflow starts.
 function observedIdentityFor(sessionDir) {
   try {
@@ -1053,7 +1200,8 @@ function reviewRecordIndependent(cap, captures, principals) {
 }
 
 // Keep the old state-persist seam as an alias; it points at the single resolver above.
-module.exports = { createClaudeOriginProvider, buildCaptureRecord, resolveDocCheckInvocation,
+module.exports = { createClaudeOriginProvider, createOpencodeOriginProvider, buildCaptureRecord, resolveDocCheckInvocation,
   registeredInstalledCheck: resolveDocCheckInvocation, installedDocCheck,
   fileDigest, SHIPPED_DOC_CHECK_DIGEST, trustRisk, journalExecutors, reviewRecordIndependent,
-  writeImmutableEvent, rebuildJournalView, readCaptureView, observedIdentityFor, _internals: { captureJson, captureDigest, digestText, canonicalCapture } };
+  writeImmutableEvent, rebuildJournalView, readCaptureView, readOpencodeCaptureView, observedIdentityFor,
+  _internals: { captureJson, captureDigest, digestText, canonicalCapture } };

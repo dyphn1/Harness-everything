@@ -1,9 +1,10 @@
 /**
  * Harness Enforcement Plugin for opencode
  *
- * A single self-contained ESM module, because that is what opencode actually
- * loads: a JS/TS file dropped in `.opencode/plugins/` (or referenced from
- * `opencode.json`) that exports a function returning a hooks object. There is
+ * An ESM entry module, because that is what opencode actually loads: a JS/TS
+ * file dropped in `.opencode/plugins/` (or referenced from `opencode.json`)
+ * that exports a function returning a hooks object. The optional workflow
+ * reconciliation path resolves the packaged sibling Stop consumer. There is
  * no JSON-manifest-to-script mechanism - the old plugin.json + hooks/*.js
  * split assumed one and was never invoked by opencode. See issue #37.
  *
@@ -37,11 +38,28 @@
 
 import { homedir } from "node:os"
 import { join, dirname, resolve, basename, relative, isAbsolute } from "node:path"
-import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync, rmSync, realpathSync, readdirSync } from "node:fs"
+import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync, rmSync, realpathSync, readdirSync, statSync } from "node:fs"
 import { execSync } from "node:child_process"
 import { createHash, randomUUID } from "node:crypto"
+import { createRequire } from "node:module"
+import { fileURLToPath } from "node:url"
 
 const EDIT_TOOLS = new Set(["edit", "write", "apply_patch"])
+const OPENCODE_CAPTURE_FILE = "opencode-captures.jsonl"
+const OPENCODE_CAPTURE_LIMIT_BYTES = 4 * 1024 * 1024
+const OPENCODE_CAPTURE_RECORD_LIMIT_BYTES = 16 * 1024
+const requireFromPlugin = createRequire(import.meta.url)
+const STOP_GATE_FILE = join(dirname(fileURLToPath(import.meta.url)), "..", "hooks", "scripts", "workflow-stop-gate.js")
+
+function canonicalJson(value) {
+  if (Array.isArray(value)) return value.map(canonicalJson)
+  if (isRecord(value)) return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonicalJson(value[key])]))
+  return value
+}
+
+function captureDigest(value) {
+  return createHash("sha256").update(JSON.stringify(canonicalJson(value))).digest("hex")
+}
 
 // Global state root, matching the Node-side resolver at
 // scripts/lib/workspace.js#getStateHome (same env var precedence) - this
@@ -744,6 +762,50 @@ export const HarnessEnforcement = async ({ client, directory }) => {
     }
   }
 
+  function recordHostCapture(input, output) {
+    try {
+      if (!isRecord(output) || output.status === undefined || typeof input?.sessionID !== "string" || !input.sessionID
+        || typeof input.callID !== "string" || !input.callID || typeof input.tool !== "string" || !input.tool) return
+      const stateDir = pathsFor(input.sessionID).stateDir
+      const file = join(stateDir, OPENCODE_CAPTURE_FILE)
+      const args = isRecord(input.args) ? input.args : {}
+      const record = {
+        schema: "opencode-capture-record/1",
+        hostId: "opencode",
+        session_id: input.sessionID,
+        call_id: input.callID,
+        ...(typeof output.messageID === "string" ? { message_id: output.messageID } : {}),
+        tool: input.tool,
+        status: output.status,
+        ...(typeof args.command === "string" ? { command: args.command } : {}),
+        ...(typeof args.cwd === "string" ? { cwd: args.cwd } : {}),
+        ...(isRecord(output.result?.metadata) && typeof output.result.metadata.exit === "number" && Number.isFinite(output.result.metadata.exit)
+          ? { exit: output.result.metadata.exit } : {}),
+        ...(output.result !== undefined
+          ? { result_digest: captureDigest(output.result), result_bytes: Buffer.byteLength(JSON.stringify(canonicalJson(output.result))) } : {}),
+        ...(output.error !== undefined && output.error !== null
+          ? { error: isRecord(output.error)
+            ? Object.fromEntries(["name", "message", "code"].filter(key => typeof output.error[key] === "string").map(key => [key, output.error[key].slice(0, 300)]))
+            : typeof output.error === "string" ? { message: output.error.slice(0, 300) } : {} } : {}),
+        ts: new Date().toISOString(),
+      }
+      try {
+        const workflow = JSON.parse(readFileSync(join(stateDir, "workflow-run.json"), "utf8"))
+        if (typeof workflow.workflowId === "string" && Number.isInteger(workflow.revision)) {
+          const pin = isRecord(workflow.docReconciliationBaseline) ? workflow.docReconciliationBaseline : {}
+          record.observedIdentity = { workflowId: workflow.workflowId, workflowRevision: workflow.revision,
+            baselinePin: typeof pin.commit === "string" && typeof pin.root === "string" ? { commit: pin.commit, root: pin.root } : null }
+        }
+      } catch { /* pre-workflow events cannot be bound to a later workflow */ }
+      const line = `${JSON.stringify(record)}\n`
+      if (Buffer.byteLength(line) > OPENCODE_CAPTURE_RECORD_LIMIT_BYTES) return
+      mkdirSync(stateDir, { recursive: true })
+      const size = existsSync(file) ? statSync(file).size : 0
+      if (size + Buffer.byteLength(line) > OPENCODE_CAPTURE_LIMIT_BYTES) return
+      appendFileSync(file, line, "utf8")
+    } catch { /* capture is diagnostic only; an unavailable journal never grants credit */ }
+  }
+
   function resetSession(sessionID) {
     const { stateDir } = pathsFor(sessionID)
     const sessionsRoot = resolve(join(getStateRoot(workspace), "sessions"))
@@ -789,6 +851,7 @@ export const HarnessEnforcement = async ({ client, directory }) => {
 
     "tool.execute.after": async (input, output) => {
       telemetryAfter(input)
+      recordHostCapture(input, output)
       if (!EDIT_TOOLS.has(input.tool)) return
       const { editStateFile, breakerFile, complianceFile, reflectionFile } = pathsFor(input.sessionID)
 
@@ -927,6 +990,9 @@ export const HarnessEnforcement = async ({ client, directory }) => {
           saveJSON(editStateFile, failedState)
         }
       } finally {
+        try {
+          requireFromPlugin(STOP_GATE_FILE).decide({ session_id: activeSession, cwd: workspace, host_id: "opencode" })
+        } catch { /* the optional reconciliation consumer must never block OpenCode idle */ }
         activeVerifications.delete(activeSession)
       }
     },
@@ -971,7 +1037,13 @@ export default {
     await ctx.tool.hook("execute.before", (event) =>
       hooks["tool.execute.before"](toolEventInput(event), { args: event.input }))
     await ctx.tool.hook("execute.after", (event) =>
-      hooks["tool.execute.after"](toolEventInput(event), { args: event.input }))
+      hooks["tool.execute.after"](toolEventInput(event), {
+        args: event.input,
+        status: event.status,
+        result: event.result,
+        error: event.error,
+        messageID: event.messageID,
+      }))
 
     const events = new AbortController()
     void (async () => {

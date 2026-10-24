@@ -14,6 +14,7 @@ function decide(payload) {
   try {
     const { planningUnresolved, unresolvedObligations } = require('./lib/workflow-obligations');
     const context = loadWorkflow(payload);
+    context.activeHost = payload && typeof payload.host_id === 'string' ? payload.host_id : undefined;
     const { workflow, sessionDir } = context;
     if (!workflow || workflow.state === 'deferred') return;
     const handoffFile = path.join(sessionDir, 'handoff-state.json');
@@ -93,4 +94,6 @@ function decide(payload) {
   } catch (error) { warn(error && error.message ? error.message : String(error)); }
 }
 
-readHookInput(decide);
+if (require.main === module) readHookInput(decide);
+
+module.exports = { decide };
