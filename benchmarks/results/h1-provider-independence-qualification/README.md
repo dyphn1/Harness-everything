@@ -66,7 +66,30 @@ This is an integration qualification because each F4 cell crosses real child pro
 
 The initial fast run was retained as the environment-preflight result and was not rerun. After confirming the missing dependencies with npm ls and resolving pinned acorn/acorn-walk, the full verification gate passed. Dependencies were installed with npm ci --ignore-scripts; the only package lifecycle script is prepare: husky install.
 
-## Pending
+## Next acceptance packet (preparation only)
 
-- Full H1 and Phase 3c remain pending.
-- E1, paired evidence, benefit evidence, and #320 promotion remain pending.
+The current H1 run is preparation: provider A/B/omitted are tested as side inputs, never as inputs to the F4 consumer. It does not complete H1 or any Phase 3c gate. Keep the existing contracts in [document-lifecycle.md](../../../docs/document-lifecycle.md) authoritative.
+
+| Gate | Remaining evidence | Required positive and negative result |
+|---|---|---|
+| H1 | Exercise provider A, B and omitted through the same active workflow consumer, and use a valid alternate executor that is independent of the suggestion. | Expected MUSTs stay byte-for-byte identical; valid alternate evidence satisfies the applicable MUST; omitted or zero evidence does not. |
+| H2 | Capture active-step provider metadata and actual skill/content reads at each step, including an unrelated/future provider control. | Only active-step metadata is exposed; no unrelated or future `SKILL.md` content is read or injected. |
+| H3 | Complete the adversarial matrix in `docs/document-lifecycle.md` § Phase 3b minimum trust boundary / Phase 3c H3 validation, on source and packaged legs. | Every listed fabricated, missing, stale, substituted, forged, unsupported, replayed, unsupported-waiver or contradictory MUST stays unsatisfied; the current independently produced evidence control passes; zero false MUST PASS. |
+| H4 | Compose docs-only, docs+code, REQ-citing assertions, typo-only, code-only uncertainty, missing independent approval and waiver cases. | Each case has the expected obligation union and explicit `unknown`/`unavailable` outcomes where evidence is missing. |
+
+Existing focused commands are `node ci/mechanism-325-3b-h1-qualification.test.js`, `node ci/mechanism-325-3a-doc-evidence.test.js`, `node ci/mechanism-325-f4-trust-boundary.test.js` and `node ci/mechanism-325-3a-cross.test.js`. They are mechanism evidence only; a green replay does not replace the host traces or paired real-task evidence above.
+
+## Paired real-task protocol
+
+Use the owner-registered five task families from [#320's paired-evaluation decision](https://github.com/dyphn1/Harness-everything/issues/320#issuecomment-6230246258): typo-only ADR context; normative PRD revision with approval; mixed code/docs change; REQ-tagged assertion change with valid/invalid waiver; broken derived/link evidence with unavailable verifier.
+
+| Arm | Pinned commit | Condition |
+|---|---|---|
+| Baseline | Accepted [#327](https://github.com/dyphn1/Harness-everything/pull/327) merge `d9ff242c1fca1b308e4a9c3b55af257f12c44a82` | Current documentation workflow before the #326/#325 consumer slices. |
+| Treatment | [#358](https://github.com/dyphn1/Harness-everything/pull/358) merge `550f1a24d327df7022ef3b32b6fe5409c5a7873b` | Includes declared-only #326 step type, #325 Phase 3a and limited Phase 3b consumer; set `HARNESS_DOC_RECONCILIATION_PILOT=1`. |
+
+These are the comparison pins in the owner protocol. Measure baseline first; freeze task snapshots, rubric and baseline-derived threshold before inspecting treatment outcomes. Record host/model/effort/permissions and use fresh comparable contexts with counterbalanced pairs. An optional OFF run on the treatment commit can isolate switch overhead, but it is not the accepted #327 baseline; report the extra pilot-hook startup overhead separately.
+
+For every arm retain the task/prompt and base/candidate hashes, commit, host/model/runtime and package versions, expected obligations, actual report, independent adjudication, task outcome, false MUST pass/rejection, audit/compatibility findings, correction effort, tokens, elapsed time, tool calls, retries, interventions, failure overhead and uncertainty. Judge task success/failure first; report successful-task cost separately from failed-run cost. The existing generic paired runner does not implement this doc-workflow treatment; do not record its other effects as #325 paired evidence.
+
+**Status:** this protocol is preparation, not a run. The current H1 test results above remain the only evidence recorded here; #341 E1 is open with insufficient adjudicated exposure, and complete H1–H4, paired benefit and #320 promotion remain unchecked.
