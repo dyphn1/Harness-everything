@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "clientDate": "2026-10-25",
+  "classification": "retained-negative-observations-only",
+  "publicReproduction": "LOCAL_ONLY supporting packets, fixtures, and runner are not shipped; this PR does not reproduce full runs",
+  "productBaseline": "37c97046cb1e620c4a3585b4da5a2593501a48be",
+  "runs": [
+    {
+      "id": "D1",
+      "engine": "OpenCode v2.1.4",
+      "requestedModel": "opencode/beam-free#default",
+      "fixtureCommit": "f486e57d1ba17d92e585b0b42dd4b9c71b2fda4a",
+      "sessionId": "ses_e8de7be3cffeBTghRaz6CN1T01",
+      "sessionOutcome": "failed",
+      "providerFailureType": "provider.free-limit",
+      "directSanitizedExportErrorTypes": [
+        "provider.free-limit",
+        "provider.free-limit"
+      ],
+      "process": {
+        "shellPipelineExit": 1,
+        "opencodeProcessExit": null,
+        "opencodeProcessExitStatus": "UNKNOWN: pipeline status captured without PIPESTATUS"
+      },
+      "sanitizedExport": {
+        "exitCode": 0,
+        "messageCount": 4,
+        "sha256": "91f80a5e8b2c94015a5a5602022aa45436cff2a52295615f7eb022aed91eee2b",
+        "source": "LOCAL_ONLY:.worktrees/packets/resume-2026-10-25/D1-current/fixture/trace/native-export.json"
+      },
+      "fixture": {
+        "gitCleanBeforeAndAfter": true,
+        "configSha256": "422eb8c6481aaadbf7910d4b415e76b2e60723bd0da4c532a94fad1879c38bcd",
+        "adrBeforeSha256": "65c903eedc1be2ca6022638fd9cab1f70c08c278e9e03be5c73ad0b2ecab4d18",
+        "adrAfterSha256": "65c903eedc1be2ca6022638fd9cab1f70c08c278e9e03be5c73ad0b2ecab4d18",
+        "taskPromptSha256": "524e58eeb6bd64e33986777b19a7fca8ec0829154fc2eb4b0c4a26b8e13b7b5e"
+      },
+      "observations": {
+        "naturalCompletionObserved": false,
+        "observerLoadMarkerObserved": false,
+        "observerTracePresent": false,
+        "pilotReportPresent": false,
+        "innerConsumerCause": "UNCHECKED",
+        "globalHarnessAbsence": "UNCHECKED"
+      },
+      "sourceArtifactSha256": {
+        "beforeState": "91018ac09c0e58537b53ffbef6adb1d2ecd5cc5b079cccc60484493aa592d474",
+        "afterState": "d2f729d1f5eb29b6a17b552fb06a31833ecbe4ef3eda5096e895ebfab212518c",
+        "filteredRunLog": "b1f1b48237c94733a6753440617e52c85ee754d1287a78b94d2513e5fdfa07a5",
+        "observerImplementation": "33a3a3c8da4f5dc495f7462952b11ee8ad46c4fa9ba0882152acd0eebf0ed56f",
+        "taskLocalPluginEntrypoint": "ad4eef698164e644e52eeb0c6f36bef56ca75a5c66d7cd71345d0091108f8fbe"
+      }
+    },
+    {
+      "id": "D2",
+      "engine": "OpenCode CLI invocation; session identity UNKNOWN",
+      "requestedModel": "nvidia/deepseek-ai/deepseek-v4.1-flash",
+      "productBaseline": "37c97046cb1e620c4a3585b4da5a2593501a48be",
+      "fixtureCommit": "39aa08987e0da2fc2ff3ea3556b84bd6d37f4e79",
+      "nvidiaPreflight": {
+        "catalogModel": "nvidia/deepseek-ai/deepseek-v4.1-flash",
+        "configuredAuthPresence": true,
+        "variant": "UNKNOWN",
+        "evidenceLayer": "non-session preflight only",
+        "providerRequestMadeDuringPreflight": false
+      },
+      "process": {
+        "exitCode": 1,
+        "signal": null,
+        "timedOut": false,
+        "spawnFailureReason": null,
+        "stdoutJsonlRecords": 1,
+        "filteredEventType": "error",
+        "sessionId": null,
+        "sessionExistence": "UNKNOWN",
+        "stderrBytes": 0,
+        "rawOutputRetained": false
+      },
+      "errorInterpretation": {
+        "errorDiscriminantRetained": false,
+        "captureLimit": "allowlist omitted the error discriminant",
+        "cause": "UNKNOWN",
+        "providerRequestStatus": "UNKNOWN"
+      },
+      "fixture": {
+        "gitCleanBeforeAndAfter": true,
+        "configSha256": "422eb8c6481aaadbf7910d4b415e76b2e60723bd0da4c532a94fad1879c38bcd",
+        "adrBeforeSha256": "65c903eedc1be2ca6022638fd9cab1f70c08c278e9e03be5c73ad0b2ecab4d18",
+        "adrAfterSha256": "65c903eedc1be2ca6022638fd9cab1f70c08c278e9e03be5c73ad0b2ecab4d18",
+        "taskPromptSha256": "524e58eeb6bd64e33986777b19a7fca8ec0829154fc2eb4b0c4a26b8e13b7b5e",
+        "adrChanged": false
+      },
+      "observations": {
+        "naturalCompletionObserved": false,
+        "observerTracePresent": false,
+        "observerLoad": "NOT_OBSERVED",
+        "sanitizedExportAttempted": false,
+        "reportCapture": "UNKNOWN: no session ID was available for lookup",
+        "globalHarnessAbsence": "UNCHECKED",
+        "isolation": "UNCHECKED"
+      },
+      "sourceArtifactSha256": {
+        "exitMetadata": "61f8904e70fa9266f52437d536a43d9f8c34b338fa1c0f55827cf1527b7f7582",
+        "filteredRunLog": "b2261fe453f0645fb8d7606979e0c4a8b7c08095a6fc1fa3dbb9a670fbf78806",
+        "observerImplementation": "33a3a3c8da4f5dc495f7462952b11ee8ad46c4fa9ba0882152acd0eebf0ed56f",
+        "taskLocalPluginEntrypoint": "ad4eef698164e644e52eeb0c6f36bef56ca75a5c66d7cd71345d0091108f8fbe"
+      }
+    }
+  ],
+  "localRunnerSelfCheck": {
+    "result": "PASS",
+    "checks": [
+      "child exit code 23",
+      "timeout and signal capture",
+      "spawn failure maps to null exit plus reason"
+    ],
+    "evidenceLayer": "deterministic mechanism only; not live-host evidence",
+    "runnerSource": "LOCAL_ONLY:.worktrees/packets/resume-2026-10-25/D2-nvidia-current/scripts/d2-runner.mjs"
+  },
+  "qualification": {
+    "e1Cycle": false,
+    "e1Go": false,
+    "behaviorBenefit": false,
+    "qualifies": false,
+    "nvidiaOutageClaim": false,
+    "prClaim": "retained negative observations only"
+  }
+}
