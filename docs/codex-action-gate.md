@@ -125,24 +125,31 @@ Current Harness PreToolUse enforcement remains wired to the tool set explicitly 
 
 Related tracking: #82, #85, #98, #100, #109, #110.
 
-## Codex explicit authorization (scoped consent)
+## Prompt handling and authorization
 
-In addition to the hard block above, a blocked Codex structured mutation exposes a
-pending challenge scoped to the host session, tool name, and canonical full
-tool-input digest. The pending challenge has no wall-clock TTL. The challenge id
-appears in the block output as `challenge id: <id>`. Only scoped structured mutations (`rule.id` `structured-mutate`)
-issue or consume grants; other actions keep ordinary blocking.
+Codex `UserPromptSubmit` prompts pass through to the normal router unchanged.
+Harness does not parse, bind, or intercept any fixed approval syntax in user
+prompts. Native agent task-scope authorization and native permissions remain
+authoritative.
 
-The only approval source is a real `UserPromptSubmit` hook receiving the exact
-entire prompt `HARNESS APPROVE <challengeId>` with no additional text. That
-event binds the host session and its consent turn to a one-use grant for the
-same session, consent turn, tool, and full-input digest.
+Routine exact `create_pull_request` operations are host-deferred (below). All
+other risky actions (merge/delete/deploy/publish/send/force-push and unrelated
+genuine mutations) remain hard PreToolUse blocks; an explicitly required
+`actionGate` hint still gates. These are deterministic mechanism changes, not
+live-host proof.
 
-A matching retry passes once and atomically consumes the grant. Missing,
-mismatched, cross-session, cross-turn, and replayed grants remain blocked. The
-one-use grant is bound to the consent turn and fails after a turn change. Tool
-input containing an `authorization` JSON claim never grants.
+## Routine task Git operations (host-deferred)
 
-On a matching retry the guard does not block and emits no `permissionDecision=allow`;
-Codex native permission controls remain authoritative. This is cooperative local
-hook state, not tamperproof, and carries no live-host proof.
+Ordinary exact `create_pull_request` operations (including
+`mcp__codex_apps__github__create_pull_request` and provider-neutral
+`mcp__*__create_pull_request`) are host-deferred: Harness does not issue an
+additional challenge merely because the generic `create` heuristic classifies
+them as `mutate`. Their action descriptor stays `mutate` and non-safe; Harness
+does not pretend a write is a read or emit `permissionDecision` allow/ask.
+
+Native agent task-scope authorization and native permissions remain authoritative.
+An explicitly supplied required `actionGate` hint still gates the call. All other
+risky actions (merge/delete/deploy/publish/send/force-push and unrelated genuine
+mutations) remain gated; exact operation matching is used, with no substring
+exemption, so misleading names such as `create_pull_requests` or
+`foo_create_pull_request` still block.

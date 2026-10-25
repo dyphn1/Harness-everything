@@ -25,6 +25,15 @@ The repository routing contract uses **step-scoped workflow selection**. Normali
 
 This is a **repository/agent contract**, not an automatic upgrade to any platform row below. A hook can prove that the contract was injected and record an agent's binding disposition; neither proves that a live host actually loaded or followed the referenced content. Instruction-only surfaces can carry the same rule without mechanically enforcing it. Promoting behavior to live-host compliance requires retained host/session evidence under the #82 compatibility program. Claude and local OpenAI packages carry workflow entry/completion **reminders** plus separate Rule-of-3/permission boundaries, but this package/mechanism change does not upgrade `platform-compatibility.json` live-host status values. See [workflow runtime](workflow-runtime.md) for scope, worktree isolation, and failure behavior. OpenCode and instruction-only/public Skills-only surfaces do not acquire equivalent runtime gating. Shell inspection is not a filesystem sandbox; absent hooks, agent-writable state, and indirect script effects remain limits.
 
+### Action-gate mechanism vs. host semantic boundary
+
+Routine exact `create_pull_request` operations are host-deferred at the mechanism level:
+their descriptor remains a mutation (not read/safe), and no Harness consent or
+`permissionDecision` is emitted. Native agent task-scope authorization and native
+permissions stay authoritative; an explicit required `actionGate` hint still gates.
+This is a deterministic mechanism change, not live-host proof, and does not
+upgrade any platform row's live-host status.
+
 ## Current capability summary
 
 | Platform surface | Standalone skills | Plugin support | Hooks/lifecycle | Project scope | Global scope | Current evidence boundary |
@@ -126,22 +135,17 @@ The compatibility path registers hook commands in Codex user configuration and c
 
 The public OpenAI Skills-only plugin is narrower again. Its ZIP contains the packaged `skills/` tree and referenced files, but not the local `.codex-plugin` lifecycle hooks. Public submission readiness is therefore a package/form contract, not evidence of public-directory approval or live hook execution.
 
-### Codex explicit UserPromptSubmit consent (mechanism only)
+### Codex prompt pass-through and authorization (mechanism only)
 
-Codex has a local `UserPromptSubmit` exact-challenge consent path for a blocked
-structured mutation. The blocked call exposes a pending challenge scoped to host
-session, tool name, and canonical full tool-input digest. The pending challenge has
-no wall-clock TTL. Only a real
-`UserPromptSubmit` hook receiving the exact entire prompt
-`HARNESS APPROVE <challengeId>` with no additional text can bind that challenge to
-a host session and consent turn. The resulting one-use grant only lets the
-matching retry pass Harness's guard; it does not emit `permissionDecision=allow`
-and does not supersede native Codex permissions. Missing, mismatched, cross-session, cross-turn, and replayed grants remain
-blocked. The one-use grant is bound to the consent turn and fails after a turn
-change. Tool-input
-authorization JSON never grants. This is cooperative local hook state: it is not
-tamperproof and carries no live-host verification. Codex ask-style decisions are
-not supported.
+Codex `UserPromptSubmit` prompts pass through to the normal router unchanged;
+Harness does not parse or intercept a fixed approval syntax. Native agent
+task-scope authorization and native permissions remain authoritative. Routine
+exact `create_pull_request` operations are host-deferred at the mechanism level:
+their descriptor remains a mutation (not read/safe), and no Harness consent or
+`permissionDecision` is emitted. All other risky actions remain hard PreToolUse
+blocks; an explicitly required `actionGate` hint still gates. These are
+deterministic mechanism changes, not live-host proof. Codex ask-style decisions
+are not supported.
 
 ## Install/uninstall ownership boundary
 

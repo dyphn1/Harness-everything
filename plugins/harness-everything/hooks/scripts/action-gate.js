@@ -9,8 +9,6 @@ const {
   getWorkspaceRoot,
   getSessionDir,
 } = require('./lib/harness-state');
-const codexActionAuthorization = require('./lib/codex-action-authorization');
-
 const RULES_PATH = process.env.HARNESS_ACTION_GATE_RULES_PATH || path.join(__dirname, 'action-gate-rules.json');
 const ASK_CAPABLE_HOSTS = new Set(['claude']);
 const VALID_SCOPES = new Set(['always', 'outside-scratch']);
@@ -135,10 +133,25 @@ function normalizeActionDescriptor(payload) {
   };
 }
 
+function isRoutinePullRequestCreation(toolName) {
+  const name = String(toolName || '');
+  const segments = name.split('__');
+  const last = segments[segments.length - 1];
+  return (last === 'create_pull_request' || name === 'create_pull_request');
+}
+
 function structuredRule(payload) {
   const descriptor = normalizeActionDescriptor(payload);
   if (descriptor.toolFamily === 'shell') return { descriptor, rule: null };
   if (descriptor.classification === 'safe') return { descriptor, rule: null };
+  // Routine PR creation is a host-deferred mutation, not a Harness-gated one:
+  // the generic create=>mutate heuristic must not add an extra challenge. The
+  // descriptor stays a mutation (not read/safe). An explicit required
+  // actionGate hint still gates it.
+  const hint = routerActionGateHint(payload);
+  if (isRoutinePullRequestCreation(descriptor.toolName) && !(hint && hint.required)) {
+    return { descriptor, rule: null };
+  }
   if (descriptor.classification === 'gated') {
     return {
       descriptor,
@@ -148,7 +161,6 @@ function structuredRule(payload) {
       },
     };
   }
-  const hint = routerActionGateHint(payload);
   if (hint && hint.required) {
     return {
       descriptor,
@@ -449,19 +461,8 @@ function recordDecision(payload, rule, table, host, disposition, options = {}, e
 }
 
 
-function isScopedCodexStructuredMutation(structured, rule) {
-  return Boolean(
-    rule && rule.id === 'structured-mutate' &&
-    structured && structured.descriptor &&
-    structured.descriptor.toolFamily !== 'shell' &&
-    structured.descriptor.action === 'mutate' &&
-    structured.descriptor.classification === 'gated'
-  );
-}
 
-function safeInline(value) {
-  return String(value == null ? '' : value).replace(/[\r\n\t\u0000-\u001f\u007f]/g, '?').slice(0, 200);
-}
+
 
 function evaluatePreToolUse(payload, options = {}) {
   const context = sessionContext(payload, options.sessionDir);
@@ -469,23 +470,6 @@ function evaluatePreToolUse(payload, options = {}) {
   const structured = structuredRule(payload);
   const rule = structured.rule || classify(payload, table.rules, context.sessionDir);
   const host = detectHost(payload, options.host);
-
-  // Codex explicit authorization applies only to scoped structured mutations.
-  // Shell-governed and other structured actions keep ordinary blocking.
-  if (host === 'codex' && isScopedCodexStructuredMutation(structured, rule)) {
-    const consumed = codexActionAuthorization.consumeGrantIfValid(payload, { sessionDir: context.sessionDir });
-    if (consumed && consumed.authorized) {
-      return {
-        kind: 'allow',
-        exitCode: 0,
-        stdout: null,
-        stderr: null,
-        rule: null,
-        table,
-        descriptor: structured.descriptor,
-      };
-    }
-  }
 
   if (!rule) {
     return {
@@ -514,25 +498,11 @@ function evaluatePreToolUse(payload, options = {}) {
   const record = recordDecision(payload, rule, table, host, 'rejected', { ...options, sessionDir: context.sessionDir }, {
     rejectionReason: 'host-ask-decision-unverified-or-unsupported',
   });
-  let challengeSuffix = '';
-  let detailsSuffix = '';
-  if (host === 'codex' && isScopedCodexStructuredMutation(structured, rule)) {
-    const challengeId = codexActionAuthorization.issueChallenge(payload, {
-      sessionDir: context.sessionDir,
-      toolName: toolNameOf(payload),
-      digest: (structured.descriptor && structured.descriptor.payloadHash) || hashExact(exactPayloadText(payload)),
-    });
-    if (challengeId) {
-      challengeSuffix = ` challenge id: ${challengeId}`;
-      const digest = (structured.descriptor && structured.descriptor.payloadHash) || hashExact(exactPayloadText(payload));
-      detailsSuffix = ` Tool: ${safeInline(toolNameOf(payload))}. Input SHA-256: ${digest}. Approve with: HARNESS APPROVE ${challengeId}.`;
-    }
-  }
   return {
     kind: 'block',
     exitCode: 2,
     stdout: null,
-    stderr: `${reason} Host '${host}' has no Harness-verified ask-style decision path, so the action is blocked.${challengeSuffix}${detailsSuffix}`,
+    stderr: `${reason} Host '${host}' has no Harness-verified ask-style decision path, so the action is blocked.`,
     rule,
     table,
     record,
@@ -705,4 +675,5 @@ module.exports = {
   validateRuleTable,
   normalizeActionDescriptor,
   structuredRule,
+  isRoutinePullRequestCreation,
 };
