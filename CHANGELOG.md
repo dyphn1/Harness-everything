@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.41.2](https://github.com/dyphn1/Harness-everything/compare/v0.41.1...v0.41.2) (2026-10-25)
+
+### Bug Fixes
+
+* **codex:** bind explicit action approvals ([eeec25c](https://github.com/dyphn1/Harness-everything/commit/eeec25c204bae89fa293e77a1d7de9e8f7135e13))
+
 ## [0.41.1](https://github.com/dyphn1/Harness-everything/compare/v0.41.0...v0.41.1) (2026-10-23)
 
 ### Bug Fixes
