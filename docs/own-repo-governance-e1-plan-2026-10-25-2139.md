@@ -2,18 +2,65 @@
 
 **Status:** PROPOSED coordination plan; it does not approve policy, qualify E1, or authorize runtime activation.
 **Created / filename identity:** 2026-10-25 21:39:23 +08:00 (initial write; filename/title retain its 21:39 minute).
-**Updated / writtenAt:** 2026-10-25 21:45:09 +08:00 (Asia/Taipei)
+**Updated / writtenAt:** 2026-10-26 01:06:59 +08:00 (Asia/Taipei)
 **Branch:** `codex/own-repo-e1-plan-20261025` ([plan on work branch](https://github.com/dyphn1/Harness-everything/blob/codex/own-repo-e1-plan-20261025/docs/own-repo-governance-e1-plan-2026-10-25-2139.md)); verified linked worktree: `/Users/daniel.chang/Desktop/Skills/Harness-everything/.worktrees/own-repo-e1-plan-20261025`.
 
 ## Authority and pinned state
 
 The issue contracts are authoritative: [#341 E1 and Phase 1/2](https://github.com/dyphn1/Harness-everything/issues/341), [#325 bounded consumer and H1–H4](https://github.com/dyphn1/Harness-everything/issues/325), and [#320 promotion](https://github.com/dyphn1/Harness-everything/issues/320). This plan orders work and points to evidence; it does not replace those contracts or inherit either older packet's `APPROVED` label. Owner decisions remain reserved below.
 
-Pinned delivery baseline is `main@25c4a8478d5617d1e803940951876bb3ae1ecb37`, which includes #374. [PR #375](https://github.com/dyphn1/Harness-everything/pull/375) head `9ceb57d` is an unmerged evidence input, not main: [E1 README](https://github.com/dyphn1/Harness-everything/blob/9ceb57d/benchmarks/results/doc-evidence-e1/README.md), [E1 JSON](https://github.com/dyphn1/Harness-everything/blob/9ceb57d/benchmarks/results/doc-evidence-e1/evidence.json), and [H1 preparation README](https://github.com/dyphn1/Harness-everything/blob/9ceb57d/benchmarks/results/h1-provider-independence-qualification/README.md). O1/O2 adjudicate zero qualifying E1 cycles, correct withholding, no false MUST PASS/rejection, and no formal E1 decision. Do not repeat the stale-opening wording fix or count its observations again. Refresh mutable branch, PR, host, and CI facts before dispatch.
+Original P0 delivery baseline was `main@25c4a8478d5617d1e803940951876bb3ae1ecb37`, which includes #374. At publication, [PR #375](https://github.com/dyphn1/Harness-everything/pull/375) head `9ceb57d` was an unmerged evidence input, not main: [E1 README](https://github.com/dyphn1/Harness-everything/blob/9ceb57d/benchmarks/results/doc-evidence-e1/README.md), [E1 JSON](https://github.com/dyphn1/Harness-everything/blob/9ceb57d/benchmarks/results/doc-evidence-e1/evidence.json), and [H1 preparation README](https://github.com/dyphn1/Harness-everything/blob/9ceb57d/benchmarks/results/h1-provider-independence-qualification/README.md). O1/O2 adjudicate zero qualifying E1 cycles, correct withholding, no false MUST PASS/rejection, and no formal E1 decision. Do not repeat the stale-opening wording fix or count its observations again. Refresh mutable branch, PR, host, and CI facts before dispatch. The original `main@25c4a847` pin is retained as historical P0 baseline only; current main is `b733cadec17542b9ae30aabb50c1ba3481a58d74`.
 
 Evidence provenance: scope/protocol/advisor conclusions are source-traced; the OpenCode discussion is conceptual advice only, not code review, live-host evidence, or a defect finding. Reject its proposed 1-positive/1-negative stopping threshold and its unsupported claim that O2 proves a product bug. Keep #341's 2–3 genuine-cycle target and distinguish case exposure from completed-cycle acceptance.
 
-## Scope and truthful claims
+### #341 current state (GitHub connector, confirmed 2026-10-25T14:16:02Z)
+
+| Fact | Record |
+|---|---|
+| Issue state | OPEN; `state_reason=reopened` (reopened 2026-10-25T14:16:02Z) |
+| Body ledger | E0 ACCEPTED; E1 OPEN/UNCHECKED with 0 qualifying cycles |
+| Reopening rationale | Owner comment 6398746638: reopening corrected an issue-state/acceptance mismatch |
+| Prior closure cause | UNKNOWN — no issue-timeline evidence exists in this session; do not infer or invent one |
+| Unchanged contracts | E1 initial 2–3 genuine-cycle/exposure target, Phase 1 typed Obligation Contract decision, Phase 2 guidelines decision or owned follow-ups, closure rule, separate E1 assessment then explicit owner GO/REVISE/NO-GO, and the #320 authorization boundary |
+
+### Owner authorization for PR #376 (comment 6398696762)
+
+The owner explicitly authorizes continuing this existing PR #376 into real P1 inventory/disposition work and P2 existing-seam CI ratchet work after this plan is revised. This revision records that authorization; this turn's write-set stays narrow (this plan plus private P1a readiness evidence only). Authorization of P1/P2 work does not approve domain policy, qualify an E1 cycle, or authorize #320 promotion; H1–H4 and paired evidence under #325 remain separate.
+
+## First self-governance case: trust, safety, and independent verification
+
+Owner direction (2026-10-26): use PR #376 as the first actual self-governance development case, beginning with these boundaries. This authorizes this plan's boundary refinement and, per owner comment 6398696762, the subsequent P1 inventory/disposition and P2 existing-seam CI ratchet work in this same PR. It does not activate the pilot, approve domain policy, or authorize generic #320 CDG/Router migration. Case designation does not qualify an E1 cycle. The plan remains PROPOSED outside this recorded direction.
+
+State refresh (2026-10-26): #375 is now merged at `b733cadec17542b9ae30aabb50c1ba3481a58d74`, also the local main HEAD. The earlier unmerged description above records the original P0 baseline; retain those pins as history and refresh the task baseline before dispatch. #376 remains open at `521e5b3047daf24e284412ab225e8a354be313e4` before this local refinement. Merging #375 does not change its zero qualifying-cycle result.
+
+| Boundary | Required record / authority |
+|---|---|
+| Trust anchor outside the candidate | Before task execution, pin the issue contracts, owner decisions, baseline verifier/package/config identities, acceptance rubric, and recovery point. Candidate-controlled instructions, checks, workflow state, and reports are evidence inputs, never authority to approve themselves. |
+| Changes to the governor | If the write-set touches a checker, policy, hook, evidence producer, or approval rule, explicitly identify the affected trust boundary. Preserve the baseline checks and use separately controlled review/verification against the frozen rubric. A changed checker passing itself cannot certify the change; unavailable independent verification stays UNCHECKED. |
+| Safety and authority | Freeze exact paths and allowed actions per packet. Retain default-OFF, bounded, reversible consumer behavior and existing Kernel authorization. No permission widening, fabricated domain, edited runtime verdict, new completion lock, or automatic merge/release. Scope expansion returns for a new dispatch; owner-reserved decisions remain owner-reserved. |
+| Independent review | A separate model or fresh context alone does not establish independence. Require the existing host-issued principal/session provenance, distinct from author and every executor, read-only access to frozen inputs, and a verdict bound to exact hashes. Author/coordinator self-review is not E1 adjudication. |
+| Evidence custody | Preserve raw host captures, commands, exit/results, baseline/candidate/package/config hashes, reviewer identity, and negative witnesses with positive controls. Keep originals in the existing private evidence location and publish only sanitized summaries with digest references. No credentials or private payloads in repository artifacts; missing provenance remains visible. |
+| Failure and recovery | False MUST PASS stops credit and expansion. Preserve the failing snapshot before correction; route shared semantics to #341 and domain/provenance defects to #325. Repaired candidates require fresh capture and independent review; old verdicts do not transfer. |
+
+```mermaid
+flowchart LR
+  A["Frozen external authority and rubric"] --> B["#376 scoped development and CI"]
+  B --> C["Independent cycle qualification and E1 assessment"]
+  C --> D{"Owner decision: GO / REVISE / NO-GO"}
+  D -->|GO| E["Only explicitly approved bounded expansion"]
+  D -->|REVISE / NO-GO| F["Repair / retain boundary / stop expansion"]
+```
+
+| Claim | Separate acceptance boundary |
+|---|---|
+| Development complete / CI Green | Evidence only for the executed engineering gates and exact candidate; not E1 qualification. |
+| E1 assessment complete | Independent assessment of 2–3 genuine completed cycles and sufficient exposure under #341, including false passes/rejections, repeat defects, audit/compatibility drift, and maintenance effort. Insufficient exposure remains UNCHECKED; assessment completion does not imply a favorable result. |
+| E1 GO | A subsequent explicit owner decision based on the independent assessment, recording rationale, allowed scope, remaining uncertainty, and rollback. Neither elapsed time nor CI nor finishing E1 creates GO. |
+| #320 promotion | Still unauthorized. Generic CDG/Router migration requires E1 GO plus #325 H1–H4/paired evidence and a separate owner decision per proven interface. |
+
+Current disposition for #376: governance boundaries documented in this plan; P1a source readiness observed (see the P1a readiness subsection below); independent verification and E1 qualification NOT YET ESTABLISHED; GO NOT ISSUED. These are document-level contracts, not newly implemented enforcement or live-host evidence; the plan contract and implemented enforcement stay distinct claims.
+
+## Candidate inventory and coverage
 
 Inventory the declared candidate as pinned Git paths plus explicitly proposed new/untracked paths and baseline deleted/renamed endpoints. Retain both rename endpoints, modes and object identity; record symlink entries without following targets and gitlinks without recursing. A tracked vendor/dependency path stays in the inventory with an explicit disposition. `.git`, ignored/private files, dependencies not tracked by Git, and other worktrees are outside this inventory unless explicitly proposed. This coordination inventory never substitutes for the runtime producer's complete whole-candidate identity or scope.
 
@@ -21,6 +68,7 @@ Inventory the declared candidate as pinned Git paths plus explicitly proposed ne
 |---|---|
 | Canonical skills/evals | Applicable token, routing/collision, manifest and source/package parity gates |
 | Docs | Apply document lifecycle only to configured paths/roles; otherwise record absent/unknown doc-runtime coverage |
+| Legacy/archive Markdown | Record legacy/archive classification and why it is retained or superseded; choose applicable checks separately. File extension alone never makes a file a PRD or ADR. |
 | Code/tests/config | Existing CI, kernel, consistency, repository-contract and portability gates; these do not prove each file's semantics |
 | Generated views | Named source plus existing regeneration/parity check; never hand-edit generated output |
 | Fixtures/evidence | Preserve their stated test/evidence purpose and controls; do not impose production-doc metadata by file extension |
@@ -28,40 +76,70 @@ Inventory the declared candidate as pinned Git paths plus explicitly proposed ne
 
 Use the claim ladder `inventoried → classified → applicable-check-executed → validated-within-declared-scope`. `unknown`, `unavailable`, and `excluded` remain visible outcomes. Report inventory disposition coverage and executed gate scope separately; never say “all files validated/governed.”
 
-Current `.agents/harness-everything/project-docs.json` governs two references and one derived index; it has no domains. The current doc-check therefore reports `doc-lint: partial` even when a changed reference is governed. Credit readiness is blocked unless a real domain/policy basis and owner decision resolve this. Do not invent a `HARNESS` domain, widen globs, change checkers, use an empty-domain workaround, or label partial as pass. This positive-credit blocker does not block independent H1–H4 work.
+Four axes stay separate per path and are never merged into one verdict: (1) document role, (2) lifecycle status, (3) governance disposition/coverage, (4) validation outcome. Legacy/archive classification and its disposition reason are recorded on axes 1 and 3; validation remains axis 4. P1 requires an explicit disposition plus reason for 100% of identified tracked document paths; that is disposition coverage only and is never a claim of 100% semantic validation.
+
+| Report item | Checkable / unresolved boundary |
+|---|---|
+| Git identity | New, deleted and both rename endpoints, modes and OIDs are checkable against an independent Git oracle. |
+| Generated, legacy/archive, fixture and vendor docs | Path/class/disposition/reason are reportable. Generated parity requires a declared generator contract; otherwise parity and document semantics remain `unknown`. |
+| Relationships | Existing configured lifecycle graph/link checks cover only their declared scope; unconfigured, ambiguous and deleted-reference relationships remain `partial`/`unknown`. |
+| Scope and policy | Git/config/manifest/rule changes are diffable; scope completeness and bare-ID/domain policy remain owner decisions. |
+| Owner decisions | Truthful domain names and bare-ID policy; which paths/roles and legacy/generated/vendor/fixture content receive semantic validation; relationship completeness and known exclusions. These decisions limit new policy/credit, not inventory/disposition reporting. |
+
+Current `.agents/harness-everything/project-docs.json` governs two references and one derived index; it has no domains. The current doc-check therefore reports `doc-lint: partial` even when a changed reference is governed — observed directly on 2026-10-26, see the P1a readiness subsection below. Preserve that as `partial`/`unknown`: it limits any new policy or positive credit claim that depends on full domain validation, but it does not gate the authorized P1 inventory or P2 CI ratchet. Only a real domain/policy basis and owner decision can authorize new governed policy or such credit. E1 observation has its own supported-completion gate at P3. Do not invent a `HARNESS` domain, widen globs, change checkers, use an empty-domain workaround, or label partial as pass. This does not block independent H1–H4 work.
+
+### P1a readiness observation (2026-10-26, source/package layer only)
+
+Read-only inspection of the current command, with source tracing of `harness-everything/scripts/doc-check.js` (check path reads config/files, emits JSON to stdout, never writes) and its `doc-lifecycle.js lint` subprocess (read-only git plumbing: `check-attr`, `config --get`, `cat-file --batch`). The gate for running it was satisfied: help/source shows read-only behavior and the exact command form is valid per `parseArgs`. Full capture lives in `/tmp/own-repo-e1-p1a-20261026/` and in the private readiness note `/Users/daniel.chang/.agents/harness-everything/evidence/own-repo-e1/p1a-readiness-2026-10-26/README.md`.
+
+| Field | Observed value |
+|---|---|
+| Command | `node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/doc-workflow-reconciliation.md --base b733cadec17542b9ae30aabb50c1ba3481a58d74` |
+| Exit status | 0 (stdout JSON below; stderr empty) |
+| `doc-lint` capability | `partial` — no domains declared; bare `<DOMAIN>-NNN` references not checked; checked path `docs/doc-workflow-reconciliation.md` |
+| `link-check` capability | `pass` — 10 links checked, 0 broken |
+| Coverage unsupported | Derived view `docs/governed-index.md` `unverified` (`conservative-all-governed`); domains-missing note |
+| Reminders | 1 SHOULD `prose-share` (0.718 > 0.5) on the changed reference; never affects exit |
+| Input digests (SHA-256) | `doc-check.js` `da5e51a7…bbdb`; `doc-lifecycle.js` `4a823df0…ebe7`; `project-docs.json` `7f13c0b1…4f0a` |
+| Host facts | OpenCode CLI v2.1.4; Node v24.22.1 (`/Users/daniel.chang/.nvm/versions/node/v24.22.1/bin` first on PATH); primary `opencode/beam-free` session `ses_e8c0932dcffe9O0l1Tc7d5NGOM` returned explicit `provider.free-limit` HTTP 429; the authorized `nvidia/z-ai/glm-5.3-flash` fallback session `ses_e8c0904a5ffeIXC08OPyap5ySY` executed this readiness command; worktree HEAD `521e5b3047daf24e284412ab225e8a354be313e4` |
+| Evidence layer | Source/package readiness only. Not live-host behavior, not an E1 attempt, not P1 completion. |
+
+This is readiness evidence for the P1 packet, distinct from E1 evidence at `benchmarks/results/doc-evidence-e1/` (historical O1/O2, 0 qualifying cycles). The old E1 path stays the only qualifying-cycle evidence location; the private `own-repo-e1/p1a-readiness-2026-10-26/` packet never substitutes for it.
+
+The observed `doc-lint: partial` limits new policy and positive-credit claims, not inventory or ratchet work. Proposed P1 packet (not dispatched): case `p1-inventory-2026-10-26`; repository write-set = `.agents/harness-everything/document-inventory.json`, `harness-everything/scripts/doc-lifecycle.js`, generated `plugins/harness-everything/skills/harness-everything/scripts/doc-lifecycle.js`, `ci/mechanism-2ax-doc-lifecycle.test.js`, and `ci/mechanism-325-f1-doc-check.test.js`. Private preregistration and raw NUL-delimited inventory are `/Users/daniel.chang/.agents/harness-everything/evidence/own-repo-e1/p1-inventory-2026-10-26/prereg.json` and `inventory.nul`; never put private evidence in the repository. Entry gate: this plan revision accepted in PR #376 and a separate packet dispatch. Inventory command: `node harness-everything/scripts/doc-lifecycle.js inventory --workspace . --manifest .agents/harness-everything/document-inventory.json --base <BASE>`. Sync source/package with `npm run plugin:sync`; extend `ci/mechanism-2ax-doc-lifecycle.test.js` for inventory API and source/packaged inventory CLI, and `ci/mechanism-325-f1-doc-check.test.js` for doc-check source/packaged behavior. Run both focused files, then `npm run test:consistency` and `npm run test:plugin:openai`. Acceptance: NUL-safe full Git candidate identity with explicit disposition+reason for each identified tracked document, including unknown paths; source/package parity; fixtures for add/delete/rename endpoints, unusual path bytes, symlink/gitlink non-following, and a truthful in-scope positive beside withheld/unknown controls. Record unavailable reviewer principal or unsupported Stop as `null`/`UNCHECKED`; P1 inventory is not E1 evidence. Recovery: retain `unknown`/`partial` and the exact failed witness; repair only a reproduced inventory defect within this packet, or route new policy/credit requests for owner decision. No policy or credit gate is added to P1.
 
 ## Ordered path
 
 ```mermaid
 flowchart TD
-  P0["P0: publish this proposed plan"] --> P1["P1: inventory, pins, readiness, genuine task"]
-  P1 --> R{"truthful domain and supported completion path?"}
-  R -->|no| B["retain blocker / unchecked evidence"]
-  B --> O["owner policy decision or reproduced engineering defect"]
-  O --> P1
-  R -->|yes| P2["P2: real task; preserve negative snapshot, fix real gap, fresh review and Stop"]
-  P2 --> P3["P3: cold adjudication and append-only evidence"]
-  P3 --> D{"2–3 genuine cycles and adequate exposure mix?"}
-  D -->|no| P2
-  D -->|yes| E["owner E1 GO / REVISE / NO-GO"]
-  E --> X["GO permits expansion only"]
+  P0["P0: ownership/trust contract; controls; phase gates; #341 disposition"] --> P1["P1: Git-tracked document inventory and disposition"]
+  P1 --> P2["P2: existing-seam CI ratchet; preserve unknown/partial"]
+  P2 --> C{"supported task completion and E1 evidence requirements?"}
+  C -->|no| W["no E1 observation; P1/P2 stand independently"]
+  C -->|yes| P3["P3: genuine #341 E1 observation; independent adjudication"]
+  P3 --> D{"independent E1 assessment complete and adequate?"}
+  D -->|no| W
+  D -->|yes| A["separate owner GO / REVISE / NO-GO"]
+  A -->|GO| X["only explicitly approved expansion"]
+  A -->|REVISE / NO-GO| W
+  O["owner decision for new domain/policy or positive credit"] -. "limits policy/credit only" .-> P2
   P0 --> H["H1–H4 preparation and paired baseline work may proceed separately"]
   H --> T["freeze calibrated thresholds before confirmatory treatment"]
   T --> G["H1–H4 + paired evidence inform separate #320 owner decision"]
 ```
 
+Phases are exactly P0–P3. A truthful domain/policy decision limits new policy and positive credit; it is not an entry gate for P1/P2. P3 separately requires a supported genuine-task completion to count an E1 observation. Plans, readiness commands, CI, static review, provider attempts/failures, and agent-authored reports never count as qualifying E1 cycles.
+
 ## Packets and acceptance
 
-Only P0 is authorized in this turn. Later packets need their own dispatch with exact write-set, entry gate, commands, reviewer, and recovery point; the table is not blanket permission to edit source/config. Workers stay in isolated worktrees, edit only their packet, and report evidence layer. Coordinator owns Git/GH writes and final verification.
+The 2026-10-26 owner direction and owner comment 6398696762 authorize this PR #376 to carry P1 inventory/disposition and P2 existing-seam CI ratchet work after this revised plan. Each packet still gets its own dispatch with exact write-set, entry gate, commands, reviewer, and recovery point; the table is not blanket permission to edit source/config. Workers stay in isolated worktrees, edit only their packet, and report evidence layer. Root coordinates dispatch, performs final acceptance, and owns all Git/GH writes; accepted stages are committed to and represented by existing PR #376; nobody merges.
 
 | Packet / dependency | Write-set and action | Evidence, acceptance, stop / resume |
 |---|---|---|
-| **P0 — current, plan-only** | This tracked plan; two old ignored plans and their stale subordinate todo become short pointers after verified private backups. No source, config, issue, or runtime change. | One reviewable PROPOSED plan; one active queue; `Created / filename identity` records the initial write, filename/title share its HH:MM, and `Updated / writtenAt` records the latest write. Local structural checks and whitespace check. Evidence layer: document/source-traced; not E1. |
-| **P1 — after P0** | Proposed write-set, pending packet dispatch: private `/Users/daniel.chang/.agents/harness-everything/evidence/own-repo-e1/<case-id>/prereg.json` and `inventory.nul`; packet freezes the case ID and exact paths. No repository mutation. Commands: `git ls-tree -r -z --full-tree BASE`, `git ls-files -z --stage`, `git diff --name-status -z --find-renames BASE`, `git status --porcelain=v1 -z`; separately add explicitly proposed paths. | Every candidate path has class/disposition; preserve NUL-safe path handling, baseline, candidate, config and package digests, task acceptance, expected decision, positive control, host/version/session origin, reviewer capability and completion boundary. For readiness only, inspect the current consumer with `node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/doc-workflow-reconciliation.md --base BASE` (replace BASE with the pinned revision); this is not a live-cycle case. Inspect returned capability states because exit 0 alone does not mean full coverage. Installed-package/host capture is required for E1; source command inspection is readiness evidence only. Missing truthful domain or supported completion stays BLOCKED/UNCHECKED. |
-| **P1b — only if a real blocker is evidenced** | Default zero change. A domain/config or policy change requires owner selection and an exact proposed write-set first. A claimed checker defect requires a separate fixture-first reproduction packet with exact code/test/package paths. | No automatic inference that O2 was a product bug. Require valid positive and withheld negative controls plus applicable source/package and CI gates. If no real domain basis exists, preserve the blocker. |
-| **P2 — after P1 is credit-ready and a genuine task exists** | One task-specific write-set, frozen before execution; its dispatch packet lists every exact path, and additions return to the coordinator. Candidate: a still-missing H1/H4 acceptance gap or independently reproduced user-impacting workflow defect. Do not duplicate PR #375's wording correction or create an artificial document change to fill E1 exposure. | Pre-register expectation, acceptance, paths and hashes. Use a host-issued reviewer principal/session bound to host-captured records, distinct from the author and every executor. A cycle completes only at its supported task/reconciliation/Stop boundary with no applicable required MUST unresolved. Partial/unknown coverage, stale/mismatched evidence, or non-independent review may remain an uncredited negative exposure inside a completed cycle; it does not earn full pilot credit. If a required MUST remains unresolved or supported completion is absent, the attempt is not a completed cycle. Preserve negative snapshots, fix only real gaps, and collect fresh hashes/review/Stop. |
-| **P3 — after P2 capture is frozen** | Append the completed structured record and concise summary to existing `benchmarks/results/doc-evidence-e1/evidence.json` and `README.md`; do not create per-session narratives or hand-author runtime `pilot-report.json`. If #375 remains unmerged, retain its branch dependency; do not pretend its files are in main. | Cold reviewer uses a host-issued principal/session tied to these captured records, distinct from the author and every executor, with read-only `Read`/`Grep` tools. Bind verdict to exact final hashes. Keep `taskOutcome`, `workflowOutcome`, `pilotCredit`, `reviewOutcome`, and actual completion Stop separate. Post-review edit requires new snapshot and review. |
-| **P4 — after 2–3 completed genuine cycles** | Same E1 evidence record plus a concise plan status update. | Independent E1 GO/REVISE/NO-GO against #341; zero false MUST PASS is a hard blocker. Insufficient or unrepresentative exposure is UNCHECKED; extend only with useful genuine work. Track false rejection, repeat defects, audit/compatibility drift and correction effort; no arbitrary numeric threshold or all-cases-`pilotCredit=true` rule. Owner decides Phase 1/2 and closure. |
+| **P0 — current** | Self-governance ownership/trust contract, decision-required items, negative-control→fixture/test mapping, P0–P3 phase gates, and current-main/#341 disposition — all in this tracked plan. P1a readiness observation is read-only and private. No source, config, issue, or runtime change. | P0 acceptance dimensions: (1) ownership and trust graph recorded (boundary table); (2) owner-decision list explicit; (3) every adversarial control mapped to an existing or proposed fixture/test (table below) without claiming they were run; (4) P0–P3 gates stated; (5) #341 status/disposition recorded exactly (OPEN/reopened, E0 ACCEPTED, E1 0 qualifying cycles, closure cause UNKNOWN). Plan contract vs implemented enforcement distinguished. One reviewable PROPOSED plan; `Created / filename identity` records the initial write, `Updated / writtenAt` the latest. Evidence layer: document/source-traced; not E1. |
+| **P1 — after P0** | Inventory/disposition only; unknown and partial outcomes stay reportable. Exact proposed repository write-set: `.agents/harness-everything/document-inventory.json`; `harness-everything/scripts/doc-lifecycle.js`; generated `plugins/harness-everything/skills/harness-everything/scripts/doc-lifecycle.js`; `ci/mechanism-2ax-doc-lifecycle.test.js`; `ci/mechanism-325-f1-doc-check.test.js`. Private evidence: `/Users/daniel.chang/.agents/harness-everything/evidence/own-repo-e1/p1-inventory-2026-10-26/prereg.json` and `inventory.nul`. Entry gate: this plan accepted in PR #376 plus separate packet dispatch. Commands: `node harness-everything/scripts/doc-lifecycle.js inventory --workspace . --manifest .agents/harness-everything/document-inventory.json --base <BASE>`; `npm run plugin:sync`; `node ci/mechanism-2ax-doc-lifecycle.test.js`; `node ci/mechanism-325-f1-doc-check.test.js`; `npm run test:consistency`; `npm run test:plugin:openai`. | Acceptance: NUL-safe full Git candidate identity; explicit role/lifecycle/disposition+reason and separate validation outcome for each identified tracked document; preserve both rename endpoints, modes/OIDs, add/delete paths, unusual bytes, symlink/gitlink entries without following targets. Positive control: existing in-scope path appears with its declared disposition and applicable check. Negative controls: an omitted/unclassified path remains visible as `unknown`+reason; unavailable reviewer principal or Stop is `null`/`UNCHECKED`. P1 is disposition coverage only, never 100% semantic validation or E1 evidence. Recovery: retain `unknown`/`partial` and exact failing witness; repair only reproduced inventory defects in this write-set. New domain/policy or positive credit requires owner decision and does not block P1. |
+| **P2 — after P1 inventory and separate dispatch** | CI ratchet on existing inventory/doc-check seams; no genuine task or credit-ready state is a prerequisite. Exact write-set: `ci/mechanism-2ax-doc-lifecycle.test.js` and `ci/mechanism-325-f1-doc-check.test.js` only. No runtime, config, package, workflow, or verifier changes. Commands: `node ci/mechanism-2ax-doc-lifecycle.test.js`; `node ci/mechanism-325-f1-doc-check.test.js`; `npm test`; `npm run verify:all -- --fast`. Full `npm run verify:all` runs after the coordinator freezes the final candidate. | In 2ax, run the actual P1 inventory/report on this repository; freeze `BASE_SHA` at test start and independently derive oracle identity with `git ls-tree -r -z --full-tree "$BASE_SHA"`, `git ls-files -z --stage`, `git diff --name-status -z --find-renames "$BASE_SHA"`, and `git status --porcelain=v1 -z`. Compare raw path bytes, modes, OIDs, and both rename endpoints without reading any report `oracle` field; add a baseline→candidate fixture. Require four separate axes and disposition+reason for each identified tracked document; unknown remains visible and does not fail CI by itself. In F1 source/packaged legs: no domains ⇒ `doc-lint=partial`+reason, independent link state, and exit 0 when no actual lint/link error; domain-positive ⇒ `pass` without no-domain reason; real lint/link defect ⇒ `fail` and exit 1. Positive controls are the in-scope path, unchanged valid domain case, and valid check; negative controls are omitted manifest/config path, narrowed scope, and real defect. Report Git identity/disposition coverage separately from semantic capability coverage. Owner-facing unknowns remain explicit: generated identity may be checked, but parity is only claimed where a generator contract exists; legacy/fixture/vendor semantics remain unknown unless an applicable check is declared; relationships cover configured lifecycle/link checks only; scope completeness and bare-ID/domain policy await owner decisions. Recovery: preserve mismatches and `unknown`/`partial`; correct only reproduced test/ratchet defects in these two paths. New policy/credit changes return for owner decision and never become a runtime lock. P2 is CI evidence, never an E1 cycle. |
+| **P3 — after P2 capture is frozen** | Genuine #341 E1 observation through the existing evidence path, only after a real task reaches supported completion/Stop: append the completed structured record and concise summary to existing `benchmarks/results/doc-evidence-e1/evidence.json` and `README.md`; do not create per-session narratives or hand-author runtime `pilot-report.json`. After 2–3 completed genuine cycles, the same record plus a concise plan status update feeds a complete independent E1 assessment against #341, then a separate owner GO/REVISE/NO-GO decision. | Cold reviewer uses a host-issued principal/session tied to these captured records, distinct from the author and every executor, with read-only `Read`/`Grep` tools. Bind verdict to exact final hashes. Keep `taskOutcome`, `workflowOutcome`, `pilotCredit`, `reviewOutcome`, and actual completion Stop separate. Post-review edit requires new snapshot and review. Assessment tracks false MUST PASS (hard blocker), false rejection, repeat defects, audit/compatibility drift and correction effort; no arbitrary numeric threshold or all-cases-`pilotCredit=true` rule; insufficient or unrepresentative exposure is UNCHECKED. Owner decides #341 Phase 1/2, closure, and any expansion; assessment completion alone permits none. Qualifying cycles are genuine task observations only: plans, readiness commands, CI, static review, provider attempts/failures, and agent-authored reports never qualify. |
 
 | Exposure slot (organizer, not quota) | Expected decision and positive control | Completion boundary |
 |---|---|---|
@@ -72,6 +150,25 @@ Only P0 is authorized in this turn. Later packets need their own dispatch with e
 | Ordinary compatibility work | Existing non-doc behavior remains intact; positive control is the current supported workflow | Record real task outcome and supported Stop separately; do not call compatibility checks an E1 cycle by themselves |
 
 These slots organize genuine observations, add no exposure quota, and never justify artificial tasks. Keep them separate from the five owner-pinned paired-task families below. A refusal alone does not complete a cycle; an unresolved applicable required MUST or missing supported completion makes the attempt incomplete. A completed cycle may contain an uncredited negative exposure, followed by correction and fresh evidence/review/Stop.
+
+### Adversarial control → fixture/test mapping (P0 acceptance dimension)
+
+Every control maps to an existing (source-traced, not executed this session) or proposed (not yet written) fixture/test. Nothing here claims any control was run in this session.
+
+| Adversarial control | Mapped fixture/test | Status |
+|---|---|---|
+| Self-authored or tampered doc-check earns no credit | `ci/mechanism-325-f4-trust-boundary.test.js` (R1/R2 legs, G0 implementation-pin controls) | Exists; source-traced |
+| Fabricated/missing/stale/substituted/forged/replayed evidence cannot produce false MUST PASS | `ci/mechanism-325-f4-trust-boundary.test.js` (H3 gate) | Exists; source-traced |
+| Config validation rejects invalid project-docs declarations | `ci/mechanism-2aw-project-docs-config.test.js` | Exists; source-traced |
+| Lifecycle lint/index diagnostics and graph behavior | `ci/mechanism-2ax-doc-lifecycle.test.js` | Exists; source-traced |
+| Partial capability never reported as full pass | `doc-check.js` per-capability report contract; `ci/doc-capability-consistency.test.js` | Exists; source-traced |
+| NUL/odd-byte Git paths, symlinks/gitlinks not followed, rename endpoints retained, deleted-at-base, mode/object-identity changes, nested fixture/vendor docs all carry explicit disposition | P1 inventory projection tests beside existing seams (exact path frozen in the P1 packet) | Proposed; not written |
+| Truthful in-scope positive control alongside each withheld negative | P1 packet `prereg.json` positive/negative control pairs | Proposed; not written |
+| Narrowed glob hides a previously governed path | Negative disposable config narrows the glob; expected `partial`/coverage evidence plus P1 inventory still listing the path. Positive unchanged in-scope path retains its independently reported capability (`partial` while domains are absent). Map to `ci/mechanism-325-f1-doc-check.test.js` and `ci/mechanism-2ax-doc-lifecycle.test.js`. | Planned; not written |
+| Removed governed registry/path or inventory entry silently drops a tracked doc | Negative disposable manifest/config removes the path; expected Git oracle still lists it as `unknown`+reason. Positive retained entry reports its disposition. Map to `ci/mechanism-2ax-doc-lifecycle.test.js`; F1 source/packaged case checks the separate doc-check capability state. | Planned; not written |
+| Removed required MUST or weakened checker/policy produces false pass | Negative disposable source/package fixture weakens/removes the rule; frozen expected outcome must expose false pass. Positive unchanged required MUST withholds incomplete evidence and accepts valid evidence. Map to `ci/mechanism-325-f1-doc-check.test.js` source/packaged legs plus independent read-only review against the frozen P0 rubric. Current F1 does not test policy/MUST enforcement. | Planned; not written |
+| Weakening/deleting the test itself escapes its control | Negative disposable test copy removes/skips a mapped assertion; positive unmodified test retains source/package parity and its mapped result. Map to both P2 test files plus the already-required independent review; no local test currently detects arbitrary test weakening. | Planned external review control; not implemented or delivered by P2 |
+| Generated view drifts from its declared source | Negative disposable derived view differs and must report drift; positive regenerated view compares equal. Map to a planned new compare-derived CLI case in `ci/mechanism-325-f1-doc-check.test.js` (no such case exists yet). | Planned; not written |
 
 ## H1–H4 and paired architecture evidence
 
@@ -98,9 +195,14 @@ For paired work, preserve baseline #327 `d9ff242c1fca1b308e4a9c3b55af257f12c44a8
 
 ## Execution roles and host qualification
 
-- Root coordinates dispatch/synthesis and owns final Git/GH verification; the owner retains merge, release, and reserved policy decisions.
-- OpenCode CLI using an available free-pool model is the primary worker. On explicit quota exhaustion, use the existing configured NVIDIA provider; pin the selected available model per packet, with no permanent single-model pin. The completed discussion used GLM 5.3 Flash; the DeepSeek attempt ended with partial `ECONNRESET`, so do not route future work only to that failed model. Luna xhigh handles other execution, tests, and review. Astra medium may advise and completed this plan's source challenge.
-- Host qualification is a separate gate from worker/model availability. Keep the host, version, package, session origin, and reviewer principal pinned to captured records. Do not switch host/provider or credentials without existing authorization; a worker being available does not create live-host evidence.
+Operating roles per the 2026-10-26 user/session override:
+
+- **Root is coordinator**: dispatches packets, performs final acceptance, and owns all Git/GH writes. Accepted stages are committed and represented in existing PR #376. Nobody merges; PR readiness and merge remain owner decisions.
+- **OpenCode free pool is primary worker.** This task's `opencode/beam-free` attempt (OpenCode CLI v2.1.4, session `ses_e8c0932dcffe9O0l1Tc7d5NGOM`) returned explicit `provider.free-limit` HTTP 429; the one authorized `nvidia/z-ai/glm-5.3-flash` fallback executed the plan/readiness work (session `ses_e8c0904a5ffeIXC08OPyap5ySY`). Authors are one-shot: read the packet, do it, write the report, exit.
+- **NVIDIA fallback**: only an explicit free-quota/token-limit response triggers one fallback to the already-configured NVIDIA provider (inventory includes `nvidia/z-ai/glm-5.3-flash`); ordinary errors never qualify. Provider/model configuration is not changed.
+- **Luna xhigh** handles other implementation/test/review work. **Astra medium** is optional and advisory only.
+- **Reviewers are read-only** and never edit; independence and host-issued principal/session rules above are unchanged.
+- Host qualification is a separate gate from worker/model availability. Keep the host, version, package, session origin, and reviewer principal pinned to captured records. Do not switch host/provider or credentials without existing authorization; worker availability or this OpenCode session does not create qualified live-host evidence.
 
 ## Superseded local plans and evidence pointers
 
