@@ -124,3 +124,25 @@ Current Harness PreToolUse enforcement remains wired to the tool set explicitly 
 - Codex configuration reference: https://developers.openai.com/codex/config-reference
 
 Related tracking: #82, #85, #98, #100, #109, #110.
+
+## Codex explicit authorization (scoped consent)
+
+In addition to the hard block above, a blocked Codex structured mutation exposes a
+pending challenge scoped to the host session, tool name, and canonical full
+tool-input digest. The pending challenge has no wall-clock TTL. The challenge id
+appears in the block output as `challenge id: <id>`. Only scoped structured mutations (`rule.id` `structured-mutate`)
+issue or consume grants; other actions keep ordinary blocking.
+
+The only approval source is a real `UserPromptSubmit` hook receiving the exact
+entire prompt `HARNESS APPROVE <challengeId>` with no additional text. That
+event binds the host session and its consent turn to a one-use grant for the
+same session, consent turn, tool, and full-input digest.
+
+A matching retry passes once and atomically consumes the grant. Missing,
+mismatched, cross-session, cross-turn, and replayed grants remain blocked. The
+one-use grant is bound to the consent turn and fails after a turn change. Tool
+input containing an `authorization` JSON claim never grants.
+
+On a matching retry the guard does not block and emits no `permissionDecision=allow`;
+Codex native permission controls remain authoritative. This is cooperative local
+hook state, not tamperproof, and carries no live-host proof.
