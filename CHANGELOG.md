@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.42.0](https://github.com/dyphn1/Harness-everything/compare/v0.41.3...v0.42.0) (2026-10-25)
+
+### Features
+
+* **opencode:** wire bounded reconciliation ([039cf21](https://github.com/dyphn1/Harness-everything/commit/039cf2194ea232dc5bea715b67684a234a6a1ac4)), closes [#341](https://github.com/dyphn1/Harness-everything/issues/341) [#325](https://github.com/dyphn1/Harness-everything/issues/325)
+
 ## [0.41.3](https://github.com/dyphn1/Harness-everything/compare/v0.41.2...v0.41.3) (2026-10-25)
 
 ### Bug Fixes
