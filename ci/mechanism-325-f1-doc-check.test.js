@@ -83,6 +83,22 @@ function runCheck(scriptDir, options) {
   ], { encoding: 'utf8', cwd: os.tmpdir(), ...(options.timeoutMs ? { timeout: options.timeoutMs } : {}) });
 }
 
+function runInventory(scriptDir, options) {
+  return spawnSync(process.execPath, [
+    path.join(scriptDir, LINT), 'inventory',
+    '--workspace', options.workspace,
+    '--manifest', options.manifest,
+    '--base', options.base,
+    ...(options.proposedUntracked || []).flatMap(value => ['--proposed-untracked', value])
+  ], { encoding: 'utf8', cwd: os.tmpdir(), ...(options.timeoutMs ? { timeout: options.timeoutMs } : {}) });
+}
+
+function gitAt(root, args) {
+  const result = spawnSync('git', ['-C', root, ...args], { encoding: 'utf8', env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1' } });
+  if (result.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${result.stderr || result.stdout}`);
+  return String(result.stdout || '').trim();
+}
+
 function jsonOut(result) {
   try { return JSON.parse(result.stdout); } catch {
     throw new Error(`stdout is not JSON (exit ${result.status}): ${truncate(result.stdout || result.stderr)}`);
@@ -661,6 +677,143 @@ assertPerLeg('case-34:deeply-nested-labels-iterative-and-complete', leg => {
   same(out.coverage.unsupported, [], 'unsupported syntax');
   same(result.stdout, `${JSON.stringify(out, null, 2)}\n`, 'single JSON object on stdout');
   same(result.stderr, '', 'stderr');
+});
+
+// Case 35: inventory metadata stays separate from doc-check's partial no-domain result.
+assertPerLeg('case-35:p1-inventory-does-not-upgrade-no-domain-doc-check', leg => {
+  const ws = makeWorkspace(REFERENCE());
+  writeDoc(ws, 'docs/a.md', refDoc('Plain text only.\n'));
+  const manifest = '.agents/harness-everything/document-inventory.json';
+  writeDoc(ws, manifest, `${JSON.stringify({
+    schemaVersion: 1,
+    documentGlobs: ['**/*.md'],
+    rules: [
+      { match: 'docs/a.md', role: 'reference', lifecycle: 'current', disposition: 'applicable', reason: 'fixture positive control' },
+      { match: 'docs/proposed.md', role: 'proposed-reference', lifecycle: 'new', disposition: 'applicable', reason: 'explicit proposal control' }
+    ]
+  }, null, 2)}\n`);
+  gitAt(ws, ['init', '-q']);
+  for (const [key, value] of [['user.name', 'Harness Test'], ['user.email', 'harness@example.invalid'], ['commit.gpgsign', 'false']]) gitAt(ws, ['config', key, value]);
+  gitAt(ws, ['add', '-A']);
+  gitAt(ws, ['commit', '-qm', 'F1 inventory fixture']);
+  const base = gitAt(ws, ['rev-parse', 'HEAD']);
+  writeDoc(ws, 'local-session/private-notes.md', 'private sentinel: first value\n');
+  writeDoc(ws, 'docs/proposed.md', 'explicit proposal\n');
+
+  const inventoryResult = runInventory(leg.dir, { workspace: ws, manifest, base });
+  same(inventoryResult.status, 0, 'inventory exit');
+  const inventory = jsonOut(inventoryResult);
+  const entry = (inventory.records || []).find(item => item.path === 'docs/a.md');
+  if (!entry) throw new Error(`inventory omitted the positive path: ${truncate(inventoryResult.stdout)}`);
+  same(entry.role, 'reference', 'inventory role');
+  same(entry.disposition, 'applicable', 'inventory disposition');
+  same(entry.validation.outcome, 'unchecked', 'inventory validation remains unchecked');
+  same(inventory.coverage.complete, true, 'explicit disposition coverage');
+  same(inventory.records.some(item => item.path === 'local-session/private-notes.md'), false, 'unproposed local session path is absent');
+  same(inventoryResult.stdout.includes('private sentinel'), false, 'unproposed local session contents are absent');
+  writeDoc(ws, 'local-session/private-notes.md', 'private sentinel: changed value\n');
+  const afterScratchChange = jsonOut(runInventory(leg.dir, { workspace: ws, manifest, base }));
+  same(afterScratchChange.candidate.sha256, inventory.candidate.sha256, 'unproposed scratch changes do not affect candidate digest');
+  const explicit = jsonOut(runInventory(leg.dir, { workspace: ws, manifest, base, proposedUntracked: ['docs/proposed.md'] }));
+  const proposedEntry = (explicit.records || []).find(item => item.path === 'docs/proposed.md');
+  if (!proposedEntry) throw new Error('explicitly proposed untracked document is absent');
+  same(proposedEntry.role, 'proposed-reference', 'explicit proposal role');
+  same(explicit.candidate.proposedUntrackedPaths, 1, 'explicit proposal count');
+  const traversal = runInventory(leg.dir, { workspace: ws, manifest, base, proposedUntracked: ['../outside-private-notes.md'] });
+  same(traversal.status, 2, 'outside explicit proposal exit');
+  if (!/within --workspace/.test(traversal.stderr)) throw new Error(`outside explicit proposal rejection missing: ${truncate(traversal.stderr)}`);
+
+  const result = runCheck(leg.dir, { workspace: ws, config: CONFIG, args: ['--changed-path', 'docs/a.md'] });
+  same(result.status, 0, 'doc-check remains partial without turning the informational note into a failure');
+  const out = jsonOut(result);
+  const notes = (out.coverage.unsupported || []).filter(item => typeof item.reason === 'string' && item.reason.startsWith('no domains declared'));
+  same(notes.length, 1, 'existing no-domain capability remains visible exactly once');
+});
+
+const proposalSymlinkProbeTarget = fs.mkdtempSync(path.join(os.tmpdir(), 'f1 proposal symlink probe target '));
+tmpDirs.push(proposalSymlinkProbeTarget);
+const proposalSymlinkProbe = path.join(os.tmpdir(), `f1-proposal-symlink-probe-${process.pid}`);
+let proposalSymlinkUnavailable = null;
+try {
+  fs.symlinkSync(proposalSymlinkProbeTarget, proposalSymlinkProbe, process.platform === 'win32' ? 'junction' : 'dir');
+  fs.rmSync(proposalSymlinkProbe, { recursive: true, force: true });
+} catch (error) {
+  if (!['EPERM', 'EACCES', 'ENOTSUP'].includes(error.code)) throw error;
+  proposalSymlinkUnavailable = error.code;
+}
+if (proposalSymlinkUnavailable) {
+  for (const leg of LEGS) record('SKIP', 'case-37:proposed-untracked-symlink-ancestor-fails-closed', leg.name, `symlink creation unavailable (${proposalSymlinkUnavailable})`);
+} else assertPerLeg('case-37:proposed-untracked-symlink-ancestor-fails-closed', leg => {
+  const ws = makeWorkspace(null);
+  const manifest = '.agents/harness-everything/document-inventory.json';
+  const manifestValue = {
+    schemaVersion: 1, documentGlobs: ['**/*.md'],
+    rules: [{ match: 'docs/proposed.md', role: 'proposed-reference', lifecycle: 'new', disposition: 'applicable', reason: 'explicit proposal control' }]
+  };
+  writeDoc(ws, manifest, `${JSON.stringify(manifestValue)}\n`);
+  writeDoc(ws, 'docs/a.md', 'tracked\n');
+  gitAt(ws, ['init', '-q']);
+  for (const [key, value] of [['user.name', 'Harness Test'], ['user.email', 'harness@example.invalid'], ['commit.gpgsign', 'false']]) gitAt(ws, ['config', key, value]);
+  gitAt(ws, ['add', '-A']);
+  gitAt(ws, ['commit', '-qm', 'F1 proposed path symlink fixture']);
+  const base = gitAt(ws, ['rev-parse', 'HEAD']);
+  writeDoc(ws, 'docs/proposed.md', 'positive proposal\n');
+  const positive = runInventory(leg.dir, { workspace: ws, manifest, base, proposedUntracked: ['docs/proposed.md'] });
+  same(positive.status, 0, 'direct proposal exit');
+  same(jsonOut(positive).records.some(item => item.path === 'docs/proposed.md'), true, 'direct proposal is inventoried');
+
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'f1 external proposed path '));
+  tmpDirs.push(outside);
+  writeDoc(outside, 'private-notes.md', 'private sentinel: external target\n');
+  fs.mkdirSync(path.join(ws, 'local-session'), { recursive: true });
+  fs.symlinkSync(outside, path.join(ws, 'local-session', 'linked'), process.platform === 'win32' ? 'junction' : 'dir');
+  const escaped = runInventory(leg.dir, { workspace: ws, manifest, base, proposedUntracked: ['local-session/linked/private-notes.md'] });
+  same(escaped.status, 2, 'proposal through symlink ancestor exit');
+  if (!/symbolic link|symlink/i.test(escaped.stderr)) throw new Error(`symlink ancestor rejection reason missing: ${truncate(escaped.stderr)}`);
+  same(escaped.stdout.includes('private sentinel'), false, 'external target contents absent');
+});
+
+const symlinkProbeTarget = fs.mkdtempSync(path.join(os.tmpdir(), 'f1 manifest symlink probe target '));
+tmpDirs.push(symlinkProbeTarget);
+const symlinkProbe = path.join(os.tmpdir(), `f1-manifest-symlink-probe-${process.pid}`);
+let symlinkUnavailable = null;
+try {
+  fs.symlinkSync(symlinkProbeTarget, symlinkProbe, process.platform === 'win32' ? 'junction' : 'dir');
+  fs.rmSync(symlinkProbe, { recursive: true, force: true });
+} catch (error) {
+  if (!['EPERM', 'EACCES', 'ENOTSUP'].includes(error.code)) throw error;
+  symlinkUnavailable = error.code;
+}
+if (symlinkUnavailable) {
+  for (const leg of LEGS) record('SKIP', 'case-36:inventory-manifest-symlink-ancestor-fails-closed', leg.name, `symlink creation unavailable (${symlinkUnavailable})`);
+} else assertPerLeg('case-36:inventory-manifest-symlink-ancestor-fails-closed', leg => {
+  const ws = makeWorkspace(null);
+  const manifest = '.agents/harness-everything/document-inventory.json';
+  const insideManifest = {
+    schemaVersion: 1, documentGlobs: ['**/*.md'],
+    rules: [{ match: 'docs/a.md', role: 'inside-control', lifecycle: 'current', disposition: 'applicable', reason: 'inside manifest' }]
+  };
+  writeDoc(ws, manifest, `${JSON.stringify(insideManifest)}\n`);
+  writeDoc(ws, 'docs/a.md', 'tracked\n');
+  gitAt(ws, ['init', '-q']);
+  for (const [key, value] of [['user.name', 'Harness Test'], ['user.email', 'harness@example.invalid'], ['commit.gpgsign', 'false']]) gitAt(ws, ['config', key, value]);
+  gitAt(ws, ['add', '-A']);
+  gitAt(ws, ['commit', '-qm', 'F1 manifest symlink fixture']);
+  const base = gitAt(ws, ['rev-parse', 'HEAD']);
+  const inside = runInventory(leg.dir, { workspace: ws, manifest, base });
+  same(inside.status, 0, 'inside manifest exit');
+  same(jsonOut(inside).records.find(item => item.path === 'docs/a.md').role, 'inside-control', 'inside manifest role');
+
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'f1 external manifest '));
+  tmpDirs.push(outside);
+  const externalManifest = { ...insideManifest, rules: [{ ...insideManifest.rules[0], role: 'external-sentinel-secret', reason: 'must not be accepted' }] };
+  writeDoc(outside, 'harness-everything/document-inventory.json', `${JSON.stringify(externalManifest)}\n`);
+  fs.rmSync(path.join(ws, '.agents'), { recursive: true, force: true });
+  fs.symlinkSync(outside, path.join(ws, '.agents'), process.platform === 'win32' ? 'junction' : 'dir');
+  const escaped = runInventory(leg.dir, { workspace: ws, manifest, base });
+  same(escaped.status, 2, 'manifest ancestor symlink exit');
+  if (!/symbolic link|symlink/i.test(escaped.stderr)) throw new Error(`manifest ancestor rejection reason missing: ${truncate(escaped.stderr)}`);
+  same(escaped.stdout.includes('external-sentinel-secret'), false, 'external manifest content absent');
 });
 
 // ---- Summary -------------------------------------------------------------------------------------------------------

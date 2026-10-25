@@ -2,7 +2,7 @@
 
 **Status:** PROPOSED coordination plan; it does not approve policy, qualify E1, or authorize runtime activation.
 **Created / filename identity:** 2026-10-25 21:39:23 +08:00 (initial write; filename/title retain its 21:39 minute).
-**Updated / writtenAt:** 2026-10-26 01:06:59 +08:00 (Asia/Taipei)
+**Updated / writtenAt:** 2026-10-26 01:51 +08:00 (Asia/Taipei)
 **Branch:** `codex/own-repo-e1-plan-20261025` ([plan on work branch](https://github.com/dyphn1/Harness-everything/blob/codex/own-repo-e1-plan-20261025/docs/own-repo-governance-e1-plan-2026-10-25-2139.md)); verified linked worktree: `/Users/daniel.chang/Desktop/Skills/Harness-everything/.worktrees/own-repo-e1-plan-20261025`.
 
 ## Authority and pinned state
@@ -215,3 +215,13 @@ The two ignored packet plans and the old packet's subordinate todo are supersede
 | `.worktrees/packets/next-workflow-2026-10-24/tasks/todo.md` | `todo.md` |
 
 Private byte-identical backups of all three queue files and this turn's scope, protocol, discussion, and advisor inputs, with SHA-256/mode manifest, are at `/Users/daniel.chang/.agents/harness-everything/evidence/own-repo-plan-2026-10-25/`. Each pointer names this plan, branch, local worktree, and issue authority. Old `APPROVED` wording is historical and does not carry forward.
+
+### P1 engineering handoff/status (2026-10-26)
+
+| Item | Status |
+|---|---|
+| P0 / P1 | P0 is committed and synced at `bb451005de9377c29a592b839bc03bef200da218`. P1 inventory/disposition is implemented; focused gates passed. Independent cold review passed in its stated A/B/F scope (A/B executed; F source-traced). |
+| Inventory snapshot | Base `bb451005de9377c29a592b839bc03bef200da218`; manifest SHA-256 `b9c2a62beff148fb9dc9d6aefb876365fa34c2a0290cc57e6ff9da3cf29cc036`; 617 identified paths, 617 explicit dispositions, complete disposition coverage. Four-axis unknown/unchecked counts: role 191 unknown, lifecycle 248 unknown, disposition 248 unknown, validation 617 unchecked. Full distributions and final source/package/repeat snapshots are in the private P1 result addendum. |
+| Verification / limits | `plugin:sync`, 2ax, F1 (76 PASS), consistency, OpenAI package, and diff-check passed. Windows CI and full `verify:all` were not run. This establishes source/mechanism evidence only; it is not semantic validation or live-host behavior. |
+| Provenance | Actual author: local Luna xhigh worker. Host-issued author principal remains `null`/`UNCHECKED`. The OpenCode NVIDIA run was stopped at exit 130 after read-only repeated reads; this was not a provider fault and produced no edit. |
+| Next / authority | Next is P2 after separate dispatch: exact two tests `ci/mechanism-2ax-doc-lifecycle.test.js` and `ci/mechanism-325-f1-doc-check.test.js`, with the actual-repository independent Git-oracle ratchet; then full `verify:all` and CI. E1 remains at 0 qualifying cycles, GO is not issued, and #320 is unauthorized. Acceptance gates and proposed owner-policy boundary above are unchanged. |

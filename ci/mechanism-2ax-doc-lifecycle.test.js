@@ -1058,4 +1058,185 @@ checkCase('2ax. scenario fixtures enforce the full inventory and required files'
   assert.ok(runScenarioSet(unexpected).includes('unexpected scenario: incomplete'), JSON.stringify(runScenarioSet(unexpected)));
 });
 
+checkCase('2ax. Git document inventory preserves dispositions and base/current identity', () => {
+  const root = workspace('git-inventory');
+  const write = (relative, bytes = `${relative}\n`) => {
+    const absolute = path.join(root, ...relative.split('/'));
+    fs.mkdirSync(path.dirname(absolute), { recursive: true });
+    fs.writeFileSync(absolute, bytes);
+    return absolute;
+  };
+  const manifestRelative = '.agents/harness-everything/document-inventory.json';
+  write(manifestRelative, `${JSON.stringify({
+    schemaVersion: 1,
+    documentGlobs: ['**/*.md', '**/*.txt'],
+    rules: [
+      { match: 'docs/reference/**', role: 'reference', lifecycle: 'current', disposition: 'applicable', reason: 'fixture positive control' },
+      { match: '**/archive/**', role: 'legacy/archive', lifecycle: 'historical', disposition: 'inventory-only', reason: 'retained historical fixture' },
+      { match: '**/generated/**', role: 'generated-view', lifecycle: 'generated', disposition: 'inventory-only', reason: 'generator is not run by inventory' },
+      { match: '**/fixtures/**', role: 'fixture', lifecycle: 'retained-test-input', disposition: 'excluded', reason: 'fixture purpose is preserved' },
+      { match: '**/vendor/**', role: 'vendor-document', lifecycle: 'external-content', disposition: 'excluded', reason: 'vendor purpose is preserved' }
+    ]
+  }, null, 2)}\n`);
+  for (const relative of [
+    'README.md', 'docs/reference/positive.md', 'docs/prd/plan.md', 'docs/adr/decision.md',
+    'docs/archive/old.md', 'docs/generated/view.md', 'docs/fixtures/setup.md',
+    'benchmarks/results/evidence.md', 'vendor/pkg/README.md', 'skills/sample/SKILL.md',
+    'references/source.md', 'templates/example.md', 'nested/deep/unknown.md',
+    'docs/delete.md', 'docs/rename-old.md', 'docs/mode.md', ...(process.platform === 'win32' ? [] : ['docs/odd\tline\nname.md'])
+  ]) write(relative);
+  const symlinks = [];
+  const trackedSymlink = path.join(root, 'docs', 'fixtures', 'external.md');
+  fs.mkdirSync(path.dirname(trackedSymlink), { recursive: true });
+  try {
+    fs.symlinkSync(path.join(os.tmpdir(), 'outside-document-not-read.md'), trackedSymlink, process.platform === 'win32' ? 'file' : undefined);
+    symlinks.push('docs/fixtures/external.md');
+  } catch (error) {
+    if (!['EPERM', 'EACCES', 'ENOTSUP'].includes(error.code)) throw error;
+    console.log(`  SKIP 2ax. tracked symlink inventory subcase: symlink creation unavailable (${error.code})`);
+  }
+
+  gitAt(root, ['init', '-q']);
+  for (const [key, value] of [['user.name', 'Harness Test'], ['user.email', 'harness@example.invalid'], ['commit.gpgsign', 'false'], ['core.filemode', 'false']]) gitAt(root, ['config', key, value]);
+  gitAt(root, ['add', '-A']);
+  gitAt(root, ['update-index', '--chmod=+x', '--', 'docs/mode.md']);
+  gitAt(root, ['commit', '-qm', 'inventory fixture']);
+  const gitlinkTarget = gitAt(root, ['rev-parse', 'HEAD']);
+  gitAt(root, ['update-index', '--add', '--cacheinfo', `160000,${gitlinkTarget},vendor/submodule`]);
+  gitAt(root, ['commit', '-qm', 'add gitlink fixture']);
+  const base = gitAt(root, ['rev-parse', 'HEAD']);
+
+  const untrackedSymlink = path.join(root, 'docs', 'fixtures', 'untracked-external.md');
+  try {
+    fs.symlinkSync(path.join(os.tmpdir(), 'outside-document-not-read.md'), untrackedSymlink, process.platform === 'win32' ? 'file' : undefined);
+    symlinks.push('docs/fixtures/untracked-external.md');
+  } catch (error) {
+    if (!['EPERM', 'EACCES', 'ENOTSUP'].includes(error.code)) throw error;
+    console.log(`  SKIP 2ax. proposed symlink inventory subcase: symlink creation unavailable (${error.code})`);
+  }
+
+  fs.rmSync(path.join(root, 'docs', 'delete.md'));
+  fs.renameSync(path.join(root, 'docs', 'rename-old.md'), path.join(root, 'docs', 'rename-new.md'));
+  write('docs/untracked.md');
+  write('docs/staged.md');
+  write('local-session/private-notes.md', 'private sentinel: first value\n');
+  gitAt(root, ['add', '-A', '--', 'docs/rename-old.md', 'docs/rename-new.md', 'docs/staged.md']);
+  write('docs/reference/positive.md', 'modified positive control\n');
+  if (process.platform !== 'win32') write('docs/odd\tline\nname.md', 'modified unusual path\n');
+
+  const cli = (script, extraArgs = []) => {
+    const result = spawnSync(process.execPath, [script, 'inventory', '--workspace', root, '--manifest', manifestRelative, '--base', base, ...extraArgs], { cwd: tempRoot, encoding: 'utf8' });
+    assert.ifError(result.error);
+    assert.strictEqual(result.status, 0, `inventory ${extraArgs.join(' ')}: ${result.stderr}`);
+    return { report: JSON.parse(result.stdout), stdout: result.stdout };
+  };
+  const first = cli(modulePath);
+  write('local-session/private-notes.md', 'private sentinel: changed value\n');
+  const second = cli(modulePath);
+  const report = first.report;
+  assert.strictEqual(first.stdout, second.stdout, 'changes to unproposed scratch files do not affect inventory output');
+  assert.ok(!first.stdout.includes('local-session/private-notes.md'), 'unproposed local session path is not inventoried');
+  assert.ok(!first.stdout.includes('private sentinel'), 'unproposed local session contents do not enter output');
+  assert.strictEqual(report.base.commit, base, 'the requested base resolves to a pinned commit');
+  assert.strictEqual(report.candidate.kind, 'working-tree', 'the current worktree is not mislabeled as the pinned base');
+  assert.ok(report.candidate.sha256, 'the document candidate identity has a digest');
+  assert.deepStrictEqual(report.coverage, {
+    identifiedDocumentPaths: report.records.filter(item => item.document).length,
+    explicitDispositionPaths: report.records.filter(item => item.document && item.reason).length,
+    complete: true,
+    claim: 'disposition coverage only; semantic validation was not performed'
+  });
+  assert.ok(report.records.some(item => item.path === 'README.md'), 'root README is inventoried');
+  for (const relative of ['docs/prd/plan.md', 'docs/adr/decision.md', 'docs/archive/old.md', 'docs/generated/view.md', 'docs/fixtures/setup.md', 'benchmarks/results/evidence.md', 'vendor/pkg/README.md', 'skills/sample/SKILL.md', 'references/source.md', 'templates/example.md', 'nested/deep/unknown.md']) {
+    assert.ok(report.records.some(item => item.path === relative), `nested document is inventoried: ${relative}`);
+  }
+
+  const byPath = new Map(report.records.map(item => [item.path, item]));
+  const positive = byPath.get('docs/reference/positive.md');
+  assert.strictEqual(positive.role, 'reference');
+  assert.strictEqual(positive.lifecycle, 'current');
+  assert.strictEqual(positive.disposition, 'applicable');
+  assert.ok(positive.reason, 'disposition reason is explicit');
+  assert.strictEqual(positive.status, 'modified');
+  assert.strictEqual(positive.validation.outcome, 'unchecked');
+  assert.ok(positive.validation.reason, 'validation outcome has its own reason');
+  assert.strictEqual(positive.current.oid, gitAt(root, ['hash-object', 'docs/reference/positive.md']));
+
+  assert.strictEqual(byPath.get('docs/delete.md').status, 'deleted');
+  assert.strictEqual(byPath.get('docs/delete.md').current, null);
+  assert.strictEqual(byPath.get('docs/delete.md').base.oid, gitAt(root, ['rev-parse', `${base}:docs/delete.md`]));
+  assert.strictEqual(byPath.get('docs/rename-old.md').status, 'renamed-from');
+  assert.strictEqual(byPath.get('docs/rename-new.md').status, 'renamed-to');
+  assert.strictEqual(byPath.get('docs/rename-old.md').rename.partnerPath, 'docs/rename-new.md');
+  assert.strictEqual(byPath.get('docs/rename-new.md').rename.partnerPath, 'docs/rename-old.md');
+  assert.ok(!byPath.has('docs/untracked.md'), 'unproposed untracked docs are excluded');
+  assert.strictEqual(byPath.get('docs/staged.md').status, 'added');
+  assert.strictEqual(byPath.get('docs/mode.md').base.mode, '100755', 'Git index executable mode is preserved across hosts');
+  assert.strictEqual(byPath.get('docs/mode.md').current.mode, '100755');
+
+  if (process.platform !== 'win32') {
+    const unusualPath = 'docs/odd\tline\nname.md';
+    const unusual = report.records.find(item => item.pathBytesBase64 === Buffer.from(unusualPath).toString('base64'));
+    assert.ok(unusual, 'NUL-delimited Git plumbing preserves tabs and newlines in raw path bytes');
+    assert.strictEqual(unusual.status, 'modified');
+    assert.strictEqual(unusual.path, unusualPath);
+  } else console.log('  SKIP 2ax. tab/newline filename subcase: Windows forbids control characters in filenames');
+  assert.strictEqual(byPath.get('nested/deep/unknown.md').disposition, 'unknown');
+  assert.ok(byPath.get('nested/deep/unknown.md').reason, 'unknown classification retains a reason');
+  if (symlinks.includes('docs/fixtures/external.md')) {
+    assert.strictEqual(byPath.get('docs/fixtures/external.md').kind, 'symlink');
+    assert.strictEqual(byPath.get('docs/fixtures/external.md').base.mode, '120000');
+  }
+  const proposed = cli(modulePath, ['--proposed-untracked', 'docs/untracked.md', ...(symlinks.includes('docs/fixtures/untracked-external.md') ? ['--proposed-untracked', 'docs/fixtures/untracked-external.md'] : [])]).report;
+  const proposedByPath = new Map(proposed.records.map(item => [item.path, item]));
+  assert.strictEqual(proposedByPath.get('docs/untracked.md').status, 'added', 'explicitly proposed untracked document is inventoried');
+  if (symlinks.includes('docs/fixtures/untracked-external.md')) {
+    assert.strictEqual(proposedByPath.get('docs/fixtures/untracked-external.md').kind, 'symlink');
+    assert.strictEqual(proposedByPath.get('docs/fixtures/untracked-external.md').current.mode, '120000');
+    assert.strictEqual(proposedByPath.get('docs/fixtures/untracked-external.md').current.oidBasis, 'raw worktree bytes; no Git filters applied');
+    const linkOid = spawnSync('git', ['-C', root, 'hash-object', '--stdin'], { encoding: 'utf8', input: fs.readlinkSync(path.join(root, 'docs', 'fixtures', 'untracked-external.md'), { encoding: 'buffer' }) });
+    assert.ifError(linkOid.error);
+    assert.strictEqual(proposedByPath.get('docs/fixtures/untracked-external.md').current.oid, linkOid.stdout.trim());
+  }
+  assert.strictEqual(byPath.get('vendor/submodule').kind, 'gitlink');
+  assert.strictEqual(byPath.get('vendor/submodule').base.mode, '160000');
+  assert.strictEqual(byPath.get('vendor/submodule').base.oid, gitAt(root, ['rev-parse', `${base}:vendor/submodule`]));
+  assert.ok(!report.records.some(item => item.path.startsWith('vendor/submodule/')), 'gitlink contents are not recursed');
+});
+
+const symlinkProbe = path.join(tempRoot, 'manifest-ancestor-link-probe');
+try {
+  fs.symlinkSync(tempRoot, symlinkProbe, process.platform === 'win32' ? 'junction' : 'dir');
+  fs.rmSync(symlinkProbe, { recursive: true, force: true });
+  checkCase('2ax. inventory rejects a manifest reached through a workspace symlink ancestor', () => {
+    const root = workspace('manifest-ancestor-symlink');
+    const manifestRelative = '.agents/harness-everything/document-inventory.json';
+    const outside = path.join(tempRoot, 'outside-manifest-ancestor');
+    const manifest = { schemaVersion: 1, documentGlobs: ['**/*.md'], rules: [{ match: '**/*.md', role: 'inside-control', lifecycle: 'current', disposition: 'applicable', reason: 'inside manifest' }] };
+    const write = (target, content) => { fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, content); };
+    write(path.join(root, manifestRelative), `${JSON.stringify(manifest)}\n`);
+    write(path.join(root, 'docs', 'tracked.md'), 'tracked\n');
+    const externalManifest = { ...manifest, rules: [{ ...manifest.rules[0], role: 'external-sentinel-secret', reason: 'must never be read' }] };
+    write(path.join(outside, 'harness-everything', 'document-inventory.json'), `${JSON.stringify(externalManifest)}\n`);
+    gitAt(root, ['init', '-q']);
+    for (const [key, value] of [['user.name', 'Harness Test'], ['user.email', 'harness@example.invalid']]) gitAt(root, ['config', key, value]);
+    gitAt(root, ['add', '-A']);
+    gitAt(root, ['commit', '-qm', 'manifest symlink fixture']);
+    const base = gitAt(root, ['rev-parse', 'HEAD']);
+    const run = () => spawnSync(process.execPath, [modulePath, 'inventory', '--workspace', root, '--manifest', manifestRelative, '--base', base], { cwd: tempRoot, encoding: 'utf8' });
+    const inside = run();
+    assert.strictEqual(inside.status, 0, inside.stderr);
+    assert.strictEqual(JSON.parse(inside.stdout).records.find(item => item.path === 'docs/tracked.md').role, 'inside-control');
+    fs.rmSync(path.join(root, '.agents'), { recursive: true, force: true });
+    fs.symlinkSync(outside, path.join(root, '.agents'), process.platform === 'win32' ? 'junction' : 'dir');
+    const escaped = run();
+    assert.strictEqual(escaped.status, 2, 'manifest reached through an ancestor symlink fails closed');
+    assert.match(escaped.stderr, /symbolic link|symlink/i);
+    assert.ok(!escaped.stdout.includes('external-sentinel-secret'), 'external manifest contents are not accepted');
+  });
+} catch (error) {
+  if (!['EPERM', 'EACCES', 'ENOTSUP'].includes(error.code)) throw error;
+  console.log(`SKIP 2ax. manifest ancestor symlink guard: symlink creation unavailable (${error.code})`);
+}
+
 helper.finish();
