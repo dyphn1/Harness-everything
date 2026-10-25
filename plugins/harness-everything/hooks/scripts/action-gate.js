@@ -9,6 +9,7 @@ const {
   getWorkspaceRoot,
   getSessionDir,
 } = require('./lib/harness-state');
+const codexActionAuthorization = require('./lib/codex-action-authorization');
 
 const RULES_PATH = process.env.HARNESS_ACTION_GATE_RULES_PATH || path.join(__dirname, 'action-gate-rules.json');
 const ASK_CAPABLE_HOSTS = new Set(['claude']);
@@ -52,10 +53,12 @@ function toolInputOf(payload) {
 function stableValue(value) {
   if (Array.isArray(value)) return value.map(stableValue);
   if (!value || typeof value !== 'object') return value;
+  // Use a null-prototype accumulator so an own `__proto__` key is stored as data
+  // instead of mutating the accumulator's prototype (which would drop it).
   return Object.keys(value).sort().reduce((acc, key) => {
     acc[key] = stableValue(value[key]);
     return acc;
-  }, {});
+  }, Object.create(null));
 }
 
 function exactPayloadText(payload) {
@@ -445,11 +448,45 @@ function recordDecision(payload, rule, table, host, disposition, options = {}, e
   return record;
 }
 
+
+function isScopedCodexStructuredMutation(structured, rule) {
+  return Boolean(
+    rule && rule.id === 'structured-mutate' &&
+    structured && structured.descriptor &&
+    structured.descriptor.toolFamily !== 'shell' &&
+    structured.descriptor.action === 'mutate' &&
+    structured.descriptor.classification === 'gated'
+  );
+}
+
+function safeInline(value) {
+  return String(value == null ? '' : value).replace(/[\r\n\t\u0000-\u001f\u007f]/g, '?').slice(0, 200);
+}
+
 function evaluatePreToolUse(payload, options = {}) {
   const context = sessionContext(payload, options.sessionDir);
   const table = options.ruleTable || loadRuleTable(options.rulePath || RULES_PATH);
   const structured = structuredRule(payload);
   const rule = structured.rule || classify(payload, table.rules, context.sessionDir);
+  const host = detectHost(payload, options.host);
+
+  // Codex explicit authorization applies only to scoped structured mutations.
+  // Shell-governed and other structured actions keep ordinary blocking.
+  if (host === 'codex' && isScopedCodexStructuredMutation(structured, rule)) {
+    const consumed = codexActionAuthorization.consumeGrantIfValid(payload, { sessionDir: context.sessionDir });
+    if (consumed && consumed.authorized) {
+      return {
+        kind: 'allow',
+        exitCode: 0,
+        stdout: null,
+        stderr: null,
+        rule: null,
+        table,
+        descriptor: structured.descriptor,
+      };
+    }
+  }
+
   if (!rule) {
     return {
       kind: 'allow',
@@ -462,7 +499,6 @@ function evaluatePreToolUse(payload, options = {}) {
     };
   }
 
-  const host = detectHost(payload, options.host);
   const reason = decisionReason(rule, table);
   if (hostSupportsAsk(host) && gatePolicy(options) === ALWAYS_ASK_POLICY) {
     const record = recordDecision(payload, rule, table, host, 'pending-approval', { ...options, sessionDir: context.sessionDir });
@@ -478,11 +514,25 @@ function evaluatePreToolUse(payload, options = {}) {
   const record = recordDecision(payload, rule, table, host, 'rejected', { ...options, sessionDir: context.sessionDir }, {
     rejectionReason: 'host-ask-decision-unverified-or-unsupported',
   });
+  let challengeSuffix = '';
+  let detailsSuffix = '';
+  if (host === 'codex' && isScopedCodexStructuredMutation(structured, rule)) {
+    const challengeId = codexActionAuthorization.issueChallenge(payload, {
+      sessionDir: context.sessionDir,
+      toolName: toolNameOf(payload),
+      digest: (structured.descriptor && structured.descriptor.payloadHash) || hashExact(exactPayloadText(payload)),
+    });
+    if (challengeId) {
+      challengeSuffix = ` challenge id: ${challengeId}`;
+      const digest = (structured.descriptor && structured.descriptor.payloadHash) || hashExact(exactPayloadText(payload));
+      detailsSuffix = ` Tool: ${safeInline(toolNameOf(payload))}. Input SHA-256: ${digest}. Approve with: HARNESS APPROVE ${challengeId}.`;
+    }
+  }
   return {
     kind: 'block',
     exitCode: 2,
     stdout: null,
-    stderr: `${reason} Host '${host}' has no Harness-verified ask-style decision path, so the action is blocked.`,
+    stderr: `${reason} Host '${host}' has no Harness-verified ask-style decision path, so the action is blocked.${challengeSuffix}${detailsSuffix}`,
     rule,
     table,
     record,

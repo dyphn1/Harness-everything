@@ -126,6 +126,23 @@ The compatibility path registers hook commands in Codex user configuration and c
 
 The public OpenAI Skills-only plugin is narrower again. Its ZIP contains the packaged `skills/` tree and referenced files, but not the local `.codex-plugin` lifecycle hooks. Public submission readiness is therefore a package/form contract, not evidence of public-directory approval or live hook execution.
 
+### Codex explicit UserPromptSubmit consent (mechanism only)
+
+Codex has a local `UserPromptSubmit` exact-challenge consent path for a blocked
+structured mutation. The blocked call exposes a pending challenge scoped to host
+session, tool name, and canonical full tool-input digest. The pending challenge has
+no wall-clock TTL. Only a real
+`UserPromptSubmit` hook receiving the exact entire prompt
+`HARNESS APPROVE <challengeId>` with no additional text can bind that challenge to
+a host session and consent turn. The resulting one-use grant only lets the
+matching retry pass Harness's guard; it does not emit `permissionDecision=allow`
+and does not supersede native Codex permissions. Missing, mismatched, cross-session, cross-turn, and replayed grants remain
+blocked. The one-use grant is bound to the consent turn and fails after a turn
+change. Tool-input
+authorization JSON never grants. This is cooperative local hook state: it is not
+tamperproof and carries no live-host verification. Codex ask-style decisions are
+not supported.
+
 ## Install/uninstall ownership boundary
 
 The general installer merges shared files only through Harness-owned markers and removes only manifest-tracked artifacts. Malformed configuration and pre-existing user-owned files fail closed. Install/uninstall round-trip coverage protects user skills and runs on Linux, Windows, and macOS fixtures.

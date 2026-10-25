@@ -22,6 +22,26 @@ function finish() {
   if (finished) return;
   finished = true;
   clearTimeout(timer);
+
+  let payload = null;
+  try { payload = JSON.parse(input || '{}'); } catch (_) { payload = null; }
+
+  // Codex explicit authorization: only an exact host-submitted consent prompt
+  // may bind a pending challenge to the host session + consent turn. No
+  // natural-language inference, no tool-input claim.
+  if (payload && payload.hook_event_name === 'UserPromptSubmit') {
+    const prompt = payload.prompt;
+    const match = String(prompt || '').match(/^HARNESS APPROVE ([A-Za-z0-9._-]{8,})$/);
+    if (match) {
+      try {
+        const auth = require('./lib/codex-action-authorization');
+        auth.bindConsent(payload, { challengeId: match[1] });
+      } catch (_) { /* consent state is best-effort; failures do not authorize */ }
+      process.exit(0);
+      return;
+    }
+  }
+
   if (!ROUTER) process.exit(0);
   const result = spawnSync(process.execPath, [ROUTER], { input, encoding: 'utf8', env: process.env, timeout: 25000 });
   const stderr = String(result.stderr || '');
