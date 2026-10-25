@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.41.3](https://github.com/dyphn1/Harness-everything/compare/v0.41.2...v0.41.3) (2026-10-25)
+
+### Bug Fixes
+
+* **codex:** drop format-bound task approvals ([7125220](https://github.com/dyphn1/Harness-everything/commit/71252205e469cda13744a733ff2dca6bbff5db47))
+
 ## [0.41.2](https://github.com/dyphn1/Harness-everything/compare/v0.41.1...v0.41.2) (2026-10-25)
 
 ### Bug Fixes
