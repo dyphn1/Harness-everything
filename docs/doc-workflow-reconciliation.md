@@ -6,7 +6,7 @@ status: active
 # Document workflow reconciliation — Phase 3b S1 runtime
 
 **Status: the runtime ships default OFF; opt in with `HARNESS_DOC_RECONCILIATION_PILOT=1`.
-With the pilot ON, F4 ([#358](https://github.com/dyphn1/Harness-everything/pull/358)) grants limited positive credit for exactly `doc-lint` and `link-check`, from a host-captured run of the installed doc-check on Claude Code 2.1.309 (live runs 4–5). S3 provider integration is pending; E1 has not started.**
+With the pilot ON, F4 ([#358](https://github.com/dyphn1/Harness-everything/pull/358)) grants limited positive credit for exactly `doc-lint` and `link-check`, from a host-captured run of the installed doc-check on Claude Code 2.1.309 (live runs 4–5). S3 provider integration is pending; E1 remains OPEN with insufficient qualifying exposure. The recorded OpenCode [D1/D2 attempts](../benchmarks/results/live-host/opencode-d1-d2-2026-10-25/README.md) do not qualify as E1 cycles.**
 This document refines the [document lifecycle contract](document-lifecycle.md#phase-3b--narrow-integration-contract-s1-default-off-f4-limited-credit).
 The [accepted E0](https://github.com/dyphn1/Harness-everything/issues/341#issuecomment-6308604128)
 permits this limited, reversible consumer under the
@@ -336,7 +336,7 @@ Preparation assertion rows do not carry `reportOrigin`; the S1 runtime report ca
 marker is never presented as a production report.
 ## S1 — switch, trusted scope and fail-closed no-credit gate
 
-**S1 runtime ships default OFF (`HARNESS_DOC_RECONCILIATION_PILOT=1` opts in). With the pilot ON, F4 (#358) grants limited positive credit for `doc-lint` and `link-check` only; S3 provider integration is pending and E1 has not started.**
+**S1 runtime ships default OFF (`HARNESS_DOC_RECONCILIATION_PILOT=1` opts in). With the pilot ON, F4 (#358) grants limited positive credit for `doc-lint` and `link-check` only; S3 provider integration is pending; E1 remains OPEN with insufficient qualifying exposure, and D1/D2 are non-qualifying.**
 The [accepted E0](https://github.com/dyphn1/Harness-everything/issues/341#issuecomment-6308604128)
 permits this limited implementation; the [posted execution plan](https://github.com/dyphn1/Harness-everything/issues/325)
 orders Docs → RED → GREEN → independent review → green CI for each slice. S1 was the temporary
@@ -1085,7 +1085,8 @@ provider adapter remains pending. Require every expected applicable MUST and
 freshness check before positive credit, plus source/package compatibility, negative cases and
 relevant green CI including Windows. The S1 suites establish their tested mechanism/package
 contracts; they do not establish independent host provenance, live-host loading or architectural
-benefit. E1 has not started and begins only after a creditable S2; E1 GO and H1–H4/paired evidence
+benefit. E1 observation remains OPEN with insufficient qualifying exposure; it begins only after
+a creditable S2, and the D1/D2 attempts are non-qualifying. E1 GO and H1–H4/paired evidence
 remain separate gates.
 
 ## F4: credited reconciliation (Claude-only, pilot ON)

@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 1,
+  "reportOrigin": "runtime",
+  "pilotStatus": "unresolved",
+  "pilotCredit": false,
+  "identity": null,
+  "expectedMustIds": [
+    "doc-change:doc-lint",
+    "doc-change:link-check"
+  ],
+  "results": [],
+  "unsatisfied": [
+    {
+      "obligationId": "doc-change:doc-lint",
+      "state": "pending",
+      "reasonCode": "producer-unavailable"
+    },
+    {
+      "obligationId": "doc-change:link-check",
+      "state": "pending",
+      "reasonCode": "producer-unavailable"
+    },
+    {
+      "obligationId": "origin",
+      "state": "pending",
+      "reasonCode": "partial-coverage"
+    },
+    {
+      "obligationId": "origin",
+      "state": "pending",
+      "reasonCode": "partial-coverage"
+    },
+    {
+      "obligationId": "origin",
+      "state": "pending",
+      "reasonCode": "partial-coverage"
+    },
+    {
+      "obligationId": "origin",
+      "state": "pending",
+      "reasonCode": "partial-coverage"
+    },
+    {
+      "obligationId": "origin",
+      "state": "pending",
+      "reasonCode": "partial-coverage"
+    },
+    {
+      "obligationId": "doc-change:link-check",
+      "state": "pending",
+      "reasonCode": "artifact-mismatch"
+    },
+    {
+      "obligationId": "doc-change:link-check",
+      "state": "pending",
+      "reasonCode": "artifact-mismatch"
+    },
+    {
+      "obligationId": "origin",
+      "state": "pending",
+      "reasonCode": "reviewer-not-independent"
+    },
+    {
+      "obligationId": "doc-change:doc-lint",
+      "state": "pending",
+      "reasonCode": "result-missing"
+    },
+    {
+      "obligationId": "doc-change:link-check",
+      "state": "pending",
+      "reasonCode": "result-missing"
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "partial-coverage",
+      "message": "partial coverage",
+      "reason": "partial-coverage: doc-lint is partial; partial coverage earns no credit",
+      "obligationId": null
+    },
+    {
+      "code": "partial-coverage",
+      "message": "partial coverage",
+      "reason": "partial-coverage: doc-lint is partial; partial coverage earns no credit",
+      "obligationId": null
+    },
+    {
+      "code": "partial-coverage",
+      "message": "partial coverage",
+      "reason": "partial-coverage: doc-lint is partial; partial coverage earns no credit",
+      "obligationId": null
+    },
+    {
+      "code": "partial-coverage",
+      "message": "partial coverage",
+      "reason": "partial-coverage: link-check is partial; partial coverage earns no credit",
+      "obligationId": null
+    },
+    {
+      "code": "partial-coverage",
+      "message": "partial coverage",
+      "reason": "partial-coverage: link-check is partial; partial coverage earns no credit",
+      "obligationId": null
+    },
+    {
+      "code": "artifact-mismatch",
+      "message": "artifact mismatch",
+      "reference": "PostToolUse:2026-10-25T11:45:21.510Z:53133:1#link-check",
+      "obligationId": "doc-change:link-check"
+    },
+    {
+      "code": "artifact-mismatch",
+      "message": "artifact mismatch",
+      "reference": "PostToolUse:2026-10-25T11:45:21.510Z:53133:1#link-check",
+      "obligationId": "doc-change:link-check"
+    },
+    {
+      "code": "reviewer-not-independent",
+      "message": "reviewer not independent",
+      "reason": "reviewer-not-independent: the reviewer agent_id equals an executor principal; not independent",
+      "obligationId": null
+    },
+    {
+      "code": "scope-mismatch",
+      "message": "scope mismatch",
+      "reference": "SubagentStop:2026-10-25T11:51:05.061Z:58824:1#quality-review",
+      "obligationId": "doc-change:quality-review"
+    },
+    {
+      "code": "artifact-mismatch",
+      "message": "artifact mismatch",
+      "reference": "SubagentStop:2026-10-25T11:51:05.061Z:58824:1#quality-review",
+      "obligationId": "doc-change:quality-review"
+    },
+    {
+      "code": "event-conflict",
+      "message": "event conflict",
+      "reference": "SubagentStop:2026-10-25T11:53:36.777Z:65484:1#quality-review",
+      "obligationId": "doc-change:quality-review"
+    },
+    {
+      "code": "scope-mismatch",
+      "message": "scope mismatch",
+      "reference": "SubagentStop:2026-10-25T11:53:36.777Z:65484:1#quality-review",
+      "obligationId": "doc-change:quality-review"
+    },
+    {
+      "code": "result-missing",
+      "message": "result missing",
+      "obligationId": "doc-change:doc-lint"
+    },
+    {
+      "code": "result-missing",
+      "message": "result missing",
+      "obligationId": "doc-change:link-check"
+    },
+    {
+      "code": "missing-path-coverage",
+      "obligationId": "doc-change:doc-lint",
+      "message": "no observed record is bound to path docs/doc-workflow-reconciliation.md with the current candidate and baseline digests"
+    },
+    {
+      "code": "missing-path-coverage",
+      "obligationId": "doc-change:link-check",
+      "message": "no observed record is bound to path docs/doc-workflow-reconciliation.md with the current candidate and baseline digests"
+    },
+    {
+      "code": "missing-path-coverage",
+      "obligationId": "doc-change:prose-reminder",
+      "message": "no observed record is bound to path docs/doc-workflow-reconciliation.md with the current candidate and baseline digests"
+    }
+  ],
+  "creditedCapabilities": [],
+  "acceptedRefs": []
+}
