@@ -273,6 +273,30 @@ try {
   check(empty.degraded === false && empty.rules.length === 0, 'valid empty rule table does not silently activate built-in defaults');
   check(actionGate.evaluatePreToolUse(payload('git push --force origin main', { toolUseId: 'empty' }), { host: 'claude', sessionDir, ruleTable: empty }).kind === 'allow', 'empty-table mutation control disables detection, proving production non-empty assertion is meaningful');
 
+  // Independent full-input fingerprint regression: an own JSON __proto__ key must
+  // remain part of the structured payload digest (null-prototype stableValue fix).
+  const protoInput = JSON.parse('{"__proto__":{"changed":true},"record_id":"record-123"}');
+  const protoPayload = {
+    session_id: 'phase5-test',
+    hook_event_name: 'PreToolUse',
+    tool_name: 'mcp__demo__delete_record',
+    tool_use_id: 'proto-fingerprint',
+    tool_input: protoInput,
+    cwd: ROOT,
+  };
+  const basePayload = {
+    session_id: 'phase5-test',
+    hook_event_name: 'PreToolUse',
+    tool_name: 'mcp__demo__delete_record',
+    tool_use_id: 'proto-fingerprint',
+    tool_input: { record_id: 'record-123' },
+    cwd: ROOT,
+  };
+  const protoText = actionGate.exactPayloadText(protoPayload);
+  const baseText = actionGate.exactPayloadText(basePayload);
+  check(protoText.includes('__proto__'), 'null-prototype serialization preserves an own __proto__ key');
+  check(actionGate.hashExact(protoText) !== actionGate.hashExact(baseText), 'own __proto__ key changes the full-input digest');
+
   const execPayload = payload('npm publish', { toolUseId: 'exec-ok' });
   actionGate.evaluatePreToolUse(execPayload, { host: 'claude', sessionDir, ruleTable: table });
   const execResult = actionGate.processEvent({ ...execPayload, hook_event_name: 'PostToolUse' }, { sessionDir });
