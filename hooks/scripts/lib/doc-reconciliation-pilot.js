@@ -114,8 +114,16 @@ function collect(context) {
 // S2b credit chain (F4): produce the snapshot, accept the origin-provider events, and check them against the expected
 // MUSTs. Credit only when the core marks the evidence eligible. Production has no qualification, so it stays withheld.
 function creditChain(context, set, dependencies = {}) {
-  if (require('./doc-reconciliation-provider').readCaptureView(context.sessionDir).tampered) {
+  const hostId = activeHostFor(context);
+  const providerModule = require('./doc-reconciliation-provider');
+  const captureView = hostId === 'opencode' ? providerModule.readOpencodeCaptureView(context.sessionDir)
+    : hostId === 'claude-code' ? providerModule.readCaptureView(context.sessionDir)
+      : { records: [], tampered: false };
+  if (captureView.tampered) {
     return { eligible: false, diagnostics: [{ code: 'journal-tampered', message: 'the capture journal no longer matches its immutable event records' }] };
+  }
+  if (!['claude-code', 'opencode'].includes(hostId)) {
+    return { eligible: false, diagnostics: [{ code: 'unsupported-host', message: `no document origin provider is registered for ${String(hostId)}` }] };
   }
   const { produceDocSnapshot } = require('./doc-reconciliation-producer');
   const { acceptDocEvents } = require('./doc-reconciliation-events');
@@ -124,29 +132,38 @@ function creditChain(context, set, dependencies = {}) {
   const requirements = Array.isArray(set?.requirements) ? set.requirements : [];
   const taskId = `task-${requirements.map(item => item.id).join('+') || 'none'}`;
   const sessionId = context.sessionId;
-  const { createClaudeOriginProvider, journalExecutors } = require('./doc-reconciliation-provider');
-  const captures = readCaptures(context);
-  const originProvider = dependencies.originProvider || createClaudeOriginProvider({
-    hostId: 'claude-code',
+  const { createClaudeOriginProvider, createOpencodeOriginProvider, journalExecutors } = providerModule;
+  const captures = captureView.records;
+  const principals = hostId === 'opencode'
+    ? { author: sessionId, executors: [sessionId] }
+    : { author: sessionId, executors: journalExecutors(captures, sessionId) };
+  const createOriginProvider = hostId === 'opencode' ? createOpencodeOriginProvider : createClaudeOriginProvider;
+  const providerInput = {
+    hostId,
     sessionId,
     workspaceRoot: context.root,
     workflowId: context.workflow.workflowId,
     workflowRevision: context.workflow.revision,
     taskId,
-    principals: { author: sessionId, executors: journalExecutors(captures, sessionId) },
+    principals,
     baseline,
     captures,
-  });
+  };
+  const originProvider = dependencies.originProvider || createOriginProvider(providerInput);
   const produced = produceDocSnapshot({
     workspaceRoot: context.root,
     baseline,
     workflow: { workflowId: context.workflow.workflowId, sessionId, workflowRevision: context.workflow.revision },
     task: { taskId, requirements },
     scope: { prdRoot: 'docs/prd/' },
-    activeHost: 'claude-code',
+    activeHost: hostId,
     prdRoot: 'docs/prd/',
   }, { originProvider });
-  if (produced.state !== 'ready' || !produced.snapshot) return { eligible: false, diagnostics: produced.diagnostics, unsatisfied: [] };
+  if (produced.state !== 'ready' || !produced.snapshot) return {
+    eligible: false,
+    diagnostics: produced.diagnostics || [],
+    unsatisfied: [],
+  };
   const eventRefs = captureReferences(context);
   const accepted = acceptDocEvents({ snapshot: produced.snapshot, eventRefs }, { originProvider });
   const checked = checkAcceptedDocEvidence({ snapshot: produced.snapshot, accepted, mode: 'verification' });
@@ -181,6 +198,7 @@ function reviewRequired(set) {
 // The review step is independent of credit qualification: the step records host-observed independence, while document
 // credit itself still needs the validated qualification (assess).
 function independentReviewAccepted(context) {
+  if (activeHostFor(context) !== 'claude-code') return false;
   const { reviewRecordIndependent, journalExecutors } = require('./doc-reconciliation-provider');
   const view = require('./doc-reconciliation-provider').readCaptureView(context.sessionDir);
   if (view.tampered) return false;
@@ -196,10 +214,18 @@ function independentReviewAccepted(context) {
 
 function recordOf(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 
+function activeHostFor(context) {
+  return context.activeHost === undefined || context.activeHost === null ? 'claude-code' : context.activeHost;
+}
+
 // The session capture records are the only host-event source. A missing journal means no events; a journal that no longer
 // equals its immutable event files is tampered and yields no events, so the chain withholds.
 function readCaptures(context) {
-  return require('./doc-reconciliation-provider').readCaptureView(context.sessionDir).records;
+  const provider = require('./doc-reconciliation-provider');
+  const hostId = activeHostFor(context);
+  if (hostId === 'opencode') return provider.readOpencodeCaptureView(context.sessionDir).records;
+  if (hostId === 'claude-code') return provider.readCaptureView(context.sessionDir).records;
+  return [];
 }
 
 // Only explicit PostToolUse doc-check candidates are offered; ordinary Edit or Agent results are not (R3-01).
@@ -208,6 +234,10 @@ const docCheckCandidate = item => item.event === 'PostToolUse'
 
 function captureReferences(context) {
   const captures = readCaptures(context);
+  if (activeHostFor(context) === 'opencode') {
+    return captures.filter(item => typeof item?.call_id === 'string' && item.call_id.trim())
+      .flatMap(item => ['doc-lint', 'link-check'].map(capability => `${item.call_id}#${capability}`));
+  }
   const candidates = captures
     .filter(item => item && typeof item.ref === 'string' && (item.event === 'SubagentStop' || docCheckCandidate(item)))
     .filter(item => item.event !== 'SubagentStop');
