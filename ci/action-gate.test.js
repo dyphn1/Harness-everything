@@ -398,6 +398,22 @@ try {
   for (const hint of [{ actionGate: { required: true } }, { workflowPlan: { actionGate: { required: true } } }, { harness: { workflowPlan: { actionGate: { required: true } } } }, { routerContract: { workflowPlan: { actionGate: { required: true } } } }]) {
     check(actionGate.evaluatePreToolUse(metadataPayload(metadataInput, undefined, hint), { host: 'codex', sessionDir, ruleTable: table }).kind === 'block', 'explicit required metadata gate cannot be bypassed');
   }
+  const gateEnvelopes = gate => [
+    { actionGate: gate }, { workflowPlan: { actionGate: gate } },
+    { routerContract: { workflowPlan: { actionGate: gate } } },
+    { harness: { workflowPlan: { actionGate: gate } } },
+  ];
+  for (let requiredAt = 0; requiredAt < 4; requiredAt++) {
+    const optionalHints = Object.assign({}, ...gateEnvelopes({ required: false }));
+    const hints = { ...optionalHints, ...gateEnvelopes({ required: true })[requiredAt] };
+    const candidate = metadataPayload(metadataInput, undefined, hints);
+    const result = actionGate.evaluatePreToolUse(candidate, { host: 'codex', sessionDir, ruleTable: table });
+    check(result.kind === 'block' && result.exitCode === 2, `required hint envelope ${requiredAt} wins over optional envelopes`);
+    check(result.record && result.record.routerActionGate.required === true, 'audit retains required hint instead of a conflicting optional hint');
+    const creation = { ...candidate, tool_name: 'mcp__github__create_pull_request' };
+    check(actionGate.evaluatePreToolUse(creation, { host: 'codex', sessionDir, ruleTable: table }).kind === 'block', 'PR creation still honors the documented explicit required gate');
+  }
+
 
 } catch (err) {
   console.error(err.stack || err.message);
