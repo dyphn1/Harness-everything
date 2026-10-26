@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.42.1](https://github.com/dyphn1/Harness-everything/compare/v0.42.0...v0.42.1) (2026-10-26)
+
+### Bug Fixes
+
+* **action-gate:** defer Codex PR title and body updates to host ([fd371bf](https://github.com/dyphn1/Harness-everything/commit/fd371bf16bbba7d5ecac80b18d7e3e0ee0144ed7))
+* **action-gate:** honor required hints across conflicting envelopes ([ff796c9](https://github.com/dyphn1/Harness-everything/commit/ff796c9edda4565906ed4c0d2b0b14ed3ef6bbc0))
+* **action-gate:** prevent codex pr mutation descriptor downgrades ([e9344de](https://github.com/dyphn1/Harness-everything/commit/e9344deb0ae38a6414944db51b2b2c40b2132c34))
+* **action-gate:** retain codex pr tool identity during classification ([c170a96](https://github.com/dyphn1/Harness-everything/commit/c170a96cf856295200d2d1a62c15a552c3cb2b37))
+
 ## [0.42.0](https://github.com/dyphn1/Harness-everything/compare/v0.41.3...v0.42.0) (2026-10-25)
 
 ### Features
