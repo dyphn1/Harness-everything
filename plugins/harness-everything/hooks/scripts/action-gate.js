@@ -140,7 +140,20 @@ function isRoutinePullRequestCreation(toolName) {
   return (last === 'create_pull_request' || name === 'create_pull_request');
 }
 
-function structuredRule(payload) {
+function isPullRequestMetadataUpdate(payload) {
+  const name = toolNameOf(payload);
+  const operation = name.split('__').pop();
+  if (operation !== 'update_pull_request' && name !== 'mcp__codex_apps__github_update_pull_request') return false;
+  const input = toolInputOf(payload);
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return false;
+  const keys = Object.keys(input);
+  const allowed = new Set(['repository_full_name', 'pr_number', 'owner', 'repo', 'pullNumber', 'pull_number', 'title', 'body']);
+  return keys.every(key => allowed.has(key))
+    && keys.some(key => key === 'title' || key === 'body')
+    && keys.filter(key => key === 'title' || key === 'body').every(key => typeof input[key] === 'string');
+}
+
+function structuredRule(payload, options = {}) {
   const descriptor = normalizeActionDescriptor(payload);
   if (descriptor.toolFamily === 'shell') return { descriptor, rule: null };
   if (descriptor.classification === 'safe') return { descriptor, rule: null };
@@ -151,6 +164,10 @@ function structuredRule(payload) {
   const hint = routerActionGateHint(payload);
   if (isRoutinePullRequestCreation(descriptor.toolName) && !(hint && hint.required)) {
     return { descriptor, rule: null };
+  }
+  if (detectHost(payload, options.host) === 'codex' && descriptor.action === 'mutate'
+      && isPullRequestMetadataUpdate(payload) && !(hint && hint.required)) {
+    return { descriptor, rule: null, hostDeferred: true };
   }
   if (descriptor.classification === 'gated') {
     return {
@@ -467,11 +484,15 @@ function recordDecision(payload, rule, table, host, disposition, options = {}, e
 function evaluatePreToolUse(payload, options = {}) {
   const context = sessionContext(payload, options.sessionDir);
   const table = options.ruleTable || loadRuleTable(options.rulePath || RULES_PATH);
-  const structured = structuredRule(payload);
+  const structured = structuredRule(payload, options);
   const rule = structured.rule || classify(payload, table.rules, context.sessionDir);
   const host = detectHost(payload, options.host);
 
   if (!rule) {
+    const record = structured.hostDeferred ? recordDecision(payload, {
+      id: 'routine-pr-metadata-update',
+      reason: 'Codex PR title/body metadata update defers to native task scope and permissions.',
+    }, table, host, 'deferred-to-host', { ...options, sessionDir: context.sessionDir }) : null;
     return {
       kind: 'allow',
       exitCode: 0,
@@ -480,6 +501,7 @@ function evaluatePreToolUse(payload, options = {}) {
       rule: null,
       table,
       descriptor: structured.descriptor,
+      ...(record ? { record } : {}),
     };
   }
 
