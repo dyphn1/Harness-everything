@@ -108,12 +108,14 @@ function safeResource(input, explicit) {
   return null;
 }
 
-function normalizeActionDescriptor(payload) {
+function normalizeActionDescriptor(payload, options = {}) {
   const tool = toolNameOf(payload);
   const input = toolInputOf(payload);
   const explicit = explicitActionDescriptor(payload);
   const toolFamily = inferToolFamily(tool, explicit);
-  const action = inferStructuredAction(tool, explicit);
+  const inferred = inferStructuredAction(tool, explicit);
+  const action = detectHost(payload, options.host) === 'codex' && isPullRequestUpdateTool(tool)
+    && !STRUCTURED_GATED_ACTIONS.has(inferred) ? 'mutate' : inferred;
   const classification = STRUCTURED_GATED_ACTIONS.has(action)
     ? 'gated'
     : (STRUCTURED_SAFE_ACTIONS.has(action) ? 'safe' : 'unknown');
@@ -140,10 +142,12 @@ function isRoutinePullRequestCreation(toolName) {
   return (last === 'create_pull_request' || name === 'create_pull_request');
 }
 
+function isPullRequestUpdateTool(name) {
+  return name.split('__').pop() === 'update_pull_request' || name === 'mcp__codex_apps__github_update_pull_request';
+}
+
 function isPullRequestMetadataUpdate(payload) {
-  const name = toolNameOf(payload);
-  const operation = name.split('__').pop();
-  if (operation !== 'update_pull_request' && name !== 'mcp__codex_apps__github_update_pull_request') return false;
+  if (!isPullRequestUpdateTool(toolNameOf(payload))) return false;
   const input = toolInputOf(payload);
   if (!input || typeof input !== 'object' || Array.isArray(input)) return false;
   const keys = Object.keys(input);
@@ -154,7 +158,7 @@ function isPullRequestMetadataUpdate(payload) {
 }
 
 function structuredRule(payload, options = {}) {
-  const descriptor = normalizeActionDescriptor(payload);
+  const descriptor = normalizeActionDescriptor(payload, options);
   if (descriptor.toolFamily === 'shell') return { descriptor, rule: null };
   if (descriptor.classification === 'safe') return { descriptor, rule: null };
   // Routine PR creation is a host-deferred mutation, not a Harness-gated one:
@@ -453,7 +457,7 @@ function recordDecision(payload, rule, table, host, disposition, options = {}, e
   const exact = exactPayloadText(payload);
   const commandHash = hashExact(exact);
   const now = new Date().toISOString();
-  const descriptor = normalizeActionDescriptor(payload);
+  const descriptor = normalizeActionDescriptor(payload, { host });
   const record = {
     schemaVersion: 1,
     toolName: toolNameOf(payload),

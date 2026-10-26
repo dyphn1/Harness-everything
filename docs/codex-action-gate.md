@@ -163,6 +163,7 @@ The Codex-only metadata exception checks the actual tool input, with all of thes
 - Exact final `__` operation `update_pull_request`, or exact flattened connector name `mcp__codex_apps__github_update_pull_request`.
 - A non-array object containing at least one string `title` or `body` (empty body is supported).
 - Only `title`, `body`, and selector keys `repository_full_name`, `pr_number`, `owner`, `repo`, `pullNumber`, `pull_number` are present.
+- Exact Codex PR updates cannot be downgraded to `read`/`unknown` by an explicit descriptor or a provider namespace; higher-risk action descriptors remain gated.
 - No explicit required `actionGate` hint in any supported envelope (a required hint wins over conflicting optional hints); the action descriptor remains `mutate`/`gated`.
 
 Any additional key, including `state`, `base_branch`, `base`, `maintainer_can_modify`, `draft`, or an unknown key, prevents the exception, even when its value is null. Mixed metadata/high-risk inputs and similar operation names retain the existing Gate. Claude, OpenCode and unknown hosts retain their prior mutation rules. PR creation behavior is unchanged.
