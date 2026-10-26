@@ -8,7 +8,8 @@
 | GREEN | `fd371bf`; [green.log](green.log): all boundary checks PASS |
 | Reproduce | `node ci/action-gate.test.js`; `node ci/mechanism-2aa-codex-action-gate-policy.test.js`; `node ci/mechanism-task-git-authorization.test.js` |
 | Package | `npm run plugin:sync`; canonical/package action gate byte comparison and identical lifecycle tests |
-| Full regression | Pending `npm run verify:all` |
+| Final core | `c170a96cf856295200d2d1a62c15a552c3cb2b37` |
+| Full regression | Node 24.22.1 `npm run verify:all` pending at final core SHA |
 | Independent review | Pending Luna xhigh cold review |
 | Candidate live Host | UNCHECKED: current session loads immutable installed runtime `0.42.0-f51078676b56`, not this candidate; no hook/trust configuration changed |
 
@@ -30,3 +31,28 @@
 - Other hosts retain existing structured rules. Create PR, merge, close, delete, deploy, publish, send and force-push controls remain unchanged.
 - Canonical/package tests verify descriptor/hash, redacted audit provenance, PostToolUse success/failure, changed-payload integrity violation and rejected mutation outcomes.
 - No actual destructive remote negative control is executed. Mechanism PASS is not live Host PASS.
+
+
+## Independent review corrections and replay
+
+| Finding | RED evidence | Fix / GREEN evidence |
+| --- | --- | --- |
+| Earlier optional hint masked required hint | `1e77c26`, [9 failures](review-hints-red.log) | `ff796c9`, [PASS](review-hints-green.log) |
+| Exact Codex PR mutation downgraded by read/unknown descriptor | `06a66c2`, [11 failures](review-descriptor-red.log) | `e9344de`, [PASS](review-descriptor-green.log) |
+| MCP update disguised as shell family | `16f5e20`, [14 failures](review-family-red.log) | `c170a96`, [PASS](review-family-green.log) |
+
+- Conflicting-hint precedence now preserves any required hint across all supported envelopes. Ordinary PR creation controls are unchanged; contradictory required hints honor the existing required-Gate contract.
+- Exact-update descriptor/family hardening is Codex-only. Other hosts keep their prior descriptor behavior; higher-risk Codex descriptors remain gated.
+- Initial RED/GREEN runs used Node 26.12.1 in the sibling-worktree shell; Luna independently replayed original RED under Node 24.22.1. Correction RED/GREEN and final regression use explicit Node 24 PATH.
+- Earlier full runs were superseded, never claimed complete: Node 26 reached 128-suite self-regression PASS before stopping during mutations; the first Node 24 run stopped for the descriptor/family review correction.
+
+Reproduce the independently authored checks from the repository root (Node 24):
+
+```sh
+node benchmarks/results/codex-pr-metadata-2026-10-26/luna-action-family-cross-product.js .
+node benchmarks/results/codex-pr-metadata-2026-10-26/luna-codex-action-gate-prehook-smoke.js .
+```
+
+- [Cross-product log](luna-action-family-cross-product.log): 2,709 cases, 4,729 assertions, 0 failures.
+- [Stdin smoke log](luna-codex-action-gate-prehook-smoke.log): seven actual pre-hook subprocess cases PASS, covering host deferral and rejected cases with persisted audit fields.
+- These are deterministic mechanism evidence, not live Codex Host evidence.

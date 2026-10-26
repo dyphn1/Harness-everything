@@ -1,0 +1,7 @@
+{
+  "node": "v24.22.1",
+  "assertions": 4729,
+  "cases": 2709,
+  "failures": 0,
+  "firstFailures": []
+}
