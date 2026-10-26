@@ -398,6 +398,24 @@ try {
   for (const hint of [{ actionGate: { required: true } }, { workflowPlan: { actionGate: { required: true } } }, { harness: { workflowPlan: { actionGate: { required: true } } } }, { routerContract: { workflowPlan: { actionGate: { required: true } } } }]) {
     check(actionGate.evaluatePreToolUse(metadataPayload(metadataInput, undefined, hint), { host: 'codex', sessionDir, ruleTable: table }).kind === 'block', 'explicit required metadata gate cannot be bypassed');
   }
+  for (const action of ['read', 'unknown']) {
+    for (const descriptor of [{ action_descriptor: { action } }, { actionDescriptor: { action } }, { harness: { actionDescriptor: { action } } }]) {
+      const candidate = metadataPayload({ ...metadataInput, state: 'closed' }, undefined, {
+        ...descriptor, workflowPlan: { actionGate: { required: true } },
+      });
+      const result = actionGate.evaluatePreToolUse(candidate, { host: 'codex', sessionDir, ruleTable: table });
+      check(result.kind === 'block' && result.exitCode === 2, `known Codex PR mutation cannot be downgraded to ${action}`);
+      check(result.record && result.record.actionDescriptor.action === 'mutate', 'downgrade refusal remains an audited mutation');
+    }
+    const inputDescriptor = metadataPayload({ ...metadataInput, state: 'closed', action_descriptor: { action } }, undefined, { actionGate: { required: true } });
+    check(actionGate.evaluatePreToolUse(inputDescriptor, { host: 'codex', sessionDir, ruleTable: table }).kind === 'block', `input ${action} descriptor cannot hide a required PR mutation gate`);
+  }
+  const misleadingProvider = metadataPayload({ ...metadataInput, state: 'closed' }, 'mcp__get_provider__update_pull_request');
+  check(actionGate.evaluatePreToolUse(misleadingProvider, { host: 'codex', sessionDir, ruleTable: table }).kind === 'block', 'provider namespace read token cannot downgrade exact PR mutation');
+  for (const host of ['claude', 'opencode', 'unknown']) {
+    const describedRead = metadataPayload(metadataInput, undefined, { action_descriptor: { action: 'read' } });
+    check(actionGate.evaluatePreToolUse(describedRead, { host, sessionDir, ruleTable: table }).kind === 'allow', `${host} explicit descriptor behavior remains unchanged`);
+  }
   const gateEnvelopes = gate => [
     { actionGate: gate }, { workflowPlan: { actionGate: gate } },
     { routerContract: { workflowPlan: { actionGate: gate } } },
