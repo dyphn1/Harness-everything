@@ -1716,9 +1716,12 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
   const fixture = createFixture();
   const ordinaryPath = path.join(fixture.root, 'docs', 'ordinary.md');
   fs.writeFileSync(ordinaryPath, 'ordinary document edit\n');
-  writeRelative(fixture.root, 'docs/new\nunknown.md', 'new document\n');
+  // Keep the LF filename in Git's tree without creating a Windows-forbidden worktree path.
+  const newlinePath = 'docs/new\nunknown.md';
+  const newlineOid = fixtureGit(fixture.root, ['hash-object', '-w', '--stdin'], Buffer.from('new document\n')).toString('ascii').trim();
   const linkOid = fixtureGit(fixture.root, ['hash-object', '-w', '--stdin'], Buffer.from('../outside-target.md\n')).toString('ascii').trim();
   fixtureGit(fixture.root, ['add', '-A']);
+  fixtureGit(fixture.root, ['update-index', '--add', '--cacheinfo', `100644,${newlineOid},${newlinePath}`]);
   fixtureGit(fixture.root, ['update-index', '--add', '--cacheinfo', `120000,${linkOid},docs/link.md`]);
   fixtureGit(fixture.root, ['update-index', '--add', '--cacheinfo', `160000,${fixture.base},docs/submodule.md`]);
   fixtureGit(fixture.root, ['commit', '--quiet', '-m', 'ordinary document edits']);
