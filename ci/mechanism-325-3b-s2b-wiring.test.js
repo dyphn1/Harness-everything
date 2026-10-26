@@ -331,6 +331,16 @@ function legacyGolden() {
   }
 }
 
+function scrubTextPathControls() {
+  const roots = { repo: '/private/tmp/harness', tmp: ['/private/tmp'] };
+  const macosSkill = fx.scrubText('/private/tmp/harness/plugins/harness-everything/skills/verification-loop/SKILL.md', roots);
+  const unrelatedPath = fx.scrubText('/private/tmp/unrelated/verification-loop/SKILL.md', roots);
+  const ordinaryTmp = fx.scrubText('/tmp/unrelated/workflow-run.json', roots);
+  record(macosSkill === '<skill:verification-loop>' ? 'PASS' : 'FAIL', 'w-scrub.macos-private-tmp-skill', macosSkill === '<skill:verification-loop>' ? '' : `expected <skill:verification-loop>, got ${macosSkill}`);
+  record(unrelatedPath === '<tmp>' ? 'PASS' : 'FAIL', 'w-scrub.unrelated-private-tmp', unrelatedPath === '<tmp>' ? '' : `expected <tmp>, got ${unrelatedPath}`);
+  record(ordinaryTmp === '<tmp>' ? 'PASS' : 'FAIL', 'w-scrub.ordinary-tmp', ordinaryTmp === '<tmp>' ? '' : `expected <tmp>, got ${ordinaryTmp}`);
+}
+
 // ---- Part C: in-process chain and wiring seam (per leg) ------------------------------------------
 
 function clearLegCache(lib) {
@@ -625,6 +635,7 @@ function retirementIntegrity() {
 
 function main() {
   const started = Date.now();
+  scrubTextPathControls();
   replayCommittedControls();
   replayWiringCorpus();
   legacyGolden();

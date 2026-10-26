@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.42.2](https://github.com/dyphn1/Harness-everything/compare/v0.42.1...v0.42.2) (2026-10-26)
+
+### Bug Fixes
+
+* **test:** normalize macos private tmp paths in s2b replay ([55f82b6](https://github.com/dyphn1/Harness-everything/commit/55f82b64df046a7344fa1f60898a586719858e11))
+
 ## [0.42.1](https://github.com/dyphn1/Harness-everything/compare/v0.42.0...v0.42.1) (2026-10-26)
 
 ### Bug Fixes

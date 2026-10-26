@@ -650,13 +650,14 @@ function literalPath(value) {
 
 // Replaces this replay's temporary paths, the checkout root and skill locations in raw text.
 function scrubText(text, roots = scrubRoots()) {
+  // Match checkout roots before generic temp paths; macOS can resolve a checkout under /private/tmp.
   let out = replaceTokensContaining(posixForm(text), 'doc-recon-', '<tmp>')
-    .replace(/\/(private\/)?var\/folders\/[^\s'"]+/g, '<tmp>')
-    .replace(/\/tmp\/[^\s'"]+/g, '<tmp>');
-  for (const dir of roots.tmp) out = out.replace(literalPath(dir), '<tmp>');
-  out = out.replace(UUID, '<uuid>')
+    .replace(UUID, '<uuid>')
     .replace(literalPath(`${roots.repo}/plugins/harness-everything/`), '<dist>/')
     .replace(literalPath(`${roots.repo}/`), '<dist>/');
+  out = out.replace(/\/(private\/)?var\/folders\/[^\s'"]+/g, '<tmp>')
+    .replace(/\/(private\/)?tmp\/[^\s'"]+/g, '<tmp>');
+  for (const dir of roots.tmp) out = out.replace(literalPath(dir), '<tmp>');
   return out.replace(/<dist>\/(?:skills\/)?([a-z0-9-]+)\/SKILL\.md/g, '<skill:$1>');
 }
 
