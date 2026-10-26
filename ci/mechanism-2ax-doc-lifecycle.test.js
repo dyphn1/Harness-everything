@@ -9,6 +9,7 @@ const { spawnSync } = require('child_process');
 const helper = require('./test-helper');
 
 const modulePath = path.join(__dirname, '..', 'harness-everything', 'scripts', 'doc-lifecycle.js');
+const governanceGuardPath = path.join(__dirname, '..', 'scripts', 'doc-governance-guard.js');
 const REPOSITORY_ROOT = path.resolve(__dirname, '..');
 const P2_BASE_SHA = 'b733cadec17542b9ae30aabb50c1ba3481a58d74';
 let lifecycle;
@@ -1610,5 +1611,200 @@ try {
   if (!['EPERM', 'EACCES', 'ENOTSUP'].includes(error.code)) throw error;
   console.log(`SKIP 2ax. manifest ancestor symlink guard: symlink creation unavailable (${error.code})`);
 }
+
+checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () => {
+  const trustedPaths = [
+    'scripts/doc-governance-guard.js',
+    'ci/mechanism-2ax-doc-lifecycle.test.js',
+    'ci/mechanism-325-f1-doc-check.test.js',
+    'harness-everything/scripts/doc-check.js',
+    'harness-everything/scripts/doc-lifecycle.js',
+    'harness-everything/scripts/project-docs-resolver.js',
+    'plugins/harness-everything/skills/harness-everything/scripts/doc-check.js',
+    'plugins/harness-everything/skills/harness-everything/scripts/doc-lifecycle.js',
+    'plugins/harness-everything/skills/harness-everything/scripts/project-docs-resolver.js',
+    '.agents/harness-everything/project-docs.json',
+    '.agents/harness-everything/document-inventory.json',
+    '.github/workflows/ci.yml',
+    'package.json',
+    'self-evolve/scripts/self-regression.js',
+    'ci/mechanism-test.js',
+    'ci/mutation-check.js',
+    'ci/lib/isolated-test-process.js',
+    'ci/test-helper.js',
+    'scripts/verify-all.js'
+  ];
+  const frozenGuard = fs.readFileSync(governanceGuardPath);
+  const frozenTest = fs.readFileSync(__filename);
+  const frozenGuardPath = path.join(tempRoot, 'frozen-doc-governance-guard.js');
+  const frozenTestPath = path.join(tempRoot, 'frozen-2ax-test.js');
+  fs.writeFileSync(frozenGuardPath, frozenGuard);
+  fs.writeFileSync(frozenTestPath, frozenTest);
+  assert.ok(fs.readFileSync(frozenGuardPath).equals(frozenGuard), 'trusted verifier bytes are frozen before fixture mutations');
+  assert.ok(fs.readFileSync(frozenTestPath).equals(frozenTest), 'trusted test/oracle bytes are frozen before fixture mutations');
+
+  function fixtureGit(root, args, input) {
+    const result = spawnSync('git', ['-C', root, ...args], {
+      encoding: 'buffer',
+      input,
+      env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_NO_REPLACE_OBJECTS: '1' }
+    });
+    assert.ifError(result.error);
+    assert.strictEqual(result.status, 0, `git ${args.join(' ')}: ${Buffer.from(result.stderr || '').toString('utf8')}`);
+    return Buffer.from(result.stdout || '');
+  }
+
+  function writeRelative(root, relativePath, bytes) {
+    const target = path.join(root, ...relativePath.split('/'));
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, bytes);
+  }
+
+  function commitFixture(root, message) {
+    fixtureGit(root, ['add', '-A']);
+    fixtureGit(root, ['commit', '--quiet', '-m', message]);
+    return fixtureGit(root, ['rev-parse', 'HEAD']).toString('ascii').trim();
+  }
+
+  function createFixture() {
+    const root = workspace('governance-guard-git');
+    fs.mkdirSync(path.join(root, '.fixture-hooks'), { recursive: true });
+    fixtureGit(root, ['init', '--quiet']);
+    fixtureGit(root, ['config', 'user.name', 'Harness Guard Test']);
+    fixtureGit(root, ['config', 'user.email', 'guard@example.invalid']);
+    fixtureGit(root, ['config', 'core.hooksPath', path.join(root, '.fixture-hooks')]);
+    for (const relativePath of trustedPaths) {
+      const bytes = relativePath === 'scripts/doc-governance-guard.js' ? frozenGuard
+        : relativePath === 'ci/mechanism-2ax-doc-lifecycle.test.js' ? frozenTest
+          : fs.readFileSync(path.join(REPOSITORY_ROOT, ...relativePath.split('/')));
+      writeRelative(root, relativePath, bytes);
+    }
+    const policy = JSON.parse(fs.readFileSync(path.join(REPOSITORY_ROOT, '.agents/harness-everything/project-docs.json'), 'utf8'));
+    for (const record of [...policy.governed, ...policy.derived]) writeRelative(root, record.path, `baseline ${record.path}\n`);
+    writeRelative(root, 'docs/ordinary.md', 'baseline ordinary document\n');
+    return { root, base: commitFixture(root, 'fixture baseline') };
+  }
+
+  function resetFixture(fixture) {
+    fixtureGit(fixture.root, ['reset', '--hard', fixture.base]);
+    fixtureGit(fixture.root, ['clean', '-fd']);
+  }
+
+  function runFrozenGuard(fixture, base, candidate, extraArgs = []) {
+    const args = [frozenGuardPath, '--repo', fixture.root, '--base', base, ...extraArgs];
+    if (candidate) args.push('--candidate', candidate);
+    const result = spawnSync(process.execPath, args, { cwd: tempRoot, encoding: 'utf8', timeout: 20000 });
+    assert.ifError(result.error);
+    assert.ok(result.stdout, result.stderr || 'guard returned no JSON');
+    return { status: result.status, report: JSON.parse(result.stdout), stderr: result.stderr };
+  }
+
+  const fixture = createFixture();
+  const ordinaryPath = path.join(fixture.root, 'docs', 'ordinary.md');
+  fs.writeFileSync(path.join(fixture.root, 'docs', 'architecture.md'), 'ordinary governed content edit\n');
+  fs.writeFileSync(ordinaryPath, 'ordinary document edit\n');
+  writeRelative(fixture.root, 'docs/new\nunknown.md', 'new document\n');
+  const linkOid = fixtureGit(fixture.root, ['hash-object', '-w', '--stdin'], Buffer.from('../outside-target.md\n')).toString('ascii').trim();
+  fixtureGit(fixture.root, ['add', '-A']);
+  fixtureGit(fixture.root, ['update-index', '--add', '--cacheinfo', `120000,${linkOid},docs/link.md`]);
+  fixtureGit(fixture.root, ['update-index', '--add', '--cacheinfo', `160000,${fixture.base},docs/submodule.md`]);
+  fixtureGit(fixture.root, ['commit', '--quiet', '-m', 'ordinary document edits']);
+  const positiveCandidate = fixtureGit(fixture.root, ['rev-parse', 'HEAD']).toString('ascii').trim();
+  const positive = runFrozenGuard(fixture, fixture.base, positiveCandidate);
+  assert.strictEqual(positive.status, 0, positive.stderr);
+  assert.strictEqual(positive.report.verdict, 'PASS', 'ordinary document edits remain permitted');
+  assert.strictEqual(positive.report.inputs.base.commit, fixture.base, 'base SHA is exact in JSON');
+  assert.strictEqual(positive.report.inputs.candidate.commit, positiveCandidate, 'candidate SHA is exact in JSON');
+  assert.strictEqual(positive.report.verifier.sha256, crypto.createHash('sha256').update(frozenGuard).digest('hex'));
+  assert.strictEqual(positive.report.verifier.matchesBaseObject, true, 'running verifier bytes match the baseline guard blob');
+  assert.deepStrictEqual(positive.report.trustSurface.paths.map(item => item.path), trustedPaths, 'bounded trust surface is explicit');
+  const newDocs = new Map(positive.report.newDocuments.map(item => [item.path, item]));
+  for (const relativePath of ['docs/new\nunknown.md', 'docs/link.md', 'docs/submodule.md']) {
+    const record = newDocs.get(relativePath);
+    assert.ok(record, `new document is inventoried even with a special path or Git mode: ${relativePath}`);
+    assert.strictEqual(record.role, 'unknown');
+    assert.strictEqual(record.disposition, 'unknown');
+    assert.strictEqual(record.validation, 'unchecked');
+  }
+  assert.strictEqual(newDocs.get('docs/link.md').mode, '120000', 'symlink mode is retained without following the target');
+  assert.strictEqual(newDocs.get('docs/submodule.md').mode, '160000', 'gitlink mode is retained without recursing');
+  assert.strictEqual(newDocs.get('docs/submodule.md').type, 'commit');
+
+  resetFixture(fixture);
+  fixtureGit(fixture.root, ['rm', '--quiet', '--', 'docs/architecture.md']);
+  const deletedGovernedCandidate = commitFixture(fixture.root, 'delete configured document');
+  const deletedGoverned = runFrozenGuard(fixture, fixture.base, deletedGovernedCandidate);
+  assert.strictEqual(deletedGoverned.status, 2);
+  assert.strictEqual(deletedGoverned.report.verdict, 'REVIEW_REQUIRED');
+  assert.ok(deletedGoverned.report.policyPreservation.configuredPaths.missingOrChanged.some(item => item.path === 'docs/architecture.md'));
+
+  for (const relativePath of trustedPaths) {
+    resetFixture(fixture);
+    if (relativePath === '.agents/harness-everything/project-docs.json') {
+      const configPath = path.join(fixture.root, ...relativePath.split('/'));
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      config.governed.pop();
+      fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+    } else if (relativePath === '.agents/harness-everything/document-inventory.json') {
+      const configPath = path.join(fixture.root, ...relativePath.split('/'));
+      fs.appendFileSync(configPath, '\n');
+    } else if (relativePath === 'scripts/doc-governance-guard.js') {
+      writeRelative(fixture.root, relativePath, 'process.exit(0);\n');
+    } else if (relativePath === 'ci/mechanism-2ax-doc-lifecycle.test.js' || relativePath === '.github/workflows/ci.yml') {
+      fixtureGit(fixture.root, ['rm', '--quiet', '--', relativePath]);
+    } else {
+      const filePath = path.join(fixture.root, ...relativePath.split('/'));
+      fs.appendFileSync(filePath, '\n// candidate mutation\n');
+    }
+    if (relativePath === 'scripts/doc-governance-guard.js') {
+      writeRelative(fixture.root, '.harness-review-approval.json', '{"approved":true,"candidate":"self"}\n');
+    }
+    const candidate = commitFixture(fixture.root, `mutate ${relativePath}`);
+    const result = runFrozenGuard(fixture, fixture.base, candidate);
+    assert.strictEqual(result.status, 2, `${relativePath} mutation must require review: ${result.stderr}`);
+    assert.strictEqual(result.report.verdict, 'REVIEW_REQUIRED', `${relativePath} cannot self-approve`);
+    assert.ok(result.report.trustSurface.changed.some(item => item.path === relativePath), `${relativePath} identity change is reported`);
+    assert.ok(!Object.prototype.hasOwnProperty.call(result.report, 'approval'), 'candidate approval material is not an input');
+    if (relativePath === '.agents/harness-everything/project-docs.json') {
+      assert.ok(result.report.policyPreservation.governed.missingOrChanged.length, 'removed baseline governed record remains visible');
+    }
+  }
+
+  for (const relativePath of ['.agents/harness-everything/project-docs.json', '.agents/harness-everything/document-inventory.json']) {
+    resetFixture(fixture);
+    writeRelative(fixture.root, relativePath, '{malformed\n');
+    const malformedCandidate = commitFixture(fixture.root, `malformed candidate ${relativePath}`);
+    const malformed = runFrozenGuard(fixture, fixture.base, malformedCandidate);
+    assert.strictEqual(malformed.status, 1);
+    assert.strictEqual(malformed.report.verdict, 'FAIL');
+    assert.match(malformed.report.errors[0].message, /malformed JSON/i);
+  }
+
+  resetFixture(fixture);
+  fs.writeFileSync(path.join(fixture.root, '.agents/harness-everything/project-docs.json'), '{malformed\n');
+  const malformedBase = commitFixture(fixture.root, 'malformed baseline policy');
+  fs.writeFileSync(ordinaryPath, 'candidate follows malformed baseline\n');
+  const afterMalformedBase = commitFixture(fixture.root, 'candidate after malformed baseline');
+  const malformedBaseline = runFrozenGuard(fixture, malformedBase, afterMalformedBase);
+  assert.strictEqual(malformedBaseline.status, 1);
+  assert.strictEqual(malformedBaseline.report.verdict, 'FAIL');
+
+  resetFixture(fixture);
+  fixtureGit(fixture.root, ['rm', '--quiet', '--', 'scripts/doc-governance-guard.js']);
+  const noGuardBase = commitFixture(fixture.root, 'baseline predates verifier');
+  fs.writeFileSync(ordinaryPath, 'candidate without baseline verifier\n');
+  const noGuardCandidate = commitFixture(fixture.root, 'candidate before verifier bootstrap');
+  const bootstrap = runFrozenGuard(fixture, noGuardBase, noGuardCandidate);
+  assert.strictEqual(bootstrap.status, 3);
+  assert.strictEqual(bootstrap.report.verdict, 'BOOTSTRAP_UNCHECKED');
+  assert.strictEqual(bootstrap.report.verifier.matchesBaseObject, false);
+
+  const missingCandidate = runFrozenGuard(fixture, fixture.base, null);
+  assert.strictEqual(missingCandidate.status, 1);
+  assert.strictEqual(missingCandidate.report.verdict, 'FAIL');
+  const missingCommit = runFrozenGuard(fixture, fixture.base, '0'.repeat(40));
+  assert.notStrictEqual(missingCommit.status, 0);
+  assert.notStrictEqual(missingCommit.report.verdict, 'PASS');
+});
 
 helper.finish();
