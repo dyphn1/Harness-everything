@@ -127,6 +127,53 @@ try {
   assert.strictEqual(attributedBlock.exitCode, 2);
   assert.ok(attributedBlock.attribution.file && fs.existsSync(attributedBlock.attribution.file), 'destructive hook entry must be attributable before the block result');
 
+  // Execute both canonical and packaged pre-entrypoints with real MCP argument shapes.
+  for (const gate of [actionGate, require(path.join(pluginRoot, 'hooks', 'scripts', 'action-gate.js'))]) {
+    for (const outcome of ['success', 'failure']) {
+      const candidate = {
+        ...payload('', { toolUseId: `metadata-${outcome}`, turnId: 'metadata-turn' }),
+        tool_name: 'mcp__codex_apps__github__update_pull_request',
+        tool_input: { repository_full_name: 'acme/repo', pr_number: 376, body: 'private fixture body' },
+      };
+      const pre = gate.evaluatePreToolUse(candidate, { host: 'codex', sessionDir, ruleTable: table });
+      assert.strictEqual(pre.kind, 'allow');
+      assert.strictEqual(pre.stdout, null);
+      assert.strictEqual(pre.record.disposition, 'deferred-to-host');
+      assert.strictEqual(pre.record.host, 'codex');
+      assert.strictEqual(pre.record.toolUseId, candidate.tool_use_id);
+      assert.strictEqual(pre.record.matchedRule, 'routine-pr-metadata-update');
+      const hash = gate.hashExact(gate.exactPayloadText(candidate));
+      assert.strictEqual(pre.record.commandHash, hash);
+      assert.strictEqual(pre.record.actionDescriptor.payloadHash, hash);
+      assert.ok(!JSON.stringify(pre.record).includes('private fixture body'));
+      const post = gate.finalizeExecution(candidate, outcome, { sessionDir });
+      assert.strictEqual(post.record.disposition, 'executed');
+      assert.strictEqual(post.record.executionOutcome, outcome);
+      assert.strictEqual(post.record.commandHash, hash);
+
+      gate.evaluatePreToolUse(candidate, { host: 'codex', sessionDir, ruleTable: table });
+      const altered = { ...candidate, tool_input: { ...candidate.tool_input, state: 'closed' } };
+      assert.strictEqual(gate.finalizeExecution(altered, 'success', { sessionDir }).record.disposition, 'integrity-violation');
+      const denied = gate.evaluatePreToolUse(altered, { host: 'codex', sessionDir, ruleTable: table });
+      assert.strictEqual(denied.kind, 'block');
+      assert.strictEqual(denied.exitCode, 2);
+      assert.strictEqual(denied.stdout, null);
+      assert.strictEqual(denied.record.disposition, 'rejected');
+      assert.strictEqual(denied.record.rejectionReason, 'host-ask-decision-unverified-or-unsupported');
+      assert.notStrictEqual(denied.record.commandHash, hash);
+    }
+  }
+  const metadataEntry = preAdapter.processPayload({
+    ...payload('', { toolUseId: 'metadata-entry' }),
+    tool_name: 'mcp__codex_apps__github_update_pull_request',
+    tool_input: { repository_full_name: 'acme/repo', pr_number: 376, title: 'fixture' },
+  }, { host: 'codex', sessionDir, ruleTable: table, attributionDir, runNonce: 'metadata-fixture' });
+  assert.strictEqual(metadataEntry.kind, 'allow');
+  assert.strictEqual(metadataEntry.attribution.record.payloadHash, metadataEntry.record.commandHash);
+  assert.strictEqual(metadataEntry.attribution.record.toolUseId, metadataEntry.record.toolUseId);
+  assert.strictEqual(fs.readFileSync(path.join(ROOT, 'hooks/scripts/action-gate.js'), 'utf8'),
+    fs.readFileSync(path.join(pluginRoot, 'hooks/scripts/action-gate.js'), 'utf8'));
+
   const blockedParent = path.join(tempRoot, 'not-a-directory');
   fs.writeFileSync(blockedParent, 'fixture', 'utf8');
   const failedAttribution = preAdapter.processPayload(payload('git push --force origin main', {

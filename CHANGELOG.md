@@ -100,6 +100,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- Codex PR title/body-only updates defer to native task scope and permissions after exact operation and argument checks; required Gate hints and high-risk fields remain gated.
+
 - Keep successful installed workflow step dispositions from advancing verification freshness while unknown workflow commands and mutations remain tracked (#365).
 
 - Accept an interior `~` in unquoted installed doc-check path tokens, and reject `%VAR%` expansion before identity and digest checks.

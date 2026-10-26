@@ -17,6 +17,10 @@ Statuses are intentionally explicit:
 
 Codex and OpenCode are `Partial` in `liveHostVerification`. The Codex artifact verifies user-hook compatibility capture for two consecutive turns on one Windows Codex CLI host; native plugin-hook mounting and other host/version combinations remain unverified. OpenCode's retained evidence supports project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS), not durable hard enforcement. No fresh artifacts exist yet for the other surfaces, managed-workspace import, or public OpenAI approval.
 
+### Codex PR metadata action-gate boundary
+
+Exact title/body-only `update_pull_request` calls are Codex-only host-deferred mutations after an argument allowlist check; explicit required Gate hints and all additional fields retain the existing Gate. Native task scope, permissions and GitHub authorization remain authoritative. Canonical/package mechanism tests cover hashes, audit provenance, outcomes and negative controls; this does not establish candidate live-host coverage. See [Codex policy](codex-action-gate.md#codex-pr-titlebody-updates-host-deferred).
+
 ### Routing contract vs. host evidence
 
 The workflow plan controller rejects present non-array required/optional binding declarations before recording a requirement plan. This input-validation contract is covered by deterministic mechanism tests and does not change live-host evidence status.
@@ -27,7 +31,8 @@ This is a **repository/agent contract**, not an automatic upgrade to any platfor
 
 ### Action-gate mechanism vs. host semantic boundary
 
-Routine exact `create_pull_request` operations are host-deferred at the mechanism level:
+Routine exact `create_pull_request` operations and Codex title/body-only
+`update_pull_request` operations are host-deferred at the mechanism level:
 their descriptor remains a mutation (not read/safe), and no Harness consent or
 `permissionDecision` is emitted. Native agent task-scope authorization and native
 permissions stay authoritative; an explicit required `actionGate` hint still gates.
@@ -140,7 +145,8 @@ The public OpenAI Skills-only plugin is narrower again. Its ZIP contains the pac
 Codex `UserPromptSubmit` prompts pass through to the normal router unchanged;
 Harness does not parse or intercept a fixed approval syntax. Native agent
 task-scope authorization and native permissions remain authoritative. Routine
-exact `create_pull_request` operations are host-deferred at the mechanism level:
+exact `create_pull_request` operations and Codex title/body-only
+`update_pull_request` operations are host-deferred at the mechanism level:
 their descriptor remains a mutation (not read/safe), and no Harness consent or
 `permissionDecision` is emitted. All other risky actions remain hard PreToolUse
 blocks; an explicitly required `actionGate` hint still gates. These are
