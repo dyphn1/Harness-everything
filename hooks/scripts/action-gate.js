@@ -384,7 +384,8 @@ function routerActionGateHint(payload) {
     payload && payload.routerContract && payload.routerContract.workflowPlan && payload.routerContract.workflowPlan.actionGate,
     payload && payload.harness && payload.harness.workflowPlan && payload.harness.workflowPlan.actionGate,
   ];
-  const gate = candidates.find(candidate => candidate && typeof candidate === 'object');
+  const gate = candidates.find(candidate => candidate && typeof candidate === 'object' && candidate.required)
+    || candidates.find(candidate => candidate && typeof candidate === 'object');
   if (!gate) return null;
   return {
     required: Boolean(gate.required),
