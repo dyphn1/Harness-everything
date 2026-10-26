@@ -1660,8 +1660,9 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
     fs.writeFileSync(target, bytes);
   }
 
-  function commitFixture(root, message) {
+  function commitFixture(root, message, executablePath) {
     fixtureGit(root, ['add', '-A']);
+    if (executablePath) fixtureGit(root, ['update-index', '--chmod=+x', '--', executablePath]);
     fixtureGit(root, ['commit', '--quiet', '-m', message]);
     return fixtureGit(root, ['rev-parse', 'HEAD']).toString('ascii').trim();
   }
@@ -1679,6 +1680,19 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
           : fs.readFileSync(path.join(REPOSITORY_ROOT, ...relativePath.split('/')));
       writeRelative(root, relativePath, bytes);
     }
+    const copyScenarioTree = (from, into) => {
+      fs.mkdirSync(into, { recursive: true });
+      for (const entry of fs.readdirSync(from, { withFileTypes: true })) {
+        const source = path.join(from, entry.name);
+        const target = path.join(into, entry.name);
+        if (entry.isDirectory()) copyScenarioTree(source, target);
+        else fs.copyFileSync(source, target);
+      }
+    };
+    copyScenarioTree(
+      path.join(REPOSITORY_ROOT, 'ci/fixtures/doc-lifecycle/scenarios'),
+      path.join(root, 'ci/fixtures/doc-lifecycle/scenarios')
+    );
     const policy = JSON.parse(fs.readFileSync(path.join(REPOSITORY_ROOT, '.agents/harness-everything/project-docs.json'), 'utf8'));
     for (const record of [...policy.governed, ...policy.derived]) writeRelative(root, record.path, `baseline ${record.path}\n`);
     writeRelative(root, 'docs/ordinary.md', 'baseline ordinary document\n');
@@ -1701,7 +1715,6 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
 
   const fixture = createFixture();
   const ordinaryPath = path.join(fixture.root, 'docs', 'ordinary.md');
-  fs.writeFileSync(path.join(fixture.root, 'docs', 'architecture.md'), 'ordinary governed content edit\n');
   fs.writeFileSync(ordinaryPath, 'ordinary document edit\n');
   writeRelative(fixture.root, 'docs/new\nunknown.md', 'new document\n');
   const linkOid = fixtureGit(fixture.root, ['hash-object', '-w', '--stdin'], Buffer.from('../outside-target.md\n')).toString('ascii').trim();
@@ -1717,7 +1730,11 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
   assert.strictEqual(positive.report.inputs.candidate.commit, positiveCandidate, 'candidate SHA is exact in JSON');
   assert.strictEqual(positive.report.verifier.sha256, crypto.createHash('sha256').update(frozenGuard).digest('hex'));
   assert.strictEqual(positive.report.verifier.matchesBaseObject, true, 'running verifier bytes match the baseline guard blob');
-  assert.deepStrictEqual(positive.report.trustSurface.paths.map(item => item.path), trustedPaths, 'bounded trust surface is explicit');
+  assert.deepStrictEqual(positive.report.trustSurface.paths.slice(0, trustedPaths.length).map(item => item.path), trustedPaths, 'fixed trust surface is explicit');
+  const scenarioExpectedPath = 'ci/fixtures/doc-lifecycle/scenarios/active-to-active/expected.json';
+  const scenarioOracle = positive.report.trustSurface.paths.find(item => item.path === scenarioExpectedPath);
+  assert.ok(scenarioOracle, 'tracked scenario oracle is part of the baseline trust surface');
+  assert.deepStrictEqual(scenarioOracle.base, scenarioOracle.candidate, 'unchanged oracle identity is a positive control');
   const newDocs = new Map(positive.report.newDocuments.map(item => [item.path, item]));
   for (const relativePath of ['docs/new\nunknown.md', 'docs/link.md', 'docs/submodule.md']) {
     const record = newDocs.get(relativePath);
@@ -1729,6 +1746,50 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
   assert.strictEqual(newDocs.get('docs/link.md').mode, '120000', 'symlink mode is retained without following the target');
   assert.strictEqual(newDocs.get('docs/submodule.md').mode, '160000', 'gitlink mode is retained without recursing');
   assert.strictEqual(newDocs.get('docs/submodule.md').type, 'commit');
+
+  const scenarioExpectedFile = path.join(fixture.root, ...scenarioExpectedPath.split('/'));
+  for (const mutation of ['content', 'delete', 'mode', 'add']) {
+    resetFixture(fixture);
+    if (mutation === 'content') {
+      const expected = JSON.parse(fs.readFileSync(scenarioExpectedFile, 'utf8'));
+      delete expected.resolve['docs/adr/GRPH-002.md'];
+      fs.writeFileSync(scenarioExpectedFile, `${JSON.stringify(expected, null, 2)}\n`);
+    } else if (mutation === 'delete') {
+      fixtureGit(fixture.root, ['rm', '--quiet', '--', scenarioExpectedPath]);
+    } else if (mutation === 'add') {
+      writeRelative(fixture.root, 'ci/fixtures/doc-lifecycle/scenarios/new/expected.json', '{}\n');
+    }
+    const candidate = commitFixture(fixture.root, `mutate scenario oracle ${mutation}`, mutation === 'mode' ? scenarioExpectedPath : undefined);
+    const result = runFrozenGuard(fixture, fixture.base, candidate);
+    assert.strictEqual(result.status, 2, `scenario fixture ${mutation} requires review: ${result.stderr}`);
+    assert.strictEqual(result.report.verdict, 'REVIEW_REQUIRED');
+    const item = result.report.trustSurface.changed.find(entry => entry.path === (mutation === 'add'
+      ? 'ci/fixtures/doc-lifecycle/scenarios/new/expected.json'
+      : scenarioExpectedPath));
+    assert.ok(item, `scenario fixture ${mutation} identity change is reported`);
+    if (mutation === 'delete') assert.strictEqual(item.candidate, null, 'deleted oracle retains its baseline identity');
+    if (mutation === 'add') assert.strictEqual(item.base, null, 'new oracle has no baseline identity');
+    if (mutation === 'content') assert.notStrictEqual(item.base.oid, item.candidate.oid, 'oracle content change is reported by blob OID');
+    if (mutation === 'mode') assert.notStrictEqual(item.base.mode, item.candidate.mode, 'oracle mode change is reported');
+  }
+
+  for (const relativePath of ['docs/architecture.md', 'docs/governed-index.md']) {
+    resetFixture(fixture);
+    writeRelative(fixture.root, relativePath, `changed configured document ${relativePath}\n`);
+    const candidate = commitFixture(fixture.root, `edit configured document ${relativePath}`);
+    const result = runFrozenGuard(fixture, fixture.base, candidate);
+    assert.strictEqual(result.status, 2, `${relativePath} content change requires review: ${result.stderr}`);
+    assert.strictEqual(result.report.verdict, 'REVIEW_REQUIRED');
+    const item = result.report.policyPreservation.configuredPaths.missingOrChanged.find(entry => entry.path === relativePath);
+    assert.ok(item, `${relativePath} identity change is reported`);
+    const baseTree = parseTreeOracle(fixtureGit(fixture.root, ['ls-tree', '-r', '-z', '--full-tree', fixture.base]));
+    const candidateTree = parseTreeOracle(fixtureGit(fixture.root, ['ls-tree', '-r', '-z', '--full-tree', candidate]));
+    const key = Buffer.from(relativePath).toString('base64');
+    const rawIdentity = entry => ({ mode: entry.mode, type: entry.type, oid: entry.oid });
+    assert.deepStrictEqual(item.base, rawIdentity(baseTree.get(key)), 'report includes exact baseline Git identity');
+    assert.deepStrictEqual(item.candidate, rawIdentity(candidateTree.get(key)), 'report includes exact candidate Git identity');
+    assert.notStrictEqual(item.base.oid, item.candidate.oid, 'content change is identified by blob OID');
+  }
 
   resetFixture(fixture);
   fixtureGit(fixture.root, ['rm', '--quiet', '--', 'docs/architecture.md']);

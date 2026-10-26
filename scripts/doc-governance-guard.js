@@ -26,6 +26,7 @@ const TRUST_SURFACE_PATHS = [
   'ci/test-helper.js',
   'scripts/verify-all.js'
 ];
+const TRUST_SURFACE_PREFIXES = ['ci/fixtures/doc-lifecycle/scenarios/'];
 
 function sha256(bytes) {
   return crypto.createHash('sha256').update(bytes).digest('hex');
@@ -180,6 +181,22 @@ function sameIdentity(left, right) {
   return stable(identity(left)) === stable(identity(right));
 }
 
+function trustSurfacePaths(baseTree, candidateTree) {
+  const fixed = TRUST_SURFACE_PATHS.map(relativePath => ({ key: pathKey(relativePath), path: relativePath }));
+  const fixedKeys = new Set(fixed.map(item => item.key));
+  const fixtureEntries = new Map();
+  for (const sourceTree of [baseTree, candidateTree]) {
+    for (const [key, entry] of sourceTree) {
+      if (fixedKeys.has(key) || !TRUST_SURFACE_PREFIXES.some(prefix => entry.pathBytes.subarray(0, Buffer.byteLength(prefix)).equals(Buffer.from(prefix)))) continue;
+      fixtureEntries.set(key, pathText(entry.pathBytes));
+    }
+  }
+  const fixtures = [...fixtureEntries]
+    .sort(([left], [right]) => Buffer.compare(Buffer.from(left, 'base64'), Buffer.from(right, 'base64')))
+    .map(([key, path]) => ({ key, path }));
+  return [...fixed, ...fixtures];
+}
+
 function documentPath(pathBytes) {
   const lower = pathBytes.toString('latin1').toLowerCase();
   return /\.(?:md|mdx|markdown|rst|adoc|txt)$/.test(lower)
@@ -212,8 +229,8 @@ function checkConfiguredPaths(baseTree, candidateTree, config) {
       const before = baseTree.get(key);
       const after = candidateTree.get(key);
       if (!regularBlob(before)) throw new Error(`baseline ${kind} path is missing or not a regular file: ${record.path}`);
-      const pathPreserved = regularBlob(after) && before.mode === after.mode;
-      details.push({ kind, path: record.path, state: pathPreserved ? 'pass' : 'review_required', base: identity(before), candidate: identity(after) });
+      const identityPreserved = regularBlob(after) && before.mode === after.mode && before.oid === after.oid;
+      details.push({ kind, path: record.path, state: identityPreserved ? 'pass' : 'review_required', base: identity(before), candidate: identity(after) });
     }
   }
   const failures = details.filter(item => item.state !== 'pass');
@@ -253,7 +270,7 @@ function run(argv) {
     reviewAuthority: 'External reviewer only; candidate-controlled approval files or reports are never read.',
     limits: [
       'Candidate-owned CI is not independent enforcement; bootstrap remains unchecked until an external reviewer binds frozen guard bytes to final exact SHAs.',
-      'Document text and derived-view parity are not validated; existing configured paths and policy records are only preserved.'
+      'Document semantics and derived-view parity are not validated; configured documents are required to keep their baseline Git identities.'
     ],
     errors: []
   };
@@ -291,10 +308,10 @@ function run(argv) {
     report.policyPreservation.state = [report.policyPreservation.governed, report.policyPreservation.derived, report.policyPreservation.configuredPaths]
       .some(item => item.state !== 'pass') ? 'review_required' : 'pass';
 
-    report.trustSurface.paths = TRUST_SURFACE_PATHS.map(relativePath => {
-      const before = baseTree.get(pathKey(relativePath));
-      const after = candidateTree.get(pathKey(relativePath));
-      return { path: relativePath, base: identity(before), candidate: identity(after), changed: !sameIdentity(before, after) };
+    report.trustSurface.paths = trustSurfacePaths(baseTree, candidateTree).map(({ key, path }) => {
+      const before = baseTree.get(key);
+      const after = candidateTree.get(key);
+      return { path, ...(path === null ? { pathBase64: key } : {}), base: identity(before), candidate: identity(after), changed: !sameIdentity(before, after) };
     });
     report.trustSurface.changed = report.trustSurface.paths.filter(item => item.changed);
     report.trustSurface.state = report.trustSurface.changed.length ? 'review_required' : 'pass';
