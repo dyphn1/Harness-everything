@@ -9,8 +9,9 @@
 | Reproduce | `node ci/action-gate.test.js`; `node ci/mechanism-2aa-codex-action-gate-policy.test.js`; `node ci/mechanism-task-git-authorization.test.js` |
 | Package | `npm run plugin:sync`; canonical/package action gate byte comparison and identical lifecycle tests |
 | Final core | `c170a96cf856295200d2d1a62c15a552c3cb2b37` |
-| Full regression | Node 24.22.1 `npm run verify:all` pending at final core SHA |
-| Independent review | Pending Luna xhigh cold review |
+| Full regression | [Node 24 full run](verification.md): 13 PASS, 0 FAIL, 3 UNCHECKED (local Node 22 lanes); exit 0 |
+| Reviewer routing | `spawn_agent`: `fork_turns=none`, `model=gpt-6-luna`, `reasoning_effort=xhigh`; host-issued model identity/effort attestation is not exposed |
+| Independent review | [Luna cold review](luna-review.md): core PASS at `c170a96`; 1 BLOCKER + 2 MAJOR fixed and independently rechecked; no open code BLOCKER/MAJOR |
 | Candidate live Host | UNCHECKED: current session loads immutable installed runtime `0.42.0-f51078676b56`, not this candidate; no hook/trust configuration changed |
 
 ## Original rejection provenance
@@ -56,3 +57,12 @@ node benchmarks/results/codex-pr-metadata-2026-10-26/luna-codex-action-gate-preh
 - [Cross-product log](luna-action-family-cross-product.log): 2,709 cases, 4,729 assertions, 0 failures.
 - [Stdin smoke log](luna-codex-action-gate-prehook-smoke.log): seven actual pre-hook subprocess cases PASS, covering host deferral and rejected cases with persisted audit fields.
 - These are deterministic mechanism evidence, not live Codex Host evidence.
+
+
+## Controlled GitHub delivery probe
+
+- Draft [PR #377](https://github.com/dyphn1/Harness-everything/pull/377) was created via the normal GitHub MCP create path (no merge).
+- The same body was then submitted via normal `github_update_pull_request`, with only repository_full_name/pr_number/body. The installed old runtime rejected it before execution as `structured-mutate`.
+- [Preserved live rejection](live-installed-runtime-rejection.json) binds the attempted body to its payload hash and installed rule-table provenance. No alternate PR edit path was used after rejection; the PR body was not changed by this probe.
+- This is live evidence of the installed old version's rejection, not candidate live PASS. Candidate update/title/body and comment lifecycle live-host execution remain UNCHECKED; no comment-operation exemption was added.
+- CI: [initial PR workflow](https://github.com/dyphn1/Harness-everything/actions/runs/40275422862); final HEAD status must be checked separately after evidence commits.
