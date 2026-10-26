@@ -353,6 +353,92 @@ try {
 
   check(fs.readFileSync(rulesPath, 'utf8') === fs.readFileSync(pluginRules, 'utf8'), 'canonical and plugin action-gate rule tables are byte-identical');
   check(fs.existsSync(pluginScript), 'OpenAI plugin packages action-gate runtime');
+
+  // Codex PR metadata scope: exact operation AND actual argument allowlist.
+  const metadataInput = { repository_full_name: 'acme/repo', pr_number: 376, body: 'metadata fixture' };
+  const metadataPayload = (input = metadataInput, tool = 'mcp__codex_apps__github__update_pull_request', extra = {}) => ({
+    ...payload('', { tool }), tool_input: input, ...extra,
+  });
+  for (const tool of ['update_pull_request', 'mcp__github__update_pull_request', 'mcp__codex_apps__github__update_pull_request', 'mcp__codex_apps__github_update_pull_request']) {
+    for (const fields of [{ body: '' }, { title: 'new title' }, { title: 'new title', body: 'new body' }]) {
+      const candidate = metadataPayload({ repository_full_name: 'acme/repo', pr_number: 376, ...fields }, tool);
+      const result = actionGate.evaluatePreToolUse(candidate, { host: 'codex', sessionDir, ruleTable: table });
+      check(result.kind === 'allow' && result.stdout === null && result.exitCode === 0, `${tool} ${Object.keys(fields)} defers without a permission decision`);
+      const descriptor = actionGate.normalizeActionDescriptor(candidate);
+      check(descriptor.action === 'mutate' && descriptor.classification === 'gated', 'metadata remains a non-safe mutation');
+    }
+  }
+  for (const selector of [{ owner: 'acme', repo: 'repo', pullNumber: 376 }, { owner: 'acme', repo: 'repo', pull_number: 376 }]) {
+    check(actionGate.evaluatePreToolUse(metadataPayload({ ...selector, body: 'provider-neutral' }), { host: 'codex', sessionDir, ruleTable: table }).kind === 'allow', 'provider-neutral selectors support metadata updates');
+  }
+  const ownUnknown = JSON.parse('{"repository_full_name":"acme/repo","pr_number":376,"body":"fixture","__proto__":{"state":"closed"}}');
+  check(actionGate.evaluatePreToolUse(metadataPayload(ownUnknown), { host: 'codex', sessionDir, ruleTable: table }).kind === 'block', 'own __proto__ field cannot escape the argument allowlist');
+  const explicitDelete = metadataPayload(metadataInput, undefined, { action_descriptor: { action: 'delete' } });
+  check(actionGate.evaluatePreToolUse(explicitDelete, { host: 'codex', sessionDir, ruleTable: table }).kind === 'block', 'explicit higher-risk action cannot inherit metadata deferral');
+  for (const extra of [
+    { state: 'closed' }, { state: 'open' }, { state: null }, { base_branch: 'other' },
+    { maintainer_can_modify: false }, { maintainer_can_modify: null }, { unknown: true },
+    { title: 'mixed', state: 'closed' }, { draft: true }, { base: 'other' },
+    { action_descriptor: { action: 'delete' } },
+  ]) {
+    const result = actionGate.evaluatePreToolUse(metadataPayload({ ...metadataInput, ...extra }), { host: 'codex', sessionDir, ruleTable: table });
+    check(result.kind === 'block' && result.exitCode === 2, `metadata with ${JSON.stringify(extra)} remains gated`);
+  }
+  for (const input of [null, [], 'body', {}, { repository_full_name: 'acme/repo', pr_number: 376 },
+    { ...metadataInput, body: null }, { ...metadataInput, title: 2 }, { ...metadataInput, body: {} }]) {
+    check(actionGate.evaluatePreToolUse(metadataPayload(input), { host: 'codex', sessionDir, ruleTable: table }).kind === 'block', 'missing or malformed metadata remains gated');
+  }
+  for (const tool of ['mcp__demo__update_pull_requests', 'mcp__demo__foo_update_pull_request', 'mcp__demo__update_pull_request_and_delete', 'mcp__codex_apps__github_update_pull_request_extra', 'mcp__demo__merge_pull_request', 'mcp__demo__close_pull_request']) {
+    check(actionGate.evaluatePreToolUse(metadataPayload(metadataInput, tool), { host: 'codex', sessionDir, ruleTable: table }).kind === 'block', `${tool} receives no metadata exception`);
+  }
+  for (const host of ['claude', 'opencode', 'unknown']) {
+    const result = actionGate.evaluatePreToolUse(metadataPayload(), { host, sessionDir, ruleTable: table });
+    check(result.rule && result.rule.id === 'structured-mutate', `${host} retains existing mutation rule`);
+  }
+  for (const hint of [{ actionGate: { required: true } }, { workflowPlan: { actionGate: { required: true } } }, { harness: { workflowPlan: { actionGate: { required: true } } } }, { routerContract: { workflowPlan: { actionGate: { required: true } } } }]) {
+    check(actionGate.evaluatePreToolUse(metadataPayload(metadataInput, undefined, hint), { host: 'codex', sessionDir, ruleTable: table }).kind === 'block', 'explicit required metadata gate cannot be bypassed');
+  }
+  for (const action of ['read', 'unknown']) {
+    for (const descriptor of [{ action_descriptor: { action } }, { actionDescriptor: { action } }, { harness: { actionDescriptor: { action } } }]) {
+      const candidate = metadataPayload({ ...metadataInput, state: 'closed' }, undefined, {
+        ...descriptor, workflowPlan: { actionGate: { required: true } },
+      });
+      const result = actionGate.evaluatePreToolUse(candidate, { host: 'codex', sessionDir, ruleTable: table });
+      check(result.kind === 'block' && result.exitCode === 2, `known Codex PR mutation cannot be downgraded to ${action}`);
+      check(result.record && result.record.actionDescriptor.action === 'mutate', 'downgrade refusal remains an audited mutation');
+    }
+    const inputDescriptor = metadataPayload({ ...metadataInput, state: 'closed', action_descriptor: { action } }, undefined, { actionGate: { required: true } });
+    check(actionGate.evaluatePreToolUse(inputDescriptor, { host: 'codex', sessionDir, ruleTable: table }).kind === 'block', `input ${action} descriptor cannot hide a required PR mutation gate`);
+  }
+  const misleadingProvider = metadataPayload({ ...metadataInput, state: 'closed' }, 'mcp__get_provider__update_pull_request');
+  check(actionGate.evaluatePreToolUse(misleadingProvider, { host: 'codex', sessionDir, ruleTable: table }).kind === 'block', 'provider namespace read token cannot downgrade exact PR mutation');
+  for (const host of ['claude', 'opencode', 'unknown']) {
+    const describedRead = metadataPayload(metadataInput, undefined, { action_descriptor: { action: 'read' } });
+    check(actionGate.evaluatePreToolUse(describedRead, { host, sessionDir, ruleTable: table }).kind === 'allow', `${host} explicit descriptor behavior remains unchanged`);
+  }
+  for (const action of ['read', 'unknown', 'mutate', 'delete', 'publish', 'deploy', 'send']) {
+    const candidate = metadataPayload({ ...metadataInput, state: 'closed', action_descriptor: { toolFamily: 'shell', action } }, undefined, { actionGate: { required: true } });
+    const result = actionGate.evaluatePreToolUse(candidate, { host: 'codex', sessionDir, ruleTable: table });
+    check(result.kind === 'block' && result.exitCode === 2, `shell family cannot disguise exact Codex PR ${action}`);
+    check(result.record && result.record.actionDescriptor.toolFamily === 'mcp', 'known MCP identity is preserved in audit');
+  }
+  const gateEnvelopes = gate => [
+    { actionGate: gate }, { workflowPlan: { actionGate: gate } },
+    { routerContract: { workflowPlan: { actionGate: gate } } },
+    { harness: { workflowPlan: { actionGate: gate } } },
+  ];
+  for (let requiredAt = 0; requiredAt < 4; requiredAt++) {
+    const optionalHints = Object.assign({}, ...gateEnvelopes({ required: false }));
+    const hints = { ...optionalHints, ...gateEnvelopes({ required: true })[requiredAt] };
+    const candidate = metadataPayload(metadataInput, undefined, hints);
+    const result = actionGate.evaluatePreToolUse(candidate, { host: 'codex', sessionDir, ruleTable: table });
+    check(result.kind === 'block' && result.exitCode === 2, `required hint envelope ${requiredAt} wins over optional envelopes`);
+    check(result.record && result.record.routerActionGate.required === true, 'audit retains required hint instead of a conflicting optional hint');
+    const creation = { ...candidate, tool_name: 'mcp__github__create_pull_request' };
+    check(actionGate.evaluatePreToolUse(creation, { host: 'codex', sessionDir, ruleTable: table }).kind === 'block', 'PR creation still honors the documented explicit required gate');
+  }
+
+
 } catch (err) {
   console.error(err.stack || err.message);
   failed++;

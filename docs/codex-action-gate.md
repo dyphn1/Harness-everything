@@ -132,7 +132,8 @@ Harness does not parse, bind, or intercept any fixed approval syntax in user
 prompts. Native agent task-scope authorization and native permissions remain
 authoritative.
 
-Routine exact `create_pull_request` operations are host-deferred (below). All
+Routine exact `create_pull_request` operations and Codex title/body-only
+`update_pull_request` operations are host-deferred (below). All
 other risky actions (merge/delete/deploy/publish/send/force-push and unrelated
 genuine mutations) remain hard PreToolUse blocks; an explicitly required
 `actionGate` hint still gates. These are deterministic mechanism changes, not
@@ -153,3 +154,28 @@ risky actions (merge/delete/deploy/publish/send/force-push and unrelated genuine
 mutations) remain gated; exact operation matching is used, with no substring
 exemption, so misleading names such as `create_pull_requests` or
 `foo_create_pull_request` still block.
+
+
+## Codex PR title/body updates (host-deferred)
+
+The Codex-only metadata exception checks the actual tool input, with all of these conditions:
+
+- Exact final `__` operation `update_pull_request`, or exact flattened connector name `mcp__codex_apps__github_update_pull_request`.
+- A non-array object containing at least one string `title` or `body` (empty body is supported).
+- Only `title`, `body`, and selector keys `repository_full_name`, `pr_number`, `owner`, `repo`, `pullNumber`, `pull_number` are present.
+- Exact Codex PR updates cannot be downgraded to `read`/`unknown` by an explicit descriptor or a provider namespace; higher-risk action descriptors remain gated. Their tool family comes from the actual tool identity, so a descriptor cannot disguise the MCP update as shell input.
+- No explicit required `actionGate` hint in any supported envelope (a required hint wins over conflicting optional hints); the action descriptor remains `mutate`/`gated`.
+
+Any additional key, including `state`, `base_branch`, `base`, `maintainer_can_modify`, `draft`, or an unknown key, prevents the exception, even when its value is null. Mixed metadata/high-risk inputs and similar operation names retain the existing Gate. Claude, OpenCode and unknown hosts retain their prior mutation rules. PR creation behavior is unchanged.
+
+```mermaid
+flowchart LR
+  A["Exact PR update + actual arguments"] --> B{"Codex + title/body only<br/>+ no required Gate?"}
+  B -->|Yes| C["Host-deferred mutation<br/>no permission decision"]
+  B -->|No| D["Existing structured Gate"]
+  C --> E["Native task scope + permissions<br/>+ GitHub authorization"]
+```
+
+Host-deferred does not grant authorization. Harness emits no `permissionDecision` allow/ask; native permissions, task scope, and GitHub access still decide execution. The audit records `routine-pr-metadata-update`, `deferred-to-host`, host/tool provenance and the exact payload hash, without storing title/body. PostToolUse records execution success/failure; Stop rejects an unexecuted deferral. A changed payload cannot reuse the original hash.
+
+Evidence: [RED/GREEN and independent review](../benchmarks/results/codex-pr-metadata-2026-10-26/README.md). Package/mechanism verification is separate from live Host verification (#110, #122, #135; affected PR #376).
