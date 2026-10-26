@@ -17,6 +17,7 @@
 - Observed 2026-10-26T01:12:15.045Z; session `01a175b3-4583-7590-9c9d-f71a9439ae8e`, tool call `exec-8e76e1be-e5a3-493d-807b-2ad6cdbc7c31`.
 - Actual tool: `mcp__codex_apps__github__update_pull_request`; arguments: `repository_full_name`, `pr_number: 376`, `body` only.
 - Audit: `structured-mutate`, `mutate`/`gated`, host `codex`, `rejected`, reason `host-ask-decision-unverified-or-unsupported`.
+- Recomputed from the original transcript CommandExecution output at 2026-10-26T01:12:14.917Z (1,840 characters): MATCH. The temporary body file changed later and is not used as original evidence.
 - Exact input SHA-256: `b9bda7116fb01c045edd71a6b4fc3091c0ab707e0b797f1b4efca6e7a4edc87b`. Audit intentionally omits raw body.
 - Local audit: `~/.agents/harness-everything/workspaces/harness-everything-4534d9804d9c/state/sessions/01a175b3-4583-7590-9c9d-f71a9439ae8e/action-gate/exec-8e76e1be-e5a3-493d-807b-2ad6cdbc7c31.json`.
 - Transcript: `~/.codex/sessions/2026/10/26/rollout-2026-10-26T08-54-05-01a175b3-4583-7590-9c9d-f71a9439ae8e.jsonl`, call `call_0a3ca81d5e134c76a9339a116e7fe417` supplies only those keys and records the matching Hook rejection.

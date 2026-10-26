@@ -31,7 +31,8 @@ This is a **repository/agent contract**, not an automatic upgrade to any platfor
 
 ### Action-gate mechanism vs. host semantic boundary
 
-Routine exact `create_pull_request` operations are host-deferred at the mechanism level:
+Routine exact `create_pull_request` operations and Codex title/body-only
+`update_pull_request` operations are host-deferred at the mechanism level:
 their descriptor remains a mutation (not read/safe), and no Harness consent or
 `permissionDecision` is emitted. Native agent task-scope authorization and native
 permissions stay authoritative; an explicit required `actionGate` hint still gates.
@@ -144,7 +145,8 @@ The public OpenAI Skills-only plugin is narrower again. Its ZIP contains the pac
 Codex `UserPromptSubmit` prompts pass through to the normal router unchanged;
 Harness does not parse or intercept a fixed approval syntax. Native agent
 task-scope authorization and native permissions remain authoritative. Routine
-exact `create_pull_request` operations are host-deferred at the mechanism level:
+exact `create_pull_request` operations and Codex title/body-only
+`update_pull_request` operations are host-deferred at the mechanism level:
 their descriptor remains a mutation (not read/safe), and no Harness consent or
 `permissionDecision` is emitted. All other risky actions remain hard PreToolUse
 blocks; an explicitly required `actionGate` hint still gates. These are
