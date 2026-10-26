@@ -131,6 +131,18 @@ try {
   }));
   assert.strictEqual(neutralResult.status, 0, 'exact create_pull_request operation must be host-deferred on Codex (currently exits 2: RED)');
 
+  for (const tool of ['mcp__codex_apps__github__update_pull_request', 'mcp__codex_apps__github_update_pull_request', 'mcp__github__update_pull_request']) {
+    for (const fields of [{ body: 'replacement body' }, { title: 'replacement title' }, { title: 'both', body: '' }]) {
+      const result = run(payload(tool, { repository_full_name: 'acme/repo', pr_number: 1, ...fields }));
+      assert.strictEqual(result.status, 0, 'metadata-only actual stdin payload must be host-deferred');
+      assert.strictEqual(result.stdout.trim(), '', 'metadata deferral must emit no permission decision');
+    }
+    const denied = run(payload(tool, { repository_full_name: 'acme/repo', pr_number: 1, body: 'mixed', state: 'closed' }));
+    assert.strictEqual(denied.status, 2, 'mixed metadata/state actual stdin payload must fail closed');
+    assert.strictEqual(denied.stdout.trim(), '');
+    assert.match(denied.stderr, /structured-mutate/);
+  }
+
   // Genuine mutations remain blocked, but the fixed-format approval protocol is retired.
   const legacyMutation = run(payload('mcp__demo__update_issue', { issue_id: 1, title: 'changed' }));
   assert.strictEqual(legacyMutation.status, 2, 'genuine mutation must remain blocked on Codex');

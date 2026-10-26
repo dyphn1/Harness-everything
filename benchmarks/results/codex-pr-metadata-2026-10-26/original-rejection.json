@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "toolName": "mcp__codex_apps__github__update_pull_request",
+  "toolUseId": "exec-8e76e1be-e5a3-493d-807b-2ad6cdbc7c31",
+  "commandHash": "b9bda7116fb01c045edd71a6b4fc3091c0ab707e0b797f1b4efca6e7a4edc87b",
+  "actionDescriptor": {
+    "schemaVersion": 1,
+    "toolFamily": "mcp",
+    "toolName": "mcp__codex_apps__github__update_pull_request",
+    "action": "mutate",
+    "resource": "dyphn1/Harness-everything",
+    "payloadHash": "b9bda7116fb01c045edd71a6b4fc3091c0ab707e0b797f1b4efca6e7a4edc87b",
+    "classification": "gated",
+    "reasonCodes": [
+      "tool-identity-inference"
+    ]
+  },
+  "matchedRule": "structured-mutate",
+  "ruleReason": "Structured mutate action requires pre-action authorization.",
+  "disposition": "rejected",
+  "host": "codex",
+  "permissionMode": "bypassPermissions",
+  "gatePolicy": "defer-to-host",
+  "routerActionGate": null,
+  "ruleTableSource": "/Users/daniel.chang/.codex/harness-everything/compat-hooks/runtime/0.42.0-f51078676b56/hooks/scripts/action-gate-rules.json",
+  "degradedRuleTable": false,
+  "degradationReason": null,
+  "createdAt": "2026-10-26T01:12:15.045Z",
+  "updatedAt": "2026-10-26T01:12:15.045Z",
+  "rejectionReason": "host-ask-decision-unverified-or-unsupported"
+}

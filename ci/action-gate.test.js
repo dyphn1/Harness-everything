@@ -368,6 +368,13 @@ try {
       check(descriptor.action === 'mutate' && descriptor.classification === 'gated', 'metadata remains a non-safe mutation');
     }
   }
+  for (const selector of [{ owner: 'acme', repo: 'repo', pullNumber: 376 }, { owner: 'acme', repo: 'repo', pull_number: 376 }]) {
+    check(actionGate.evaluatePreToolUse(metadataPayload({ ...selector, body: 'provider-neutral' }), { host: 'codex', sessionDir, ruleTable: table }).kind === 'allow', 'provider-neutral selectors support metadata updates');
+  }
+  const ownUnknown = JSON.parse('{"repository_full_name":"acme/repo","pr_number":376,"body":"fixture","__proto__":{"state":"closed"}}');
+  check(actionGate.evaluatePreToolUse(metadataPayload(ownUnknown), { host: 'codex', sessionDir, ruleTable: table }).kind === 'block', 'own __proto__ field cannot escape the argument allowlist');
+  const explicitDelete = metadataPayload(metadataInput, undefined, { action_descriptor: { action: 'delete' } });
+  check(actionGate.evaluatePreToolUse(explicitDelete, { host: 'codex', sessionDir, ruleTable: table }).kind === 'block', 'explicit higher-risk action cannot inherit metadata deferral');
   for (const extra of [
     { state: 'closed' }, { state: 'open' }, { state: null }, { base_branch: 'other' },
     { maintainer_can_modify: false }, { maintainer_can_modify: null }, { unknown: true },

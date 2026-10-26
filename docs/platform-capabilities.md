@@ -17,6 +17,10 @@ Statuses are intentionally explicit:
 
 Codex and OpenCode are `Partial` in `liveHostVerification`. The Codex artifact verifies user-hook compatibility capture for two consecutive turns on one Windows Codex CLI host; native plugin-hook mounting and other host/version combinations remain unverified. OpenCode's retained evidence supports project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS), not durable hard enforcement. No fresh artifacts exist yet for the other surfaces, managed-workspace import, or public OpenAI approval.
 
+### Codex PR metadata action-gate boundary
+
+Exact title/body-only `update_pull_request` calls are Codex-only host-deferred mutations after an argument allowlist check; explicit required Gate hints and all additional fields retain the existing Gate. Native task scope, permissions and GitHub authorization remain authoritative. Canonical/package mechanism tests cover hashes, audit provenance, outcomes and negative controls; this does not establish candidate live-host coverage. See [Codex policy](codex-action-gate.md#codex-pr-titlebody-updates-host-deferred).
+
 ### Routing contract vs. host evidence
 
 The workflow plan controller rejects present non-array required/optional binding declarations before recording a requirement plan. This input-validation contract is covered by deterministic mechanism tests and does not change live-host evidence status.
