@@ -1437,6 +1437,21 @@ checkCase('2ax P2. baseline-to-candidate ratchet detects scope and identity drif
   const root = workspace('baseline-ratchet');
   const manifestPath = '.agents/harness-everything/document-inventory.json';
   const rule = match => ({ match, role: 'reference', lifecycle: 'current', disposition: 'applicable', reason: `fixture rule for ${match}` });
+  // This expected policy is separate from the candidate manifest under test.
+  const baselineMusts = Object.freeze([
+    Object.freeze({ path: 'docs/reference/keep.md', role: 'reference', lifecycle: 'current', disposition: 'applicable' })
+  ]);
+  const assertBaselineMusts = candidate => {
+    const records = new Map(candidate.records.map(item => [item.pathBytesBase64, item]));
+    for (const must of baselineMusts) {
+      const key = Buffer.from(must.path).toString('base64');
+      const record = records.get(key);
+      assert.ok(record, `baseline MUST document is missing: ${must.path}`);
+      for (const field of ['role', 'lifecycle', 'disposition']) {
+        assert.strictEqual(record[field], must[field], `baseline MUST ${must.path} ${field} changed`);
+      }
+    }
+  };
   const baselineManifest = {
     schemaVersion: 1,
     documentGlobs: ['**/*.md'],
@@ -1491,6 +1506,7 @@ checkCase('2ax P2. baseline-to-candidate ratchet detects scope and identity drif
   ];
   const expectedDocs = new Set(docPaths.map(value => Buffer.from(value).toString('base64')));
   const report = inventory();
+  assert.throws(() => assertBaselineMusts(report), /baseline MUST docs\/reference\/keep\.md role changed/, 'dropping a baseline MUST rule is a policy scope regression');
   const oracle = inventoryOracle(root, base);
   const records = assertInventoryAgainstOracle(report, oracle, expectedDocs);
   const get = value => records.get(Buffer.from(value).toString('base64'));
@@ -1513,6 +1529,24 @@ checkCase('2ax P2. baseline-to-candidate ratchet detects scope and identity drif
     assert.ok(get(value).reason, `unknown or dropped entry keeps a reason: ${value}`);
     assert.strictEqual(get(value).validation.outcome, 'unchecked', `unknown is not semantic PASS: ${value}`);
   }
+
+  const retainedMustManifest = { ...candidateManifest, rules: [rule('docs/reference/keep.md'), ...candidateManifest.rules] };
+  writeManifest(retainedMustManifest);
+  gitAt(root, ['add', '--', manifestPath]);
+  const retainedMustReport = inventory();
+  assert.doesNotThrow(() => assertBaselineMusts(retainedMustReport), 'retaining the baseline MUST passes the policy ratchet');
+  const retainedByPath = new Map(retainedMustReport.records.map(item => [item.path, item]));
+  assert.strictEqual(retainedByPath.get('docs/reference/current.md').disposition, 'applicable', 'unchanged baseline path remains a positive control');
+  assert.strictEqual(retainedByPath.get('docs/unknown/unclassified.md').disposition, 'unknown', 'a new unknown path remains visible without shrinking baseline MUSTs');
+
+  const weakenedMustManifest = {
+    ...retainedMustManifest,
+    rules: retainedMustManifest.rules.map(item => item.match === 'docs/reference/keep.md' ? { ...item, disposition: 'inventory-only' } : item)
+  };
+  writeManifest(weakenedMustManifest);
+  gitAt(root, ['add', '--', manifestPath]);
+  const weakenedMustReport = inventory();
+  assert.throws(() => assertBaselineMusts(weakenedMustReport), /baseline MUST docs\/reference\/keep\.md disposition changed/, 'weakening a baseline MUST rule is a policy scope regression');
 
   function getFrom(candidate, relative) {
     return candidate.records.find(item => item.pathBytesBase64 === Buffer.from(relative).toString('base64'));
