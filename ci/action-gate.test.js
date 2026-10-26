@@ -416,6 +416,12 @@ try {
     const describedRead = metadataPayload(metadataInput, undefined, { action_descriptor: { action: 'read' } });
     check(actionGate.evaluatePreToolUse(describedRead, { host, sessionDir, ruleTable: table }).kind === 'allow', `${host} explicit descriptor behavior remains unchanged`);
   }
+  for (const action of ['read', 'unknown', 'mutate', 'delete', 'publish', 'deploy', 'send']) {
+    const candidate = metadataPayload({ ...metadataInput, state: 'closed', action_descriptor: { toolFamily: 'shell', action } }, undefined, { actionGate: { required: true } });
+    const result = actionGate.evaluatePreToolUse(candidate, { host: 'codex', sessionDir, ruleTable: table });
+    check(result.kind === 'block' && result.exitCode === 2, `shell family cannot disguise exact Codex PR ${action}`);
+    check(result.record && result.record.actionDescriptor.toolFamily === 'mcp', 'known MCP identity is preserved in audit');
+  }
   const gateEnvelopes = gate => [
     { actionGate: gate }, { workflowPlan: { actionGate: gate } },
     { routerContract: { workflowPlan: { actionGate: gate } } },

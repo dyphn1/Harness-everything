@@ -1,0 +1,206 @@
+=== Issue #85 Phase 5 — Pre-action gate ===
+  PASS production action-gate rule table loads without fallback
+  PASS production rule table is non-empty and keeps the destructive baseline
+  PASS rule table contains git-force-push
+  PASS rule table contains git-reset-hard
+  PASS rule table contains git-clean-force-delete
+  PASS rule table contains recursive-delete
+  PASS rule table contains powershell-recursive-force-delete
+  PASS rule table contains sql-destructive-ddl
+  PASS rule table contains package-publish
+  PASS rule table contains github-release-create
+  PASS rule table contains production-deploy
+  PASS Claude force-push defers to the host permission flow without forcing a prompt
+  PASS deferred decision still names the matched rule
+  PASS matched Claude action is audited as deferred-to-host
+  PASS audit records matched rule
+  PASS audit hashes the exact command payload
+  PASS always-ask policy restores the forced Claude prompt
+  PASS ask decision uses Claude PreToolUse hookSpecificOutput
+  PASS ask reason names the matched rule
+  PASS always-ask action is audited as pending-approval
+  PASS git status passes untouched
+  PASS safe unmatched command creates no gate audit record
+  PASS permission_mode=default defers to the host without a forced prompt
+  PASS audit records permission_mode=default
+  PASS permission_mode=acceptEdits defers to the host without a forced prompt
+  PASS audit records permission_mode=acceptEdits
+  PASS permission_mode=plan defers to the host without a forced prompt
+  PASS audit records permission_mode=plan
+  PASS permission_mode=auto defers to the host without a forced prompt
+  PASS audit records permission_mode=auto
+  PASS permission_mode=dontAsk defers to the host without a forced prompt
+  PASS audit records permission_mode=dontAsk
+  PASS permission_mode=bypassPermissions defers to the host without a forced prompt
+  PASS audit records permission_mode=bypassPermissions
+  PASS permission_mode=missing defers to the host without a forced prompt
+  PASS audit records permission_mode=missing
+  PASS command classification gates destructive action even when router hint says not required
+  PASS router actionGate hint is recorded without controlling enforcement
+  PASS safe command is not gated solely because prompt router predicted risk
+  PASS structured MCP delete is gated before execution
+  PASS audit retains normalized structured action identity
+  PASS structured action audit binds to exact payload hash
+  PASS structured action audit does not persist raw secret arguments
+  PASS read-only MCP fixture passes without a false gate
+  PASS obvious structured mutation is classified from tool identity
+  PASS non-shell local-function destructive fixture uses the same structured gate
+  PASS unknown structured action fails closed when workflow requires a gate
+  PASS unknown structured action is not fabricated as destructive without a gate requirement
+  PASS changed structured payload cannot reuse a prior approval/audit decision
+  PASS PowerShell recursive force delete outside scratch is gated
+  PASS PowerShell recursive force delete inside session scratch is exempt
+  PASS rm -rf outside scratch is gated
+  PASS rm -rf inside OS temp is exempt
+  PASS git reset --hard HEAD matches git-reset-hard
+  PASS git clean -fd matches git-clean-force-delete
+  PASS psql -c "DROP TABLE users" matches sql-destructive-ddl
+  PASS npm publish matches package-publish
+  PASS gh release create v1.2.3 matches github-release-create
+  PASS npm run deploy matches production-deploy
+  PASS host without verified ask-style decision blocks with exit 2
+  PASS non-ask host block reason names the matched rule
+  PASS non-ask host block is audited as rejected
+  PASS internal action-gate error on Claude defers to the host instead of allowing or forcing a prompt
+  PASS internal error is shown to the user as a systemMessage without a permission decision
+  PASS internal error on Claude is audited as deferred-to-host
+  PASS internal action-gate error under always-ask fails closed to ask
+  PASS internal error on host without ask fails closed to block
+  PASS missing/invalid rule table visibly falls back to built-in defaults
+  PASS built-in fallback still classifies and audits destructive action
+  PASS fallback degradation is shown to the user as a systemMessage
+  PASS valid empty rule table does not silently activate built-in defaults
+  PASS empty-table mutation control disables detection, proving production non-empty assertion is meaningful
+  PASS null-prototype serialization preserves an own __proto__ key
+  PASS own __proto__ key changes the full-input digest
+  PASS PostToolUse closes a deferred payload as executed
+  PASS executed audit keeps exact approved payload hash
+  PASS PostToolUseFailure records attempted execution without pretending success
+  PASS post-tool payload mismatch is never accepted as the approved command
+  PASS Stop closes unexecuted deferred and pending payloads
+  PASS unexecuted deferred payload is audited as rejected
+  PASS unexecuted always-ask approval is audited as rejected
+  PASS hook process returns no decision for a matched command under the default policy
+  PASS hook process audits the deferred command with its permission mode
+  PASS HARNESS_ACTION_GATE_POLICY=always-ask makes the hook process emit ask
+  PASS Claude hook manifest wires action-gate to shell and MCP pre-action surfaces
+  PASS Claude hook manifest audits successful tool execution
+  PASS Claude hook manifest audits failed tool execution
+  PASS Claude hook manifest closes unresolved approvals on Stop
+  PASS OpenAI plugin preserves the attribution-aware Codex shell action-gate adapter
+  PASS OpenAI plugin packages an isolated structured MCP pre-action adapter without widening unrelated hooks
+  PASS OpenAI plugin packages an isolated structured MCP post-action audit adapter
+  PASS Codex plugin does not declare unsupported PostToolUseFailure lifecycle event
+  PASS Codex plugin infers action-gate outcome from supported PostToolUse
+  PASS Codex PostToolUse maps zero exit code to success
+  PASS Codex PostToolUse maps non-zero exit code to failure
+  PASS Codex PostToolUse conservatively recognizes failure stderr without exit code
+  PASS OpenAI plugin closes pending approvals at Stop
+  PASS canonical and plugin action-gate rule tables are byte-identical
+  PASS OpenAI plugin packages action-gate runtime
+  PASS update_pull_request body defers without a permission decision
+  PASS metadata remains a non-safe mutation
+  PASS update_pull_request title defers without a permission decision
+  PASS metadata remains a non-safe mutation
+  PASS update_pull_request title,body defers without a permission decision
+  PASS metadata remains a non-safe mutation
+  PASS mcp__github__update_pull_request body defers without a permission decision
+  PASS metadata remains a non-safe mutation
+  PASS mcp__github__update_pull_request title defers without a permission decision
+  PASS metadata remains a non-safe mutation
+  PASS mcp__github__update_pull_request title,body defers without a permission decision
+  PASS metadata remains a non-safe mutation
+  PASS mcp__codex_apps__github__update_pull_request body defers without a permission decision
+  PASS metadata remains a non-safe mutation
+  PASS mcp__codex_apps__github__update_pull_request title defers without a permission decision
+  PASS metadata remains a non-safe mutation
+  PASS mcp__codex_apps__github__update_pull_request title,body defers without a permission decision
+  PASS metadata remains a non-safe mutation
+  PASS mcp__codex_apps__github_update_pull_request body defers without a permission decision
+  PASS metadata remains a non-safe mutation
+  PASS mcp__codex_apps__github_update_pull_request title defers without a permission decision
+  PASS metadata remains a non-safe mutation
+  PASS mcp__codex_apps__github_update_pull_request title,body defers without a permission decision
+  PASS metadata remains a non-safe mutation
+  PASS provider-neutral selectors support metadata updates
+  PASS provider-neutral selectors support metadata updates
+  PASS own __proto__ field cannot escape the argument allowlist
+  PASS explicit higher-risk action cannot inherit metadata deferral
+  PASS metadata with {"state":"closed"} remains gated
+  PASS metadata with {"state":"open"} remains gated
+  PASS metadata with {"state":null} remains gated
+  PASS metadata with {"base_branch":"other"} remains gated
+  PASS metadata with {"maintainer_can_modify":false} remains gated
+  PASS metadata with {"maintainer_can_modify":null} remains gated
+  PASS metadata with {"unknown":true} remains gated
+  PASS metadata with {"title":"mixed","state":"closed"} remains gated
+  PASS metadata with {"draft":true} remains gated
+  PASS metadata with {"base":"other"} remains gated
+  PASS metadata with {"action_descriptor":{"action":"delete"}} remains gated
+  PASS missing or malformed metadata remains gated
+  PASS missing or malformed metadata remains gated
+  PASS missing or malformed metadata remains gated
+  PASS missing or malformed metadata remains gated
+  PASS missing or malformed metadata remains gated
+  PASS missing or malformed metadata remains gated
+  PASS missing or malformed metadata remains gated
+  PASS missing or malformed metadata remains gated
+  PASS mcp__demo__update_pull_requests receives no metadata exception
+  PASS mcp__demo__foo_update_pull_request receives no metadata exception
+  PASS mcp__demo__update_pull_request_and_delete receives no metadata exception
+  PASS mcp__codex_apps__github_update_pull_request_extra receives no metadata exception
+  PASS mcp__demo__merge_pull_request receives no metadata exception
+  PASS mcp__demo__close_pull_request receives no metadata exception
+  PASS claude retains existing mutation rule
+  PASS opencode retains existing mutation rule
+  PASS unknown retains existing mutation rule
+  PASS explicit required metadata gate cannot be bypassed
+  PASS explicit required metadata gate cannot be bypassed
+  PASS explicit required metadata gate cannot be bypassed
+  PASS explicit required metadata gate cannot be bypassed
+  PASS known Codex PR mutation cannot be downgraded to read
+  PASS downgrade refusal remains an audited mutation
+  PASS known Codex PR mutation cannot be downgraded to read
+  PASS downgrade refusal remains an audited mutation
+  PASS known Codex PR mutation cannot be downgraded to read
+  PASS downgrade refusal remains an audited mutation
+  PASS input read descriptor cannot hide a required PR mutation gate
+  PASS known Codex PR mutation cannot be downgraded to unknown
+  PASS downgrade refusal remains an audited mutation
+  PASS known Codex PR mutation cannot be downgraded to unknown
+  PASS downgrade refusal remains an audited mutation
+  PASS known Codex PR mutation cannot be downgraded to unknown
+  PASS downgrade refusal remains an audited mutation
+  PASS input unknown descriptor cannot hide a required PR mutation gate
+  PASS provider namespace read token cannot downgrade exact PR mutation
+  PASS claude explicit descriptor behavior remains unchanged
+  PASS opencode explicit descriptor behavior remains unchanged
+  PASS unknown explicit descriptor behavior remains unchanged
+  FAIL shell family cannot disguise exact Codex PR read
+  FAIL known MCP identity is preserved in audit
+  FAIL shell family cannot disguise exact Codex PR unknown
+  FAIL known MCP identity is preserved in audit
+  FAIL shell family cannot disguise exact Codex PR mutate
+  FAIL known MCP identity is preserved in audit
+  FAIL shell family cannot disguise exact Codex PR delete
+  FAIL known MCP identity is preserved in audit
+  FAIL shell family cannot disguise exact Codex PR publish
+  FAIL known MCP identity is preserved in audit
+  FAIL shell family cannot disguise exact Codex PR deploy
+  FAIL known MCP identity is preserved in audit
+  FAIL shell family cannot disguise exact Codex PR send
+  FAIL known MCP identity is preserved in audit
+  PASS required hint envelope 0 wins over optional envelopes
+  PASS audit retains required hint instead of a conflicting optional hint
+  PASS PR creation still honors the documented explicit required gate
+  PASS required hint envelope 1 wins over optional envelopes
+  PASS audit retains required hint instead of a conflicting optional hint
+  PASS PR creation still honors the documented explicit required gate
+  PASS required hint envelope 2 wins over optional envelopes
+  PASS audit retains required hint instead of a conflicting optional hint
+  PASS PR creation still honors the documented explicit required gate
+  PASS required hint envelope 3 wins over optional envelopes
+  PASS audit retains required hint instead of a conflicting optional hint
+  PASS PR creation still honors the documented explicit required gate
+
+FAIL: action-gate phase 5 (14 failures)
