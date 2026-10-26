@@ -1716,12 +1716,14 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
   const fixture = createFixture();
   const ordinaryPath = path.join(fixture.root, 'docs', 'ordinary.md');
   fs.writeFileSync(ordinaryPath, 'ordinary document edit\n');
-  // Keep the LF filename in Git's tree without creating a Windows-forbidden worktree path.
+  // Git for Windows rejects LF paths even when they are added directly to the index.
   const newlinePath = 'docs/new\nunknown.md';
-  const newlineOid = fixtureGit(fixture.root, ['hash-object', '-w', '--stdin'], Buffer.from('new document\n')).toString('ascii').trim();
   const linkOid = fixtureGit(fixture.root, ['hash-object', '-w', '--stdin'], Buffer.from('../outside-target.md\n')).toString('ascii').trim();
   fixtureGit(fixture.root, ['add', '-A']);
-  fixtureGit(fixture.root, ['update-index', '--add', '--cacheinfo', `100644,${newlineOid},${newlinePath}`]);
+  if (process.platform !== 'win32') {
+    const newlineOid = fixtureGit(fixture.root, ['hash-object', '-w', '--stdin'], Buffer.from('new document\n')).toString('ascii').trim();
+    fixtureGit(fixture.root, ['update-index', '--add', '--cacheinfo', `100644,${newlineOid},${newlinePath}`]);
+  }
   fixtureGit(fixture.root, ['update-index', '--add', '--cacheinfo', `120000,${linkOid},docs/link.md`]);
   fixtureGit(fixture.root, ['update-index', '--add', '--cacheinfo', `160000,${fixture.base},docs/submodule.md`]);
   fixtureGit(fixture.root, ['commit', '--quiet', '-m', 'ordinary document edits']);
@@ -1739,7 +1741,8 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
   assert.ok(scenarioOracle, 'tracked scenario oracle is part of the baseline trust surface');
   assert.deepStrictEqual(scenarioOracle.base, scenarioOracle.candidate, 'unchanged oracle identity is a positive control');
   const newDocs = new Map(positive.report.newDocuments.map(item => [item.path, item]));
-  for (const relativePath of ['docs/new\nunknown.md', 'docs/link.md', 'docs/submodule.md']) {
+  const specialDocumentPaths = [...(process.platform === 'win32' ? [] : [newlinePath]), 'docs/link.md', 'docs/submodule.md'];
+  for (const relativePath of specialDocumentPaths) {
     const record = newDocs.get(relativePath);
     assert.ok(record, `new document is inventoried even with a special path or Git mode: ${relativePath}`);
     assert.strictEqual(record.role, 'unknown');
