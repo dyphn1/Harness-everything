@@ -163,6 +163,9 @@ function case2Assertions(scriptDir) {
   same(item.path, 'docs/a.md', 'broken[0].path');
   same(item.target, 'missing.md', 'broken[0].target');
   if (!Number.isInteger(item.line) || item.line < 1) throw new Error('broken[0].line is not a 1-based line number');
+  same(out.capabilities['doc-lint'].state, 'partial', 'no-domain lint remains partial when a link fails');
+  same(out.capabilities['link-check'].state, 'fail', 'real broken link fails link-check');
+  same(result.status, 1, 'real link defect exits 1');
 }
 
 assertPerLeg('case-2:missing-local-target-reported', leg => case2Assertions(leg.dir));
@@ -381,7 +384,17 @@ assertPerLeg('case-16:no-domains-declared-entry-once', leg => {
   const ws = makeWorkspace(REFERENCE());
   writeDoc(ws, 'docs/a.md', refDoc('Plain text only.\n'));
   const result = runCheck(leg.dir, { workspace: ws, config: CONFIG, args: ['--changed-path', 'docs/a.md'] });
+  same(result.status, 0, 'no-domain informational partial exits 0 without actual defects');
   const out = jsonOut(result);
+  same(out.lint.exit, 0, 'lint exit');
+  same(out.capabilities['doc-lint'].state, 'partial', 'no-domain lint capability is partial');
+  same(out.capabilities['doc-lint'].checkedPaths, ['docs/a.md'], 'partial lint retains its checked path');
+  if (!(out.capabilities['doc-lint'].skipped || []).some(reason => reason.startsWith('no domains declared'))) {
+    throw new Error(`partial lint reason is missing: ${truncate(JSON.stringify(out.capabilities['doc-lint']))}`);
+  }
+  same(out.capabilities['link-check'].state, 'pass', 'link capability is reported independently');
+  same(out.capabilities['link-check'].checkedPaths, ['docs/a.md'], 'link capability retains its checked path');
+  same(out.capabilities['link-check'].skipped, [], 'plain valid document has no skipped link checks');
   const entries = (out.coverage.unsupported || []).filter(item => typeof item.reason === 'string' && item.reason.startsWith('no domains declared'));
   if (entries.length !== 1) {
     throw new Error(`expected exactly one "no domains declared" entry, got ${truncate(JSON.stringify(out.coverage.unsupported))}`);
@@ -393,7 +406,16 @@ assertPerLeg('case-17:domains-declared-no-entry', leg => {
   const ws = makeWorkspace(REFERENCE({ domains: ['GRPH'] }));
   writeDoc(ws, 'docs/a.md', refDoc('Plain text only.\n'));
   const result = runCheck(leg.dir, { workspace: ws, config: CONFIG, args: ['--changed-path', 'docs/a.md'] });
+  same(result.status, 0, 'valid domain-positive document exits 0');
   const out = jsonOut(result);
+  same(out.lint.exit, 0, 'lint exit');
+  same(out.capabilities['doc-lint'].state, 'pass', 'declared domain has full lint capability');
+  same(out.capabilities['doc-lint'].checkedPaths, ['docs/a.md'], 'domain lint checked path');
+  if ((out.capabilities['doc-lint'].skipped || []).some(reason => reason.startsWith('no domains declared'))) {
+    throw new Error(`domain-positive lint retains a no-domain reason: ${truncate(JSON.stringify(out.capabilities['doc-lint']))}`);
+  }
+  same(out.capabilities['link-check'].state, 'pass', 'link capability remains independent');
+  same(out.capabilities['link-check'].checkedPaths, ['docs/a.md'], 'domain link checked path');
   const trailing = JSON.stringify(out.coverage.unsupported || []);
   if (trailing.includes('no domains declared')) throw new Error(`unexpected reason: ${truncate(trailing)}`);
 });
@@ -405,6 +427,9 @@ assertPerLeg('case-18:malformed-prd-id-invalid-ref', leg => {
   const result = runCheck(leg.dir, { workspace: ws, config: CONFIG, args: ['--changed-path', 'docs/a.md'] });
   same(result.status, 1, 'exit');
   const out = jsonOut(result);
+  same(out.lint.exit, 1, 'real lint defect exit');
+  same(out.capabilities['doc-lint'].state, 'fail', 'real lint defect fails doc-lint');
+  same(out.capabilities['link-check'].state, 'pass', 'link capability remains independently valid');
   if (!(out.lint.diagnostics || []).some(item => item.code === 'invalid-ref')) {
     throw new Error(`no invalid-ref diagnostic: ${truncate(JSON.stringify(out.lint.diagnostics))}`);
   }
