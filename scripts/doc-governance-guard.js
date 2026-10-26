@@ -252,7 +252,7 @@ function run(argv) {
     newDocuments: [],
     reviewAuthority: 'External reviewer only; candidate-controlled approval files or reports are never read.',
     limits: [
-      'This packet does not wire the guard into CI; candidate-owned CI cannot serve as an independent enforcement anchor.',
+      'Candidate-owned CI is not independent enforcement; bootstrap remains unchecked until an external reviewer binds frozen guard bytes to final exact SHAs.',
       'Document text and derived-view parity are not validated; existing configured paths and policy records are only preserved.'
     ],
     errors: []
