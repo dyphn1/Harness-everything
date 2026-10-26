@@ -9,6 +9,8 @@ const { spawnSync } = require('child_process');
 const helper = require('./test-helper');
 
 const modulePath = path.join(__dirname, '..', 'harness-everything', 'scripts', 'doc-lifecycle.js');
+const REPOSITORY_ROOT = path.resolve(__dirname, '..');
+const P2_BASE_SHA = 'b733cadec17542b9ae30aabb50c1ba3481a58d74';
 let lifecycle;
 try {
   lifecycle = require(modulePath);
@@ -144,6 +146,219 @@ function gitBytesAt(root, revision, relativePath) {
   });
   if (result.status !== 0) throw new Error(`git show ${revision}:${relativePath} failed: ${String(result.stderr || result.stdout)}`);
   return Buffer.from(result.stdout);
+}
+
+function gitRawAt(root, args) {
+  const result = spawnSync('git', ['-C', root, ...args], {
+    encoding: 'buffer',
+    env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1' }
+  });
+  if (result.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${String(result.stderr || result.stdout)}`);
+  return Buffer.from(result.stdout);
+}
+
+function nulFields(bytes) {
+  if (bytes.length && bytes[bytes.length - 1] !== 0) throw new Error('Git oracle output is not NUL terminated');
+  return bytes.length ? bytes.subarray(0, -1).toString('binary').split('\0').map(value => Buffer.from(value, 'binary')) : [];
+}
+
+function parseTreeOracle(bytes) {
+  const entries = new Map();
+  for (const field of nulFields(bytes)) {
+    const tab = field.indexOf(9);
+    if (tab < 0) throw new Error('malformed raw Git tree entry');
+    const [mode, type, oid] = field.subarray(0, tab).toString('ascii').split(' ');
+    const pathBytes = Buffer.from(field.subarray(tab + 1));
+    entries.set(pathBytes.toString('base64'), { mode, type, oid, pathBytes });
+  }
+  return entries;
+}
+
+function parseStageOracle(bytes) {
+  const entries = new Map();
+  for (const field of nulFields(bytes)) {
+    const tab = field.indexOf(9);
+    if (tab < 0) throw new Error('malformed raw Git index entry');
+    const [mode, oid, stage] = field.subarray(0, tab).toString('ascii').split(' ');
+    if (stage !== '0') throw new Error(`unmerged Git index stage ${stage}`);
+    const pathBytes = Buffer.from(field.subarray(tab + 1));
+    entries.set(pathBytes.toString('base64'), { mode, oid, type: mode === '160000' ? 'commit' : 'blob', pathBytes });
+  }
+  return entries;
+}
+
+function parseNameStatusOracle(bytes) {
+  const fields = nulFields(bytes);
+  const changes = new Map();
+  for (let index = 0; index < fields.length;) {
+    const statusText = fields[index++].toString('ascii');
+    const kind = statusText[0];
+    const first = fields[index++];
+    if (!first) throw new Error('truncated Git name-status entry');
+    if (kind === 'R' || kind === 'C') {
+      const second = fields[index++];
+      if (!second) throw new Error('truncated Git rename/copy entry');
+      changes.set(first.toString('base64'), { pathBytes: first, status: kind === 'R' ? 'renamed-from' : 'copied-from', endpoint: 'source', partner: second, statusText });
+      changes.set(second.toString('base64'), { pathBytes: second, status: kind === 'R' ? 'renamed-to' : 'copied-to', endpoint: 'target', partner: first, statusText });
+    } else {
+      changes.set(first.toString('base64'), {
+        pathBytes: first,
+        status: kind === 'A' ? 'added' : kind === 'D' ? 'deleted' : kind === 'T' ? 'type-changed' : kind === 'U' ? 'unmerged' : 'modified',
+        statusText
+      });
+    }
+  }
+  return changes;
+}
+
+function parseStatusOracle(bytes) {
+  const fields = nulFields(bytes);
+  const paths = new Map();
+  for (let index = 0; index < fields.length;) {
+    const field = fields[index++];
+    if (field.length < 4) throw new Error('malformed Git porcelain status entry');
+    const status = field.subarray(0, 2).toString('ascii');
+    const pathBytes = Buffer.from(field.subarray(3));
+    paths.set(pathBytes.toString('base64'), status);
+    if (status.includes('R') || status.includes('C')) {
+      const partner = fields[index++];
+      if (!partner) throw new Error('truncated Git porcelain rename/copy entry');
+      paths.set(partner.toString('base64'), status);
+    }
+  }
+  return paths;
+}
+
+function isDocumentPath(pathBytes) {
+  const name = pathBytes.toString('latin1');
+  const lower = name.toLowerCase();
+  return /\.(md|mdx|markdown|rst|adoc|txt)$/.test(lower)
+    || /(?:^|\/)(?:readme|license|notice|contributing|changelog|code_of_conduct|security)$/.test(lower)
+    || /(?:^|\/)(?:readme|changelog)[^/]*$/.test(lower);
+}
+
+function inventoryOracle(root, base) {
+  const commit = gitAt(root, ['rev-parse', '--verify', '--quiet', '--end-of-options', `${base}^{commit}`]);
+  const baseEntries = parseTreeOracle(gitRawAt(root, ['ls-tree', '-r', '-z', '--full-tree', commit]));
+  const stageEntries = parseStageOracle(gitRawAt(root, ['ls-files', '-z', '--stage']));
+  const changes = parseNameStatusOracle(gitRawAt(root, ['diff', '--name-status', '-z', '--find-renames', commit, '--']));
+  const statusPaths = parseStatusOracle(gitRawAt(root, ['status', '--porcelain=v1', '-z']));
+  const entries = new Map([...baseEntries, ...stageEntries]);
+  for (const [key, change] of changes) {
+    if (!entries.has(key)) entries.set(key, { pathBytes: change.pathBytes });
+    if (change.partner) {
+      const partnerKey = change.partner.toString('base64');
+      if (!entries.has(partnerKey)) entries.set(partnerKey, { pathBytes: change.partner });
+    }
+  }
+  const documentKeys = new Set([...entries].filter(([, entry]) => isDocumentPath(entry.pathBytes)).map(([key]) => key));
+  return { root, commit, baseEntries, stageEntries, changes, statusPaths, entries, documentKeys };
+}
+
+function rawWorktreeIdentity(root, pathBytes, stageEntry) {
+  const decoded = pathBytes.toString('utf8');
+  const absolute = Buffer.from(decoded, 'utf8').equals(pathBytes)
+    ? path.join(path.resolve(root), ...decoded.split('/'))
+    : process.platform === 'win32' ? null : Buffer.concat([Buffer.from(`${path.resolve(root)}${path.sep}`), pathBytes]);
+  if (!absolute) return null;
+  let stat;
+  try { stat = fs.lstatSync(absolute); } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  }
+  if (stageEntry && stageEntry.mode === '160000' && stat.isDirectory()) {
+    return { mode: stageEntry.mode, type: 'commit', oid: stageEntry.oid };
+  }
+  let mode;
+  let bytes;
+  if (stat.isSymbolicLink()) {
+    mode = '120000';
+    bytes = fs.readlinkSync(absolute, { encoding: 'buffer' });
+  } else if (stat.isFile()) {
+    mode = stat.mode & 0o111 ? '100755' : '100644';
+    bytes = fs.readFileSync(absolute);
+  } else return null;
+  const result = spawnSync('git', ['-C', root, 'hash-object', '--stdin'], {
+    input: bytes,
+    encoding: 'buffer',
+    env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1' }
+  });
+  if (result.status !== 0) throw new Error(`git hash-object failed: ${String(result.stderr || result.stdout)}`);
+  return { mode, type: 'blob', oid: result.stdout.toString('ascii').trim() };
+}
+
+function assertInventoryAgainstOracle(report, oracle, expectedDocumentKeys = oracle.documentKeys) {
+  assert.strictEqual(report.base.commit, oracle.commit, 'inventory base is the pinned oracle commit');
+  const expectedKeys = new Set(expectedDocumentKeys);
+  for (const [key, entry] of oracle.entries) {
+    const base = oracle.baseEntries.get(key);
+    const staged = oracle.stageEntries.get(key);
+    const change = oracle.changes.get(key);
+    if ((base && ['120000', '160000'].includes(base.mode))
+      || (staged && ['120000', '160000'].includes(staged.mode))) expectedKeys.add(key);
+    if (change && change.partner && (expectedDocumentKeys.has(key) || expectedDocumentKeys.has(change.partner.toString('base64')))) {
+      expectedKeys.add(key);
+      expectedKeys.add(change.partner.toString('base64'));
+    }
+  }
+  const records = new Map();
+  for (const record of report.records || []) {
+    assert.ok(Object.prototype.hasOwnProperty.call(record, 'path'), 'report path is present');
+    assert.ok(typeof record.path === 'string' && typeof record.pathEncoding === 'string', 'report has a display path and encoding');
+    assert.ok(typeof record.pathBytesBase64 === 'string' && record.pathBytesBase64, 'raw path identity is present');
+    assert.ok(!records.has(record.pathBytesBase64), `duplicate report identity ${record.pathBytesBase64}`);
+    records.set(record.pathBytesBase64, record);
+  }
+  assert.deepStrictEqual([...records.keys()].sort(), [...expectedKeys].sort(), 'report identity paths equal raw Git oracle paths');
+  for (const key of expectedKeys) {
+    const record = records.get(key);
+    const base = oracle.baseEntries.get(key) || null;
+    const staged = oracle.stageEntries.get(key) || null;
+    const change = oracle.changes.get(key) || null;
+    const localStatus = oracle.statusPaths.get(key);
+    assert.deepStrictEqual(record.base, base ? { mode: base.mode, type: base.type, oid: base.oid } : null, `base identity ${key}`);
+    const deleted = change && ['deleted', 'renamed-from'].includes(change.status);
+    const current = deleted ? null : change ? rawWorktreeIdentity(oracle.root, recordPathBytes(record), staged) : base ? base : staged;
+    if (current) {
+      assert.ok(record.current, `current identity is present for ${key}`);
+      for (const field of ['mode', 'type', 'oid']) assert.strictEqual(record.current[field], current[field], `current ${field} ${key}`);
+      if (staged && (!localStatus || localStatus[1] === ' ')) {
+        for (const field of ['mode', 'type', 'oid']) assert.strictEqual(record.current[field], staged[field], `clean worktree matches staged ${field} ${key}`);
+      }
+    } else if (record.current !== null) {
+      throw new Error(`deleted/unavailable current identity should be null for ${key}`);
+    } else if (!deleted) {
+      assert.ok(typeof record.currentReason === 'string' && record.currentReason, `unavailable identity reason ${key}`);
+    }
+    const expectedStatus = change ? change.status : base ? 'unchanged' : 'added';
+    assert.strictEqual(record.status, expectedStatus, `Git status ${key}`);
+    if (change && change.partner) {
+      assert.strictEqual(record.rename.endpoint, change.endpoint, `rename endpoint ${key}`);
+      assert.strictEqual(record.rename.partnerPathBytesBase64, change.partner.toString('base64'), `rename partner bytes ${key}`);
+    } else assert.strictEqual(record.rename, undefined, `no rename metadata ${key}`);
+    if (expectedDocumentKeys.has(key)) {
+      assert.strictEqual(record.document, true, `identified document ${key}`);
+      for (const axis of ['role', 'lifecycle', 'disposition']) {
+        assert.ok(Object.prototype.hasOwnProperty.call(record, axis) && typeof record[axis] === 'string' && record[axis], `${axis} axis ${key}`);
+      }
+      assert.ok(typeof record.reason === 'string' && record.reason, `disposition reason ${key}`);
+      assert.strictEqual(record.validation && record.validation.outcome, 'unchecked', `semantic validation stays separate and unchecked ${key}`);
+      assert.ok(typeof record.validation.reason === 'string' && record.validation.reason, `validation reason ${key}`);
+      if (record.disposition === 'unknown') assert.ok(record.reason, `unknown disposition remains visible with a reason ${key}`);
+      if (oracle.statusPaths.has(key)) assert.ok(change || !base, `raw status path is represented by a base-relative change ${key}`);
+    }
+  }
+  assert.deepStrictEqual(report.coverage, {
+    identifiedDocumentPaths: expectedDocumentKeys.size,
+    explicitDispositionPaths: expectedDocumentKeys.size,
+    complete: true,
+    claim: 'disposition coverage only; semantic validation was not performed'
+  }, 'coverage counts all oracle documents without promoting semantics');
+  return records;
+}
+
+function recordPathBytes(record) {
+  return Buffer.from(record.pathBytesBase64, 'base64');
 }
 
 function legacyHistory(name, {
@@ -1202,6 +1417,129 @@ checkCase('2ax. Git document inventory preserves dispositions and base/current i
   assert.strictEqual(byPath.get('vendor/submodule').base.mode, '160000');
   assert.strictEqual(byPath.get('vendor/submodule').base.oid, gitAt(root, ['rev-parse', `${base}:vendor/submodule`]));
   assert.ok(!report.records.some(item => item.path.startsWith('vendor/submodule/')), 'gitlink contents are not recursed');
+});
+
+let pinnedBaseAvailable = false;
+try { gitAt(REPOSITORY_ROOT, ['cat-file', '-e', `${P2_BASE_SHA}^{commit}`]); pinnedBaseAvailable = true; } catch { /* reported below as unchecked */ }
+if (!pinnedBaseAvailable) helper.check('2ax P2. actual repository inventory matches the raw Git oracle at a pinned base', false, `UNCHECKED: pinned baseline ${P2_BASE_SHA} unavailable; required repository ratchet not verified`);
+else checkCase('2ax P2. actual repository inventory matches the raw Git oracle at a pinned base', () => {
+    const result = spawnSync(process.execPath, [modulePath, 'inventory', '--workspace', REPOSITORY_ROOT, '--manifest', '.agents/harness-everything/document-inventory.json', '--base', P2_BASE_SHA], { cwd: tempRoot, encoding: 'utf8' });
+    assert.strictEqual(result.status, 0, `actual repository inventory: ${result.stderr}`);
+    const report = JSON.parse(result.stdout);
+    const oracle = inventoryOracle(REPOSITORY_ROOT, P2_BASE_SHA);
+    const records = assertInventoryAgainstOracle(report, oracle);
+    assert.ok(records.has(Buffer.from('README.md').toString('base64')), 'actual repository positive control is present');
+    assert.ok(records.has(Buffer.from('docs/architecture.md').toString('base64')), 'governed repository path is not dropped');
+    console.log(`  P2 repo oracle: ${report.coverage.identifiedDocumentPaths} document paths, ${oracle.changes.size} changed endpoints, ${oracle.stageEntries.size} index entries, ${oracle.statusPaths.size} status paths matched from raw NUL Git commands`);
+  });
+
+checkCase('2ax P2. baseline-to-candidate ratchet detects scope and identity drift', () => {
+  const root = workspace('baseline-ratchet');
+  const manifestPath = '.agents/harness-everything/document-inventory.json';
+  const rule = match => ({ match, role: 'reference', lifecycle: 'current', disposition: 'applicable', reason: `fixture rule for ${match}` });
+  const baselineManifest = {
+    schemaVersion: 1,
+    documentGlobs: ['**/*.md'],
+    rules: [
+      rule('docs/reference/current.md'), rule('docs/reference/keep.md'), rule('docs/reference/deleted.md'),
+      rule('docs/reference/rename-old.md'), rule('docs/reference/new.md'), rule('docs/reference/staged.md'),
+      rule('docs/reference/working.md'), rule('docs/reference/mode.md')
+    ]
+  };
+  const write = (relative, contents) => {
+    const absolute = path.join(root, ...relative.split('/'));
+    fs.mkdirSync(path.dirname(absolute), { recursive: true });
+    fs.writeFileSync(absolute, contents);
+    return absolute;
+  };
+  const writeManifest = value => write(manifestPath, `${JSON.stringify(value, null, 2)}\n`);
+  writeManifest(baselineManifest);
+  for (const relative of [
+    'docs/reference/current.md', 'docs/reference/keep.md', 'docs/reference/deleted.md',
+    'docs/reference/rename-old.md', 'docs/reference/working.md', 'docs/reference/staged.md',
+    'docs/reference/mode.md'
+  ]) write(relative, `${relative}\n`);
+  gitAt(root, ['init', '-q']);
+  for (const [key, value] of [['user.name', 'Harness P2 fixture'], ['user.email', 'harness-p2@example.invalid'], ['commit.gpgsign', 'false'], ['core.filemode', 'false']]) gitAt(root, ['config', key, value]);
+  gitAt(root, ['add', '-A']);
+  gitAt(root, ['update-index', '--chmod=+x', '--', 'docs/reference/mode.md']);
+  gitAt(root, ['commit', '-qm', 'trusted inventory baseline']);
+  const base = gitAt(root, ['rev-parse', 'HEAD']);
+
+  fs.rmSync(path.join(root, 'docs/reference/deleted.md'));
+  fs.renameSync(path.join(root, 'docs/reference/rename-old.md'), path.join(root, 'docs/reference/rename-new.md'));
+  write('docs/reference/new.md', 'new tracked document\n');
+  write('docs/reference/staged.md', 'staged tracked document\n');
+  write('docs/reference/working.md', 'staged contents\n');
+  write('docs/unknown/unclassified.md', 'unknown path remains visible\n');
+  const candidateManifest = { ...baselineManifest, rules: baselineManifest.rules.filter(item => item.match !== 'docs/reference/keep.md').concat(rule('docs/reference/rename-new.md')) };
+  writeManifest(candidateManifest);
+  gitAt(root, ['add', '-A']);
+  write('docs/reference/working.md', 'unstaged worktree contents\n');
+
+  const inventory = () => {
+    const result = spawnSync(process.execPath, [modulePath, 'inventory', '--workspace', root, '--manifest', manifestPath, '--base', base], { cwd: tempRoot, encoding: 'utf8' });
+    assert.ifError(result.error);
+    assert.strictEqual(result.status, 0, `fixture inventory: ${result.stderr}`);
+    return JSON.parse(result.stdout);
+  };
+  const docPaths = [
+    'docs/reference/current.md', 'docs/reference/keep.md', 'docs/reference/deleted.md',
+    'docs/reference/rename-old.md', 'docs/reference/rename-new.md', 'docs/reference/new.md',
+    'docs/reference/staged.md', 'docs/reference/working.md', 'docs/reference/mode.md',
+    'docs/unknown/unclassified.md'
+  ];
+  const expectedDocs = new Set(docPaths.map(value => Buffer.from(value).toString('base64')));
+  const report = inventory();
+  const oracle = inventoryOracle(root, base);
+  const records = assertInventoryAgainstOracle(report, oracle, expectedDocs);
+  const get = value => records.get(Buffer.from(value).toString('base64'));
+  assert.strictEqual(get('docs/reference/current.md').disposition, 'applicable', 'unchanged governed path is a positive control');
+  assert.strictEqual(get('docs/reference/new.md').status, 'added', 'new tracked document is visible');
+  assert.ok(oracle.stageEntries.has(Buffer.from('docs/reference/staged.md').toString('base64')), 'staged positive control is in the independent index oracle');
+  assert.ok(oracle.statusPaths.has(Buffer.from('docs/reference/working.md').toString('base64')), 'unstaged positive control is in porcelain status');
+  assert.strictEqual(get('docs/reference/working.md').current.oid, gitAt(root, ['hash-object', 'docs/reference/working.md']), 'working-tree OID is checked independently');
+  const stagedWorkingOid = oracle.stageEntries.get(Buffer.from('docs/reference/working.md').toString('base64')).oid;
+  const stagedWorkingHash = spawnSync('git', ['-C', root, 'hash-object', '--stdin'], { input: Buffer.from('staged contents\n'), encoding: 'utf8' });
+  assert.ifError(stagedWorkingHash.error);
+  assert.strictEqual(stagedWorkingOid, stagedWorkingHash.stdout.trim(), 'index OID comes from its staged bytes');
+  assert.notStrictEqual(get('docs/reference/working.md').current.oid, stagedWorkingOid, 'worktree OID remains distinct from the staged OID');
+  assert.strictEqual(get('docs/reference/mode.md').base.mode, '100755', 'base executable mode is preserved');
+  assert.strictEqual(get('docs/reference/deleted.md').status, 'deleted', 'deleted baseline endpoint remains visible');
+  assert.strictEqual(get('docs/reference/rename-old.md').rename.endpoint, 'source', 'rename source is visible');
+  assert.strictEqual(get('docs/reference/rename-new.md').rename.endpoint, 'target', 'rename target is visible');
+  for (const value of ['docs/reference/keep.md', 'docs/unknown/unclassified.md']) {
+    assert.strictEqual(get(value).disposition, 'unknown', `unknown or dropped entry remains visible: ${value}`);
+    assert.ok(get(value).reason, `unknown or dropped entry keeps a reason: ${value}`);
+    assert.strictEqual(get(value).validation.outcome, 'unchecked', `unknown is not semantic PASS: ${value}`);
+  }
+
+  function getFrom(candidate, relative) {
+    return candidate.records.find(item => item.pathBytesBase64 === Buffer.from(relative).toString('base64'));
+  }
+  const rejects = (mutate, label) => {
+    const copy = JSON.parse(JSON.stringify(report));
+    mutate(copy);
+    assert.throws(() => assertInventoryAgainstOracle(copy, oracle, expectedDocs), undefined, label);
+  };
+  rejects(copy => { copy.records.pop(); }, 'ratchet rejects an omitted identity');
+  rejects(copy => { delete copy.records[0].path; }, 'ratchet rejects a missing report path');
+  rejects(copy => { delete getFrom(copy, 'docs/reference/new.md').reason; }, 'ratchet rejects a missing disposition reason');
+  rejects(copy => { const item = getFrom(copy, 'docs/reference/new.md'); delete item.lifecycle; delete item.disposition; delete item.validation; }, 'ratchet rejects collapsed axes');
+  rejects(copy => { delete getFrom(copy, 'docs/reference/new.md').current.oid; }, 'ratchet rejects missing object identity');
+
+  const narrowed = { ...candidateManifest, documentGlobs: ['**/*.pdf'] };
+  writeManifest(narrowed);
+  gitAt(root, ['add', '--', manifestPath]);
+  write('docs/reference/scope-gap.md', 'candidate path hidden by narrowed globs\n');
+  gitAt(root, ['add', '--', 'docs/reference/scope-gap.md']);
+  const narrowedReport = inventory();
+  const narrowedOracle = inventoryOracle(root, base);
+  const scopeDocs = new Set([...expectedDocs, Buffer.from('docs/reference/scope-gap.md').toString('base64')]);
+  assert.ok(narrowedOracle.documentKeys.has(Buffer.from('docs/reference/scope-gap.md').toString('base64')));
+  assert.strictEqual(narrowedReport.coverage.identifiedDocumentPaths, 0, 'narrowed globs cannot hide the full expected denominator');
+  assert.strictEqual(narrowedReport.coverage.complete, true, 'the producer-only zero-document claim is deliberately insufficient');
+  assert.throws(() => assertInventoryAgainstOracle(narrowedReport, narrowedOracle, scopeDocs), undefined, 'ratchet rejects a narrowed document glob and visible scope gap');
 });
 
 const symlinkProbe = path.join(tempRoot, 'manifest-ancestor-link-probe');
