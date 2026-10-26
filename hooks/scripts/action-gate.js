@@ -112,10 +112,10 @@ function normalizeActionDescriptor(payload, options = {}) {
   const tool = toolNameOf(payload);
   const input = toolInputOf(payload);
   const explicit = explicitActionDescriptor(payload);
-  const toolFamily = inferToolFamily(tool, explicit);
+  const codexPrUpdate = detectHost(payload, options.host) === 'codex' && isPullRequestUpdateTool(tool);
+  const toolFamily = inferToolFamily(tool, codexPrUpdate ? null : explicit);
   const inferred = inferStructuredAction(tool, explicit);
-  const action = detectHost(payload, options.host) === 'codex' && isPullRequestUpdateTool(tool)
-    && !STRUCTURED_GATED_ACTIONS.has(inferred) ? 'mutate' : inferred;
+  const action = codexPrUpdate && !STRUCTURED_GATED_ACTIONS.has(inferred) ? 'mutate' : inferred;
   const classification = STRUCTURED_GATED_ACTIONS.has(action)
     ? 'gated'
     : (STRUCTURED_SAFE_ACTIONS.has(action) ? 'safe' : 'unknown');
