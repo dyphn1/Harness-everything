@@ -39,6 +39,10 @@ permissions stay authoritative; an explicit required `actionGate` hint still gat
 This is a deterministic mechanism change, not live-host proof, and does not
 upgrade any platform row's live-host status.
 
+### Full-corpus conflict-check (mechanism only)
+
+The registered `doc-check check --conflict-assessment` mode runs document lifecycle lint across the full governed and legacy corpus and requires `--base` as an exact commit SHA. It emits `conflict-check` only when collection is complete and there are no lifecycle errors. Its event preserves the exact obligation scope separately from full-corpus paths and digests, config bytes and base commit, then checks those bindings against the workflow snapshot. The acceptance is limited to recorded and structural conflicts; prose contradictions remain with independent `quality-review`. Plain `check` never earns this credit, and OpenCode still refuses the capability. Deterministic mechanism coverage does not establish live-host behavior or change the platform matrix's live-verification status.
+
 ## Current capability summary
 
 | Platform surface | Standalone skills | Plugin support | Hooks/lifecycle | Project scope | Global scope | Current evidence boundary |

@@ -101,6 +101,23 @@ function acceptDocEvents(input = {}, dependencies = {}) {
         // Supplied extra digests must also describe this capture, never another tree.
         for (const p of Object.keys(digests)) if (!artifacts[p] || digests[p] !== artifacts[p].digest) reject('artifact-mismatch');
       }
+      if (event?.capability === 'conflict-check') {
+        const binding = event.corpusBinding;
+        const identity = snapshot.identity;
+        const expectedPaths = U.runtimeModule('doc-lifecycle.js').documentCorpusPaths(
+          snapshot.candidate.records, snapshot.config.resolution.config
+        );
+        if (!U.record(binding) || binding.complete !== true || !Array.isArray(binding.paths)
+          || U.stable(binding.paths) !== U.stable(expectedPaths) || !U.record(binding.digests)
+          || U.stable(Object.keys(binding.digests).sort()) !== U.stable(expectedPaths)
+          || !expectedPaths.every(p => artifacts[p] && binding.digests[p] === artifacts[p].digest)) reject('corpus-mismatch');
+        if (binding?.baselineDigest !== identity.baselineDigest || binding?.candidateDigest !== identity.candidateDigest
+          || binding?.configIdentityDigest !== identity.configDigest
+          || binding?.baseCommit !== snapshot.originContext.baseline.commit) reject('snapshot-changed');
+        const configSource = snapshot.config.capture.sources.find(source => source.path === binding?.config?.path);
+        if (!configSource || configSource.presence !== 'present'
+          || U.sha(U.bytes(configSource.bytes)) !== binding?.config?.digest) reject('config-capture-mismatch');
+      }
       if (event?.kind === 'review') {
         if (event.verdict !== 'approve' || !U.text(event.summary)) reject('event-invalid');
         const principals = context?.principals;
