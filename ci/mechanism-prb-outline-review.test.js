@@ -7,6 +7,7 @@ const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { spawnSync } = require('child_process');
+const { canonical } = require(path.resolve(__dirname, '../hooks/scripts/lib/workflow-isolation.js'));
 
 const ROOT = path.resolve(__dirname, '..');
 const provider = require(path.join(ROOT, 'hooks/scripts/lib/doc-reconciliation-provider.js'));
@@ -74,12 +75,14 @@ function outlineText({ complete = false, decisionPlaceholder = false, duplicateD
 }
 
 function createOutlineFixture(options = {}) {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'prb-outline-fixture-')));
+  const root = canonical(fs.mkdtempSync(path.join(os.tmpdir(), 'prb-outline-fixture-')));
   const target = options.target || 'docs/adr/DOCS-001.md';
   const taskId = options.taskId || 'task-prb';
   const attemptId = options.attemptId || 'attempt-1';
   const sessionId = options.sessionId || 'author-session';
   const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), 'prb-outline-state-'));
+  const workerRoot = options.workerRootAlias
+    ? `${root}${path.sep}..${path.sep}${path.basename(root)}` : root;
   const workflowId = 'workflow-prb';
   const workflowRevision = 2;
   const config = JSON.stringify({ governed: [{ path: 'docs/adr/*.md', role: 'adr' }], domains: ['DOCS'], derived: [] }, null, 2) + '\n';
@@ -213,18 +216,18 @@ function createOutlineFixture(options = {}) {
   const attemptDir = path.join(outlineRoot, taskId, 'attempts', attemptId);
   fs.mkdirSync(attemptDir, { recursive: true });
   const lease = { schema: 'harness.outline-writer-lease.v1', id: 'lease-1', taskId, attemptId,
-    principalId: sessionId, root, exclusive: true, active: true,
+    principalId: sessionId, root: workerRoot, exclusive: true, active: true,
     ...(options.competingWriters ? { competingWriters: ['unknown-writer'] } : {}) };
   writeJson(path.join(attemptDir, 'writer-lease.json'), lease);
   const leaseDigest = sha(fs.readFileSync(path.join(attemptDir, 'writer-lease.json')));
-  const marker = `HARNESS_OUTLINE_DISPATCH_V1 taskId=${taskId} attemptId=${attemptId} token=${options.token || 'token-1'} workerRoot=${options.markerRoot || root}`;
+  const marker = `HARNESS_OUTLINE_DISPATCH_V1 taskId=${taskId} attemptId=${attemptId} token=${options.token || 'token-1'} workerRoot=${options.markerRoot || workerRoot}`;
   const handoff = {
     schema: 'harness.outline-handoff.v1', handoffId: 'handoff-1', taskId, attemptId,
     supersedesAttemptId: options.supersedesAttemptId || null,
     workspaceId,
     workflowId, workflowRevision, sessionId, hostId: 'claude-code',
     baseline: { root, commit: baselineCommit, tree: baselineTree, configDigest },
-    configDigest, targetPaths: [target], draftWorktreeRoot: root,
+    configDigest, targetPaths: [target], draftWorktreeRoot: workerRoot,
     outline: { commit: outlineCommit, tree: outlineTree, targetBlobs: { [target]: { blobOid: outlineBlob, storedBytesSha256: sha(outlineBytes) } } },
     inventory: { ...expectedPin, rowId: options.rowId || '20', domain: options.domain || 'DOCS', targetPaths: [target] },
     reviewCaptureRef: reviewStop.ref, reviewCaptureDigest: reviewRecordDigest, reviewDigest: reviewStop.reviewDigest,
@@ -305,7 +308,7 @@ function createOutlineFixture(options = {}) {
     return extra;
   }
 
-  function finishDraft({ draft = true, nonDescendant = false, finalReview = false,
+  function finishDraft({ draft = true, nonDescendant = false, finalReview = false, baselineRoot = root,
     omitWorkerStart = false, omitWorkerResult = false, tamperHandoff = false,
     providerSessionId = sessionId, providerTaskId = taskId, providerBaseline = { root, commit: baselineCommit },
     runPilot = false, handAuthoredCapture = false, removeSeam = false, mutateAfterFinalReview = false } = {}) {
@@ -404,7 +407,7 @@ function createOutlineFixture(options = {}) {
       process.env.HARNESS_DOC_RECONCILIATION_PILOT = '1';
       const context = { root, sessionId, sessionDir, activeHost: 'claude-code', workflow: {
         workflowId, revision: workflowRevision, strategy: 'iterative-single', state: 'running',
-        docReconciliationBaseline: { root, commit: baselineCommit, tree: baselineTree }, docReconciliationTask: taskBinding,
+        docReconciliationBaseline: { root: baselineRoot, commit: baselineCommit, tree: baselineTree }, docReconciliationTask: taskBinding,
       } };
       try {
         pilotResult = pilot.assess(context, { strategy: 'iterative-single', stepBindingsEnabled: true,
@@ -763,27 +766,43 @@ test('pilot exposes a real-capture-only outline reference resolver', () => {
 
 test('pre-dispatch seam requires review, exact worker root, clean O tree, lease, pin, and immutable handoff', () => {
   assert.strictEqual(typeof internals.captureOutlineDispatch, 'function', 'missing synchronous pre-dispatch seam');
-  for (const [name, options, reason] of [
-    ['dispatch before review cannot be repaired by later review/handoff', { captureBeforeReview: true }, 'review was absent at dispatch'],
-    ['draft worktree mutation after handoff is caught before dispatch', { dirtyBeforeDispatch: true }, 'worker root was not clean at O'],
-    ['a different declared root cannot substitute for verified worker root', { markerRoot: '/tmp/not-the-worker' }, 'declared root mismatch'],
-    ['missing writer identity or lease stays unresolved', { omitHandoff: true }, 'handoff/lease absent'],
-    ['a no-force-push policy is not evidence of pre-draft ordering', { omitHandoff: true }, 'no force-push cannot replace a handoff'],
-    ['prompt token must exactly equal the coordinator handoff token', { handoffOverrides: { draftDispatchToken: 'coordinator-token' } }, 'prompt token is not handoff-issued'],
-    ['an outline already containing a complete decision is not pre-draft evidence', { completeOutline: true }, 'O is already a draft'],
-    ['a second substantive Decision heading cannot hide after a placeholder section', { duplicateDecision: true }, 'later Decision text makes O a draft'],
-    ['a one-to-three-space indented Markdown Decision heading is still substantive', { indentedDecision: true }, 'indented Decision text makes O a draft'],
-    ['target present at B cannot be treated as a new document', { targetExistsAtB: true }, 'target existed at original B'],
-    ['same author and reviewer is not independent', { reviewerPrincipal: 'author-session' }, 'reviewer is the author'],
-    ['wrong row or domain mapping does not resolve inventory scope', { rowId: '99' }, 'row is absent from pinned inventory'],
-  ]) {
-    const fixture = createOutlineFixture(options);
+  const differentWorkerRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prb-outline-different-worker-'));
+  try {
+    for (const [name, options, reason] of [
+      ['dispatch before review cannot be repaired by later review/handoff', { captureBeforeReview: true }, 'review was absent at dispatch'],
+      ['draft worktree mutation after handoff is caught before dispatch', { dirtyBeforeDispatch: true }, 'worker root was not clean at O'],
+      ['missing writer identity or lease stays unresolved', { omitHandoff: true }, 'handoff/lease absent'],
+      ['a no-force-push policy is not evidence of pre-draft ordering', { omitHandoff: true }, 'no force-push cannot replace a handoff'],
+      ['prompt token must exactly equal the coordinator handoff token', { handoffOverrides: { draftDispatchToken: 'coordinator-token' } }, 'prompt token is not handoff-issued'],
+      ['an outline already containing a complete decision is not pre-draft evidence', { completeOutline: true }, 'O is already a draft'],
+      ['a second substantive Decision heading cannot hide after a placeholder section', { duplicateDecision: true }, 'later Decision text makes O a draft'],
+      ['a one-to-three-space indented Markdown Decision heading is still substantive', { indentedDecision: true }, 'indented Decision text makes O a draft'],
+      ['target present at B cannot be treated as a new document', { targetExistsAtB: true }, 'target existed at original B'],
+      ['same author and reviewer is not independent', { reviewerPrincipal: 'author-session' }, 'reviewer is the author'],
+      ['wrong row or domain mapping does not resolve inventory scope', { rowId: '99' }, 'row is absent from pinned inventory'],
+    ]) {
+      const fixture = createOutlineFixture(options);
+      try {
+        assert.strictEqual(fixture.capture.outlineDispatch.state, 'unresolved', reason);
+        const later = fixture.finishDraft().result;
+        assert.notStrictEqual(later.status, 'accepted', `${name}: later evidence cannot repair the seam`);
+      } finally { fixture.cleanup(); }
+    }
+    const wrongRoot = createOutlineFixture({ markerRoot: differentWorkerRoot });
     try {
-      assert.strictEqual(fixture.capture.outlineDispatch.state, 'unresolved', reason);
-      const later = fixture.finishDraft().result;
-      assert.notStrictEqual(later.status, 'accepted', `${name}: later evidence cannot repair the seam`);
-    } finally { fixture.cleanup(); }
-  }
+      assert.notStrictEqual(canonical(wrongRoot.root), canonical(differentWorkerRoot), 'negative uses an existing, distinct directory');
+      assert.strictEqual(wrongRoot.capture.outlineDispatch.state, 'unresolved', 'a different existing root stays unresolved');
+      assert.notStrictEqual(wrongRoot.finishDraft().result.status, 'accepted', 'later evidence cannot repair the root mismatch');
+    } finally { wrongRoot.cleanup(); }
+  } finally { fs.rmSync(differentWorkerRoot, { recursive: true, force: true }); }
+});
+
+test('canonical root identity accepts an alias across marker, handoff, lease, and worker capture', () => {
+  const fixture = createOutlineFixture({ workerRootAlias: true });
+  try {
+    assert.strictEqual(fixture.capture.outlineDispatch.state, 'accepted', JSON.stringify(fixture.capture.outlineDispatch));
+    assert.strictEqual(fixture.finishDraft().result.status, 'accepted', 'worker CWD and aliased root identify one directory');
+  } finally { fixture.cleanup(); }
 });
 
 test('one-use token and tool correlation allow only an identical same-ID duplicate', () => {
@@ -1073,6 +1092,17 @@ test('real capture→provider→adapter→checker→pilot discovers one outline 
     assert.ok(report.acceptedRefs.some(ref => ref.endsWith('#quality-review')),
       'the existing final exact-D quality-review lane remains independently discoverable');
     assert.strictEqual(report.pilotCredit, false, 'other B→D MUSTs remain independently unsatisfied');
+  } finally { fixture.cleanup(); }
+});
+
+test('pilot compares the current Git root with an aliased pinned baseline root', () => {
+  const fixture = createOutlineFixture({ realHook: true });
+  try {
+    const baselineRoot = `${fixture.root}${path.sep}..${path.sep}${path.basename(fixture.root)}`;
+    const completed = fixture.finishDraft({ finalReview: true, runPilot: true, baselineRoot });
+    assert.strictEqual(completed.pilot.report.outlineEvidence?.outcome, 'pass', JSON.stringify(completed.pilot.report));
+    assert.ok(!completed.pilot.report.diagnostics.some(item => item.code === 'baseline-unavailable'),
+      'equivalent root spellings do not make the baseline unavailable');
   } finally { fixture.cleanup(); }
 });
 

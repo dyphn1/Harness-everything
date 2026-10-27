@@ -35,7 +35,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { classifyShell } = require('./workflow-isolation');
+const { canonical, key, classifyShell } = require('./workflow-isolation');
 
 const HOST_ID = 'claude-code';
 const CAPTURE_RECORD_VERSION = 'claude-capture-record/1';
@@ -765,12 +765,11 @@ function outlineGit(root, args, binary = false) {
 
 function canonicalOutlineRoot(value) {
   if (typeof value !== 'string' || !path.isAbsolute(value)) throw new Error('outline-root-invalid');
-  const real = fs.realpathSync(value);
-  if (real !== value) throw new Error('outline-root-not-canonical');
-  return real;
+  try { fs.statSync(value); } catch { throw new Error('outline-root-not-canonical'); }
+  return canonical(value);
 }
 
-function outlineWorkspaceId(root) { return 'ws-' + digestText(captureJson({ workspaceRoot: root })); }
+function outlineWorkspaceId(root) { return 'ws-' + digestText(captureJson({ workspaceRoot: canonical(root) })); }
 
 function readOutlineJson(file) {
   try {
@@ -796,7 +795,7 @@ function outlineTaskState(sessionDir) {
     || !recordOf(baseline) || !textOf(baseline.root) || !/^[0-9a-f]{40,64}$/.test(String(baseline.commit || ''))
     || outlineSha(Buffer.from(captureJson(taskBinding.requirementIds))) !== taskBinding.requirementDigest
     || taskBinding.taskId !== `task-${taskBinding.requirementIds.join('+')}`
-    || taskBinding.baselineCommit !== baseline.commit || taskBinding.baselineRoot !== baseline.root
+    || taskBinding.baselineCommit !== baseline.commit || !sameCanonicalPath(taskBinding.baselineRoot, baseline.root)
     || taskBinding.workflowId !== workflow.workflowId || taskBinding.workspaceId !== outlineWorkspaceId(baseline.root)) {
     return { state: 'unresolved', reason: 'workflow-task-binding-invalid' };
   }
@@ -825,7 +824,8 @@ function resolveOutlineAttempt({ sessionDir, taskId, attemptId } = {}) {
     if (handoff.schema !== OUTLINE_HANDOFF_SCHEMA || handoff.taskId !== taskId || handoff.attemptId !== name
       || !textOf(handoff.handoffId) || !textOf(handoff.draftDispatchToken)
       || !recordOf(handoff.baseline) || handoff.baseline.commit !== taskState.baseline.commit
-      || handoff.baseline.root !== taskState.baseline.root || handoff.configDigest !== taskState.taskBinding.configDigest) {
+      || !sameCanonicalPath(handoff.baseline.root, taskState.baseline.root)
+      || handoff.configDigest !== taskState.taskBinding.configDigest) {
       return { state: 'unresolved', reason: 'handoff-identity-or-baseline-mismatch' };
     }
     const attemptDir = path.join(attemptsRoot, name);
@@ -953,15 +953,15 @@ function validateOutlineHandoffAtDispatch({ payload, parsed, sessionDir, workspa
     || handoff.sessionId !== payload.session_id || handoff.hostId !== HOST_ID
     || handoff.coordinatorPrincipal !== payload.session_id
     || handoff.draftDispatchToken !== parsed.token
-    || handoff.baseline.root !== baseline.root || handoff.baseline.commit !== baseline.commit
+    || !sameCanonicalPath(handoff.baseline.root, baseline.root) || handoff.baseline.commit !== baseline.commit
     || handoff.baseline.tree !== baseline.tree || handoff.configDigest !== taskBinding.configDigest) {
     return { state: 'unresolved', reason: 'handoff-identity-mismatch' };
   }
   const markerRoot = canonicalOutlineRoot(parsed.workerRoot);
   const declaredRoot = canonicalOutlineRoot(handoff.draftWorktreeRoot);
-  if (markerRoot !== declaredRoot) return { state: 'unresolved', reason: 'worker-root-mismatch' };
+  if (!sameCanonicalPath(markerRoot, declaredRoot)) return { state: 'unresolved', reason: 'worker-root-mismatch' };
   const gitRoot = outlineGit(markerRoot, ['rev-parse', '--show-toplevel']).trim();
-  if (canonicalOutlineRoot(gitRoot) !== markerRoot) return { state: 'unresolved', reason: 'worker-root-mismatch' };
+  if (!sameCanonicalPath(canonicalOutlineRoot(gitRoot), markerRoot)) return { state: 'unresolved', reason: 'worker-root-mismatch' };
   const head = outlineGit(markerRoot, ['rev-parse', '--verify', 'HEAD^{commit}']).trim();
   const tree = outlineGit(markerRoot, ['rev-parse', '--verify', 'HEAD^{tree}']).trim();
   const statusBytes = outlineGit(markerRoot, ['status', '--porcelain=v1', '-z', '--untracked-files=all'], true);
@@ -1027,7 +1027,7 @@ function validateOutlineHandoffAtDispatch({ payload, parsed, sessionDir, workspa
   if (leaseLoaded.state !== 'accepted') return { state: 'unresolved', reason: 'writer-lease-unavailable' };
   const lease = leaseLoaded.value;
   if (lease.schema !== OUTLINE_LEASE_SCHEMA || lease.id !== handoff.writerLeaseId
-    || lease.principalId !== payload.session_id || lease.root !== markerRoot || lease.exclusive !== true
+    || lease.principalId !== payload.session_id || !sameCanonicalPath(lease.root, markerRoot) || lease.exclusive !== true
     || lease.active !== true || (Array.isArray(lease.competingWriters) && lease.competingWriters.length)
     || leaseLoaded.digest !== handoff.writerLeaseDigest) {
     return { state: 'unresolved', reason: 'writer-lease-invalid' };
@@ -1175,7 +1175,8 @@ function outlineCaptureMappingValid(mapping, records) {
     if (!marker) return false;
     const starts = records.filter(item => recordOf(item) && item.event === 'SubagentStart'
       && item.parent_tool_use_id === pre.tool_use_id && item.session_id === pre.session_id
-      && item.cwd === marker.workerRoot && textOf(item.agent_id));
+      && textOf(item.cwd) && textOf(marker.workerRoot) && key(item.cwd) === key(marker.workerRoot)
+      && textOf(item.agent_id));
     if (starts.length !== 1) return false;
     const worker = starts[0];
     const results = records.filter(item => recordOf(item) && item.event === 'PostToolUse'
@@ -1234,8 +1235,24 @@ function possibleWriterCapture(item) {
 }
 
 function sameCanonicalPath(left, right) {
-  try { return canonicalPath(left) === canonicalPath(right); }
+  try {
+    fs.statSync(left);
+    fs.statSync(right);
+    return key(left) === key(right);
+  }
   catch { return false; }
+}
+
+function samePathKey(left, right) {
+  try { return key(left) === key(right); }
+  catch { return false; }
+}
+
+function sameOutlineTaskBinding(left, right) {
+  if (!recordOf(left) || !recordOf(right)) return false;
+  const { baselineRoot: leftRoot, ...leftIdentity } = left;
+  const { baselineRoot: rightRoot, ...rightIdentity } = right;
+  return captureJson(leftIdentity) === captureJson(rightIdentity) && sameCanonicalPath(leftRoot, rightRoot);
 }
 
 function resolveOutlineEvidence({ safeInput, capture, captures, request, originRef } = {}) {
@@ -1254,10 +1271,10 @@ function resolveOutlineEvidence({ safeInput, capture, captures, request, originR
     }
     const taskState = outlineTaskState(sessionDir);
     if (taskState.state !== 'accepted' || taskState.taskBinding.taskId !== safeInput.taskId
-      || (recordOf(safeInput.taskBinding) && captureJson(taskState.taskBinding) !== captureJson(safeInput.taskBinding))
-      || captureJson(cap.observedIdentity.taskPin) !== captureJson(taskState.taskBinding)
+      || (recordOf(safeInput.taskBinding) && !sameOutlineTaskBinding(taskState.taskBinding, safeInput.taskBinding))
+      || !sameOutlineTaskBinding(cap.observedIdentity.taskPin, taskState.taskBinding)
       || cap.observedIdentity.baselinePin?.commit !== taskState.baseline.commit
-      || cap.observedIdentity.baselinePin?.root !== taskState.baseline.root) {
+      || !sameCanonicalPath(cap.observedIdentity.baselinePin?.root, taskState.baseline.root)) {
       return fail('outline-task-binding-mismatch');
     }
     const attempt = resolveOutlineAttempt({ sessionDir, taskId: dispatch.taskId, attemptId: dispatch.attemptId });
@@ -1325,7 +1342,7 @@ function resolveOutlineEvidence({ safeInput, capture, captures, request, originR
     let workerRoot;
     try { workerRoot = canonicalOutlineRoot(worker.cwd); }
     catch { return fail('outline-worker-root-unobserved'); }
-    if (workerRoot !== seam.workerRoot) return fail('outline-worker-root-mismatch');
+    if (!sameCanonicalPath(workerRoot, seam.workerRoot)) return fail('outline-worker-root-mismatch');
     const results = (Array.isArray(captures) ? captures : []).filter(item => recordOf(item)
       && item.event === 'PostToolUse' && ['Task', 'Agent'].includes(item.tool_name)
       && item.tool_use_id === cap.tool_use_id && item.session_id === cap.session_id);
@@ -1527,7 +1544,8 @@ const createClaudeOriginProvider = input => {
       const observed = cap.observedIdentity;
       const pin = recordOf(safeInput.baseline) ? safeInput.baseline : null;
       const sameWorkflow = observed.workflowId === safeInput.workflowId && observed.workflowRevision === safeInput.workflowRevision;
-      const samePin = !pin || (recordOf(observed.baselinePin) && observed.baselinePin.commit === pin.commit && observed.baselinePin.root === pin.root);
+      const samePin = !pin || (recordOf(observed.baselinePin) && observed.baselinePin.commit === pin.commit
+        && samePathKey(observed.baselinePin.root, pin.root));
       if (!sameWorkflow || !samePin) {
         return rejected('identity-mismatch', 'the observed workflow revision or baseline pin differs from the current one; stale evidence loses credit');
       }
@@ -1860,7 +1878,8 @@ const createOpencodeOriginProvider = input => {
     const pin = recordOf(safeInput.baseline) ? safeInput.baseline : null;
     if (!recordOf(observed)) return rejected('identity-missing', 'OpenCode capture lacks workflow identity observed at capture time');
     const sameWorkflow = observed.workflowId === safeInput.workflowId && observed.workflowRevision === safeInput.workflowRevision;
-    const samePin = !pin || (recordOf(observed.baselinePin) && observed.baselinePin.commit === pin.commit && observed.baselinePin.root === pin.root);
+    const samePin = !pin || (recordOf(observed.baselinePin) && observed.baselinePin.commit === pin.commit
+      && samePathKey(observed.baselinePin.root, pin.root));
     if (!sameWorkflow || !samePin) return rejected('identity-mismatch', 'the observed workflow revision or baseline pin differs from the current one; stale evidence loses credit');
     const signature = opencodeContentSignature(cap);
     const firstOccurrence = captures.findIndex(item => recordOf(item) && opencodeContentSignature(item) === signature);

@@ -5,6 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 const { atomicWriteJson } = require('./fable-contracts');
+const { canonical, key } = require('./workflow-isolation');
 
 const enabled = () => process.env.HARNESS_DOC_RECONCILIATION_PILOT === '1';
 const text = value => typeof value === 'string' && value.trim().length > 0;
@@ -34,7 +35,7 @@ function captureBaseline(context) {
   if (!enabled()) return;
   try {
     if (!context.workflow.docReconciliationBaseline) {
-      const root = git(context.root, ['rev-parse', '--show-toplevel']).trim();
+      const root = canonical(git(context.root, ['rev-parse', '--show-toplevel']).trim());
       const commit = git(root, ['rev-parse', '--verify', 'HEAD^{commit}']).trim();
       const tree = git(root, ['rev-parse', '--verify', `${commit}^{tree}`]).trim();
       context.workflow.docReconciliationBaseline = { root, commit, tree };
@@ -54,7 +55,7 @@ function captureBaseline(context) {
           return [relative, bytes === null ? null : crypto.createHash('sha256').update(bytes).digest('hex')];
         });
         const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
-        const workspaceId = 'ws-' + hash({ workspaceRoot: baseline.root });
+        const workspaceId = 'ws-' + hash({ workspaceRoot: canonical(baseline.root) });
         context.workflow.docReconciliationTask = {
           schema: 'harness.doc-reconciliation-task-pin.v1',
           taskId: `task-${requirementIds.join('+')}`, requirementIds,
@@ -111,8 +112,9 @@ function assertConfigScopeUnchanged(root, baseline, resolver) {
 function collect(context) {
   const baseline = context.workflow.docReconciliationBaseline;
   if (!baseline) throw new Error('baseline-unavailable');
-  const root = git(context.root, ['rev-parse', '--show-toplevel']).trim();
-  if (root !== baseline.root || !/^[0-9a-f]{40,64}$/.test(baseline.commit)) throw new Error('baseline-unavailable');
+  const root = canonical(git(context.root, ['rev-parse', '--show-toplevel']).trim());
+  if (!text(baseline.root) || key(root) !== key(baseline.root)
+    || !/^[0-9a-f]{40,64}$/.test(baseline.commit)) throw new Error('baseline-unavailable');
   const resolver = runtimeModule('project-docs-resolver');
   const resolved = resolver.resolveDocsConfig(root);
   if (!['project', 'host'].includes(resolved.status)) throw new Error('config-unavailable');
@@ -169,7 +171,8 @@ function creditChain(context, set, dependencies = {}) {
   const taskId = taskBinding?.taskId || derivedTaskId;
   if (taskBinding && (taskBinding.taskId !== derivedTaskId || taskBinding.workflowId !== context.workflow.workflowId
     || taskBinding.sessionId !== context.sessionId || taskBinding.baselineCommit !== baseline?.commit
-    || taskBinding.baselineRoot !== baseline?.root
+    || !text(taskBinding.baselineRoot) || !text(baseline?.root)
+    || key(taskBinding.baselineRoot) !== key(baseline.root)
     || taskBinding.requirementDigest !== crypto.createHash('sha256').update(JSON.stringify(requirementIds)).digest('hex')) ) {
     return { eligible: false, outlineEvidence: { outcome: 'none', observation: 'unresolved', reason: 'task-binding-mismatch' },
       diagnostics: [{ code: 'task-binding-mismatch', message: 'the requirement set or original B differs from the task pin' }] };

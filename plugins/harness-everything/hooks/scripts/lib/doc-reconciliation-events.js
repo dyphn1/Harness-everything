@@ -1,16 +1,16 @@
 'use strict';
 
 const fs = require('fs');
-const path = require('path');
 const { execFileSync } = require('child_process');
 const { _internals: U } = require('./doc-reconciliation-core');
+const { key } = require('./workflow-isolation');
 
 // Directory identity as in the producer: native realpath (Windows 8.3 names), case-insensitive on Windows.
 function samePath(a, b) {
   try {
-    const left = fs.realpathSync.native(path.resolve(a));
-    const right = fs.realpathSync.native(path.resolve(b));
-    return process.platform === 'win32' ? left.toLowerCase() === right.toLowerCase() : left === right;
+    fs.statSync(a);
+    fs.statSync(b);
+    return key(a) === key(b);
   } catch { return false; }
 }
 
