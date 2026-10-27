@@ -2,10 +2,12 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 const { atomicWriteJson } = require('./fable-contracts');
 
 const enabled = () => process.env.HARNESS_DOC_RECONCILIATION_PILOT === '1';
+const text = value => typeof value === 'string' && value.trim().length > 0;
 
 function git(root, args) {
   const env = { ...process.env };
@@ -29,11 +31,40 @@ function runtimeModule(name) {
 
 // Only capture at plan/start. A later credit assessment must never advance the baseline to HEAD.
 function captureBaseline(context) {
-  if (!enabled() || context.workflow.docReconciliationBaseline) return;
+  if (!enabled()) return;
   try {
-    const root = git(context.root, ['rev-parse', '--show-toplevel']).trim();
-    const commit = git(root, ['rev-parse', '--verify', 'HEAD^{commit}']).trim();
-    context.workflow.docReconciliationBaseline = { root, commit };
+    if (!context.workflow.docReconciliationBaseline) {
+      const root = git(context.root, ['rev-parse', '--show-toplevel']).trim();
+      const commit = git(root, ['rev-parse', '--verify', 'HEAD^{commit}']).trim();
+      const tree = git(root, ['rev-parse', '--verify', `${commit}^{tree}`]).trim();
+      context.workflow.docReconciliationBaseline = { root, commit, tree };
+    } else if (!context.workflow.docReconciliationBaseline.tree) {
+      const pin = context.workflow.docReconciliationBaseline;
+      pin.tree = git(pin.root, ['rev-parse', '--verify', `${pin.commit}^{tree}`]).trim();
+    }
+    if (!context.workflow.docReconciliationTask) {
+      const plan = context.workflow.pendingPlan || context.workflow.workflowPlan;
+      const loaded = plan && runtimeModule('workflow-obligations').loadObligationSet(context, plan);
+      const requirementIds = loaded?.set?.requirements?.map(item => item.id);
+      if (Array.isArray(requirementIds) && requirementIds.length && requirementIds.every(id => typeof id === 'string' && id)) {
+        const baseline = context.workflow.docReconciliationBaseline;
+        const resolver = runtimeModule('project-docs-resolver');
+        const configSources = configSourcePaths(resolver).map(relative => {
+          const bytes = bytesAtBaseline(baseline.root, baseline.commit, relative);
+          return [relative, bytes === null ? null : crypto.createHash('sha256').update(bytes).digest('hex')];
+        });
+        const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+        const workspaceId = 'ws-' + hash({ workspaceRoot: baseline.root });
+        context.workflow.docReconciliationTask = {
+          schema: 'harness.doc-reconciliation-task-pin.v1',
+          taskId: `task-${requirementIds.join('+')}`, requirementIds,
+          requirementDigest: hash(requirementIds), sessionId: context.sessionId,
+          workflowId: context.workflow.workflowId, workspaceId,
+          baselineCommit: baseline.commit, baselineRoot: baseline.root,
+          configDigest: hash(configSources),
+        };
+      }
+    }
   } catch {
     // Absence is intentionally retained; credit assessment will fail closed.
   }
@@ -120,17 +151,29 @@ function creditChain(context, set, dependencies = {}) {
     : hostId === 'claude-code' ? providerModule.readCaptureView(context.sessionDir)
       : { records: [], tampered: false };
   if (captureView.tampered) {
-    return { eligible: false, diagnostics: [{ code: 'journal-tampered', message: 'the capture journal no longer matches its immutable event records' }] };
+    return { eligible: false, outlineEvidence: { outcome: 'none', observation: 'unresolved', reason: 'journal-tampered' },
+      diagnostics: [{ code: 'journal-tampered', message: 'the capture journal no longer matches its immutable event records' }] };
   }
   if (!['claude-code', 'opencode'].includes(hostId)) {
-    return { eligible: false, diagnostics: [{ code: 'unsupported-host', message: `no document origin provider is registered for ${String(hostId)}` }] };
+    return { eligible: false, outlineEvidence: { outcome: 'none', observation: 'unresolved', reason: 'unsupported-host' },
+      diagnostics: [{ code: 'unsupported-host', message: `no document origin provider is registered for ${String(hostId)}` }] };
   }
   const { produceDocSnapshot } = require('./doc-reconciliation-producer');
   const { acceptDocEvents } = require('./doc-reconciliation-events');
   const { checkAcceptedDocEvidence } = require('./doc-reconciliation-core');
   const baseline = context.workflow.docReconciliationBaseline;
   const requirements = Array.isArray(set?.requirements) ? set.requirements : [];
-  const taskId = `task-${requirements.map(item => item.id).join('+') || 'none'}`;
+  const requirementIds = requirements.map(item => item.id);
+  const derivedTaskId = `task-${requirementIds.join('+') || 'none'}`;
+  const taskBinding = context.workflow.docReconciliationTask || null;
+  const taskId = taskBinding?.taskId || derivedTaskId;
+  if (taskBinding && (taskBinding.taskId !== derivedTaskId || taskBinding.workflowId !== context.workflow.workflowId
+    || taskBinding.sessionId !== context.sessionId || taskBinding.baselineCommit !== baseline?.commit
+    || taskBinding.baselineRoot !== baseline?.root
+    || taskBinding.requirementDigest !== crypto.createHash('sha256').update(JSON.stringify(requirementIds)).digest('hex')) ) {
+    return { eligible: false, outlineEvidence: { outcome: 'none', observation: 'unresolved', reason: 'task-binding-mismatch' },
+      diagnostics: [{ code: 'task-binding-mismatch', message: 'the requirement set or original B differs from the task pin' }] };
+  }
   const sessionId = context.sessionId;
   const { createClaudeOriginProvider, createOpencodeOriginProvider, journalExecutors } = providerModule;
   const captures = captureView.records;
@@ -145,6 +188,8 @@ function creditChain(context, set, dependencies = {}) {
     workflowId: context.workflow.workflowId,
     workflowRevision: context.workflow.revision,
     taskId,
+    sessionDir: context.sessionDir,
+    taskBinding,
     principals,
     baseline,
     captures,
@@ -161,6 +206,7 @@ function creditChain(context, set, dependencies = {}) {
   }, { originProvider });
   if (produced.state !== 'ready' || !produced.snapshot) return {
     eligible: false,
+    outlineEvidence: { outcome: 'none', observation: 'unresolved', reason: produced.diagnostics?.[0]?.code || 'snapshot-unavailable' },
     diagnostics: produced.diagnostics || [],
     unsatisfied: [],
   };
@@ -171,12 +217,25 @@ function creditChain(context, set, dependencies = {}) {
   const passing = new Set((checked.results || []).filter(r => r.observation === 'observed' && r.outcome === 'pass').map(r => r.obligationId));
   const expected = new Set(checked.checkedMustIds || []);
   const satisfied = produced.snapshot.obligations.filter(o => o.strength === 'MUST' && o.applicability !== 'N/A' && expected.has(o.id) && passing.has(o.id));
+  const outlineObligation = produced.snapshot.obligations.find(item => item.capability === 'outline-confirmation');
+  const outlineResult = outlineObligation && (checked.results || []).find(item => item.obligationId === outlineObligation.id);
+  const outlineRefs = Object.entries(accepted.acceptedIndex || {}).filter(([, item]) => item.capability === 'outline-confirmation').map(([ref]) => ref);
+  const outlineEvidence = {
+    status: outlineResult?.observation === 'observed' && outlineResult?.outcome === 'pass' ? 'pass' : 'unresolved',
+    outcome: outlineResult?.outcome || 'none',
+    observation: outlineResult?.observation || 'unresolved',
+    recordRefs: outlineResult?.recordRefs || [],
+    acceptedRefs: outlineRefs,
+    diagnostics: [...(accepted.diagnostics || []), ...(accepted.rejected || []), ...(checked.diagnostics || [])]
+      .filter(item => !item?.obligationId || item.obligationId === outlineObligation?.id),
+  };
   return {
     eligible: checked.eligible === true,
     capabilities: checked.eligible === true ? [...new Set(satisfied.map(o => o.capability))] : [],
     satisfiedObligationIds: satisfied.map(o => o.id),
     unsatisfied: checked.unsatisfied || [],
     acceptedRefs: Object.keys(accepted.acceptedIndex || {}),
+    outlineEvidence,
     diagnostics: [...(accepted.diagnostics || []), ...(checked.diagnostics || [])],
     rejected: accepted.rejected || [],
   };
@@ -232,6 +291,45 @@ function readCaptures(context) {
 const docCheckCandidate = item => item.event === 'PostToolUse'
   && require('./doc-reconciliation-provider').resolveDocCheckInvocation(item.command, item.cwd).kind !== 'not-candidate';
 
+function outlineReviewCaptureRefs(sessionDir, taskId) {
+  const refs = new Set();
+  if (!text(taskId)) return refs;
+  const attempts = path.join(sessionDir, 'doc-reconciliation', 'outline-confirmation', taskId, 'attempts');
+  try {
+    for (const entry of fs.readdirSync(attempts, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      try {
+        const handoff = JSON.parse(fs.readFileSync(path.join(attempts, entry.name, 'handoff.json'), 'utf8'));
+        if (handoff.taskId === taskId && typeof handoff.reviewCaptureRef === 'string') refs.add(handoff.reviewCaptureRef);
+      } catch { /* malformed handoff cannot add review credit */ }
+    }
+  } catch { /* no attempts yet */ }
+  return refs;
+}
+
+function outlineDispatchReferences(captures, taskId, sessionDir) {
+  if (!text(taskId)) return [];
+  const candidates = (Array.isArray(captures) ? captures : []).filter(item => recordOf(item)
+    && item.event === 'PreToolUse' && ['Task', 'Agent'].includes(item.tool_name)
+    && text(item.ref) && item.outlineDispatch?.taskId === taskId && text(item.outlineDispatch.attemptId));
+  if (!candidates.length) return [];
+  if (text(sessionDir)) {
+    const provider = require('./doc-reconciliation-provider');
+    const attemptIds = [...new Set(candidates.map(item => item.outlineDispatch.attemptId))];
+    const resolved = attemptIds.map(attemptId => ({ attemptId,
+      attempt: provider._internals.resolveOutlineAttempt({ sessionDir, taskId, attemptId }) }));
+    const current = resolved.filter(item => item.attempt.state === 'accepted');
+    if (current.length === 1) {
+      const dispatches = candidates.filter(item => item.outlineDispatch.attemptId === current[0].attemptId);
+      return dispatches.length ? [`${dispatches[0].ref}#outline-confirmation`] : [];
+    }
+    if (current.length > 1 || attemptIds.length > 1) return [];
+  }
+  const tuples = [...new Set(candidates.map(item => `${item.outlineDispatch.attemptId}\0${item.tool_use_id || ''}\0${item.outlineDispatch.dispatchInputDigest || ''}`))];
+  if (tuples.length > 1 && !candidates.some(item => item.outlineDispatch.state === 'unresolved')) return [];
+  return [`${candidates[0].ref}#outline-confirmation`];
+}
+
 function captureReferences(context) {
   const captures = readCaptures(context);
   if (activeHostFor(context) === 'opencode') {
@@ -241,7 +339,10 @@ function captureReferences(context) {
   const candidates = captures
     .filter(item => item && typeof item.ref === 'string' && (item.event === 'SubagentStop' || docCheckCandidate(item)))
     .filter(item => item.event !== 'SubagentStop');
-  const reviews = captures.filter(item => item && typeof item.ref === 'string' && item.event === 'SubagentStop');
+  const taskId = context.workflow.docReconciliationTask?.taskId;
+  const outlineReviews = outlineReviewCaptureRefs(context.sessionDir, taskId);
+  const reviews = captures.filter(item => item && typeof item.ref === 'string' && item.event === 'SubagentStop'
+    && !outlineReviews.has(item.ref));
   const references = [];
   for (const [index, capability] of ['doc-lint', 'link-check'].entries()) {
     const ordered = index ? candidates.slice(1).concat(candidates.slice(0, 1)) : candidates;
@@ -250,6 +351,7 @@ function captureReferences(context) {
   const provider = require('./doc-reconciliation-provider');
   references.push(...candidates.filter(item => provider.resolveDocCheckInvocation(item.command, item.cwd).conflictAssessment === true)
     .map(item => `${item.ref}#conflict-check`));
+  references.push(...outlineDispatchReferences(captures, taskId, context.sessionDir));
   // The adapter accepts one event per capability; rotating candidate order lets separate valid runs fill each capability.
   return [...references, ...reviews.map(item => `${item.ref}#quality-review`)];
 }
@@ -298,6 +400,7 @@ function assess(context, set, dependencies = {}) {
   const report = {
     schemaVersion: 1, reportOrigin: 'runtime', pilotStatus: 'unavailable', pilotCredit: false,
     identity: null, expectedMustIds: [], results: [], unsatisfied: [], diagnostics: [],
+    outlineEvidence: { status: 'unresolved', outcome: 'none', observation: 'unresolved', acceptedRefs: [], recordRefs: [], diagnostics: [] },
   };
   const supported = set?.stepBindingsEnabled === true && !String(context.workflow.strategy || '').startsWith('fable-');
   let withhold = false;
@@ -313,10 +416,17 @@ function assess(context, set, dependencies = {}) {
         reasonCode: item.applicability === 'unknown' ? 'unknown-applicability' : 'producer-unavailable',
       }));
       if (!withhold) report.diagnostics.push('trusted-non-document-scope');
-      if (withhold) {
+      const hasOutlineCapture = captureReferences(context).some(reference => reference.endsWith('#outline-confirmation'));
+      if (withhold || hasOutlineCapture) {
         let chain;
         try { chain = creditChain(context, set, dependencies); }
-        catch (error) { chain = { eligible: false, diagnostics: [{ code: 'collector-unavailable', message: String(error.message) }] }; }
+        catch (error) { chain = { eligible: false, outlineEvidence: { status: 'unresolved', outcome: 'none',
+          observation: 'unresolved', reason: 'collector-unavailable', acceptedRefs: [], recordRefs: [], diagnostics: [] },
+          diagnostics: [{ code: 'collector-unavailable', message: String(error.message) }] }; }
+        report.outlineEvidence = chain.outlineEvidence || report.outlineEvidence;
+        report.acceptedRefs = chain.acceptedRefs || [];
+        report.diagnostics.push(...(chain.diagnostics || []));
+        if (withhold) {
         // The unsatisfied list is rewritten from the chain: a MUST that the chain did not satisfy stays listed (F3).
         const satisfied = new Set(chain.satisfiedObligationIds || []);
         report.unsatisfied = [
@@ -327,12 +437,11 @@ function assess(context, set, dependencies = {}) {
           ...(chain.unsatisfied || []),
         ];
         report.creditedCapabilities = chain.eligible === true ? chain.capabilities : [];
-        report.acceptedRefs = chain.acceptedRefs || [];
-        report.diagnostics.push(...(chain.diagnostics || []));
         // Credit needs an empty unsatisfied list across both sources and at least one satisfied capability.
         withhold = !(chain.eligible === true && report.unsatisfied.length === 0 && report.creditedCapabilities.length > 0);
         report.pilotCredit = !withhold;
         report.pilotStatus = report.pilotCredit ? 'credited' : 'unresolved';
+        }
       }
     } catch (error) {
       withhold = true;
@@ -351,4 +460,5 @@ function assess(context, set, dependencies = {}) {
   return { withhold, report };
 }
 
-module.exports = { enabled, captureBaseline, assess, reviewRequired, independentReviewAccepted };
+module.exports = { enabled, captureBaseline, assess, reviewRequired, independentReviewAccepted,
+  _internals: { captureReferences, outlineDispatchReferences, outlineReviewCaptureRefs } };

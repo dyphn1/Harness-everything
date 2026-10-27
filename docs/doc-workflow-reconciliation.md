@@ -1213,3 +1213,33 @@ claude -p "<fixed capture prompt, containing the exact check command>" \
 - **The live gate is a repository-pinned field-availability check, not a running-host compatibility check (F10).** The qualification export records Claude Code `2.1.308`, but the retained Claude hook payloads expose no host-version field for the runtime to compare. The export and sibling sanitized capture validate the recorded payload kinds and correlations for that host version; they do not establish compatibility with the current session. Editing both repository artifacts and updating the capture digest can reopen the gate without a new live capture.
 - **The unsupported-host check is vacuous in production (F11).** The only production caller asserts the Claude host id. OpenCode and Codex stay unavailable because their plugins do not mount `state-persist.js`, not because the host is detected.
 - **Event files are not tamper-proof (F13).** Event files are created exclusively, and the journal is checked against them. The local agent can still rewrite event files and rebuild the journal. This is the owner's bounded claim, not a guarantee of tamper resistance.
+
+## PR-B: dedicated pre-draft outline confirmation
+
+Status: **implemented behind the existing pilot switch; mechanism and package checks pass; no positive live-host credit is enabled.** This capability follows owner decisions 9 and 11: an independent reviewer approves exact O before drafting; the outline cites one row from the pinned inventory; final D is a strict descendant of O; a coordinator handoff records review-complete → fresh-draft-dispatch. Owner approval is provenance only and never a runtime reviewer principal.
+
+```mermaid
+flowchart LR
+  B["Original baseline B<br/>task and config pinned"] --> O["Proposed outline O<br/>new target absent at B"]
+  I["Coordinator-pinned inventory"] --> R["Independent review<br/>exact O + cited row"]
+  O --> R
+  R --> H["Immutable handoff +<br/>exclusive writer lease"]
+  H --> P["Task/Agent PreToolUse<br/>exact prompt marker"]
+  P --> S["Synchronous seam<br/>clean worker root at O<br/>one-use token consumed"]
+  S --> W["Correlated worker start/result"]
+  W --> D["Final candidate D<br/>strict descendant of O"]
+  D --> A["Outline result and<br/>aggregate B→D MUSTs"]
+```
+
+| Evidence | Required binding |
+|---|---|
+| B and task | Keep the workflow-start B commit/root/tree and ordered requirement IDs for every attempt. Config scope must still match B. An attempt cannot reset B to O. |
+| Inventory | The coordinator supplies exact bytes and `inventory-pin.json` outside the candidate tree. The pinned source is `report-inv.md`, SHA-256 `2741bd4514d2cd68f57d93a2b3ce94cbe597ca62d30e26f0ca58e882df5b03c6`, run `e1-inv-1`, input SHA `0ef0541c6cae550e8269ba712e03797e0e987dfb`, approval `#325` comment `6436207729`, decision 1. The provider rehashes the bytes and compares every pin field before resolving one row and domain. Missing, stale, duplicate, ambiguous, wrong-target or unavailable evidence is unresolved with no fallback. Synthetic test pins prove parser/mechanism binding only. |
+| O and review | O is bound to its commit, tree, target blobs and stored-byte digests. Its `proposed` ADR frontmatter cites one `Inventory row: <id>`, target and domain, and contains no completed Decision text. A host-captured `SubagentStop` review must approve those exact O bytes and the pinned inventory, with a distinct host `agent_id` and correlated Agent/Task result. |
+| Handoff and dispatch | One immutable attempt handoff binds B, O, scope, inventory, accepted review, coordinator principal, lease and one-use token. Agent/Task dispatch accepts exactly one `HARNESS_OUTLINE_DISPATCH_V1` block in `tool_input.prompt`, whose token must equal the handoff token; it does not search free-form text or use another field or cwd as a fallback. Before worker start, PreToolUse verifies the handoff, review, pin, exclusive lease, canonical root, HEAD/tree at O and clean index/worktree including untracked files; it creates a write-once handoff-digest seal, stores validation digests/reasons, then consumes the token by exclusive creation. Every predecessor seal, seam and token remains bound to the original handoff bytes, so an overwritten predecessor invalidates the chain. |
+| Worker and D | Worker start must correlate to the dispatch token/tool ID, principal and declared root; the eventual Task/Agent result must name that same worker. D is checked against the current candidate separately from O. O must be a strict ancestor of D. A squash may retain the cycle only when a coordinator correspondence record proves identical target blobs between retained pre-merge D and the merged tree; changed bytes need fresh final quality review. |
+| Checker outcome | `outline-confirmation` has its own pass/unresolved lane. Generic command success and waivers never satisfy it. No D is incomplete/unresolved. Its result is separate from the aggregate result over every MUST derived from original B→D; an outline pass never waives lint, conflict, quality review, requirement-sync or other MUSTs. |
+
+Capture and validation failures stay fail-open to host tools and withhold evidence credit. Unclassified shell commands and writes outside the correlated worker/root remain unresolved. Retries use a fresh attempt, token, clean worktree and immutable handoff; only one non-superseded leaf is current. Exact same-tool-ID/input duplicates may resolve to one seam; changed input or token reuse is unresolved. OpenCode and Codex remain unsupported for positive outline credit.
+
+The current retained Claude qualification does not establish the frozen prompt field, coordinator principal, synchronous PreToolUse boundary or worker-root mapping. The outline provider therefore grants no positive live-host credit until a retained Claude capture validates those mappings. Deterministic fixtures exercise the real hook/provider/adapter/checker/pilot path with a synthetic inventory pin; they are mechanism evidence, not live-host behavior or E1 readiness.

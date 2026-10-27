@@ -148,6 +148,16 @@ function persistPilotCapture(payload, eventName, sessionId, root) {
     // Observation-time identity: the workflow and pin in force when the host event was captured.
     const observed = provider.observedIdentityFor(sessionDir);
     if (observed) entry.observedIdentity = observed;
+    if (eventName === 'PreToolUse' && (entry.tool_name === 'Agent' || entry.tool_name === 'Task')) {
+      try {
+        const existing = provider.readCaptureView(sessionDir);
+        entry.outlineDispatch = existing.tampered
+          ? { schema: 'harness.outline-dispatch.v1', state: 'unresolved', reasons: ['capture-view-tampered'] }
+          : provider.captureOutlineDispatch({ payload, capture: entry, sessionDir, workspaceRoot: root, captures: existing.records });
+      } catch {
+        entry.outlineDispatch = { schema: 'harness.outline-dispatch.v1', state: 'unresolved', reasons: ['dispatch-capture-failed'] };
+      }
+    }
     // Each capture is one exclusively created event file; the compatibility journal is rebuilt from them (not tamper-proof).
     provider.writeImmutableEvent(sessionDir, entry);
     provider.rebuildJournalView(sessionDir);

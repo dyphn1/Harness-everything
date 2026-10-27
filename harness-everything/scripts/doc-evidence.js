@@ -433,6 +433,61 @@ function evaluateObligation(obligation, context) {
     return entry ? baselineBound(item, entry) : candidateBound(item, path);
   };
 
+  if (capability === 'outline-confirmation') {
+    const candidates = matching.filter(item => reviewList.includes(item) && item.kind === 'outline-confirmation');
+    if (candidates.length !== 1) {
+      return result('unresolved', 'none',
+        'outline-confirmation requires one validated pre-draft O/review/handoff/dispatch record and a final D; generic execution and waivers do not qualify',
+        candidates.map(item => item.id));
+    }
+    const item = candidates[0];
+    const evidence = isPlainObject(item.outlineEvidence) ? item.outlineEvidence : null;
+    const sha = value => isSha256(value);
+    const digestsMatch = map => isPlainObject(map)
+      && Object.keys(map).sort(compareText).join('\0') === scopePaths.slice().sort(compareText).join('\0')
+      && scopePaths.every(path => sha(map[path]));
+    const identityValid = Boolean(evidence)
+      && evidence.schema === 'harness.outline-confirmation.v1' && evidence.state === 'validated'
+      && nonEmptyString(evidence.taskId) && nonEmptyString(evidence.attemptId)
+      && /^\d{1,2}$/.test(String(evidence.inventoryRowId || ''))
+      && /^[A-Z][A-Z0-9]{1,9}$/.test(String(evidence.domain || ''))
+      && sha(evidence.inventoryPinDigest) && sha(evidence.inventoryArtifactDigest)
+      && /^[0-9a-f]{40,64}$/.test(String(evidence.baselineCommit || ''))
+      && /^[0-9a-f]{40,64}$/.test(String(evidence.outlineCommit || ''))
+      && /^[0-9a-f]{40,64}$/.test(String(evidence.draftCommit || ''))
+      && /^[0-9a-f]{40,64}$/.test(String(evidence.mergedCommit || ''))
+      && evidence.outlineCommit !== evidence.draftCommit
+      && evidence.ancestry === 'strict-descendant'
+      && sha(evidence.handoffDigest) && sha(evidence.reviewCaptureDigest) && sha(evidence.reviewDigest)
+      && sha(evidence.seamDigest) && sha(evidence.dispatchInputDigest) && sha(evidence.writerLeaseDigest)
+      && nonEmptyString(evidence.dispatchToolUseId) && nonEmptyString(evidence.coordinatorPrincipal)
+      && nonEmptyString(evidence.reviewerPrincipal) && nonEmptyString(evidence.workerPrincipal)
+      && evidence.reviewerPrincipal !== evidence.coordinatorPrincipal
+      && evidence.reviewerPrincipal !== evidence.workerPrincipal
+      && Array.isArray(evidence.targetPaths)
+      && evidence.targetPaths.slice().sort(compareText).join('\0') === scopePaths.slice().sort(compareText).join('\0')
+      && digestsMatch(evidence.outlineArtifactDigests) && digestsMatch(evidence.draftArtifactDigests)
+      && digestsMatch(item.artifactDigests)
+      && scopePaths.every(path => evidence.draftArtifactDigests[path] === item.artifactDigests[path]
+        && candidateBound(item, path));
+    const mergeValid = evidence && (evidence.mergeCorrespondence === null
+      || (isPlainObject(evidence.mergeCorrespondence)
+        && ['accepted', 'changed'].includes(evidence.mergeCorrespondence.state)
+        && Array.isArray(evidence.mergeCorrespondence.targetPaths)
+        && evidence.mergeCorrespondence.targetPaths.slice().sort(compareText).join('\0')
+          === scopePaths.slice().sort(compareText).join('\0')));
+    const outlineProblems = [];
+    if (!identityValid) outlineProblems.push('envelope-or-current-D-binding');
+    if (!mergeValid) outlineProblems.push('merge-correspondence');
+    if (item.baseDigest !== baselineDigest) outlineProblems.push('original-B-digest');
+    if (outlineProblems.length) {
+      diagnostics.push({ code: 'outline-evidence-unresolved', obligationId,
+        message: `the outline evidence is incomplete or inconsistent: ${outlineProblems.join(', ')}` });
+      return result('unresolved', 'none', 'outline evidence is incomplete or unbound to the original B and final D', [item.id]);
+    }
+    return result('observed', 'pass', 'validated independent review of exact O, coordinator handoff, clean one-use dispatch, pinned inventory, and strict O-to-D evidence', [item.id]);
+  }
+
   for (const item of matching) {
     if (executionList.includes(item) && !completeExecution(item)) {
       diagnostics.push({

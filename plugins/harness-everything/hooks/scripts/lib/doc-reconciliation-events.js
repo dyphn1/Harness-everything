@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 const { _internals: U } = require('./doc-reconciliation-core');
 
 // Directory identity as in the producer: native realpath (Windows 8.3 names), case-insensitive on Windows.
@@ -19,6 +20,109 @@ function artifactsFor(records) {
 function prdDigest(artifacts) {
   return U.sha(JSON.stringify(Object.keys(artifacts).filter(p => p.startsWith('docs/prd/')).sort().map(p => [p, artifacts[p].digest])));
 }
+
+function git(root, args, binary = false) {
+  const env = { ...process.env };
+  for (const key of Object.keys(env)) if (key.startsWith('GIT_')) delete env[key];
+  return execFileSync('git', ['-C', root, ...args], { env, encoding: binary ? null : 'utf8',
+    timeout: 10000, maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
+function shaBytes(value) { return U.sha(Buffer.from(value)); }
+
+function outlineEventValid({ event, snapshot, paths, artifacts, baselineArtifacts } = {}) {
+  let stage = 'envelope';
+  try {
+    const evidence = event?.outlineEvidence;
+    const root = snapshot.originContext.workspaceRoot;
+    const baseline = snapshot.originContext.baseline;
+    if (snapshot.originContext.activeHost !== 'claude-code' || !U.record(evidence)
+      || evidence.schema !== 'harness.outline-confirmation.v1' || evidence.state !== 'validated'
+      || evidence.baselineCommit !== baseline?.commit || evidence.taskId !== snapshot.identity.taskId
+      || !/^[0-9a-f]{40,64}$/.test(String(evidence.outlineCommit || ''))
+      || !/^[0-9a-f]{40,64}$/.test(String(evidence.draftCommit || ''))
+      || !/^[0-9a-f]{40,64}$/.test(String(evidence.mergedCommit || ''))
+      || !/^[0-9a-f]{64}$/.test(String(evidence.handoffDigest || ''))
+      || !/^[0-9a-f]{64}$/.test(String(evidence.reviewCaptureDigest || ''))
+      || !/^[0-9a-f]{64}$/.test(String(evidence.reviewDigest || ''))
+      || !/^[0-9a-f]{64}$/.test(String(evidence.seamDigest || ''))
+      || !/^[0-9a-f]{64}$/.test(String(evidence.dispatchInputDigest || ''))
+      || !/^[0-9a-f]{64}$/.test(String(evidence.writerLeaseDigest || ''))
+      || !/^[0-9a-f]{64}$/.test(String(evidence.inventoryPinDigest || ''))
+      || !/^[0-9a-f]{64}$/.test(String(evidence.inventoryArtifactDigest || ''))
+      || !Array.isArray(evidence.targetPaths) || U.stable(evidence.targetPaths) !== U.stable(paths)
+      || !U.record(evidence.outlineArtifactDigests) || !U.record(evidence.draftArtifactDigests)
+      || !U.record(evidence.outlineBlobOids) || !U.record(evidence.draftBlobOids)
+      || U.stable(Object.keys(evidence.outlineArtifactDigests).sort()) !== U.stable(paths)
+      || U.stable(Object.keys(evidence.draftArtifactDigests).sort()) !== U.stable(paths)
+      || U.stable(Object.keys(evidence.outlineBlobOids).sort()) !== U.stable(paths)
+      || U.stable(Object.keys(evidence.draftBlobOids).sort()) !== U.stable(paths)
+      || !U.record(event.draftArtifactDigests) || U.stable(Object.keys(event.draftArtifactDigests).sort()) !== U.stable(paths)
+      || U.stable(event.draftArtifactDigests) !== U.stable(evidence.draftArtifactDigests)
+      || !U.record(event.reviewedArtifactDigests)
+      || !paths.every(p => /^[0-9a-f]{64}$/.test(String(evidence.outlineArtifactDigests[p] || ''))
+        && /^[0-9a-f]{64}$/.test(String(evidence.draftArtifactDigests[p] || ''))
+        && /^[0-9a-f]{40,64}$/.test(String(evidence.outlineBlobOids[p] || ''))
+        && /^[0-9a-f]{40,64}$/.test(String(evidence.draftBlobOids[p] || ''))
+        && artifacts[p]?.digest === evidence.draftArtifactDigests[p])
+      || !/^[0-9a-f]{40,64}$/.test(String(evidence.baselineCommit || ''))
+      || !/^[0-9a-f]{40,64}$/.test(String(evidence.outlineTree || ''))
+      || !/^[0-9a-f]{40,64}$/.test(String(evidence.draftTree || ''))
+      || !U.text(evidence.coordinatorPrincipal) || !U.text(evidence.reviewerPrincipal) || !U.text(evidence.workerPrincipal)
+      || evidence.reviewerPrincipal === evidence.coordinatorPrincipal || evidence.reviewerPrincipal === evidence.workerPrincipal
+      || evidence.ancestry !== 'strict-descendant' || evidence.outlineCommit === evidence.draftCommit) return stage;
+
+    stage = 'reviewed-object-binding';
+    const pinPath = Object.keys(event.reviewedArtifactDigests).filter(p => p.startsWith('doc-reconciliation/outline-confirmation/inventory/'));
+    if (pinPath.length !== 1 || event.reviewedArtifactDigests[pinPath[0]] !== evidence.inventoryArtifactDigest
+      || Object.keys(event.reviewedArtifactDigests).length !== paths.length + 1
+      || !paths.every(p => event.reviewedArtifactDigests[p] === evidence.outlineArtifactDigests[p])) return stage;
+
+    stage = 'current-commit-binding';
+    const head = git(root, ['rev-parse', '--verify', 'HEAD^{commit}']).trim();
+    const tree = git(root, ['rev-parse', '--verify', 'HEAD^{tree}']).trim();
+    if (head !== evidence.mergedCommit || tree !== evidence.draftTree) return stage;
+    const verified = commit => git(root, ['rev-parse', '--verify', `${commit}^{commit}`]).trim() === commit;
+    if (![evidence.baselineCommit, evidence.outlineCommit, evidence.draftCommit, evidence.mergedCommit].every(verified)) return 'git-object-missing';
+    if (evidence.baselineCommit === evidence.outlineCommit) return 'B-to-O-ancestry';
+    stage = 'B-to-O-ancestry';
+    try { git(root, ['merge-base', '--is-ancestor', evidence.baselineCommit, evidence.outlineCommit]); }
+    catch { return stage; }
+    stage = 'O-to-D-ancestry';
+    try { git(root, ['merge-base', '--is-ancestor', evidence.outlineCommit, evidence.draftCommit]); }
+    catch { return stage; }
+    stage = 'merge-correspondence';
+    if (evidence.mergeCorrespondence === null) {
+      if (evidence.draftCommit !== evidence.mergedCommit) return stage;
+    } else {
+      const merge = evidence.mergeCorrespondence;
+      if (!U.record(merge) || !['accepted', 'changed'].includes(merge.state)
+        || merge.draftCommit !== evidence.draftCommit || merge.mergedCommit !== evidence.mergedCommit
+        || U.stable(merge.targetPaths) !== U.stable(paths) || !U.record(merge.targetBlobs)) return stage;
+      for (const p of paths) {
+        const draftOid = git(root, ['rev-parse', `${evidence.draftCommit}:${p}`]).trim();
+        const mergedOid = git(root, ['rev-parse', `${evidence.mergedCommit}:${p}`]).trim();
+        if (merge.targetBlobs[p]?.draft !== draftOid || merge.targetBlobs[p]?.merged !== mergedOid
+          || (merge.state === 'accepted' && draftOid !== mergedOid)
+          || (merge.state === 'changed' && draftOid === mergedOid)) return stage;
+      }
+    }
+    stage = 'target-object-binding';
+    for (const p of paths) {
+      const atBase = git(root, ['ls-tree', '-r', '--name-only', evidence.baselineCommit, '--', p]).trim().split('\n').filter(Boolean);
+      if (atBase.includes(p)) return 'target-existed-at-B';
+      if (git(root, ['rev-parse', `${evidence.outlineCommit}:${p}`]).trim() !== evidence.outlineBlobOids[p]
+        || git(root, ['rev-parse', `${evidence.mergedCommit}:${p}`]).trim() !== evidence.draftBlobOids[p]) return stage;
+      const outlineBytes = git(root, ['show', `${evidence.outlineCommit}:${p}`], true);
+      const draftBytes = git(root, ['show', `${evidence.mergedCommit}:${p}`], true);
+      if (shaBytes(outlineBytes) !== evidence.outlineArtifactDigests[p]
+        || shaBytes(draftBytes) !== evidence.draftArtifactDigests[p]
+        || shaBytes(draftBytes) !== artifacts[p]?.digest) return 'candidate-artifact-binding';
+    }
+    return true;
+  } catch { return 'git-verification-failed'; }
+}
+
 function acceptDocEvents(input = {}, dependencies = {}) {
   const { snapshot, eventRefs } = U.record(input) ? input : {};
   const originProvider = dependencies?.originProvider;
@@ -91,8 +195,12 @@ function acceptDocEvents(input = {}, dependencies = {}) {
       seenCapabilities.add(event?.capability);
       const paths = obligation?.scope?.paths || [];
       if (!Array.isArray(event?.paths) || U.stable([...event.paths].sort()) !== U.stable([...paths].sort())) reject('scope-mismatch');
+      const outlineCapability = event?.capability === 'outline-confirmation';
       const digests = event?.kind === 'review' ? event.reviewedArtifactDigests : event?.artifactDigests;
-      if (!U.record(digests)) reject('artifact-mismatch');
+      if (outlineCapability) {
+        const outlineValidation = outlineEventValid({ event, snapshot, paths, artifacts, baselineArtifacts });
+        if (outlineValidation !== true) reject(`outline-${outlineValidation || 'evidence-invalid'}`);
+      } else if (!U.record(digests)) reject('artifact-mismatch');
       else {
         for (const p of paths) {
           if (artifacts[p] && digests[p] !== artifacts[p].digest) reject('artifact-mismatch');
@@ -135,10 +243,13 @@ function acceptDocEvents(input = {}, dependencies = {}) {
         if (!context?.principals?.executors?.includes(event?.principalId)) reject('origin-untrusted');
       }
       if (problems.length) { rejected.push(...problems); continue; }
-      const adapted = { id: reference, obligationId, kind: event.kind === 'review' ? 'review' : 'execution',
+      const adapted = { id: reference, obligationId,
+        kind: outlineCapability ? 'outline-confirmation' : event.kind === 'review' ? 'review' : 'execution',
         paths: [...paths], provenance: event.provenance, baseDigest: snapshot.identity.baselineDigest,
-        artifactDigests: U.clone(digests), ...(event.baselineArtifacts ? { baselineArtifacts: U.clone(event.baselineArtifacts) } : {}) };
-      if (event.kind === 'review') Object.assign(adapted, { verdict: event.verdict, summary: event.summary });
+        artifactDigests: U.clone(outlineCapability ? event.draftArtifactDigests : digests),
+        ...(event.baselineArtifacts ? { baselineArtifacts: U.clone(event.baselineArtifacts) } : {}) };
+      if (outlineCapability) Object.assign(adapted, { outlineEvidence: U.clone(event.outlineEvidence) });
+      else if (event.kind === 'review') Object.assign(adapted, { verdict: event.verdict, summary: event.summary });
       else Object.assign(adapted, { command: event.command, exitCode: event.exitCode });
       if (event.capability === 'conflict-check') {
         adapted.candidatePrdSet = { digest: prdDigest(artifacts), complete: true, paths: Object.keys(artifacts).filter(p => p.startsWith('docs/prd/')).sort() };
@@ -146,7 +257,8 @@ function acceptDocEvents(input = {}, dependencies = {}) {
       (event.kind === 'review' ? checkerInputs.reviewRecords : checkerInputs.executionRecords).push(adapted);
       acceptedIndex[reference] = { reference, eventId: event.eventId, obligationId, capability: event.capability,
         paths: [...paths], identity: U.clone(event.identity), originRef: response.originRef, artifactBinding: snapshot.identity.candidateDigest,
-        artifactDigests: U.clone(digests), event };
+        artifactDigests: U.clone(outlineCapability ? event.draftArtifactDigests : digests),
+        ...(outlineCapability ? { reviewedArtifactDigests: U.clone(event.reviewedArtifactDigests) } : {}), event };
     }
     if (diagnostics.length || rejected.length) out.state = 'unresolved';
     return out;
