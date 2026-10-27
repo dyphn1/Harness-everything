@@ -1694,7 +1694,8 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
       path.join(root, 'ci/fixtures/doc-lifecycle/scenarios')
     );
     const policy = JSON.parse(fs.readFileSync(path.join(REPOSITORY_ROOT, '.agents/harness-everything/project-docs.json'), 'utf8'));
-    for (const record of [...policy.governed, ...policy.derived]) writeRelative(root, record.path, `baseline ${record.path}\n`);
+    // glob records (e.g. docs/adr/*.md) are policy patterns, not files; '*' is not a valid Windows filename
+    for (const record of [...policy.governed, ...policy.derived]) if (!record.path.includes('*')) writeRelative(root, record.path, `baseline ${record.path}\n`);
     writeRelative(root, 'docs/ordinary.md', 'baseline ordinary document\n');
     return { root, base: commitFixture(root, 'fixture baseline') };
   }
