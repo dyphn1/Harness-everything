@@ -1823,7 +1823,7 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
   const globPatterns = [
     'docs/adr/*.md',
     'empty/*.md',
-    'corpus/one*.md',
+    'corpus/one*.md', // portability-lint: allow glob pattern string, never created as a file
     'corpus/*.md',
     'deep/**/*.md',
     'repeat/**/repeat/*.md',
