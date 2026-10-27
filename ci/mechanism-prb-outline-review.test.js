@@ -138,12 +138,25 @@ function createOutlineFixture(options = {}) {
   });
 
   let hookPreloader = null;
-  function runHook(payload) {
+  function runHook(payload, pilotEnabled = true) {
     if (!options.realHook) throw new Error('real state-persist capture was not enabled for this fixture');
     if (!hookPreloader) {
       hookPreloader = path.join(stateHome, 'outline-test-preload.js');
       const providerPath = path.join(ROOT, 'hooks/scripts/lib/doc-reconciliation-provider.js');
       fs.writeFileSync(hookPreloader, [
+        ...(options.failPartialDispatchStorage ? [
+          "const fs=require('fs');",
+          "const path=require('path');",
+          "const marker=path.join(process.env.HARNESS_STATE_HOME,'prb-partial-dispatch-faults-used');",
+          'const write=fs.writeFileSync;',
+          'let tokenFailure=false;',
+          'fs.writeFileSync=function(file,data){',
+          "const target=String(file).replace(/\\\\/g,'/');",
+          "if(!fs.existsSync(marker)&&/\\/tokens\\/[^/]+\\.json$/.test(target)){tokenFailure=true;const error=new Error('injected token write failure');error.code='EIO';throw error;}",
+          "if(tokenFailure&&!fs.existsSync(marker)&&/\\/doc-reconciliation-capture\\/\\d{8}\\.json$/.test(target)&&String(data).includes('\\\"state\\\": \\\"unresolved\\\"')){write(marker,'injected');const error=new Error('injected unresolved capture write failure');error.code='EIO';throw error;}",
+          'return write.apply(this,arguments);',
+          '};',
+        ] : []),
         `const p=require(${JSON.stringify(providerPath)});`,
         "if(typeof p.captureOutlineDispatch==='function'){",
         'const original=p.captureOutlineDispatch;',
@@ -154,7 +167,8 @@ function createOutlineFixture(options = {}) {
     }
     const child = spawnSync(process.execPath, ['--require', hookPreloader, path.join(ROOT, 'hooks/scripts/state-persist.js')], {
       cwd: root, encoding: 'utf8', input: JSON.stringify(payload),
-      env: { ...process.env, HARNESS_STATE_HOME: stateHome, HARNESS_WORKSPACE_ROOT: root, HARNESS_DOC_RECONCILIATION_PILOT: '1' },
+      env: { ...process.env, HARNESS_STATE_HOME: stateHome, HARNESS_WORKSPACE_ROOT: root,
+        HARNESS_DOC_RECONCILIATION_PILOT: pilotEnabled ? '1' : '0' },
     });
     if (child.status !== 0) throw new Error(`state-persist failed open contract: ${child.stderr || child.stdout || child.status}`);
     return provider.readCaptureView(sessionDir).records;
@@ -245,10 +259,10 @@ function createOutlineFixture(options = {}) {
     capture.observedIdentity = { workflowId, workflowRevision, baselinePin: { root, commit: baselineCommit }, taskPin: taskBinding };
     reviewCaptures = options.omitReview ? [] : [reviewResult, reviewStop];
   }
-  if (!capture) throw new Error('PreToolUse dispatch capture was not retained');
+  if (!capture && !options.allowMissingDispatchCapture) throw new Error('PreToolUse dispatch capture was not retained');
   let seam = null;
   if (options.realHook) {
-    seam = capture.outlineDispatch || null;
+    seam = capture?.outlineDispatch || null;
   } else if (options.captureBeforeReview) {
     const noReview = internals.captureOutlineDispatch && internals.captureOutlineDispatch({
       payload, capture, sessionDir, workspaceRoot: root, captures: [], fixtureExpectedPin: expectedPin,
@@ -264,7 +278,7 @@ function createOutlineFixture(options = {}) {
   if (seam) capture.outlineDispatch = seam;
   const workerStartPayload = {
     session_id: sessionId, cwd: options.workerStartRoot || root, hook_event_name: 'SubagentStart',
-    agent_id: options.workerPrincipal || 'draft-worker', agent_type: 'worker', parent_tool_use_id: capture.tool_use_id,
+    agent_id: options.workerPrincipal || 'draft-worker', agent_type: 'worker', parent_tool_use_id: capture?.tool_use_id || payload.tool_use_id,
   };
   let workerStart;
   if (options.realHook) {
@@ -408,6 +422,7 @@ function createOutlineFixture(options = {}) {
     baselineCommit, baselineTree, outlineCommit, outlineTree, outlineBlob, outlineBytes, configDigest,
     expectedPin, taskBinding, attemptDir, handoff, payload, capture, reviewCaptures, workerStart,
     extraCaptures, dispatchAgain, finishDraft, runHook, stateHome,
+    faultMarker: path.join(stateHome, 'prb-partial-dispatch-faults-used'),
     cleanup: () => {
       fs.rmSync(root, { recursive: true, force: true });
       fs.rmSync(stateHome, { recursive: true, force: true });
@@ -616,6 +631,122 @@ test('failed token persistence invalidates the attempt; same-attempt retry requi
     assert.strictEqual(latest.outlineDispatch.state, 'unresolved', 'an earlier failed token write invalidates this attempt');
     assert.strictEqual(fs.existsSync(path.join(fixture.attemptDir, 'seams', `${sha(String(fixture.capture.tool_use_id))}.json`)), false);
   } finally { fixture.cleanup(); }
+});
+
+test('configured PreToolUse capture observes competing file writers before completion callbacks', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'hooks/hooks.json'), 'utf8'));
+  const captureHook = manifest.hooks?.PreToolUse?.find(item => item.id === 'harness:pre:pilot-capture');
+  const matcher = captureHook?.matcher || '';
+  const results = [];
+  for (const tool of ['Write', 'Edit', 'apply_patch']) {
+    const fixture = createOutlineFixture({ realHook: true });
+    try {
+      const toolUseId = `competing-${tool}`;
+      const input = tool === 'Write' ? { file_path: fixture.target, content: 'competing writer' }
+        : tool === 'Edit' ? { file_path: fixture.target, old_string: 'before', new_string: 'after' }
+          : { patch: '*** Begin Patch\n*** Update File: docs/adr/DOCS-001.md\n*** End Patch\n' };
+      const captures = fixture.runHook({ session_id: fixture.sessionId, cwd: fixture.root,
+        hook_event_name: 'PreToolUse', tool_name: tool, tool_use_id: toolUseId,
+        agent_id: `competing-principal-${tool}`, agent_type: 'worker', tool_input: input });
+      const start = captures.find(item => item.event === 'PreToolUse' && item.tool_use_id === toolUseId);
+      const completed = fixture.finishDraft({ runPilot: true });
+      results.push({ tool, manifestRouted: matcher.split('|').includes(tool), captured: Boolean(start),
+        competingIdentityRetained: start?.agent_id === `competing-principal-${tool}`,
+        classifierRejected: JSON.stringify(completed.result).includes('outline-writer-activity-ambiguous'),
+        noOutlinePass: completed.pilot?.report?.outlineEvidence?.outcome !== 'pass' });
+    } finally { fixture.cleanup(); }
+  }
+
+  const positive = createOutlineFixture({ realHook: true });
+  let positiveResult;
+  try {
+    const captures = positive.runHook({ session_id: positive.sessionId, cwd: positive.root,
+      hook_event_name: 'PreToolUse', tool_name: 'Write', tool_use_id: 'worker-write',
+      agent_id: 'draft-worker', agent_type: 'worker',
+      tool_input: { file_path: positive.target, content: 'the correlated worker writes' } });
+    const start = captures.find(item => item.event === 'PreToolUse' && item.tool_use_id === 'worker-write');
+    const completed = positive.finishDraft({ runPilot: true });
+    positiveResult = { manifestRouted: matcher.split('|').includes('Write'), captured: Boolean(start),
+      eligible: completed.pilot?.report?.outlineEvidence?.outcome === 'pass' };
+  } finally { positive.cleanup(); }
+
+  const off = createOutlineFixture({ realHook: true });
+  let offRemainsWriteFree;
+  try {
+    const before = provider.readCaptureView(off.sessionDir).records.length;
+    off.runHook({ session_id: off.sessionId, cwd: off.root, hook_event_name: 'PreToolUse',
+      tool_name: 'Write', tool_use_id: 'pilot-off-write', tool_input: { file_path: off.target, content: 'off' } }, false);
+    offRemainsWriteFree = provider.readCaptureView(off.sessionDir).records.length === before;
+  } finally { off.cleanup(); }
+
+  assert.strictEqual(offRemainsWriteFree, true, 'pilot OFF must remain capture-write-free for file tools');
+  assert.strictEqual(positiveResult.eligible, true,
+    `the correlated worker remains eligible as a positive control: ${JSON.stringify(positiveResult)}`);
+  assert.ok(results.every(item => item.manifestRouted && item.captured && item.competingIdentityRetained
+    && item.classifierRejected && item.noOutlinePass)
+    && positiveResult.manifestRouted && positiveResult.captured,
+  `each configured file-writer start must reach the classifier without a completion callback: ${JSON.stringify({ results, positiveResult })}`);
+});
+
+test('partial seal without token, seam, or retained failure cannot be reused; a fresh successor can recover', () => {
+  function faultedFixture() {
+    return createOutlineFixture({ realHook: true, failPartialDispatchStorage: true,
+      allowMissingDispatchCapture: true });
+  }
+  function firstFailureIsUnrecorded(fixture) {
+    const token = path.join(fixture.attemptDir, 'tokens', `${sha('token-1')}.json`);
+    const seam = path.join(fixture.attemptDir, 'seams', `${sha('dispatch-1')}.json`);
+    return fs.existsSync(path.join(fixture.attemptDir, 'handoff-seal.json'))
+      && fs.existsSync(fixture.faultMarker) && !fs.existsSync(token) && !fs.existsSync(seam)
+      && !provider.readCaptureView(fixture.sessionDir).records.some(item => item.tool_use_id === 'dispatch-1');
+  }
+
+  const sameId = faultedFixture();
+  let sameIdRetry;
+  let successor;
+  try {
+    const initialState = firstFailureIsUnrecorded(sameId);
+    const sameIdRecords = sameId.runHook(sameId.payload);
+    const sameIdCapture = sameIdRecords.filter(item => item.event === 'PreToolUse'
+      && item.tool_use_id === sameId.payload.tool_use_id).at(-1);
+    sameIdRetry = { retry: sameIdCapture?.outlineDispatch || null, retryCaptured: Boolean(sameIdCapture), initialState };
+    const secondAttemptId = 'attempt-2';
+    const secondAttemptDir = path.join(path.dirname(sameId.attemptDir), secondAttemptId);
+    const lease = { schema: 'harness.outline-writer-lease.v1', id: 'lease-2', taskId: sameId.taskId,
+      attemptId: secondAttemptId, principalId: sameId.sessionId, root: sameId.root, exclusive: true, active: true };
+    const leaseFile = path.join(secondAttemptDir, 'writer-lease.json');
+    writeJson(leaseFile, lease);
+    writeJson(path.join(secondAttemptDir, 'handoff.json'), { ...sameId.handoff,
+      attemptId: secondAttemptId, handoffId: 'handoff-2', supersedesAttemptId: sameId.attemptId,
+      draftDispatchToken: 'token-2', writerLeaseId: lease.id,
+      writerLeaseDigest: sha(fs.readFileSync(leaseFile)) });
+    const successorPayload = { ...sameId.payload, tool_use_id: 'dispatch-successor', tool_input: {
+      prompt: `HARNESS_OUTLINE_DISPATCH_V1 taskId=${sameId.taskId} attemptId=${secondAttemptId} token=token-2 workerRoot=${sameId.root}` } };
+    const successorCapture = sameId.runHook(successorPayload).find(item => item.event === 'PreToolUse'
+      && item.tool_use_id === successorPayload.tool_use_id);
+    successor = successorCapture?.outlineDispatch || null;
+    sameIdRetry = { ...sameIdRetry, successor };
+  } finally { sameId.cleanup(); }
+
+  const differentId = faultedFixture();
+  let differentIdRetry;
+  try {
+    const initialState = firstFailureIsUnrecorded(differentId);
+    const retryPayload = { ...differentId.payload, tool_use_id: 'dispatch-different-id' };
+    const retryCapture = differentId.runHook(retryPayload).find(item => item.event === 'PreToolUse'
+      && item.tool_use_id === retryPayload.tool_use_id);
+    differentIdRetry = { initialState, retry: retryCapture?.outlineDispatch || null, retryCaptured: Boolean(retryCapture),
+      tokenCreated: fs.existsSync(path.join(differentId.attemptDir, 'tokens', `${sha('token-1')}.json`)),
+      seamCreated: fs.existsSync(path.join(differentId.attemptDir, 'seams', `${sha(retryPayload.tool_use_id)}.json`)) };
+  } finally { differentId.cleanup(); }
+
+  assert.ok(sameIdRetry.initialState && differentIdRetry.initialState,
+    `fault injection must leave only each seal, losing both token and failure capture: ${JSON.stringify({ sameIdRetry, differentIdRetry })}`);
+  assert.strictEqual(sameIdRetry.successor?.state, 'accepted',
+    `a fresh successor attempt can recover while retaining its interrupted predecessor: ${JSON.stringify(sameIdRetry.successor)}`);
+  assert.ok(sameIdRetry.retry?.state === 'unresolved' && differentIdRetry.retry?.state === 'unresolved'
+    && !differentIdRetry.tokenCreated && !differentIdRetry.seamCreated,
+  `neither same-ID nor different-ID retry may reconstruct the interrupted seam: ${JSON.stringify({ sameIdRetry, differentIdRetry })}`);
 });
 
 test('pilot exposes a real-capture-only outline reference resolver', () => {

@@ -267,6 +267,11 @@ function partB() {
         const copy = path.join(tmp, 'hooks', 'scripts', 'lib');
         fs.mkdirSync(copy, { recursive: true });
         fs.copyFileSync(path.join(leg.lib, 'doc-reconciliation-provider.js'), path.join(copy, 'doc-reconciliation-provider.js'));
+      fs.copyFileSync(path.join(leg.lib, 'workflow-isolation.js'), path.join(copy, 'workflow-isolation.js'));
+      const sharedScriptsLib = path.join(tmp, 'scripts', 'lib');
+      fs.mkdirSync(sharedScriptsLib, { recursive: true });
+      fs.copyFileSync(path.resolve(leg.lib, '../../../scripts/lib/verification-contract.js'),
+        path.join(sharedScriptsLib, 'verification-contract.js'));
         const live = path.join(tmp, LIVE_REL);
         fs.mkdirSync(live, { recursive: true });
         fs.writeFileSync(path.join(live, 'README.md'), 'garbage\n');
@@ -301,9 +306,14 @@ const RED_LIVE_GATE = 'missing-implementation: the retained live gate accepts an
 function partBPreloadBoundary(leg) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'f4-preload-'));
   try {
-    const entry = path.join(tmp, 'entry');
+    const entry = path.join(tmp, 'hooks', 'scripts');
     fs.mkdirSync(path.join(entry, 'lib'), { recursive: true });
     fs.copyFileSync(path.join(leg.lib, 'doc-reconciliation-provider.js'), path.join(entry, 'lib', 'doc-reconciliation-provider.js'));
+    fs.copyFileSync(path.join(leg.lib, 'workflow-isolation.js'), path.join(entry, 'lib', 'workflow-isolation.js'));
+    const sharedScriptsLib = path.join(tmp, 'scripts', 'lib');
+    fs.mkdirSync(sharedScriptsLib, { recursive: true });
+    fs.copyFileSync(path.resolve(leg.lib, '../../../scripts/lib/verification-contract.js'),
+      path.join(sharedScriptsLib, 'verification-contract.js'));
     const probe = path.join(entry, 'probe.js');
     fs.writeFileSync(probe, [
       "const provider = require('./lib/doc-reconciliation-provider.js');",

@@ -45,7 +45,7 @@ const OPENCODE_CAPTURE_FILE = 'opencode-captures.jsonl';
 const OPENCODE_CAPTURE_LIMIT_BYTES = 4 * 1024 * 1024;
 const QUALIFICATION_EXPORT_SCHEMA = 'harness.doc-reconciliation.qualification.v1';
 const HEX64 = /^[0-9a-f]{64}$/;
-const PRE_CAPTURE_TOOLS = ['Bash', 'PowerShell', 'Task', 'Agent'];
+const PRE_CAPTURE_TOOLS = ['Bash', 'PowerShell', 'Task', 'Agent', 'Write', 'Edit', 'apply_patch'];
 const STDOUT_CAP_BYTES = 1024 * 1024;
 const DOC_CHECK_FLAGS = new Set(['--workspace', '--config', '--changed-path', '--base']);
 const DOC_CHECK_BOOLEAN_FLAGS = new Set(['--conflict-assessment']);
@@ -831,12 +831,14 @@ function resolveOutlineAttempt({ sessionDir, taskId, attemptId } = {}) {
     const attemptDir = path.join(attemptsRoot, name);
     const seamDir = path.join(attemptDir, 'seams');
     const tokenDir = path.join(attemptDir, 'tokens');
-    const evidenceFiles = [];
-    for (const dir of [seamDir, tokenDir]) {
-      try { evidenceFiles.push(...fs.readdirSync(dir, { withFileTypes: true })
-        .filter(entry => entry.isFile() && entry.name.endsWith('.json')).map(entry => path.join(dir, entry.name))); }
-      catch { /* this attempt may not have dispatched */ }
-    }
+    const filesIn = dir => {
+      try { return fs.readdirSync(dir, { withFileTypes: true })
+        .filter(entry => entry.isFile() && entry.name.endsWith('.json')).map(entry => path.join(dir, entry.name)); }
+      catch { return []; }
+    };
+    const seamFiles = filesIn(seamDir);
+    const tokenFiles = filesIn(tokenDir);
+    const evidenceFiles = [...seamFiles, ...tokenFiles];
     const sealLoaded = readOutlineJson(path.join(attemptDir, 'handoff-seal.json'));
     const sealExists = fs.existsSync(path.join(attemptDir, 'handoff-seal.json'));
     if (sealExists && (sealLoaded.state !== 'accepted' || sealLoaded.value.schema !== 'harness.outline-handoff-seal.v1'
@@ -854,7 +856,18 @@ function resolveOutlineAttempt({ sessionDir, taskId, attemptId } = {}) {
         return { state: 'unresolved', reason: 'handoff-overwritten-after-dispatch' };
       }
     }
-    attempts.set(name, { handoff, handoffDigest: loaded.digest, attemptDir });
+    let interrupted = false;
+    if (sealExists && (tokenFiles.length !== 1 || seamFiles.length !== 1)) interrupted = true;
+    if (sealExists && tokenFiles.length === 1 && seamFiles.length === 1) {
+      const token = readOutlineJson(tokenFiles[0]).value;
+      const seam = readOutlineJson(seamFiles[0]).value;
+      if (token.schema !== 'harness.outline-token.v1' || seam.schema !== OUTLINE_SEAM_SCHEMA
+        || token.tokenDigest !== seam.tokenDigest || token.toolUseId !== seam.toolUseId
+        || token.dispatchInputDigest !== seam.dispatchInputDigest) {
+        return { state: 'unresolved', reason: 'handoff-dispatch-evidence-mismatch' };
+      }
+    }
+    attempts.set(name, { handoff, handoffDigest: loaded.digest, attemptDir, interrupted });
   }
   const parents = new Map();
   const children = new Map(names.map(name => [name, 0]));
@@ -887,9 +900,11 @@ function resolveOutlineAttempt({ sessionDir, taskId, attemptId } = {}) {
   const leaves = names.filter(name => children.get(name) === 0);
   if (leaves.length !== 1) return { state: 'unresolved', reason: 'attempt-chain-ambiguous' };
   if (leaves[0] !== attemptId) return { state: 'unresolved', reason: 'attempt-superseded' };
+  const currentAttempt = attempts.get(attemptId);
+  if (currentAttempt.interrupted) return { state: 'unresolved', reason: 'attempt-interrupted' };
   return { state: 'accepted', taskBinding: taskState.taskBinding, baseline: taskState.baseline,
-    handoff: attempts.get(attemptId).handoff, handoffDigest: attempts.get(attemptId).handoffDigest,
-    attemptDir: attempts.get(attemptId).attemptDir, predecessors: [...parents.keys()].filter(id => id !== attemptId) };
+    handoff: currentAttempt.handoff, handoffDigest: currentAttempt.handoffDigest,
+    attemptDir: currentAttempt.attemptDir, predecessors: [...parents.keys()].filter(id => id !== attemptId) };
 }
 
 function outlineHandoffDirectory(sessionDir, taskId) {
@@ -1095,16 +1110,12 @@ function captureOutlineDispatch(input = {}) {
         || existingSeal.value.handoffDigest !== validated.handoffDigest) {
         return outlineDispatchUnresolved(parsed, 'handoff-overwritten-after-dispatch');
       }
-    } else {
-      const seal = { schema: 'harness.outline-handoff-seal.v1', taskId: parsed.taskId,
-        attemptId: parsed.attemptId, handoffDigest: validated.handoffDigest };
-      try { fs.writeFileSync(sealFile, JSON.stringify(seal, null, 2) + '\n', { encoding: 'utf8', flag: 'wx' }); }
-      catch (error) {
-        const racedSeal = readOutlineJson(sealFile);
-        if (error.code !== 'EEXIST' || racedSeal.state !== 'accepted'
-          || racedSeal.value.handoffDigest !== validated.handoffDigest) return outlineDispatchUnresolved(parsed, 'handoff-seal-persistence-failed');
-      }
+      return outlineDispatchUnresolved(parsed, 'handoff-seal-already-consumed');
     }
+    const seal = { schema: 'harness.outline-handoff-seal.v1', taskId: parsed.taskId,
+      attemptId: parsed.attemptId, handoffDigest: validated.handoffDigest };
+    try { fs.writeFileSync(sealFile, JSON.stringify(seal, null, 2) + '\n', { encoding: 'utf8', flag: 'wx' }); }
+    catch { return outlineDispatchUnresolved(parsed, 'handoff-seal-persistence-failed'); }
     fs.mkdirSync(tokenDir, { recursive: true });
     fs.mkdirSync(seamDir, { recursive: true });
     const token = { schema: 'harness.outline-token.v1', taskId: parsed.taskId, attemptId: parsed.attemptId,

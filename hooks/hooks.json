@@ -37,7 +37,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|PowerShell|Task|Agent",
+        "matcher": "Bash|PowerShell|Task|Agent|Write|Edit|apply_patch",
         "hooks": [
           {
             "type": "command",
