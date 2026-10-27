@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.43.0](https://github.com/dyphn1/Harness-everything/compare/v0.42.2...v0.43.0) (2026-10-27)
+
+### Features
+
+* **doc-lifecycle:** add base-owned governance guard with tamper controls ([f195bc5](https://github.com/dyphn1/Harness-everything/commit/f195bc5fc5374e52cae1df69f3b9f157a21fa06c))
+* **doc-lifecycle:** inventory tracked documentation ([9aaa86f](https://github.com/dyphn1/Harness-everything/commit/9aaa86fe3e2fc54efe092fe717747ae51ac1cca9))
+
+### Bug Fixes
+
+* **doc-lifecycle:** require review for fixture and governed content drift ([40f8ab0](https://github.com/dyphn1/Harness-everything/commit/40f8ab0e738432ea15d3ecf9c9c20aa99a8d46ff))
+
 ## [0.42.2](https://github.com/dyphn1/Harness-everything/compare/v0.42.1...v0.42.2) (2026-10-26)
 
 ### Bug Fixes
