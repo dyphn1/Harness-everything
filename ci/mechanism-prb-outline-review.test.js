@@ -1119,6 +1119,125 @@ test('scope-preserving D edits keep outline approval but stale final review cann
   } finally { fixture.cleanup(); }
 });
 
+test('legacy session-dir keying stays aligned through an aliased workspace root', () => {
+  function driveAliasRootScenario() {
+    const realRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prb-session-root-'));
+    const aliasRoot = `${realRoot}-alias`;
+    const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), 'prb-session-state-'));
+    const sessionId = 'prb-alias-session';
+    const preload = path.join(stateHome, 'realpath-alias.js');
+    fs.symlinkSync(realRoot, aliasRoot, 'dir');
+    writeJson(path.join(stateHome, 'session-workspaces', `${sha(sessionId)}.json`), {
+      version: 1, sessionId, workspaceRoot: aliasRoot,
+    });
+    fs.writeFileSync(preload, [
+      "const fs=require('fs');",
+      "const path=require('path');",
+      'const original=fs.realpathSync;',
+      'const alias=path.resolve(process.env.PRB_TEST_ALIAS_ROOT);',
+      'function realpathSync(target,...args){',
+      '  if(typeof target==="string"&&path.resolve(target)===alias)return alias;',
+      '  return original.call(fs,target,...args);',
+      '}',
+      'realpathSync.native=original.native;',
+      'fs.realpathSync=realpathSync;',
+    ].join('\n'));
+
+    const previousStateHome = process.env.HARNESS_STATE_HOME;
+    const originalRealpathSync = fs.realpathSync;
+    let aliasSessionDir;
+    let canonicalSessionDir;
+    try {
+      process.env.HARNESS_STATE_HOME = stateHome;
+      fs.realpathSync = function realpathSync(target, ...args) {
+        if (typeof target === 'string' && path.resolve(target) === path.resolve(aliasRoot)) return path.resolve(aliasRoot);
+        return originalRealpathSync.call(fs, target, ...args);
+      };
+      fs.realpathSync.native = originalRealpathSync.native;
+      const { getSessionDir } = require(path.join(ROOT, 'hooks/scripts/lib/harness-state.js'));
+      aliasSessionDir = getSessionDir(aliasRoot, sessionId);
+      canonicalSessionDir = getSessionDir(realRoot, sessionId);
+    } finally {
+      fs.realpathSync = originalRealpathSync;
+      if (previousStateHome === undefined) delete process.env.HARNESS_STATE_HOME;
+      else process.env.HARNESS_STATE_HOME = previousStateHome;
+    }
+
+    const env = {
+      ...process.env,
+      HARNESS_STATE_HOME: stateHome,
+      HARNESS_WORKSPACE_ROOT: aliasRoot,
+      HARNESS_DOC_RECONCILIATION_PILOT: '0',
+      PRB_TEST_ALIAS_ROOT: aliasRoot,
+    };
+    const runHook = (relative, payload, pilotEnabled = false) => spawnSync(process.execPath,
+      ['--require', preload, path.join(ROOT, relative)], {
+        cwd: aliasRoot,
+        input: JSON.stringify(payload),
+        encoding: 'utf8',
+        env: { ...env, HARNESS_DOC_RECONCILIATION_PILOT: pilotEnabled ? '1' : '0' },
+      });
+
+    try {
+      const legacy = runHook('hooks/scripts/state-persist.js', {
+        hook_event_name: 'PostToolUse', session_id: sessionId, cwd: aliasRoot,
+        tool_name: 'Bash', tool_input: { command: 'echo legacy-state-probe' },
+        tool_response: { exitCode: 0, stdout: '', stderr: '' },
+      });
+      const pilotOffCaptureCount = provider.readCaptureView(aliasSessionDir).records.length
+        + provider.readCaptureView(canonicalSessionDir).records.length;
+      const pilot = runHook('hooks/scripts/state-persist.js', {
+        hook_event_name: 'PreToolUse', session_id: sessionId, cwd: aliasRoot,
+        tool_name: 'Agent', tool_use_id: 'pilot-alias-capture', agent_type: 'worker',
+        tool_input: { prompt: 'alias capture probe' },
+      }, true);
+      writeJson(path.join(aliasSessionDir, 'rule-of-3-state.json'), {
+        count: 3, threshold: 3, lastHash: 'alias-keying-control', lastFailureAt: 0,
+      });
+      const breaker = runHook('hooks/scripts/rule-of-3.js', {
+        hook_event_name: 'PreToolUse', session_id: sessionId, cwd: aliasRoot,
+        tool_name: 'apply_patch', tool_input: { patch: '*** Update File: unrelated.txt\n@@\n-old\n+new\n' },
+      });
+      assert.strictEqual(legacy.status, 0, `pilot-OFF state-persist must remain fail-open: ${legacy.stderr}`);
+      assert.strictEqual(pilot.status, 0, `pilot capture must remain fail-open: ${pilot.stderr}`);
+      assert.strictEqual(breaker.status, 2, `rule-of-3 must find the tripped alias session: ${breaker.stderr}`);
+      assert.match(breaker.stderr, /RULE OF 3 CIRCUIT BREAKER TRIGGERED/);
+      console.log('PASS rule-of-3 alias-root positive control blocks at exit 2');
+      return {
+        legacyExit: legacy.status,
+        pilotOffCaptureCount,
+        handoffInAliasSession: fs.existsSync(path.join(aliasSessionDir, 'handoff-state.json')),
+        handoffInCanonicalSession: fs.existsSync(path.join(canonicalSessionDir, 'handoff-state.json')),
+        pilotCaptureInAliasSession: provider.readCaptureView(aliasSessionDir).records.some(item => item.tool_use_id === 'pilot-alias-capture'),
+        pilotCaptureInCanonicalSession: provider.readCaptureView(canonicalSessionDir).records.some(item => item.tool_use_id === 'pilot-alias-capture'),
+        breakerExit: breaker.status,
+      };
+    } finally {
+      fs.rmSync(stateHome, { recursive: true, force: true });
+      fs.rmSync(aliasRoot, { force: true });
+      fs.rmSync(realRoot, { recursive: true, force: true });
+    }
+  }
+
+  const first = driveAliasRootScenario();
+  const second = driveAliasRootScenario();
+  assert.deepStrictEqual(first, second, 'identical alias-root inputs must produce the same normalized state and exits');
+  assert.strictEqual(first.legacyExit, 0, 'pilot OFF remains fail-open');
+  assert.strictEqual(first.pilotOffCaptureCount, 0, 'pilot OFF writes no capture record');
+  assert.strictEqual(first.breakerExit, 2, 'the aliased rule-of-3 positive control blocks');
+  assert.deepStrictEqual({
+    handoffInAliasSession: first.handoffInAliasSession,
+    handoffInCanonicalSession: first.handoffInCanonicalSession,
+    pilotCaptureInAliasSession: first.pilotCaptureInAliasSession,
+    pilotCaptureInCanonicalSession: first.pilotCaptureInCanonicalSession,
+  }, {
+    handoffInAliasSession: true,
+    handoffInCanonicalSession: false,
+    pilotCaptureInAliasSession: true,
+    pilotCaptureInCanonicalSession: false,
+  }, `legacy handoff and pilot capture must stay in rule-of-3's original session directory: ${JSON.stringify(first)}`);
+});
+
 test('no final D stays incomplete and hand-authored JSON without a host seam earns no outline credit', () => {
   const noDraft = createOutlineFixture({ realHook: true });
   try {

@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
-const { canonical, cwdOf, classifyShell, isVerificationShell, directMutationInWorkspace } = require('./lib/workflow-isolation');
+const { cwdOf, classifyShell, isVerificationShell, directMutationInWorkspace } = require('./lib/workflow-isolation');
 const { observeTool } = require('./lib/telemetry');
 
 function isSuccessfulMetadataStep(command, cwd) {
@@ -54,8 +54,7 @@ function processState(payload) {
       process.exit(0);
       return;
     }
-    const workspaceRoot = getWorkspaceRoot(payload);
-    const root = workspaceRoot ? canonical(workspaceRoot) : workspaceRoot;
+    const root = getWorkspaceRoot(payload);
     // SubagentStart/SubagentStop were never routed to this script before S2b.
     // They are capture-only events: the legacy handoff state path stays
     // untouched for them, so wiring them while OFF adds no writes at all.
