@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- **doc-governance:** allow regular governed-content revisions while retaining review for structural, policy, trust-surface, fixture, and derived-output changes; run the guard in its own CI job.
+
 ## [0.43.0](https://github.com/dyphn1/Harness-everything/compare/v0.42.2...v0.43.0) (2026-10-27)
 
 ### Features
