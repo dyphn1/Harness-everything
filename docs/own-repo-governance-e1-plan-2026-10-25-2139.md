@@ -236,6 +236,8 @@ Private byte-identical backups of all three queue files and this turn's scope, p
 | Evidence / limits | These are deterministic mechanism and local step-simulation results, not hosted GitHub Actions or live-host evidence. Full `npm test` and `verify:all` are not established here. The independent review of the earlier frozen guard found the fixture-oracle gap and left semantic MUST preservation unresolved; independent re-review of the fixed guard against the final exact SHAs remains pending. Candidate-controlled `.github/workflows/ci.yml` can remove the invocation, and no external required-status check is enabled. |
 | E1 / authority | P2 is CI engineering evidence only. E1 remains at 0 qualifying cycles; status is NOT GO / owner GO is NOT ISSUED, and #320 remains unauthorized. |
 
+On 2026-10-27, the base-owned guard added a self-contained POSIX `*`/`**` matcher and expands governed and derived globs from the base and candidate Git trees. New or missing members and non-regular or mode-changed entries remain `REVIEW_REQUIRED`; regular governed revisions remain informational, derived object changes still require review, empty globs report zero members, and candidate policy changes remain review-required.
+
 ### Next session
 
 | Remaining item | Next action / boundary |
