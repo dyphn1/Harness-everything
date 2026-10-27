@@ -229,11 +229,20 @@ function checkConfiguredPaths(baseTree, candidateTree, config) {
       const before = baseTree.get(key);
       const after = candidateTree.get(key);
       if (!regularBlob(before)) throw new Error(`baseline ${kind} path is missing or not a regular file: ${record.path}`);
-      const identityPreserved = regularBlob(after) && before.mode === after.mode && before.oid === after.oid;
-      details.push({ kind, path: record.path, state: identityPreserved ? 'pass' : 'review_required', base: identity(before), candidate: identity(after) });
+      const sameRegularMode = regularBlob(after) && before.mode === after.mode;
+      const revised = kind === 'governed' && sameRegularMode && before.oid !== after.oid;
+      const identityPreserved = sameRegularMode && before.oid === after.oid;
+      details.push({
+        kind,
+        path: record.path,
+        state: revised ? 'revised' : identityPreserved ? 'pass' : 'review_required',
+        base: identity(before),
+        candidate: identity(after),
+        ...(revised ? { reason: 'Content revisions are tracked by Git identity but are not semantically validated by the guard.' } : {})
+      });
     }
   }
-  const failures = details.filter(item => item.state !== 'pass');
+  const failures = details.filter(item => item.state === 'review_required');
   return { state: failures.length ? 'review_required' : 'pass', paths: details, missingOrChanged: failures };
 }
 
@@ -270,7 +279,7 @@ function run(argv) {
     reviewAuthority: 'External reviewer only; candidate-controlled approval files or reports are never read.',
     limits: [
       'Candidate-owned CI is not independent enforcement; bootstrap remains unchecked until an external reviewer binds frozen guard bytes to final exact SHAs.',
-      'Document semantics and derived-view parity are not validated; configured documents are required to keep their baseline Git identities.'
+      'Governed content revisions are visible by Git identity but are not semantically validated by the guard; derived-view parity is not validated.'
     ],
     errors: []
   };

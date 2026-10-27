@@ -1779,22 +1779,72 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
     if (mutation === 'mode') assert.notStrictEqual(item.base.mode, item.candidate.mode, 'oracle mode change is reported');
   }
 
-  for (const relativePath of ['docs/architecture.md', 'docs/governed-index.md']) {
+  const unchanged = runFrozenGuard(fixture, fixture.base, fixture.base);
+  assert.strictEqual(unchanged.status, 0, 'an unchanged tree passes');
+  assert.strictEqual(unchanged.report.verdict, 'PASS');
+
+  const rawIdentity = entry => ({ mode: entry.mode, type: entry.type, oid: entry.oid });
+  const configuredIdentity = (commit, relativePath) => {
+    const tree = parseTreeOracle(fixtureGit(fixture.root, ['ls-tree', '-r', '-z', '--full-tree', commit]));
+    return rawIdentity(tree.get(Buffer.from(relativePath).toString('base64')));
+  };
+  resetFixture(fixture);
+  writeRelative(fixture.root, 'docs/architecture.md', 'changed governed document content\n');
+  const revisedGovernedCandidate = commitFixture(fixture.root, 'revise governed document');
+  const revisedGoverned = runFrozenGuard(fixture, fixture.base, revisedGovernedCandidate);
+  const fixtureStatusBeforeRepeat = fixtureGit(fixture.root, ['status', '--porcelain']);
+  const revisedGovernedRepeat = runFrozenGuard(fixture, fixture.base, revisedGovernedCandidate);
+  const fixtureStatusAfterRepeat = fixtureGit(fixture.root, ['status', '--porcelain']);
+  assert.deepStrictEqual(revisedGovernedRepeat, revisedGoverned, 'identical Git inputs produce an identical report');
+  assert.deepStrictEqual(fixtureStatusAfterRepeat, fixtureStatusBeforeRepeat, 'guard execution does not mutate the fixture repository');
+  assert.strictEqual(revisedGoverned.status, 0, 'regular governed content revision passes');
+  assert.strictEqual(revisedGoverned.report.verdict, 'PASS');
+  const revisedEntry = revisedGoverned.report.policyPreservation.configuredPaths.paths.find(item => item.path === 'docs/architecture.md');
+  assert.strictEqual(revisedEntry.state, 'revised', 'governed content revision is informational');
+  assert.deepStrictEqual(revisedEntry.base, configuredIdentity(fixture.base, 'docs/architecture.md'));
+  assert.deepStrictEqual(revisedEntry.candidate, configuredIdentity(revisedGovernedCandidate, 'docs/architecture.md'));
+  assert.match(revisedEntry.reason, /not semantically validated by the guard/i);
+  assert.ok(revisedGoverned.report.limits.some(limit => /content revisions.*not semantically validated by the guard/i.test(limit)));
+  assert.strictEqual(revisedGoverned.report.policyPreservation.configuredPaths.state, 'pass');
+  assert.deepStrictEqual(revisedGoverned.report.policyPreservation.configuredPaths.missingOrChanged, []);
+
+  resetFixture(fixture);
+  writeRelative(fixture.root, 'docs/governed-index.md', 'changed derived output\n');
+  const derivedCandidate = commitFixture(fixture.root, 'change derived document');
+  const derivedChange = runFrozenGuard(fixture, fixture.base, derivedCandidate);
+  assert.strictEqual(derivedChange.status, 2, 'derived content change still requires review');
+  assert.strictEqual(derivedChange.report.verdict, 'REVIEW_REQUIRED');
+  const derivedEntry = derivedChange.report.policyPreservation.configuredPaths.missingOrChanged.find(item => item.path === 'docs/governed-index.md');
+  assert.ok(derivedEntry, 'derived content change remains in review-required paths');
+  assert.strictEqual(derivedEntry.state, 'review_required');
+  assert.deepStrictEqual(derivedEntry.base, configuredIdentity(fixture.base, 'docs/governed-index.md'));
+  assert.deepStrictEqual(derivedEntry.candidate, configuredIdentity(derivedCandidate, 'docs/governed-index.md'));
+
+  for (const mutation of ['rename', 'mode', 'symlink']) {
     resetFixture(fixture);
-    writeRelative(fixture.root, relativePath, `changed configured document ${relativePath}\n`);
-    const candidate = commitFixture(fixture.root, `edit configured document ${relativePath}`);
+    const relativePath = 'docs/architecture.md';
+    if (mutation === 'rename') {
+      fixtureGit(fixture.root, ['mv', '--', relativePath, 'docs/renamed-architecture.md']);
+    } else if (mutation === 'symlink') {
+      fs.rmSync(path.join(fixture.root, ...relativePath.split('/')));
+      const oid = fixtureGit(fixture.root, ['hash-object', '-w', '--stdin'], Buffer.from('../outside-target.md\n')).toString('ascii').trim();
+      fixtureGit(fixture.root, ['add', '-A']);
+      fixtureGit(fixture.root, ['update-index', '--add', '--cacheinfo', `120000,${oid},${relativePath}`]);
+      fixtureGit(fixture.root, ['commit', '--quiet', '-m', 'replace governed document with symlink']);
+    }
+    const candidate = mutation === 'symlink'
+      ? fixtureGit(fixture.root, ['rev-parse', 'HEAD']).toString('ascii').trim()
+      : commitFixture(fixture.root, `${mutation} governed document`, mutation === 'mode' ? relativePath : undefined);
     const result = runFrozenGuard(fixture, fixture.base, candidate);
-    assert.strictEqual(result.status, 2, `${relativePath} content change requires review: ${result.stderr}`);
+    assert.strictEqual(result.status, 2, `${mutation} of a governed entry requires review`);
     assert.strictEqual(result.report.verdict, 'REVIEW_REQUIRED');
     const item = result.report.policyPreservation.configuredPaths.missingOrChanged.find(entry => entry.path === relativePath);
-    assert.ok(item, `${relativePath} identity change is reported`);
-    const baseTree = parseTreeOracle(fixtureGit(fixture.root, ['ls-tree', '-r', '-z', '--full-tree', fixture.base]));
-    const candidateTree = parseTreeOracle(fixtureGit(fixture.root, ['ls-tree', '-r', '-z', '--full-tree', candidate]));
-    const key = Buffer.from(relativePath).toString('base64');
-    const rawIdentity = entry => ({ mode: entry.mode, type: entry.type, oid: entry.oid });
-    assert.deepStrictEqual(item.base, rawIdentity(baseTree.get(key)), 'report includes exact baseline Git identity');
-    assert.deepStrictEqual(item.candidate, rawIdentity(candidateTree.get(key)), 'report includes exact candidate Git identity');
-    assert.notStrictEqual(item.base.oid, item.candidate.oid, 'content change is identified by blob OID');
+    assert.ok(item, `${mutation} is reported for the original configured path`);
+    assert.strictEqual(item.state, 'review_required');
+    assert.deepStrictEqual(item.base, configuredIdentity(fixture.base, relativePath));
+    if (mutation === 'rename') assert.strictEqual(item.candidate, null);
+    if (mutation === 'mode') assert.notStrictEqual(item.base.mode, item.candidate.mode);
+    if (mutation === 'symlink') assert.strictEqual(item.candidate.mode, '120000');
   }
 
   resetFixture(fixture);
@@ -1804,6 +1854,17 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
   assert.strictEqual(deletedGoverned.status, 2);
   assert.strictEqual(deletedGoverned.report.verdict, 'REVIEW_REQUIRED');
   assert.ok(deletedGoverned.report.policyPreservation.configuredPaths.missingOrChanged.some(item => item.path === 'docs/architecture.md'));
+
+  resetFixture(fixture);
+  const registeredPolicy = JSON.parse(fs.readFileSync(path.join(fixture.root, '.agents/harness-everything/project-docs.json'), 'utf8'));
+  registeredPolicy.governed.push({ path: 'docs/new-governed.md', role: 'reference' });
+  writeRelative(fixture.root, '.agents/harness-everything/project-docs.json', `${JSON.stringify(registeredPolicy, null, 2)}\n`);
+  writeRelative(fixture.root, 'docs/new-governed.md', 'newly registered governed member\n');
+  const registrationCandidate = commitFixture(fixture.root, 'register governed document');
+  const registration = runFrozenGuard(fixture, fixture.base, registrationCandidate);
+  assert.strictEqual(registration.status, 2, 'new-member registration requires review');
+  assert.strictEqual(registration.report.verdict, 'REVIEW_REQUIRED');
+  assert.ok(registration.report.policyPreservation.governed.added.some(item => item.path === 'docs/new-governed.md'));
 
   for (const relativePath of trustedPaths) {
     resetFixture(fixture);
@@ -1872,6 +1933,71 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
   const missingCommit = runFrozenGuard(fixture, fixture.base, '0'.repeat(40));
   assert.notStrictEqual(missingCommit.status, 0);
   assert.notStrictEqual(missingCommit.report.verdict, 'PASS');
+
+  checkCase('2ax. CI workflow keeps the base-owned guard in a failing standalone job', () => {
+    const workflowPath = path.join(REPOSITORY_ROOT, '.github/workflows/ci.yml');
+    const workflow = require('js-yaml').load(fs.readFileSync(workflowPath, 'utf8'));
+    const job = workflow.jobs['doc-governance'];
+    assert.ok(job, 'standalone doc-governance job exists');
+    assert.strictEqual(job['runs-on'], 'ubuntu-latest');
+    assert.notStrictEqual(job['continue-on-error'], true, 'the job does not mask guard failures');
+    assert.ok(job.steps.some(step => step.uses === 'actions/checkout@v7' && step.with['fetch-depth'] === 0), 'job fetches base Git objects');
+    assert.ok(job.steps.some(step => step.uses === 'actions/setup-node@v7' && step.with['node-version'] === 24), 'job provides Node 24');
+    const guardStep = job.steps.find(step => step.name === 'Run base-owned document governance guard');
+    assert.ok(guardStep, 'standalone job owns the guard step');
+    assert.notStrictEqual(guardStep['continue-on-error'], true, 'the guard step propagates nonzero exits');
+    assert.ok(!workflow.jobs['self-regression'].steps.some(step => step.name === guardStep.name), 'self-regression no longer runs the guard');
+    const command = String(guardStep.run || '').trimEnd();
+    const inline = command.match(/^node -e '([\s\S]*)'$/);
+    assert.ok(inline, 'guard step remains a directly executable Node script');
+
+    function simulate(event, base, candidate) {
+      const summaryPath = path.join(tempRoot, `guard-summary-${process.pid}-${Math.random().toString(16).slice(2)}.md`);
+      const result = spawnSync(process.execPath, ['-e', inline[1]], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+        timeout: 20000,
+        env: {
+          ...process.env,
+          HARNESS_GUARD_EVENT: event,
+          HARNESS_GUARD_BASE_SHA: base || '',
+          HARNESS_GUARD_CANDIDATE_SHA: candidate || '',
+          GITHUB_SHA: 'checkout-control',
+          GITHUB_STEP_SUMMARY: summaryPath
+        }
+      });
+      const summary = fs.existsSync(summaryPath) ? fs.readFileSync(summaryPath, 'utf8') : '';
+      fs.rmSync(summaryPath, { force: true });
+      assert.ifError(result.error);
+      return { status: result.status, output: result.stdout, summary };
+    }
+
+    const uncheckedEvent = simulate('push');
+    assert.strictEqual(uncheckedEvent.status, 0);
+    assert.match(uncheckedEvent.output, /UNCHECKED/);
+    const bootstrapEvent = simulate('pull_request', noGuardBase, noGuardCandidate);
+    assert.strictEqual(bootstrapEvent.status, 0, 'missing base verifier remains bootstrap-warning only');
+    assert.match(bootstrapEvent.output, /BOOTSTRAP_UNCHECKED/);
+    assert.match(bootstrapEvent.summary, /BOOTSTRAP_UNCHECKED/);
+    const passEvent = simulate('pull_request', fixture.base, fixture.base);
+    assert.strictEqual(passEvent.status, 0);
+    assert.match(passEvent.output, /"verdict": "PASS"/);
+
+    resetFixture(fixture);
+    writeRelative(fixture.root, 'docs/governed-index.md', 'changed derived output for CI simulation\n');
+    const reviewCandidate = commitFixture(fixture.root, 'simulate guard review failure');
+    const reviewEvent = simulate('pull_request', fixture.base, reviewCandidate);
+    assert.strictEqual(reviewEvent.status, 2, 'REVIEW_REQUIRED stays a failing workflow job');
+    assert.match(reviewEvent.output, /"verdict": "REVIEW_REQUIRED"/);
+
+    for (const exitCode of [1, 3]) {
+      resetFixture(fixture);
+      writeRelative(fixture.root, 'scripts/doc-governance-guard.js', `process.exit(${exitCode});\n`);
+      const base = commitFixture(fixture.root, `simulate base guard exit ${exitCode}`);
+      const result = simulate('pull_request', base, base);
+      assert.strictEqual(result.status, exitCode, `the standalone job propagates guard exit ${exitCode}`);
+    }
+  });
 });
 
 helper.finish();
