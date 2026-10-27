@@ -22,6 +22,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **doc-governance:** declare six ADR domains (ROUTE, GATE, EVID, SONE, DOCS, DIST) and record the eight DOCS ADRs (DOCS-001 to DOCS-008) for already-in-effect document-lifecycle mechanisms.
+
 ### Features
 
 * **doc-lifecycle:** add complete full-corpus conflict-check evidence with snapshot-bound scope and corpus identity.
