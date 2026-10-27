@@ -10,6 +10,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **doc-governance:** declare six ADR domains (ROUTE, GATE, EVID, SONE, DOCS, DIST) and record the eight DOCS ADRs (DOCS-001 to DOCS-008) for already-in-effect document-lifecycle mechanisms.
+
 ### Fixed
 
 - **doc-governance:** allow regular governed-content revisions and expand base-owned governed/derived globs against Git trees, while retaining review for membership, structural, policy, trust-surface, fixture, and derived-output changes; run the guard in its own CI job.
