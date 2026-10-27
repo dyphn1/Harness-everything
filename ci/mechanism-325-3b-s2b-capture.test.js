@@ -282,6 +282,11 @@ function isolatedRunProvider(leg, input, reference) {
     const lib = path.join(dir, 'hooks', 'scripts', 'lib');
     fs.mkdirSync(lib, { recursive: true });
     fs.copyFileSync(path.join(leg.lib, 'doc-reconciliation-provider.js'), path.join(lib, 'doc-reconciliation-provider.js'));
+    fs.copyFileSync(path.join(leg.lib, 'workflow-isolation.js'), path.join(lib, 'workflow-isolation.js'));
+    const sharedScriptsLib = path.join(dir, 'scripts', 'lib');
+    fs.mkdirSync(sharedScriptsLib, { recursive: true });
+    fs.copyFileSync(path.resolve(leg.lib, '../../../scripts/lib/verification-contract.js'),
+      path.join(sharedScriptsLib, 'verification-contract.js'));
     const provider = require(path.join(lib, 'doc-reconciliation-provider.js')).createClaudeOriginProvider(H.providerInput(input));
     const response = provider.resolveEvent({ reference, identity: H.providerIdentity() });
     const context = provider.resolveContext({ workspaceRoot: H.FIXED.workspaceRoot, workflowId: H.FIXED.workflowId, sessionId: H.FIXED.sessionId });
@@ -523,7 +528,7 @@ runner.run('R2C1-MANIFEST-SUBAGENT-HOOKS', [], (_mods, leg) => {
     const hasStatePersist = group => ((group && group.hooks) || []).some(handler =>
       handler.type === 'command' && /state-persist\.js/.test(handler.command || ''));
     for (const route of [
-      { event: 'PreToolUse', matcher: 'Bash|PowerShell|Task|Agent' },
+      { event: 'PreToolUse', matcher: 'Bash|PowerShell|Task|Agent|Write|Edit|apply_patch' },
       { event: 'PostToolUse', matcher: 'Task|Agent' },
       { event: 'SubagentStart' },
       { event: 'SubagentStop' },

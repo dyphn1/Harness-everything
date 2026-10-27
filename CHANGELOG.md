@@ -29,6 +29,7 @@ All notable changes to this project are documented in this file.
 ### Features
 
 * **doc-lifecycle:** add complete full-corpus conflict-check evidence with snapshot-bound scope and corpus identity.
+* **doc-reconciliation:** add a dedicated pre-draft outline review lane bound to the pinned inventory and exact O→D Git cycle; positive live-host credit remains gated.
 
 ### Fixed
 

@@ -11,7 +11,7 @@
     },
     "canonicalization": "estree-alpha-target-v2",
     "moduleFingerprints": {
-      "evaluator": "21e5922f94a0ffd6a2fa4c6c14becfd6680854df342d31c7e0dfd74d776feb6d",
+      "evaluator": "d2097839b602b1266f02f31168e1f72e6dab2d88f796d1dc64df21e2cf3afded",
       "capture": "95d0ca61505914e6c7cfc4603556f028208bd44203167397896ce0bf4ec58ef7"
     },
     "targets": [
@@ -25,7 +25,7 @@
         "module": "evaluator",
         "name": "evaluateObligation",
         "ruleIds": ["CAPTURE_CALL_SITES"],
-        "fingerprint": "fdeabb3d9ddebec17cef5c0eb2fe6ff846af5c0b29eb2a701e3aea566276f82e"
+        "fingerprint": "643127bd802817a0236b753516641de062b5af995969895cfca909a387dfd2b4"
       },
       {
         "module": "evaluator",

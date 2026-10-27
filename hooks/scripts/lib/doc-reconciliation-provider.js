@@ -34,6 +34,8 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
+const { canonical, key, classifyShell } = require('./workflow-isolation');
 
 const HOST_ID = 'claude-code';
 const CAPTURE_RECORD_VERSION = 'claude-capture-record/1';
@@ -43,12 +45,29 @@ const OPENCODE_CAPTURE_FILE = 'opencode-captures.jsonl';
 const OPENCODE_CAPTURE_LIMIT_BYTES = 4 * 1024 * 1024;
 const QUALIFICATION_EXPORT_SCHEMA = 'harness.doc-reconciliation.qualification.v1';
 const HEX64 = /^[0-9a-f]{64}$/;
-const PRE_CAPTURE_TOOLS = ['Bash', 'PowerShell', 'Task', 'Agent'];
+const PRE_CAPTURE_TOOLS = ['Bash', 'PowerShell', 'Task', 'Agent', 'Write', 'Edit', 'apply_patch'];
 const STDOUT_CAP_BYTES = 1024 * 1024;
 const DOC_CHECK_FLAGS = new Set(['--workspace', '--config', '--changed-path', '--base']);
 const DOC_CHECK_BOOLEAN_FLAGS = new Set(['--conflict-assessment']);
 const DOC_CHECK_SCHEMA = 'harness.doc-check.check.v1';
 const DOC_CHECK_CONFLICT_SCHEMA = 'harness.doc-check.conflict-assessment.v1';
+const OUTLINE_DISPATCH_SCHEMA = 'harness.outline-dispatch.v1';
+const OUTLINE_SEAM_SCHEMA = 'harness.outline-dispatch-seam.v1';
+const OUTLINE_HANDOFF_SCHEMA = 'harness.outline-handoff.v1';
+const OUTLINE_LEASE_SCHEMA = 'harness.outline-writer-lease.v1';
+const OUTLINE_INVENTORY_SOURCE = '/Users/daniel.chang/Desktop/Skills/Harness-everything/.worktrees/packets/adr-e1-2026-10-27/report-inv.md';
+const OUTLINE_INVENTORY_SHA256 = '2741bd4514d2cd68f57d93a2b3ce94cbe597ca62d30e26f0ca58e882df5b03c6';
+const OUTLINE_INVENTORY_PIN = Object.freeze({
+  source: OUTLINE_INVENTORY_SOURCE,
+  sha256: OUTLINE_INVENTORY_SHA256,
+  runId: 'e1-inv-1',
+  inputSha: '0ef0541c6cae550e8269ba712e03797e0e987dfb',
+  approvalRef: { issue: 325, commentId: '6436207729', decision: 1 },
+  retainedArtifactPath: `inventory/${OUTLINE_INVENTORY_SHA256}.md`,
+});
+const OUTLINE_MARKER = 'HARNESS_OUTLINE_DISPATCH_V1';
+const OUTLINE_TASK_ID = /^task-[A-Za-z0-9][A-Za-z0-9+._-]{0,127}$/;
+const OUTLINE_ATTEMPT_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const DOC_CHECK_SHELLS = new Set(['sh', 'bash', 'dash', 'zsh', 'ksh', 'fish']);
 const DOC_CHECK_LAUNCHERS = new Set(['node', 'nodejs', 'bun', 'deno', 'tsx', 'ts-node']);
 const DOC_CHECK_LAUNCHER_VALUE_FLAGS = new Set(['-r', '--require', '--import', '--loader', '--experimental-loader', '--inspect-port', '--input-type', '--conditions', '--env-file']);
@@ -599,6 +618,828 @@ function evaluateQualification(input, expectedHost = HOST_ID) {
   return { open: true, source: 'validated-export' };
 }
 
+function outlineSha(value) { return crypto.createHash('sha256').update(value).digest('hex'); }
+
+function parseOutlineDispatchPrompt(prompt) {
+  if (typeof prompt !== 'string') return null;
+  const occurrences = prompt.match(new RegExp(OUTLINE_MARKER, 'g')) || [];
+  if (occurrences.length !== 1) return null;
+  const line = prompt.split(/\r?\n/).find(item => item.includes(OUTLINE_MARKER));
+  const match = /^(HARNESS_OUTLINE_DISPATCH_V1) taskId=([^\s]+) attemptId=([^\s]+) token=([^\s]+) workerRoot=(.+)$/.exec(line || '');
+  if (!match || !OUTLINE_TASK_ID.test(match[2]) || !OUTLINE_ATTEMPT_ID.test(match[3])
+    || !textOf(match[4]) || !path.isAbsolute(match[5]) || match[5].trim() !== match[5]) return null;
+  const block = match[0];
+  const tokenDigest = outlineSha(match[4]);
+  const promptDigest = outlineSha(Buffer.from(prompt, 'utf8'));
+  return {
+    taskId: match[2], attemptId: match[3], token: match[4], tokenDigest,
+    workerRoot: match[5], blockDigest: outlineSha(Buffer.from(block, 'utf8')),
+    promptDigest,
+    dispatchInputDigest: outlineSha(captureJson({ taskId: match[2], attemptId: match[3], tokenDigest,
+      workerRoot: match[5], promptDigest })),
+  };
+}
+
+function parseInventoryPinRows(bytes) {
+  const text = Buffer.isBuffer(bytes) ? bytes.toString('utf8') : String(bytes || '');
+  const identity = /run id `([^`]+)`[^\n]*input SHA `([a-f0-9]+)`/i.exec(text);
+  if (!identity) return { state: 'unresolved', reason: 'inventory-identity-missing' };
+  const lines = text.split(/\r?\n/);
+  const mechanismIndex = lines.findIndex(line => /Mechanism inventory/i.test(line));
+  const areaIndex = lines.findIndex(line => /Area grouping \+ candidate domain prefixes/i.test(line));
+  if (mechanismIndex < 0 || areaIndex < 0 || areaIndex <= mechanismIndex) return { state: 'unresolved', reason: 'inventory-tables-missing' };
+  const rows = new Map();
+  for (const line of lines.slice(mechanismIndex, areaIndex)) {
+    const match = /^\|\s*(\d{1,2})\s*\|/.exec(line);
+    if (!match) continue;
+    rows.set(match[1], (rows.get(match[1]) || 0) + 1);
+  }
+  const domains = new Map();
+  for (const line of lines.slice(areaIndex)) {
+    const cells = line.split('|').map(cell => cell.trim());
+    if (cells.length < 5 || !cells[1] || !cells[2] || !cells[3]) continue;
+    const prefix = /^`([A-Z][A-Z0-9]{1,9})`$/.exec(cells[3]);
+    if (!prefix) continue;
+    for (const item of cells[2].split(',')) {
+      const range = /^(\d{1,2})\s*[–-]\s*(\d{1,2})$/.exec(item.trim());
+      if (range) {
+        for (let id = Number(range[1]); id <= Number(range[2]); id += 1) {
+          const key = String(id).padStart(2, '0');
+          const entries = domains.get(key) || [];
+          entries.push(prefix[1]);
+          domains.set(key, entries);
+        }
+      } else if (/^\d{1,2}$/.test(item.trim())) {
+        const key = item.trim().padStart(2, '0');
+        const entries = domains.get(key) || [];
+        entries.push(prefix[1]);
+        domains.set(key, entries);
+      }
+    }
+  }
+  return { state: 'parsed', runId: identity[1], inputSha: identity[2], rows, domains };
+}
+
+function validateOutlineInventoryPin({ bytes, pin, expectedPin = OUTLINE_INVENTORY_PIN } = {}) {
+  if (!Buffer.isBuffer(bytes) || !recordOf(pin) || !recordOf(expectedPin)) return { state: 'unresolved', reason: 'inventory-unavailable' };
+  const fields = ['source', 'sha256', 'runId', 'inputSha', 'approvalRef', 'retainedArtifactPath'];
+  const actualPin = Object.fromEntries(fields.map(field => [field, pin[field]]));
+  const trustedPin = Object.fromEntries(fields.map(field => [field, expectedPin[field]]));
+  if (captureJson(actualPin) !== captureJson(trustedPin)) return { state: 'unresolved', reason: 'inventory-pin-mismatch' };
+  const digest = outlineSha(bytes);
+  if (digest !== expectedPin.sha256 || expectedPin.retainedArtifactPath !== `inventory/${expectedPin.sha256}.md`) {
+    return { state: 'unresolved', reason: 'inventory-digest-mismatch' };
+  }
+  const parsed = parseInventoryPinRows(bytes);
+  if (parsed.state !== 'parsed' || parsed.runId !== expectedPin.runId || parsed.inputSha !== expectedPin.inputSha) {
+    return { state: 'unresolved', reason: parsed.reason || 'inventory-revision-mismatch' };
+  }
+  return { state: 'accepted', pin: trustedPin, pinDigest: outlineSha(Buffer.from(captureJson(trustedPin))),
+    artifactDigest: digest, parsed };
+}
+
+function resolveInventoryRow(inventory, rowId) {
+  const parsed = inventory && inventory.parsed;
+  if (!parsed || parsed.state !== 'parsed' || !textOf(rowId)) return { state: 'unresolved', reason: 'inventory-row-missing' };
+  const matches = [...parsed.rows.entries()].filter(([id]) => id === rowId);
+  const domains = parsed.domains.get(rowId) || [];
+  if (matches.length !== 1 || matches[0][1] !== 1 || domains.length !== 1) {
+    return { state: 'unresolved', reason: 'inventory-row-ambiguous' };
+  }
+  return { state: 'accepted', row: { rowId, domain: domains[0] } };
+}
+
+function hasSubstantiveDecision(text) {
+  const lines = String(text || '').split(/\r?\n/);
+  let decisionLines = null;
+  const substantive = linesToCheck => linesToCheck.some(line => {
+    const value = line.trim().replace(/^[-*]\s*/, '');
+    return value && !/^<!--|^-->$|^\[[^\]]*\]$|^<[^>]+>$|^TBD$|^TODO$/i.test(value);
+  });
+  for (const line of lines) {
+    const heading = /^ {0,3}##\s+(.+?)\s*#*\s*$/.exec(line);
+    const headingText = heading?.[1]?.trim() || '';
+    if (/^Decision\b/i.test(headingText)) {
+      if (decisionLines && substantive(decisionLines)) return true;
+      decisionLines = [];
+      continue;
+    }
+    if (decisionLines && heading) {
+      if (substantive(decisionLines)) return true;
+      decisionLines = null;
+      continue;
+    }
+    if (decisionLines) decisionLines.push(line);
+  }
+  return Boolean(decisionLines && substantive(decisionLines));
+}
+
+function parseOutlineCitation(bytes, targetPath) {
+  const text = Buffer.isBuffer(bytes) ? bytes.toString('utf8') : String(bytes || '');
+  const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
+  if (!frontmatter) return { state: 'unresolved', reason: 'outline-frontmatter-missing' };
+  const field = name => new RegExp(`^${name}:\\s*([^\\r\\n]+)\\s*$`, 'm').exec(frontmatter[1])?.[1]?.trim() || '';
+  const id = field('id');
+  const status = field('status');
+  const rowMatches = [...text.matchAll(/^Inventory row:\s*([0-9]{1,2})\s*$/gmi)];
+  const targetMatches = [...text.matchAll(/^Target:\s*(\S+)\s*$/gmi)];
+  const domainMatches = [...text.matchAll(/^Domain:\s*([A-Z][A-Z0-9]{1,9})\s*$/gmi)];
+  if (!/^([A-Z][A-Z0-9]{1,9})-\d{3,}$/.test(id) || status !== 'proposed'
+    || rowMatches.length !== 1 || targetMatches.length !== 1 || domainMatches.length !== 1
+    || targetMatches[0][1] !== targetPath) return { state: 'unresolved', reason: 'outline-citation-invalid' };
+  if (hasSubstantiveDecision(text)) return { state: 'unresolved', reason: 'outline-already-draft' };
+  return { state: 'accepted', id, status, rowId: rowMatches[0][1], targetPath,
+    domain: domainMatches[0][1], bytesDigest: outlineSha(Buffer.from(text, 'utf8')) };
+}
+
+function outlineGit(root, args, binary = false) {
+  try {
+    const env = { ...process.env };
+    for (const key of Object.keys(env)) if (key.startsWith('GIT_')) delete env[key];
+    return execFileSync('git', ['-C', root, ...args], { env, encoding: binary ? null : 'utf8',
+      timeout: 10000, maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (error) {
+    throw new Error('outline-git-unavailable', { cause: error });
+  }
+}
+
+function canonicalOutlineRoot(value) {
+  if (typeof value !== 'string' || !path.isAbsolute(value)) throw new Error('outline-root-invalid');
+  try { fs.statSync(value); } catch { throw new Error('outline-root-not-canonical'); }
+  return canonical(value);
+}
+
+function outlineWorkspaceId(root) { return 'ws-' + digestText(captureJson({ workspaceRoot: canonical(root) })); }
+
+function readOutlineJson(file) {
+  try {
+    const bytes = fs.readFileSync(file);
+    const value = JSON.parse(bytes.toString('utf8'));
+    if (!recordOf(value)) return { state: 'unresolved', reason: 'outline-record-invalid' };
+    return { state: 'accepted', value, bytes, digest: outlineSha(bytes) };
+  } catch {
+    return { state: 'unresolved', reason: 'outline-record-unavailable' };
+  }
+}
+
+function outlineTaskState(sessionDir) {
+  const workflowFile = path.join(sessionDir, 'workflow-run.json');
+  const loaded = readOutlineJson(workflowFile);
+  if (loaded.state !== 'accepted') return { state: 'unresolved', reason: 'workflow-pin-unavailable' };
+  const workflow = loaded.value;
+  const taskBinding = workflow.docReconciliationTask;
+  const baseline = workflow.docReconciliationBaseline;
+  if (!recordOf(taskBinding) || !OUTLINE_TASK_ID.test(String(taskBinding.taskId || ''))
+    || !Array.isArray(taskBinding.requirementIds) || !taskBinding.requirementIds.length
+    || !HEX64.test(String(taskBinding.requirementDigest || ''))
+    || !recordOf(baseline) || !textOf(baseline.root) || !/^[0-9a-f]{40,64}$/.test(String(baseline.commit || ''))
+    || outlineSha(Buffer.from(captureJson(taskBinding.requirementIds))) !== taskBinding.requirementDigest
+    || taskBinding.taskId !== `task-${taskBinding.requirementIds.join('+')}`
+    || taskBinding.baselineCommit !== baseline.commit || !sameCanonicalPath(taskBinding.baselineRoot, baseline.root)
+    || taskBinding.workflowId !== workflow.workflowId || taskBinding.workspaceId !== outlineWorkspaceId(baseline.root)) {
+    return { state: 'unresolved', reason: 'workflow-task-binding-invalid' };
+  }
+  return { state: 'accepted', workflow, taskBinding, baseline };
+}
+
+function resolveOutlineAttempt({ sessionDir, taskId, attemptId } = {}) {
+  if (!textOf(sessionDir) || !OUTLINE_TASK_ID.test(String(taskId || '')) || !OUTLINE_ATTEMPT_ID.test(String(attemptId || ''))) {
+    return { state: 'unresolved', reason: 'attempt-identity-invalid' };
+  }
+  const taskState = outlineTaskState(sessionDir);
+  if (taskState.state !== 'accepted' || taskState.taskBinding.taskId !== taskId) {
+    return { state: 'unresolved', reason: taskState.reason || 'task-binding-mismatch' };
+  }
+  const attemptsRoot = path.join(sessionDir, 'doc-reconciliation', 'outline-confirmation', taskId, 'attempts');
+  let names;
+  try { names = fs.readdirSync(attemptsRoot, { withFileTypes: true }).filter(item => item.isDirectory()).map(item => item.name).sort(compareKeys); }
+  catch { return { state: 'unresolved', reason: 'attempt-chain-unavailable' }; }
+  if (!names.length) return { state: 'unresolved', reason: 'attempt-chain-empty' };
+  const attempts = new Map();
+  for (const name of names) {
+    if (!OUTLINE_ATTEMPT_ID.test(name)) return { state: 'unresolved', reason: 'attempt-id-invalid' };
+    const loaded = readOutlineJson(path.join(attemptsRoot, name, 'handoff.json'));
+    if (loaded.state !== 'accepted') return { state: 'unresolved', reason: 'handoff-unavailable' };
+    const handoff = loaded.value;
+    if (handoff.schema !== OUTLINE_HANDOFF_SCHEMA || handoff.taskId !== taskId || handoff.attemptId !== name
+      || !textOf(handoff.handoffId) || !textOf(handoff.draftDispatchToken)
+      || !recordOf(handoff.baseline) || handoff.baseline.commit !== taskState.baseline.commit
+      || !sameCanonicalPath(handoff.baseline.root, taskState.baseline.root)
+      || handoff.configDigest !== taskState.taskBinding.configDigest) {
+      return { state: 'unresolved', reason: 'handoff-identity-or-baseline-mismatch' };
+    }
+    const attemptDir = path.join(attemptsRoot, name);
+    const seamDir = path.join(attemptDir, 'seams');
+    const tokenDir = path.join(attemptDir, 'tokens');
+    const filesIn = dir => {
+      try { return fs.readdirSync(dir, { withFileTypes: true })
+        .filter(entry => entry.isFile() && entry.name.endsWith('.json')).map(entry => path.join(dir, entry.name)); }
+      catch { return []; }
+    };
+    const seamFiles = filesIn(seamDir);
+    const tokenFiles = filesIn(tokenDir);
+    const evidenceFiles = [...seamFiles, ...tokenFiles];
+    const sealLoaded = readOutlineJson(path.join(attemptDir, 'handoff-seal.json'));
+    const sealExists = fs.existsSync(path.join(attemptDir, 'handoff-seal.json'));
+    if (sealExists && (sealLoaded.state !== 'accepted' || sealLoaded.value.schema !== 'harness.outline-handoff-seal.v1'
+      || sealLoaded.value.taskId !== taskId || sealLoaded.value.attemptId !== name
+      || sealLoaded.value.handoffDigest !== loaded.digest)) {
+      return { state: 'unresolved', reason: 'handoff-overwritten-after-dispatch' };
+    }
+    if (evidenceFiles.length && !sealExists) {
+      return { state: 'unresolved', reason: 'handoff-overwritten-after-dispatch' };
+    }
+    for (const evidenceFile of evidenceFiles) {
+      const evidenceLoaded = readOutlineJson(evidenceFile);
+      if (evidenceLoaded.state !== 'accepted' || evidenceLoaded.value.taskId !== taskId
+        || evidenceLoaded.value.attemptId !== name || evidenceLoaded.value.handoffDigest !== loaded.digest) {
+        return { state: 'unresolved', reason: 'handoff-overwritten-after-dispatch' };
+      }
+    }
+    let interrupted = false;
+    if (sealExists && (tokenFiles.length !== 1 || seamFiles.length !== 1)) interrupted = true;
+    if (sealExists && tokenFiles.length === 1 && seamFiles.length === 1) {
+      const token = readOutlineJson(tokenFiles[0]).value;
+      const seam = readOutlineJson(seamFiles[0]).value;
+      if (token.schema !== 'harness.outline-token.v1' || seam.schema !== OUTLINE_SEAM_SCHEMA
+        || token.tokenDigest !== seam.tokenDigest || token.toolUseId !== seam.toolUseId
+        || token.dispatchInputDigest !== seam.dispatchInputDigest) {
+        return { state: 'unresolved', reason: 'handoff-dispatch-evidence-mismatch' };
+      }
+    }
+    attempts.set(name, { handoff, handoffDigest: loaded.digest, attemptDir, interrupted });
+  }
+  const parents = new Map();
+  const children = new Map(names.map(name => [name, 0]));
+  const tokens = new Set();
+  for (const [name, item] of attempts) {
+    const { handoff } = item;
+    if (tokens.has(handoff.draftDispatchToken)) return { state: 'unresolved', reason: 'attempt-token-reused' };
+    tokens.add(handoff.draftDispatchToken);
+    const parent = handoff.supersedesAttemptId;
+    if (parent === null || parent === undefined) { parents.set(name, null); continue; }
+    if (!attempts.has(parent) || parent === name || children.get(parent) === undefined) {
+      return { state: 'unresolved', reason: 'attempt-predecessor-missing' };
+    }
+    children.set(parent, children.get(parent) + 1);
+    if (children.get(parent) > 1) return { state: 'unresolved', reason: 'attempt-chain-ambiguous' };
+    parents.set(name, parent);
+  }
+  const roots = [...parents.values()].filter(parent => parent === null).length;
+  if (roots !== 1) return { state: 'unresolved', reason: 'attempt-chain-ambiguous' };
+  for (const name of names) {
+    const seen = new Set();
+    let current = name;
+    while (current !== null) {
+      if (seen.has(current)) return { state: 'unresolved', reason: 'attempt-chain-cyclic' };
+      seen.add(current);
+      current = parents.get(current);
+      if (current === undefined) return { state: 'unresolved', reason: 'attempt-predecessor-missing' };
+    }
+  }
+  const leaves = names.filter(name => children.get(name) === 0);
+  if (leaves.length !== 1) return { state: 'unresolved', reason: 'attempt-chain-ambiguous' };
+  if (leaves[0] !== attemptId) return { state: 'unresolved', reason: 'attempt-superseded' };
+  const currentAttempt = attempts.get(attemptId);
+  if (currentAttempt.interrupted) return { state: 'unresolved', reason: 'attempt-interrupted' };
+  return { state: 'accepted', taskBinding: taskState.taskBinding, baseline: taskState.baseline,
+    handoff: currentAttempt.handoff, handoffDigest: currentAttempt.handoffDigest,
+    attemptDir: currentAttempt.attemptDir, predecessors: [...parents.keys()].filter(id => id !== attemptId) };
+}
+
+function outlineHandoffDirectory(sessionDir, taskId) {
+  return path.join(sessionDir, 'doc-reconciliation', 'outline-confirmation', taskId);
+}
+
+function validateOutlineReview({ handoff, attemptDir, captures, targetPaths, outlineDigests, inventory, sessionId } = {}) {
+  const refs = Array.isArray(captures) ? captures : [];
+  const matches = refs.filter(item => recordOf(item) && item.ref === handoff.reviewCaptureRef && item.event === 'SubagentStop');
+  if (matches.length !== 1) return { state: 'unresolved', reason: 'outline-review-capture-missing-or-ambiguous' };
+  const review = matches[0];
+  const reviewer = review.agent_id;
+  if (!textOf(reviewer) || reviewer === sessionId || review.reviewVerdict !== 'approve'
+    || !textOf(review.reviewSummary) || !HEX64.test(String(review.reviewDigest || ''))
+    || review.reviewDigest !== handoff.reviewDigest) return { state: 'unresolved', reason: 'outline-review-invalid' };
+  const capturedDigest = captureDigest(review);
+  if (capturedDigest !== handoff.reviewCaptureDigest) return { state: 'unresolved', reason: 'outline-review-capture-digest-mismatch' };
+  const principals = { author: sessionId, executors: journalExecutors(refs, sessionId) };
+  if (!reviewRecordIndependent(review, refs, principals)) return { state: 'unresolved', reason: 'outline-review-not-independent' };
+  const inventoryPath = path.posix.join('doc-reconciliation/outline-confirmation/inventory', path.posix.basename(inventory.pin.retainedArtifactPath));
+  const expectedReviewed = { ...outlineDigests, [inventoryPath]: inventory.artifactDigest };
+  if (captureJson(review.reviewedArtifactDigests) !== captureJson(expectedReviewed)) {
+    return { state: 'unresolved', reason: 'outline-review-artifact-binding-mismatch' };
+  }
+  const summary = String(review.reviewSummary);
+  if (!summary.includes(`inventory row ${handoff.inventory.rowId}`) || !summary.includes(targetPaths[0])
+    || !summary.includes(handoff.inventory.domain)) return { state: 'unresolved', reason: 'outline-review-scope-mismatch' };
+  const result = refs.filter(item => recordOf(item) && item.event === 'PostToolUse'
+    && (item.tool_name === 'Agent' || item.tool_name === 'Task') && item.agent_id === reviewer);
+  if (result.length !== 1) return { state: 'unresolved', reason: 'outline-review-result-missing-or-ambiguous' };
+  return { state: 'accepted', review, reviewerPrincipal: reviewer, captureDigest: capturedDigest,
+    reviewDigest: review.reviewDigest, inventoryPath };
+}
+
+function validateOutlineHandoffAtDispatch({ payload, parsed, sessionDir, workspaceRoot, captures, expectedPin } = {}) {
+  const taskState = outlineTaskState(sessionDir);
+  if (taskState.state !== 'accepted' || parsed.taskId !== taskState.taskBinding.taskId) {
+    return { state: 'unresolved', reason: taskState.reason || 'task-binding-mismatch' };
+  }
+  const attempt = resolveOutlineAttempt({ sessionDir, taskId: parsed.taskId, attemptId: parsed.attemptId });
+  if (attempt.state !== 'accepted') return attempt;
+  const { handoff, handoffDigest, attemptDir, baseline, taskBinding } = attempt;
+  const workflow = taskState.workflow;
+  if (handoff.schema !== OUTLINE_HANDOFF_SCHEMA || handoff.workspaceId !== outlineWorkspaceId(baseline.root)
+    || handoff.workflowId !== workflow.workflowId || handoff.workflowRevision !== workflow.revision
+    || handoff.sessionId !== payload.session_id || handoff.hostId !== HOST_ID
+    || handoff.coordinatorPrincipal !== payload.session_id
+    || handoff.draftDispatchToken !== parsed.token
+    || !sameCanonicalPath(handoff.baseline.root, baseline.root) || handoff.baseline.commit !== baseline.commit
+    || handoff.baseline.tree !== baseline.tree || handoff.configDigest !== taskBinding.configDigest) {
+    return { state: 'unresolved', reason: 'handoff-identity-mismatch' };
+  }
+  const markerRoot = canonicalOutlineRoot(parsed.workerRoot);
+  const declaredRoot = canonicalOutlineRoot(handoff.draftWorktreeRoot);
+  if (!sameCanonicalPath(markerRoot, declaredRoot)) return { state: 'unresolved', reason: 'worker-root-mismatch' };
+  const gitRoot = outlineGit(markerRoot, ['rev-parse', '--show-toplevel']).trim();
+  if (!sameCanonicalPath(canonicalOutlineRoot(gitRoot), markerRoot)) return { state: 'unresolved', reason: 'worker-root-mismatch' };
+  const head = outlineGit(markerRoot, ['rev-parse', '--verify', 'HEAD^{commit}']).trim();
+  const tree = outlineGit(markerRoot, ['rev-parse', '--verify', 'HEAD^{tree}']).trim();
+  const statusBytes = outlineGit(markerRoot, ['status', '--porcelain=v1', '-z', '--untracked-files=all'], true);
+  const statusDigest = outlineSha(statusBytes);
+  if (head !== handoff.outline.commit || tree !== handoff.outline.tree || statusBytes.length !== 0) {
+    return { state: 'unresolved', reason: statusBytes.length ? 'worker-worktree-not-clean-at-O' : 'worker-worktree-not-at-O' };
+  }
+  if (outlineGit(markerRoot, ['rev-parse', '--verify', `${baseline.commit}^{commit}`]).trim() !== baseline.commit
+    || outlineGit(markerRoot, ['rev-parse', '--verify', `${handoff.outline.commit}^{tree}`]).trim() !== handoff.outline.tree
+    || outlineGit(markerRoot, ['merge-base', '--is-ancestor', baseline.commit, handoff.outline.commit]) !== '') {
+    return { state: 'unresolved', reason: 'B-to-O-git-binding-invalid' };
+  }
+  const targetPaths = Array.isArray(handoff.targetPaths) ? [...handoff.targetPaths] : [];
+  if (!targetPaths.length || targetPaths.some(item => typeof item !== 'string' || path.isAbsolute(item)
+    || item.includes('\\') || item.split('/').some(part => !part || part === '.' || part === '..'))
+    || captureJson([...new Set(targetPaths)].sort(compareKeys)) !== captureJson(targetPaths)) {
+    return { state: 'unresolved', reason: 'outline-target-scope-invalid' };
+  }
+  const pinDir = path.join(sessionDir, 'doc-reconciliation', 'outline-confirmation', 'inventory');
+  const trustedPin = expectedPin || OUTLINE_INVENTORY_PIN;
+  const pinFile = path.join(pinDir, 'inventory-pin.json');
+  const pinLoaded = readOutlineJson(pinFile);
+  if (pinLoaded.state !== 'accepted') return { state: 'unresolved', reason: 'inventory-pin-unavailable' };
+  const inventoryFile = path.join(pinDir, trustedPin.retainedArtifactPath.split('/').pop());
+  let inventoryBytes;
+  try { inventoryBytes = fs.readFileSync(inventoryFile); }
+  catch { return { state: 'unresolved', reason: 'inventory-artifact-unavailable' }; }
+  const inventory = validateOutlineInventoryPin({ bytes: inventoryBytes, pin: pinLoaded.value, expectedPin: trustedPin });
+  if (inventory.state !== 'accepted') return inventory;
+  if (outlineSha(pinLoaded.bytes) !== handoff.inventoryPinDigest && handoff.inventoryPinDigest !== undefined) {
+    return { state: 'unresolved', reason: 'inventory-pin-digest-mismatch' };
+  }
+  const outlineBlobs = recordOf(handoff.outline?.targetBlobs) ? handoff.outline.targetBlobs : {};
+  const outlineDigests = {};
+  let citedRow = null;
+  for (const target of targetPaths) {
+    const atBaseline = outlineGit(baseline.root, ['ls-tree', '-r', '--name-only', baseline.commit, '--', target]).trim();
+    if (atBaseline.split('\n').filter(Boolean).includes(target)) return { state: 'unresolved', reason: 'outline-target-existed-at-B' };
+    const bytes = outlineGit(markerRoot, ['show', `${handoff.outline.commit}:${target}`], true);
+    const blobOid = outlineGit(markerRoot, ['rev-parse', `${handoff.outline.commit}:${target}`]).trim();
+    const expected = outlineBlobs[target];
+    if (!recordOf(expected) || expected.blobOid !== blobOid || expected.storedBytesSha256 !== outlineSha(bytes)) {
+      return { state: 'unresolved', reason: 'outline-object-binding-mismatch' };
+    }
+    const citation = parseOutlineCitation(bytes, target);
+    if (citation.state !== 'accepted') return citation;
+    const row = resolveInventoryRow(inventory, citation.rowId);
+    if (row.state !== 'accepted' || citation.domain !== row.row.domain || citation.domain !== handoff.inventory.domain
+      || handoff.inventory.rowId !== citation.rowId || !Array.isArray(handoff.inventory.targetPaths)
+      || captureJson(handoff.inventory.targetPaths) !== captureJson(targetPaths)) {
+      return { state: 'unresolved', reason: row.reason || 'outline-inventory-binding-mismatch' };
+    }
+    const expectedId = path.posix.basename(target, path.posix.extname(target));
+    if (citation.id !== expectedId || !citation.id.startsWith(`${row.row.domain}-`)) {
+      return { state: 'unresolved', reason: 'outline-domain-target-mismatch' };
+    }
+    if (citedRow && captureJson(citedRow) !== captureJson(row.row)) return { state: 'unresolved', reason: 'outline-row-ambiguous' };
+    citedRow = row.row;
+    outlineDigests[target] = outlineSha(bytes);
+  }
+  const leaseFile = path.join(attemptDir, 'writer-lease.json');
+  const leaseLoaded = readOutlineJson(leaseFile);
+  if (leaseLoaded.state !== 'accepted') return { state: 'unresolved', reason: 'writer-lease-unavailable' };
+  const lease = leaseLoaded.value;
+  if (lease.schema !== OUTLINE_LEASE_SCHEMA || lease.id !== handoff.writerLeaseId
+    || lease.principalId !== payload.session_id || !sameCanonicalPath(lease.root, markerRoot) || lease.exclusive !== true
+    || lease.active !== true || (Array.isArray(lease.competingWriters) && lease.competingWriters.length)
+    || leaseLoaded.digest !== handoff.writerLeaseDigest) {
+    return { state: 'unresolved', reason: 'writer-lease-invalid' };
+  }
+  const review = validateOutlineReview({ handoff, attemptDir, captures, targetPaths, outlineDigests, inventory,
+    sessionId: payload.session_id });
+  if (review.state !== 'accepted') return review;
+  return { state: 'accepted', taskBinding, baseline, handoff, handoffDigest, attemptDir, markerRoot,
+    worktree: { root: markerRoot, head, tree, statusDigest, clean: true },
+    inventory, inventoryPinDigest: outlineSha(pinLoaded.bytes), row: citedRow, targetPaths, outlineDigests, review,
+    leaseDigest: leaseLoaded.digest, leaseId: lease.id };
+}
+
+function outlineDispatchUnresolved(parsed, reason) {
+  return { schema: OUTLINE_DISPATCH_SCHEMA, state: 'unresolved', reasons: [reason],
+    ...(parsed ? { taskId: parsed.taskId, attemptId: parsed.attemptId, tokenDigest: parsed.tokenDigest,
+      promptDigest: parsed.promptDigest, blockDigest: parsed.blockDigest, dispatchInputDigest: parsed.dispatchInputDigest,
+      workerRoot: parsed.workerRoot } : {}) };
+}
+
+function captureOutlineDispatch(input = {}) {
+  let parsed = null;
+  try {
+    const { payload, capture, sessionDir, workspaceRoot, captures = [], fixtureExpectedPin } = input;
+    if (!recordOf(payload) || !recordOf(capture) || payload.hook_event_name !== 'PreToolUse'
+      || !['Agent', 'Task'].includes(payload.tool_name) || !recordOf(payload.tool_input)) {
+      return outlineDispatchUnresolved(null, 'dispatch-event-invalid');
+    }
+    parsed = parseOutlineDispatchPrompt(payload.tool_input.prompt);
+    if (!parsed) return outlineDispatchUnresolved(null, 'dispatch-marker-invalid');
+    if (capture.tool_use_id !== payload.tool_use_id || !textOf(payload.tool_use_id)
+      || capture.session_id !== payload.session_id || !textOf(payload.session_id)) {
+      return outlineDispatchUnresolved(parsed, 'dispatch-correlation-missing');
+    }
+    const failedPredecessor = (Array.isArray(captures) ? captures : []).some(item => recordOf(item)
+      && item.event === 'PreToolUse' && item.session_id === payload.session_id
+      && item.outlineDispatch?.state === 'unresolved'
+      && (item.tool_use_id === payload.tool_use_id
+        || (item.outlineDispatch.taskId === parsed.taskId && item.outlineDispatch.attemptId === parsed.attemptId
+          && item.outlineDispatch.tokenDigest === parsed.tokenDigest)));
+    if (failedPredecessor) return outlineDispatchUnresolved(parsed, 'attempt-already-unresolved');
+    const validated = validateOutlineHandoffAtDispatch({ payload, parsed, sessionDir, workspaceRoot,
+      captures, expectedPin: fixtureExpectedPin });
+    if (validated.state !== 'accepted') return outlineDispatchUnresolved(parsed, validated.reason || 'dispatch-validation-unresolved');
+    const seamDir = path.join(validated.attemptDir, 'seams');
+    const tokenDir = path.join(validated.attemptDir, 'tokens');
+    const seamName = `${outlineSha(String(payload.tool_use_id))}.json`;
+    const seamFile = path.join(seamDir, seamName);
+    const tokenFile = path.join(tokenDir, `${parsed.tokenDigest}.json`);
+    const priorSeam = readOutlineJson(seamFile);
+    if (priorSeam.state === 'accepted') {
+      const prior = priorSeam.value;
+      if (prior.toolUseId === payload.tool_use_id && prior.dispatchInputDigest === parsed.dispatchInputDigest
+        && prior.taskId === parsed.taskId && prior.attemptId === parsed.attemptId) {
+        return { ...prior, schema: OUTLINE_DISPATCH_SCHEMA, duplicate: true };
+      }
+      return outlineDispatchUnresolved(parsed, 'dispatch-input-changed');
+    }
+    const priorToken = readOutlineJson(tokenFile);
+    if (priorToken.state === 'accepted') {
+      const token = priorToken.value;
+      if (token.toolUseId !== payload.tool_use_id) return outlineDispatchUnresolved(parsed, 'draft-token-reused');
+      return outlineDispatchUnresolved(parsed, 'seam-missing-after-token-consumption');
+    }
+    const seam = {
+      schema: OUTLINE_SEAM_SCHEMA, state: 'accepted', captureRef: capture.ref, toolUseId: payload.tool_use_id,
+      taskId: parsed.taskId, attemptId: parsed.attemptId, workerRoot: validated.markerRoot,
+      tokenDigest: parsed.tokenDigest, promptDigest: parsed.promptDigest, blockDigest: parsed.blockDigest,
+      dispatchInputDigest: parsed.dispatchInputDigest, handoffDigest: validated.handoffDigest,
+      reviewCaptureRef: validated.review.review.ref, reviewCaptureDigest: validated.review.captureDigest,
+      reviewDigest: validated.review.reviewDigest, inventoryPinDigest: validated.inventoryPinDigest,
+      writerLeaseDigest: validated.leaseDigest, writerLeaseId: validated.leaseId,
+      coordinatorPrincipal: payload.session_id, reviewerPrincipal: validated.review.reviewerPrincipal,
+      worktree: validated.worktree, validationReasons: [],
+    };
+    const sealFile = path.join(validated.attemptDir, 'handoff-seal.json');
+    const existingSeal = readOutlineJson(sealFile);
+    if (existingSeal.state === 'accepted') {
+      if (existingSeal.value.taskId !== parsed.taskId || existingSeal.value.attemptId !== parsed.attemptId
+        || existingSeal.value.handoffDigest !== validated.handoffDigest) {
+        return outlineDispatchUnresolved(parsed, 'handoff-overwritten-after-dispatch');
+      }
+      return outlineDispatchUnresolved(parsed, 'handoff-seal-already-consumed');
+    }
+    const seal = { schema: 'harness.outline-handoff-seal.v1', taskId: parsed.taskId,
+      attemptId: parsed.attemptId, handoffDigest: validated.handoffDigest };
+    try { fs.writeFileSync(sealFile, JSON.stringify(seal, null, 2) + '\n', { encoding: 'utf8', flag: 'wx' }); }
+    catch { return outlineDispatchUnresolved(parsed, 'handoff-seal-persistence-failed'); }
+    fs.mkdirSync(tokenDir, { recursive: true });
+    fs.mkdirSync(seamDir, { recursive: true });
+    const token = { schema: 'harness.outline-token.v1', taskId: parsed.taskId, attemptId: parsed.attemptId,
+      tokenDigest: parsed.tokenDigest, toolUseId: payload.tool_use_id, dispatchInputDigest: parsed.dispatchInputDigest,
+      handoffDigest: validated.handoffDigest };
+    try {
+      fs.writeFileSync(tokenFile, JSON.stringify(token, null, 2) + '\n', { encoding: 'utf8', flag: 'wx' });
+    } catch (error) {
+      if (error.code === 'EEXIST') return outlineDispatchUnresolved(parsed, 'draft-token-reused');
+      return outlineDispatchUnresolved(parsed, 'token-consumption-failed');
+    }
+    try {
+      fs.writeFileSync(seamFile, JSON.stringify(seam, null, 2) + '\n', { encoding: 'utf8', flag: 'wx' });
+    } catch {
+      return outlineDispatchUnresolved(parsed, 'seam-persistence-failed');
+    }
+    return { ...seam, schema: OUTLINE_DISPATCH_SCHEMA,
+      seamRef: path.relative(sessionDir, seamFile).split(path.sep).join('/') };
+  } catch (error) {
+    return outlineDispatchUnresolved(parsed, error.message === 'outline-git-unavailable' ? error.message : 'dispatch-validation-failed');
+  }
+}
+
+function validateOutlineCaptureQualification(input, expectedHost = HOST_ID) {
+  if (!recordOf(input) || input.hostId !== expectedHost || expectedHost !== HOST_ID) return { open: false, reason: 'unsupported-host' };
+  const supplied = input.qualification;
+  if (recordOf(supplied) && supplied.faked === true && supplied.source === 'fake-test-fixture'
+    && supplied.toolUseIdPopulated === true && supplied.agentIdPopulated === true) {
+    return supplied.outlineDispatchCaptureVerified === true
+      ? { open: true, source: 'dependency-injection' }
+      : { open: false, reason: 'outline-live-capture-unqualified' };
+  }
+  try {
+    const qualificationError = validateQualificationExport(expectedHost);
+    if (qualificationError) return { open: false, reason: qualificationError };
+    const exported = JSON.parse(fs.readFileSync(path.join(__dirname, EXPORT_FILE), 'utf8'));
+    const mapping = exported.outlineDispatchCapture;
+    const source = exported.sanitizedCapture;
+    const records = fs.readFileSync(path.join(__dirname, source.file), 'utf8').split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
+    if (!outlineCaptureMappingValid(mapping, records)) return { open: false, reason: 'outline-live-capture-unqualified' };
+    return { open: true, source: 'validated-export', captureFile: source.file };
+  } catch (error) {
+    return { open: false, reason: `outline-live-capture-unqualified:${error.code || 'invalid'}` };
+  }
+}
+
+function outlineCaptureMappingValid(mapping, records) {
+  if (!recordOf(mapping) || mapping.promptField !== 'tool_input.prompt'
+    || mapping.coordinatorPrincipalField !== 'session_id' || mapping.synchronousPreToolUse !== true
+    || mapping.workerStartDispatchField !== 'parent_tool_use_id' || mapping.workerStartRootField !== 'cwd'
+    || mapping.taskResultDispatchField !== 'tool_use_id' || !Array.isArray(records)) return false;
+  const pres = records.filter(item => recordOf(item) && item.event === 'PreToolUse'
+    && ['Task', 'Agent'].includes(item.tool_name) && recordOf(item.tool_input)
+    && typeof item.tool_input.prompt === 'string' && textOf(item.session_id) && textOf(item.tool_use_id));
+  return pres.some(pre => {
+    const marker = parseOutlineDispatchPrompt(pre.tool_input.prompt);
+    if (!marker) return false;
+    const starts = records.filter(item => recordOf(item) && item.event === 'SubagentStart'
+      && item.parent_tool_use_id === pre.tool_use_id && item.session_id === pre.session_id
+      && textOf(item.cwd) && textOf(marker.workerRoot) && key(item.cwd) === key(marker.workerRoot)
+      && textOf(item.agent_id));
+    if (starts.length !== 1) return false;
+    const worker = starts[0];
+    const results = records.filter(item => recordOf(item) && item.event === 'PostToolUse'
+      && ['Task', 'Agent'].includes(item.tool_name) && item.tool_use_id === pre.tool_use_id
+      && item.session_id === pre.session_id && item.agent_id === worker.agent_id
+      && item.interrupted === false);
+    return results.length === 1;
+  });
+}
+
+function verifyOutlineMergeCorrespondence({ root, outlineCommit, draftCommit, mergedCommit, targetPaths, record } = {}) {
+  if (!recordOf(record) || !textOf(root) || !Array.isArray(targetPaths) || !targetPaths.length
+    || record.outlineCommit !== outlineCommit || record.draftCommit !== draftCommit || record.mergedCommit !== mergedCommit) {
+    return { state: 'unresolved', reason: 'merge-correspondence-missing-or-mismatched' };
+  }
+  try {
+    for (const commit of [outlineCommit, draftCommit, mergedCommit]) {
+      if (outlineGit(root, ['rev-parse', '--verify', `${commit}^{commit}`]).trim() !== commit) {
+        return { state: 'unresolved', reason: 'merge-object-missing' };
+      }
+    }
+    if (outlineCommit === draftCommit || outlineGit(root, ['merge-base', '--is-ancestor', outlineCommit, draftCommit]) !== '') {
+      return { state: 'unresolved', reason: 'merge-pre-draft-ancestry-invalid' };
+    }
+    const recorded = record.targetBlobs;
+    if (!recordOf(recorded) || captureJson(Object.keys(recorded).sort(compareKeys)) !== captureJson([...targetPaths].sort(compareKeys))) {
+      return { state: 'unresolved', reason: 'merge-target-correspondence-invalid' };
+    }
+    let changed = false;
+    for (const target of targetPaths) {
+      const draft = outlineGit(root, ['rev-parse', `${draftCommit}:${target}`]).trim();
+      const merged = outlineGit(root, ['rev-parse', `${mergedCommit}:${target}`]).trim();
+      if (recorded[target]?.draft !== draft || recorded[target]?.merged !== merged) {
+        return { state: 'unresolved', reason: 'merge-target-correspondence-invalid' };
+      }
+      changed ||= draft !== merged;
+    }
+    return { state: changed ? 'changed' : 'accepted', draftCommit, mergedCommit, targetPaths: [...targetPaths], targetBlobs: recorded };
+  } catch (error) {
+    return { state: 'unresolved', reason: error.message || 'merge-object-missing' };
+  }
+}
+
+function outlineAncestry(root, ancestor, descendant) {
+  try {
+    outlineGit(root, ['merge-base', '--is-ancestor', ancestor, descendant]);
+    return true;
+  } catch { return false; }
+}
+
+function possibleWriterCapture(item) {
+  if (!recordOf(item)) return false;
+  if (['Write', 'Edit', 'apply_patch'].includes(item.tool_name)) return true;
+  if (!['Bash', 'PowerShell', 'exec_command'].includes(item.tool_name)) return false;
+  return !['read-only', 'worktree-setup'].includes(classifyShell(item.command));
+}
+
+function sameCanonicalPath(left, right) {
+  try {
+    fs.statSync(left);
+    fs.statSync(right);
+    return key(left) === key(right);
+  }
+  catch { return false; }
+}
+
+function samePathKey(left, right) {
+  try { return key(left) === key(right); }
+  catch { return false; }
+}
+
+function sameOutlineTaskBinding(left, right) {
+  if (!recordOf(left) || !recordOf(right)) return false;
+  const { baselineRoot: leftRoot, ...leftIdentity } = left;
+  const { baselineRoot: rightRoot, ...rightIdentity } = right;
+  return captureJson(leftIdentity) === captureJson(rightIdentity) && sameCanonicalPath(leftRoot, rightRoot);
+}
+
+function resolveOutlineEvidence({ safeInput, capture, captures, request, originRef } = {}) {
+  const fail = (reason, status = 'rejected') => ({ status, diagnostics: [diagnostic(reason, { reason })] });
+  try {
+    const cap = capture;
+    const sessionDir = safeInput.sessionDir;
+    const dispatch = cap?.outlineDispatch;
+    if (!recordOf(dispatch) || dispatch.schema !== OUTLINE_DISPATCH_SCHEMA || dispatch.state !== 'accepted'
+      || !textOf(dispatch.seamRef) || dispatch.captureRef !== cap.ref || dispatch.toolUseId !== cap.tool_use_id) {
+      return fail('outline-pre-dispatch-seam-unresolved');
+    }
+    if (cap.event !== 'PreToolUse' || !['Task', 'Agent'].includes(cap.tool_name)
+      || cap.session_id !== safeInput.sessionId || cap.observedIdentity?.taskPin?.taskId !== safeInput.taskId) {
+      return fail('outline-dispatch-identity-mismatch');
+    }
+    const taskState = outlineTaskState(sessionDir);
+    if (taskState.state !== 'accepted' || taskState.taskBinding.taskId !== safeInput.taskId
+      || (recordOf(safeInput.taskBinding) && !sameOutlineTaskBinding(taskState.taskBinding, safeInput.taskBinding))
+      || !sameOutlineTaskBinding(cap.observedIdentity.taskPin, taskState.taskBinding)
+      || cap.observedIdentity.baselinePin?.commit !== taskState.baseline.commit
+      || !sameCanonicalPath(cap.observedIdentity.baselinePin?.root, taskState.baseline.root)) {
+      return fail('outline-task-binding-mismatch');
+    }
+    const attempt = resolveOutlineAttempt({ sessionDir, taskId: dispatch.taskId, attemptId: dispatch.attemptId });
+    if (attempt.state !== 'accepted') return fail(attempt.reason || 'outline-attempt-unresolved');
+    if (attempt.handoffDigest !== dispatch.handoffDigest) return fail('outline-handoff-changed-after-dispatch');
+    const seamRef = String(dispatch.seamRef).replace(/\\/g, '/');
+    if (path.isAbsolute(seamRef) || seamRef.split('/').some(part => !part || part === '.' || part === '..')) {
+      return fail('outline-seam-reference-invalid');
+    }
+    const seamFile = path.join(sessionDir, ...seamRef.split('/'));
+    const seamLoaded = readOutlineJson(seamFile);
+    if (seamLoaded.state !== 'accepted') return fail('outline-seam-missing');
+    const seam = seamLoaded.value;
+    if (seam.schema !== OUTLINE_SEAM_SCHEMA || seam.state !== 'accepted' || seam.captureRef !== cap.ref
+      || seam.toolUseId !== cap.tool_use_id || seam.taskId !== dispatch.taskId || seam.attemptId !== dispatch.attemptId
+      || seam.dispatchInputDigest !== dispatch.dispatchInputDigest || seam.handoffDigest !== attempt.handoffDigest
+      || seam.tokenDigest !== dispatch.tokenDigest) return fail('outline-seam-mismatch');
+    const sameAttempt = (Array.isArray(captures) ? captures : []).filter(item => recordOf(item)
+      && item.event === 'PreToolUse' && item.outlineDispatch?.taskId === dispatch.taskId
+      && item.outlineDispatch?.attemptId === dispatch.attemptId && item.outlineDispatch?.tokenDigest === dispatch.tokenDigest);
+    for (const other of sameAttempt) {
+      const evidence = other.outlineDispatch;
+      if (evidence.state !== 'accepted' || evidence.dispatchInputDigest !== dispatch.dispatchInputDigest
+        || other.tool_use_id !== cap.tool_use_id) return fail('outline-dispatch-replay-or-conflict');
+    }
+    const sameToolUse = (Array.isArray(captures) ? captures : []).filter(item => recordOf(item)
+      && item.event === 'PreToolUse' && item.tool_use_id === cap.tool_use_id);
+    if (sameToolUse.some(item => item.ref !== cap.ref && (item.outlineDispatch?.state !== 'accepted'
+      || item.outlineDispatch.dispatchInputDigest !== dispatch.dispatchInputDigest))) return fail('outline-tool-use-id-replayed');
+    const handoff = attempt.handoff;
+    const targetPaths = Array.isArray(handoff.targetPaths) ? handoff.targetPaths : [];
+    const expectedPin = recordOf(safeInput.qualification) && safeInput.qualification.faked === true
+      && recordOf(safeInput.outlineFixture?.expectedPin) ? safeInput.outlineFixture.expectedPin : OUTLINE_INVENTORY_PIN;
+    const inventoryRoot = path.join(sessionDir, 'doc-reconciliation', 'outline-confirmation', 'inventory');
+    const pinFile = path.join(inventoryRoot, 'inventory-pin.json');
+    const pinLoaded = readOutlineJson(pinFile);
+    if (pinLoaded.state !== 'accepted' || outlineSha(pinLoaded.bytes) !== seam.inventoryPinDigest) return fail('outline-inventory-pin-changed');
+    let inventoryBytes;
+    try { inventoryBytes = fs.readFileSync(path.join(inventoryRoot, expectedPin.retainedArtifactPath.split('/').pop())); }
+    catch { return fail('outline-inventory-bytes-missing'); }
+    const inventory = validateOutlineInventoryPin({ bytes: inventoryBytes, pin: pinLoaded.value, expectedPin });
+    if (inventory.state !== 'accepted') return fail(inventory.reason || 'outline-inventory-unresolved');
+    const outlineDigests = {};
+    const reviewRows = {};
+    for (const target of targetPaths) {
+      const bytes = outlineGit(seam.worktree.root, ['show', `${handoff.outline.commit}:${target}`], true);
+      outlineDigests[target] = outlineSha(bytes);
+      const citation = parseOutlineCitation(bytes, target);
+      if (citation.state !== 'accepted') return fail(citation.reason || 'outline-citation-invalid');
+      const row = resolveInventoryRow(inventory, citation.rowId);
+      if (row.state !== 'accepted' || row.row.domain !== citation.domain || citation.domain !== handoff.inventory?.domain
+        || citation.rowId !== handoff.inventory?.rowId) return fail(row.reason || 'outline-inventory-binding-mismatch');
+      reviewRows[target] = row.row;
+    }
+    const review = validateOutlineReview({ handoff, attemptDir: attempt.attemptDir, captures, targetPaths,
+      outlineDigests, inventory, sessionId: safeInput.sessionId });
+    if (review.state !== 'accepted' || review.captureDigest !== seam.reviewCaptureDigest
+      || review.reviewDigest !== seam.reviewDigest || review.reviewerPrincipal !== seam.reviewerPrincipal) {
+      return fail(review.reason || 'outline-review-changed-after-dispatch');
+    }
+    const startEvents = (Array.isArray(captures) ? captures : []).filter(item => recordOf(item)
+      && item.event === 'SubagentStart' && item.parent_tool_use_id === cap.tool_use_id && item.session_id === cap.session_id);
+    if (startEvents.length !== 1 || !textOf(startEvents[0].agent_id)) return fail('outline-worker-start-missing-or-ambiguous');
+    const worker = startEvents[0];
+    let workerRoot;
+    try { workerRoot = canonicalOutlineRoot(worker.cwd); }
+    catch { return fail('outline-worker-root-unobserved'); }
+    if (!sameCanonicalPath(workerRoot, seam.workerRoot)) return fail('outline-worker-root-mismatch');
+    const results = (Array.isArray(captures) ? captures : []).filter(item => recordOf(item)
+      && item.event === 'PostToolUse' && ['Task', 'Agent'].includes(item.tool_name)
+      && item.tool_use_id === cap.tool_use_id && item.session_id === cap.session_id);
+    if (results.length !== 1 || results[0].agent_id !== worker.agent_id || results[0].interrupted !== false) {
+      return fail('outline-worker-result-missing-or-mismatched');
+    }
+    if (review.reviewerPrincipal === worker.agent_id) return fail('outline-reviewer-is-draft-worker');
+    const principals = { author: safeInput.sessionId, executors: journalExecutors(captures, safeInput.sessionId) };
+    if (!reviewRecordIndependent(review.review, captures, principals)) return fail('outline-review-not-independent');
+    const competingStarts = (Array.isArray(captures) ? captures : []).filter(item => recordOf(item)
+      && item.event === 'SubagentStart' && item.ref !== worker.ref && sameCanonicalPath(item.cwd, workerRoot));
+    if (competingStarts.length) return fail('outline-competing-writer-start');
+    const unattributedWriters = (Array.isArray(captures) ? captures : []).filter(item => possibleWriterCapture(item)
+      && (item.agent_id !== worker.agent_id || !sameCanonicalPath(item.cwd, workerRoot)));
+    if (unattributedWriters.length) return fail('outline-writer-activity-ambiguous');
+
+    let candidateRoot;
+    try { candidateRoot = canonicalOutlineRoot(safeInput.workspaceRoot); }
+    catch { return fail('outline-candidate-root-unavailable'); }
+    const baseline = taskState.baseline;
+    const outlineCommit = handoff.outline.commit;
+    let finalCommit;
+    let finalTree;
+    try {
+      finalCommit = outlineGit(candidateRoot, ['rev-parse', '--verify', 'HEAD^{commit}']).trim();
+      finalTree = outlineGit(candidateRoot, ['rev-parse', '--verify', 'HEAD^{tree}']).trim();
+      outlineGit(candidateRoot, ['rev-parse', '--verify', `${outlineCommit}^{commit}`]);
+      outlineGit(candidateRoot, ['rev-parse', '--verify', `${baseline.commit}^{commit}`]);
+    } catch { return fail('outline-final-git-object-unavailable'); }
+    if (finalCommit === outlineCommit) return fail('outline-final-draft-missing', 'unavailable');
+    if (!outlineAncestry(candidateRoot, baseline.commit, outlineCommit)) return fail('outline-B-to-O-ancestry-invalid');
+    let merge = { state: 'accepted', draftCommit: finalCommit, mergedCommit: finalCommit, targetPaths };
+    if (!outlineAncestry(candidateRoot, outlineCommit, finalCommit)) {
+      const mergeFile = path.join(attempt.attemptDir, 'merge-correspondence.json');
+      const mergeLoaded = readOutlineJson(mergeFile);
+      if (mergeLoaded.state !== 'accepted') return fail('outline-merge-correspondence-unavailable', 'unavailable');
+      const correspondence = mergeLoaded.value;
+      if (correspondence.taskId !== dispatch.taskId || correspondence.attemptId !== dispatch.attemptId
+        || correspondence.baselineCommit !== baseline.commit) return fail('outline-merge-correspondence-mismatch');
+      merge = verifyOutlineMergeCorrespondence({ root: candidateRoot, outlineCommit,
+        draftCommit: correspondence.draftCommit, mergedCommit: finalCommit, targetPaths, record: correspondence });
+      if (!['accepted', 'changed'].includes(merge.state)) return fail(merge.reason || 'outline-merge-correspondence-invalid', 'unavailable');
+    }
+    const draftArtifactDigests = {};
+    const draftBlobOids = {};
+    for (const target of targetPaths) {
+      const atBaseline = outlineGit(candidateRoot, ['ls-tree', '-r', '--name-only', baseline.commit, '--', target]).trim();
+      if (atBaseline.split('\n').filter(Boolean).includes(target)) return fail('outline-target-existed-at-B');
+      let candidateBytes;
+      let commitBytes;
+      try {
+        candidateBytes = fs.readFileSync(path.join(candidateRoot, ...target.split('/')));
+        commitBytes = outlineGit(candidateRoot, ['show', `${finalCommit}:${target}`], true);
+      } catch { return fail('outline-final-target-missing'); }
+      if (!Buffer.from(candidateBytes).equals(commitBytes)) return fail('outline-final-working-tree-not-D');
+      draftArtifactDigests[target] = outlineSha(commitBytes);
+      draftBlobOids[target] = outlineGit(candidateRoot, ['rev-parse', `${finalCommit}:${target}`]).trim();
+    }
+    const independentOf = [...new Set([safeInput.sessionId, ...principals.executors])].filter(value => textOf(value) && value !== review.reviewerPrincipal);
+    const event = {
+      eventId: 'claude-outline-' + digestText(captureJson({ handoffDigest: attempt.handoffDigest,
+        seamDigest: seamLoadedDigest(seamFile), draftCommit: finalCommit })),
+      producerId: 'claude-code-origin-provider', originRef, principalId: review.reviewerPrincipal,
+      provenance: `claude-code-outline-capture:${cap.captureId}`, capability: 'outline-confirmation', kind: 'review',
+      verdict: 'approve', summary: review.review.reviewSummary, independentOf,
+      identity: recordOf(request.identity) ? JSON.parse(JSON.stringify(request.identity)) : null,
+      paths: targetPaths, reviewedArtifactDigests: { ...outlineDigests,
+        [review.inventoryPath]: inventory.artifactDigest }, draftArtifactDigests,
+      outlineEvidence: {
+        schema: 'harness.outline-confirmation.v1', state: 'validated', taskId: dispatch.taskId,
+        attemptId: dispatch.attemptId, inventoryRowId: handoff.inventory.rowId, domain: handoff.inventory.domain,
+        inventoryPinDigest: seam.inventoryPinDigest, inventoryArtifactDigest: inventory.artifactDigest,
+        baselineCommit: baseline.commit, outlineCommit, outlineTree: handoff.outline.tree,
+        outlineBlobOids: Object.fromEntries(targetPaths.map(target => [target, handoff.outline.targetBlobs[target].blobOid])),
+        outlineArtifactDigests: outlineDigests, draftCommit: merge.draftCommit, mergedCommit: finalCommit,
+        draftTree: finalTree, draftBlobOids, draftArtifactDigests, handoffDigest: attempt.handoffDigest,
+        reviewCaptureRef: review.review.ref, reviewCaptureDigest: review.captureDigest,
+        reviewDigest: review.reviewDigest, seamDigest: seamLoadedDigest(seamFile), dispatchInputDigest: seam.dispatchInputDigest,
+        dispatchToolUseId: cap.tool_use_id, coordinatorPrincipal: safeInput.sessionId,
+        reviewerPrincipal: review.reviewerPrincipal, workerPrincipal: worker.agent_id,
+        workerRoot, writerLeaseDigest: seam.writerLeaseDigest,
+        ancestry: 'strict-descendant', mergeCorrespondence: merge.state === 'accepted' && merge.draftCommit === finalCommit ? null : merge,
+        targetPaths,
+      },
+      captured: { captureRef: cap.ref, toolUseId: cap.tool_use_id, seamDigest: seamLoadedDigest(seamFile) },
+    };
+    return { status: 'accepted', originRef, event,
+      correlation: { toolCorrelationId: cap.tool_use_id, resultRef: cap.responseRef } };
+  } catch (error) {
+    return fail(error.message === 'outline-git-unavailable' ? 'outline-git-unavailable' : 'outline-evidence-unresolved', 'unavailable');
+  }
+}
+
+function seamLoadedDigest(file) {
+  try { return outlineSha(fs.readFileSync(file)); } catch { return ''; }
+}
+
 // ---- Shared provider state ------------------------------------------------------
 
 function supportedHostCheck(input, expectedHost = HOST_ID) {
@@ -703,13 +1544,21 @@ const createClaudeOriginProvider = input => {
       const observed = cap.observedIdentity;
       const pin = recordOf(safeInput.baseline) ? safeInput.baseline : null;
       const sameWorkflow = observed.workflowId === safeInput.workflowId && observed.workflowRevision === safeInput.workflowRevision;
-      const samePin = !pin || (recordOf(observed.baselinePin) && observed.baselinePin.commit === pin.commit && observed.baselinePin.root === pin.root);
+      const samePin = !pin || (recordOf(observed.baselinePin) && observed.baselinePin.commit === pin.commit
+        && samePathKey(observed.baselinePin.root, pin.root));
       if (!sameWorkflow || !samePin) {
         return rejected('identity-mismatch', 'the observed workflow revision or baseline pin differs from the current one; stale evidence loses credit');
       }
     }
     if (capability && !(recordOf(cap.observedIdentity))) {
       return rejected('identity-missing', 'a doc capability needs the workflow identity observed at capture time');
+    }
+    if (capability === 'outline-confirmation') {
+      const outlineQualification = validateOutlineCaptureQualification(safeInput);
+      if (!outlineQualification.open) {
+        return unavailable('outline-live-gate-unmet', `positive outline credit is disabled until retained Claude prompt, coordinator, synchronous-boundary and worker-root capture is qualified (${outlineQualification.reason})`);
+      }
+      return resolveOutlineEvidence({ safeInput, capture: cap, captures, request, originRef });
     }
     // Replay: identical host-event content re-presented under a new reference
     // cannot become a new accepted event. The first recorded occurrence wins.
@@ -1029,7 +1878,8 @@ const createOpencodeOriginProvider = input => {
     const pin = recordOf(safeInput.baseline) ? safeInput.baseline : null;
     if (!recordOf(observed)) return rejected('identity-missing', 'OpenCode capture lacks workflow identity observed at capture time');
     const sameWorkflow = observed.workflowId === safeInput.workflowId && observed.workflowRevision === safeInput.workflowRevision;
-    const samePin = !pin || (recordOf(observed.baselinePin) && observed.baselinePin.commit === pin.commit && observed.baselinePin.root === pin.root);
+    const samePin = !pin || (recordOf(observed.baselinePin) && observed.baselinePin.commit === pin.commit
+      && samePathKey(observed.baselinePin.root, pin.root));
     if (!sameWorkflow || !samePin) return rejected('identity-mismatch', 'the observed workflow revision or baseline pin differs from the current one; stale evidence loses credit');
     const signature = opencodeContentSignature(cap);
     const firstOccurrence = captures.findIndex(item => recordOf(item) && opencodeContentSignature(item) === signature);
@@ -1118,6 +1968,7 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
     responseRef: `host-payload/${event}/${captureId}`,
   };
   if (payload.prompt_id !== undefined) record.prompt_id = payload.prompt_id;
+  if (payload.parent_tool_use_id !== undefined) record.parent_tool_use_id = payload.parent_tool_use_id;
   // The launch tool name separates the Agent/Task result surface and the subagent launch from executed tools (F4/F5).
   if (typeof payload.tool_name === 'string') record.tool_name = payload.tool_name;
   const agentId = payload.agent_id !== undefined ? payload.agent_id : responseAliasAgentId;
@@ -1252,7 +2103,8 @@ function readOpencodeCaptureView(sessionDir) {
 function observedIdentityFor(sessionDir) {
   try {
     const workflow = JSON.parse(fs.readFileSync(path.join(sessionDir, 'workflow-run.json'), 'utf8'));
-    return { workflowId: workflow.workflowId, workflowRevision: workflow.revision, baselinePin: workflow.docReconciliationBaseline || null };
+    return { workflowId: workflow.workflowId, workflowRevision: workflow.revision,
+      baselinePin: workflow.docReconciliationBaseline || null, taskPin: workflow.docReconciliationTask || null };
   } catch {
     return null;
   }
@@ -1276,5 +2128,8 @@ function reviewRecordIndependent(cap, captures, principals) {
 module.exports = { createClaudeOriginProvider, createOpencodeOriginProvider, buildCaptureRecord, resolveDocCheckInvocation,
   registeredInstalledCheck: resolveDocCheckInvocation, installedDocCheck,
   fileDigest, SHIPPED_DOC_CHECK_DIGEST, trustRisk, journalExecutors, reviewRecordIndependent,
-  writeImmutableEvent, rebuildJournalView, readCaptureView, readOpencodeCaptureView, observedIdentityFor,
-  _internals: { captureJson, captureDigest, digestText, canonicalCapture } };
+  captureOutlineDispatch, writeImmutableEvent, rebuildJournalView, readCaptureView, readOpencodeCaptureView, observedIdentityFor,
+  _internals: { captureJson, captureDigest, digestText, canonicalCapture, parseOutlineDispatchPrompt,
+    parseInventoryPinRows, validateOutlineInventoryPin, resolveInventoryRow, parseOutlineCitation, resolveOutlineAttempt,
+    captureOutlineDispatch, resolveOutlineEvidence, verifyOutlineMergeCorrespondence, validateOutlineCaptureQualification,
+    outlineCaptureMappingValid, OUTLINE_INVENTORY_PIN } };
