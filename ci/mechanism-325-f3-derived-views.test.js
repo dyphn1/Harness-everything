@@ -356,8 +356,11 @@ function caseD13(leg) {
   const candidate = path.join(dir, 'candidate.md');
   fs.writeFileSync(candidate, Buffer.from(TARGET_BYTES.toString('utf8').replace(/\n/g, '\r\n'), 'utf8'));
   const result = runCompare(leg.dir, { workspace: ws, config: CONFIG, view: 'docs/index.md', candidate, status: 'ok' });
-  same(result.status, 1, 'exit');
-  if (!JSON.stringify(jsonOut(result)).includes('stale')) throw new Error(`CRLF candidate accepted: ${truncate(result.stdout)}`);
+  let comparison;
+  try { comparison = JSON.parse(result.stdout); } catch { comparison = null; }
+  const detail = `compare-derived JSON: ${JSON.stringify(comparison)}; stdout: ${truncate(result.stdout)}; stderr: ${truncate(result.stderr)}`;
+  same(result.status, 1, `exit; ${detail}`);
+  if (!comparison || !JSON.stringify(comparison).includes('stale')) throw new Error(`CRLF candidate accepted; ${detail}`);
 }
 assertPerLeg('case-d13:crlf-candidate-not-normalized', leg => caseD13(leg));
 

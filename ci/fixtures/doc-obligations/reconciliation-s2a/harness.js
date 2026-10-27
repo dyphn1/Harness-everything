@@ -400,7 +400,7 @@ function buildEvents(snapshot, repo, vec) {
       originRef: `fake-origin:event:${ref}`
     };
     if (kind === 'execution') {
-      events[ref] = {
+      const event = {
         ...common,
         kind: 'execution',
         principalId: PRINCIPALS.executor,
@@ -415,6 +415,24 @@ function buildEvents(snapshot, repo, vec) {
         resultRef: `result-${capability}`,
         artifactDigests: clone(artifactDigests)
       };
+      if (capability === 'conflict-check') {
+        const { documentCorpusPaths } = require(path.join(ROOT, 'harness-everything', 'scripts', 'doc-lifecycle.js'));
+        const configSource = snapshot.config.capture.sources.find(item => item.path === CONFIG_REL && item.presence === 'present');
+        const configBytes = Buffer.isBuffer(configSource?.bytes) ? configSource.bytes : Buffer.from(configSource?.bytes?.data || []);
+        const corpusPaths = documentCorpusPaths(snapshot.candidate.records, snapshot.config.resolution.config);
+        event.corpusBinding = {
+          complete: true,
+          paths: corpusPaths,
+          digests: Object.fromEntries(corpusPaths.map(relative => [relative,
+            snapshot.candidate.records.find(item => item.path === relative && item.presence === 'present')?.digest])),
+          config: { path: CONFIG_REL, digest: sha256(configBytes) },
+          baseCommit: snapshot.originContext.baseline.commit,
+          baselineDigest: snapshot.identity.baselineDigest,
+          candidateDigest: snapshot.identity.candidateDigest,
+          configIdentityDigest: snapshot.identity.configDigest,
+        };
+      }
+      events[ref] = event;
     } else {
       events[ref] = {
         ...common,

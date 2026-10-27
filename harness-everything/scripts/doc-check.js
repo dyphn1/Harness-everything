@@ -6,14 +6,16 @@
 // Prints one JSON result. Exit 0 = both pass, 1 = defect, 2 = usage/config error.
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { execFileSync, spawnSync } = require('child_process');
 const { collectDocs } = require('./doc-lifecycle');
 
 // Logical command IDs (A3 section 3): stdout that repeats an ID is not trusted as credit by itself.
 const CHECK_ID = 'harness.doc-check.check.v1';
 const COMPARE_ID = 'harness.doc-check.compare-derived.v1';
-const USAGE = 'usage: doc-check.js check --workspace <dir> --config <json-file, relative to --workspace> --changed-path <path> [--changed-path <path> ...] [--base <git-rev>]';
+const USAGE = 'usage: doc-check.js check --workspace <dir> --config <json-file, relative to --workspace> --changed-path <path> [--changed-path <path> ...] [--base <git-rev>] [--conflict-assessment]';
 const VALUE_FLAGS = ['--workspace', '--config', '--changed-path', '--base'];
+const CONFLICT_SCHEMA = 'harness.doc-check.conflict-assessment.v1';
 const EXTERNAL = /^(?:https?:|mailto:)/i;
 const SCHEME = /^[a-z][a-z0-9+.-]*:/i;
 
@@ -79,10 +81,15 @@ function parseArgs(argv) {
   const [command, ...rest] = argv;
   if (command !== 'check') throw new Error(USAGE);
   const options = { changedPaths: [] };
-  for (let index = 0; index < rest.length; index += 2) {
+  for (let index = 0; index < rest.length; index++) {
     const flag = rest[index];
-    const value = rest[index + 1];
-    if (!VALUE_FLAGS.includes(flag) || value === undefined) throw new Error(`${USAGE}\nunknown or incomplete argument: ${flag}`);
+    if (flag === '--conflict-assessment') {
+      if (options.conflictAssessment) throw new Error(`${USAGE}\nrepeated argument: ${flag}`);
+      options.conflictAssessment = true;
+      continue;
+    }
+    if (!VALUE_FLAGS.includes(flag) || rest[index + 1] === undefined) throw new Error(`${USAGE}\nunknown or incomplete argument: ${flag}`);
+    const value = rest[++index];
     if (value.startsWith('--')) throw new Error(`${USAGE}\n${flag} requires a value, not a flag: ${value}`);
     if (flag === '--changed-path') options.changedPaths.push(value);
     else {
@@ -92,14 +99,45 @@ function parseArgs(argv) {
   }
   if (!options.workspace || !options.config) throw new Error(`${USAGE}\n--workspace and --config are required`);
   if (!options.changedPaths.length) throw new Error(`${USAGE}\n--changed-path is required`);
+  if (options.conflictAssessment && options.base === undefined) throw new Error(`${USAGE}\n--conflict-assessment requires --base`);
   return options;
 }
 
 function runLint(workspace, options) {
   const args = [path.join(__dirname, 'doc-lifecycle.js'), 'lint', '--workspace', workspace, '--config', options.config];
-  for (const changed of options.changedPaths) args.push('--changed-path', changed);
+  if (options.conflictAssessment) args.push('--all');
+  else for (const changed of options.changedPaths) args.push('--changed-path', changed);
   if (options.base !== undefined) args.push('--base', options.base);
   return spawnSync(process.execPath, args, { encoding: 'utf8' });
+}
+
+function workspaceRelative(workspace, value) {
+  const absolute = path.resolve(workspace, value);
+  const relative = path.relative(workspace, absolute);
+  if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return null;
+  return relative.split(path.sep).join('/');
+}
+
+function resolvedBaseCommit(workspace, base) {
+  if (typeof base !== 'string' || !base || base.startsWith('-')) return null;
+  try {
+    const value = execFileSync('git', ['-C', workspace, 'rev-parse', '--verify', `${base}^{commit}`], {
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+    return /^[0-9a-f]{40,64}$/.test(value) ? value : null;
+  } catch { return null; }
+}
+
+function baselineArtifacts(workspace, base, paths) {
+  const artifacts = {};
+  for (const relative of paths) {
+    if (fs.existsSync(path.join(workspace, relative))) continue;
+    try {
+      const bytes = execFileSync('git', ['-C', workspace, 'show', `${base}:${relative}`], { encoding: 'buffer', stdio: ['ignore', 'pipe', 'ignore'] });
+      artifacts[relative] = crypto.createHash('sha256').update(bytes).digest('hex');
+    } catch { /* Paths absent from both snapshots need no baseline artifact. */ }
+  }
+  return artifacts;
 }
 
 // Scan nested label spans depth-first, then resume after each destination. Matching brackets are precomputed per line,
@@ -340,7 +378,8 @@ function check(options) {
   try { analysis = JSON.parse(lint.stdout); } catch {
     return emit({ schema: CHECK_ID, command: CHECK_ID, lint: { exit: 2, error: 'lint output was not JSON', diagnostics: [] }, links: { checked: 0, broken: [], skipped: 'lint-usage-error' }, coverage: { unsupported: [] } }, 2);
   }
-  const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  const configBytes = fs.readFileSync(configPath);
+  const config = JSON.parse(configBytes.toString('utf8'));
   const docs = collectDocs(workspace, config);
   const governed = new Set(docs.filter(doc => doc.role).map(doc => doc.path));
 
@@ -408,6 +447,7 @@ function check(options) {
   const result = {
     schema: CHECK_ID,
     command: CHECK_ID,
+    ...(options.conflictAssessment ? { mode: 'conflict-assessment' } : {}),
     lint: { exit: lintExit, evidence: analysis.evidence, diagnostics: analysis.diagnostics },
     links: { checked, broken },
     coverage: { unsupported },
@@ -425,6 +465,44 @@ function check(options) {
       },
     }
   };
+  if (options.conflictAssessment) {
+    const scopePaths = [...new Set(options.changedPaths.map(value => workspaceRelative(workspace, value)).filter(Boolean))].sort();
+    const corpus = analysis.corpus;
+    const baseCommit = resolvedBaseCommit(workspace, options.base);
+    const configRelative = workspaceRelative(workspace, options.config);
+    let reason = null;
+    if (!scopePaths.length || scopePaths.length !== new Set(options.changedPaths.map(value => workspaceRelative(workspace, value))).size) reason = 'scope-unavailable';
+    else if (!Array.isArray(config.domains) || config.domains.length === 0) reason = 'domains-unknown';
+    else if (!corpus || corpus.complete !== true || !Array.isArray(corpus.paths) || !corpus.paths.length) reason = 'corpus-incomplete';
+    else if (!corpus.digests || Object.keys(corpus.digests).length !== corpus.paths.length
+      || corpus.paths.some(relative => !/^[0-9a-f]{64}$/.test(corpus.digests[relative] || ''))) reason = 'corpus-digests-incomplete';
+    else if (!baseCommit) reason = 'base-unavailable';
+    else if (options.base !== baseCommit) reason = 'base-not-pinned';
+    else if (!configRelative) reason = 'config-outside-workspace';
+    else if (!corpus.config || corpus.config.path !== configRelative) reason = 'config-unavailable';
+    else if (corpus.config.digest !== crypto.createHash('sha256').update(configBytes).digest('hex')) reason = 'config-changed-during-check';
+    const hasErrors = lintExit !== 0 || !Array.isArray(analysis.diagnostics)
+      || analysis.diagnostics.some(item => item && item.severity === 'error');
+    const corpusIdentity = corpus && {
+      complete: corpus.complete === true,
+      paths: corpus.paths,
+      digests: corpus.digests,
+      config: corpus.config,
+      baseCommit,
+    };
+    const state = reason ? 'unavailable' : hasErrors ? 'fail' : 'pass';
+    result.conflictAssessment = {
+      schema: CONFLICT_SCHEMA,
+      state,
+      ...(reason ? { reason } : {}),
+      ...(corpusIdentity ? { corpus: corpusIdentity } : {}),
+      ...(state === 'pass' ? { baselineArtifacts: baselineArtifacts(workspace, baseCommit, scopePaths) } : {}),
+    };
+    if (state === 'pass') result.capabilities['conflict-check'] = {
+      state: 'pass', checkedPaths: scopePaths, corpus: corpusIdentity,
+    };
+    return emit(result, state === 'unavailable' ? 2 : lintExit === 1 || broken.length ? 1 : 0);
+  }
   return emit(result, lintExit === 1 || broken.length ? 1 : 0);
 }
 
