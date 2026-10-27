@@ -1667,8 +1667,8 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
     return fixtureGit(root, ['rev-parse', 'HEAD']).toString('ascii').trim();
   }
 
-  function createFixture() {
-    const root = workspace('governance-guard-git');
+  function createFixture(name = 'governance-guard-git') {
+    const root = workspace(name);
     fs.mkdirSync(path.join(root, '.fixture-hooks'), { recursive: true });
     fixtureGit(root, ['init', '--quiet']);
     fixtureGit(root, ['config', 'user.name', 'Harness Guard Test']);
@@ -1819,6 +1819,190 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
   assert.strictEqual(derivedEntry.state, 'review_required');
   assert.deepStrictEqual(derivedEntry.base, configuredIdentity(fixture.base, 'docs/governed-index.md'));
   assert.deepStrictEqual(derivedEntry.candidate, configuredIdentity(derivedCandidate, 'docs/governed-index.md'));
+
+  const globPatterns = [
+    'docs/adr/*.md',
+    'empty/*.md',
+    'corpus/one*.md',
+    'corpus/*.md',
+    'deep/**/*.md',
+    'repeat/**/repeat/*.md',
+    'literal.v1/**/*.md'
+  ];
+  const corpusPaths = [
+    'docs/adr/one.md', 'docs/adr/two.md', 'generated/view.md', 'generated/nested/view.md',
+    'corpus/one.md', 'corpus/many-a.md', 'corpus/many-b.md',
+    'deep/zero.md', 'deep/a/b.md',
+    'repeat/repeat/first.md', 'repeat/a/repeat/second.md',
+    'literal.v1/top.md', 'literal.v1/sub/nested.md', 'literalXv1/no.md'
+  ];
+  const globFixture = createFixture('governance-guard-glob-git');
+  resetFixture(globFixture);
+  const globPolicy = {
+    governed: globPatterns.map(pattern => ({ path: pattern, role: 'reference' })),
+    derived: [{ path: 'generated/**/*.md', generator: 'build' }]
+  };
+  writeRelative(globFixture.root, '.agents/harness-everything/project-docs.json', `${JSON.stringify(globPolicy, null, 2)}\n`);
+  for (const relativePath of corpusPaths) writeRelative(globFixture.root, relativePath, `baseline ${relativePath}\n`);
+  globFixture.base = commitFixture(globFixture.root, 'glob policy baseline');
+
+  const globAccepted = runFrozenGuard(globFixture, globFixture.base, globFixture.base);
+  assert.strictEqual(globAccepted.report.verdict, 'PASS', globAccepted.report.errors[0]?.message);
+  const globSummaries = globAccepted.report.policyPreservation.configuredPaths.patterns;
+  assert.ok(globSummaries, 'glob records report their base and candidate member counts');
+  assert.strictEqual(globAccepted.report.policyPreservation.configuredPaths.paths.find(item => item.path === 'docs/adr/one.md').state, 'pass', 'unchanged glob members pass');
+  assert.deepStrictEqual(runFrozenGuard(globFixture, globFixture.base, globFixture.base), globAccepted, 'glob reports are deterministic for identical Git inputs');
+  const lifecycleSource = fs.readFileSync(modulePath, 'utf8');
+  const lifecycleMatcherSource = lifecycleSource.match(/function globToRegExp\(glob\) \{[\s\S]*?\n\}/);
+  assert.ok(lifecycleMatcherSource, 'doc-lifecycle globToRegExp remains available for the consistency check');
+  const lifecycleGlobToRegExp = new Function(`${lifecycleMatcherSource[0]}\nreturn globToRegExp;`)();
+  for (const pattern of globPatterns) {
+    const expected = corpusPaths.filter(relativePath => lifecycleGlobToRegExp(pattern).test(relativePath)).length;
+    const summary = globSummaries.find(item => item.kind === 'governed' && item.path === pattern);
+    assert.ok(summary, `glob summary exists for ${pattern}`);
+    assert.strictEqual(summary.baseMembers, expected, `guard matcher agrees with doc-lifecycle for ${pattern}`);
+    assert.strictEqual(summary.candidateMembers, expected, `candidate matcher agrees with doc-lifecycle for ${pattern}`);
+    const expectedPaths = corpusPaths.filter(relativePath => lifecycleGlobToRegExp(pattern).test(relativePath)).sort((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right)));
+    const actualPaths = globAccepted.report.policyPreservation.configuredPaths.paths
+      .filter(item => item.kind === 'governed' && item.pattern === pattern).map(item => item.path);
+    assert.deepStrictEqual(actualPaths, expectedPaths, `guard matcher returns the same members as doc-lifecycle for ${pattern}`);
+  }
+  assert.strictEqual(globSummaries.find(item => item.path === 'empty/*.md').baseMembers, 0, 'an empty glob is legal and reports zero members');
+
+  resetFixture(globFixture);
+  writeRelative(globFixture.root, 'docs/adr/one.md', 'revised governed glob member\n');
+  const globRevisionCandidate = commitFixture(globFixture.root, 'revise glob member');
+  const globRevision = runFrozenGuard(globFixture, globFixture.base, globRevisionCandidate);
+  assert.strictEqual(globRevision.status, 0, 'a regular governed glob member revision passes');
+  const globRevisionEntry = globRevision.report.policyPreservation.configuredPaths.paths.find(item => item.path === 'docs/adr/one.md');
+  assert.strictEqual(globRevisionEntry.state, 'revised');
+
+  resetFixture(globFixture);
+  writeRelative(globFixture.root, 'docs/adr/new.md', 'new governed glob member\n');
+  const globAdditionCandidate = commitFixture(globFixture.root, 'add glob member');
+  const globAddition = runFrozenGuard(globFixture, globFixture.base, globAdditionCandidate);
+  assert.strictEqual(globAddition.status, 2, 'a new glob member requires review');
+  assert.strictEqual(globAddition.report.policyPreservation.configuredPaths.paths.find(item => item.path === 'docs/adr/new.md').state, 'review_required');
+
+  resetFixture(globFixture);
+  fixtureGit(globFixture.root, ['rm', '--quiet', '--', 'docs/adr/two.md']);
+  const globDeletionCandidate = commitFixture(globFixture.root, 'delete glob member');
+  const globDeletion = runFrozenGuard(globFixture, globFixture.base, globDeletionCandidate);
+  assert.strictEqual(globDeletion.status, 2, 'a deleted glob member requires review');
+  assert.strictEqual(globDeletion.report.policyPreservation.configuredPaths.paths.find(item => item.path === 'docs/adr/two.md').candidate, null);
+
+  resetFixture(globFixture);
+  fixtureGit(globFixture.root, ['mv', '--', 'docs/adr/one.md', 'docs/adr/renamed.md']);
+  const globRenameCandidate = commitFixture(globFixture.root, 'rename glob member');
+  const globRename = runFrozenGuard(globFixture, globFixture.base, globRenameCandidate);
+  const globRenamePaths = globRename.report.policyPreservation.configuredPaths.paths;
+  assert.strictEqual(globRename.status, 2, 'a rename within a glob requires review');
+  assert.strictEqual(globRenamePaths.find(item => item.path === 'docs/adr/one.md').candidate, null, 'rename retains the old endpoint');
+  assert.strictEqual(globRenamePaths.find(item => item.path === 'docs/adr/renamed.md').base, null, 'rename retains the new endpoint');
+
+  for (const mutation of ['mode', 'symlink', 'gitlink']) {
+    resetFixture(globFixture);
+    if (mutation === 'mode') {
+      const candidate = commitFixture(globFixture.root, 'change glob member mode', 'docs/adr/one.md');
+      const result = runFrozenGuard(globFixture, globFixture.base, candidate);
+      assert.strictEqual(result.status, 2, 'a glob member mode change requires review');
+      assert.strictEqual(result.report.policyPreservation.configuredPaths.paths.find(item => item.path === 'docs/adr/one.md').state, 'review_required');
+      continue;
+    }
+    fs.rmSync(path.join(globFixture.root, 'docs', 'adr', 'one.md'));
+    if (mutation === 'symlink') {
+      const oid = fixtureGit(globFixture.root, ['hash-object', '-w', '--stdin'], Buffer.from('../outside-target.md\n')).toString('ascii').trim();
+      fixtureGit(globFixture.root, ['add', '-A']);
+      fixtureGit(globFixture.root, ['update-index', '--add', '--cacheinfo', `120000,${oid},docs/adr/one.md`]);
+    } else {
+      fixtureGit(globFixture.root, ['add', '-A']);
+      fixtureGit(globFixture.root, ['update-index', '--add', '--cacheinfo', `160000,${globFixture.base},docs/adr/one.md`]);
+    }
+    fixtureGit(globFixture.root, ['commit', '--quiet', '-m', `replace glob member with ${mutation}`]);
+    const candidate = fixtureGit(globFixture.root, ['rev-parse', 'HEAD']).toString('ascii').trim();
+    const result = runFrozenGuard(globFixture, globFixture.base, candidate);
+    assert.strictEqual(result.status, 2, `a glob member ${mutation} requires review`);
+    assert.strictEqual(result.report.policyPreservation.configuredPaths.paths.find(item => item.path === 'docs/adr/one.md').state, 'review_required');
+  }
+
+  resetFixture(globFixture);
+  writeRelative(globFixture.root, 'generated/view.md', 'changed derived glob output\n');
+  const derivedGlobCandidate = commitFixture(globFixture.root, 'change derived glob member');
+  const derivedGlob = runFrozenGuard(globFixture, globFixture.base, derivedGlobCandidate);
+  assert.strictEqual(derivedGlob.status, 2, 'a derived glob member content change requires review');
+  assert.strictEqual(derivedGlob.report.policyPreservation.configuredPaths.paths.find(item => item.path === 'generated/view.md').state, 'review_required');
+
+  if (process.platform !== 'win32') {
+    resetFixture(globFixture);
+    const unusualPath = 'docs/adr/new\nfile.md';
+    const oid = fixtureGit(globFixture.root, ['hash-object', '-w', '--stdin'], Buffer.from('unusual glob member\n')).toString('ascii').trim();
+    fixtureGit(globFixture.root, ['update-index', '--add', '--cacheinfo', `100644,${oid},${unusualPath}`]);
+    fixtureGit(globFixture.root, ['commit', '--quiet', '-m', 'add unusual glob member']);
+    const unusualCandidate = fixtureGit(globFixture.root, ['rev-parse', 'HEAD']).toString('ascii').trim();
+    const unusual = runFrozenGuard(globFixture, globFixture.base, unusualCandidate);
+    assert.strictEqual(unusual.status, 2, 'a glob matches paths containing unusual LF bytes');
+    assert.strictEqual(unusual.report.policyPreservation.configuredPaths.paths.find(item => item.path === unusualPath).state, 'review_required');
+  }
+
+  if (process.platform !== 'win32') {
+    // Known divergence: doc-lifecycle.js still excludes line terminators in glob segments.
+    const newlineGlobFixture = createFixture('governance-guard-newline-glob-git');
+    resetFixture(newlineGlobFixture);
+    writeRelative(newlineGlobFixture.root, '.agents/harness-everything/project-docs.json', `${JSON.stringify({
+      governed: [{ path: 'docs/**/*.md', role: 'reference' }],
+      derived: []
+    }, null, 2)}\n`);
+    writeRelative(newlineGlobFixture.root, 'docs/anchor.md', 'baseline direct child\n');
+    writeRelative(newlineGlobFixture.root, 'docs/a\nb/file.md', 'baseline newline directory member\n');
+    writeRelative(newlineGlobFixture.root, 'docs/a/b/file.md', 'baseline regular directory member\n');
+    newlineGlobFixture.base = commitFixture(newlineGlobFixture.root, 'newline glob policy baseline');
+
+    fixtureGit(newlineGlobFixture.root, ['rm', '--quiet', '--', 'docs/a\nb/file.md']);
+    const newlineDeletionCandidate = commitFixture(newlineGlobFixture.root, 'delete newline directory member');
+    const newlineDeletion = runFrozenGuard(newlineGlobFixture, newlineGlobFixture.base, newlineDeletionCandidate);
+
+    resetFixture(newlineGlobFixture);
+    writeRelative(newlineGlobFixture.root, 'docs/a\nb/new.md', 'new newline directory member\n');
+    const newlineAdditionCandidate = commitFixture(newlineGlobFixture.root, 'add newline directory member');
+    const newlineAddition = runFrozenGuard(newlineGlobFixture, newlineGlobFixture.base, newlineAdditionCandidate);
+
+    resetFixture(newlineGlobFixture);
+    fixtureGit(newlineGlobFixture.root, ['rm', '--quiet', '--', 'docs/a/b/file.md']);
+    const regularDeletionCandidate = commitFixture(newlineGlobFixture.root, 'delete regular directory member');
+    const regularDeletion = runFrozenGuard(newlineGlobFixture, newlineGlobFixture.base, regularDeletionCandidate);
+
+    assert.deepStrictEqual({
+      newlineDirectoryDeletion: newlineDeletion.status,
+      newlineDirectoryAddition: newlineAddition.status,
+      regularDirectoryDeletion: regularDeletion.status
+    }, {
+      newlineDirectoryDeletion: 2,
+      newlineDirectoryAddition: 2,
+      regularDirectoryDeletion: 2
+    }, 'newline-directory deletions and additions require review; regular-directory deletion is the positive control');
+  }
+
+  resetFixture(globFixture);
+  const narrowedPolicy = JSON.parse(fs.readFileSync(path.join(globFixture.root, '.agents/harness-everything/project-docs.json'), 'utf8'));
+  narrowedPolicy.governed[0].path = 'docs/adr/one.md';
+  writeRelative(globFixture.root, '.agents/harness-everything/project-docs.json', `${JSON.stringify(narrowedPolicy, null, 2)}\n`);
+  fixtureGit(globFixture.root, ['rm', '--quiet', '--', 'docs/adr/two.md']);
+  const narrowedCandidate = commitFixture(globFixture.root, 'narrow governed glob');
+  const narrowed = runFrozenGuard(globFixture, globFixture.base, narrowedCandidate);
+  assert.strictEqual(narrowed.status, 2, 'candidate policy cannot narrow base glob coverage');
+  assert.strictEqual(narrowed.report.policyPreservation.governed.state, 'review_required', 'candidate glob changes remain policy review');
+  assert.strictEqual(narrowed.report.policyPreservation.configuredPaths.paths.find(item => item.path === 'docs/adr/two.md').candidate, null);
+
+  for (const unsupported of ['docs/adr/*.md?', 'docs/adr/[a].md', 'docs/adr/{a}.md', '/docs/adr/*.md', 'docs/../*.md']) {
+    resetFixture(globFixture);
+    const invalidPolicy = JSON.parse(fs.readFileSync(path.join(globFixture.root, '.agents/harness-everything/project-docs.json'), 'utf8'));
+    invalidPolicy.governed.push({ path: unsupported, role: 'reference' });
+    writeRelative(globFixture.root, '.agents/harness-everything/project-docs.json', `${JSON.stringify(invalidPolicy, null, 2)}\n`);
+    const invalidCandidate = commitFixture(globFixture.root, `unsupported pattern ${unsupported}`);
+    const invalid = runFrozenGuard(globFixture, globFixture.base, invalidCandidate);
+    assert.strictEqual(invalid.status, 1, `unsupported glob syntax fails closed: ${unsupported}`);
+    assert.strictEqual(invalid.report.verdict, 'FAIL');
+  }
 
   for (const mutation of ['rename', 'mode', 'symlink']) {
     resetFixture(fixture);

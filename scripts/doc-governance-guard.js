@@ -121,9 +121,8 @@ function validateProjectDocs(value, label) {
       if (!isRecord(record) || typeof record.path !== 'string' || !record.path || typeof record[field] !== 'string' || !record[field]) {
         throw new Error(`${label} has a malformed ${kind} record`);
       }
-      if (record.path.startsWith('/') || record.path.split('/').includes('..') || /[*?\[\]]/.test(record.path)) {
-        // shortcut: the baseline registry uses exact Git paths; glob support needs a Git-aware matcher before adoption.
-        throw new Error(`${label} has a non-exact governed or derived path: ${record.path}`);
+      if (record.path.startsWith('/') || record.path.split('/').includes('..') || ['?', '[', ']', '{', '}'].some(char => record.path.includes(char))) {
+        throw new Error(`${label} has an unsupported governed or derived path pattern: ${record.path}`);
       }
       const key = `${kind}:${record.path}`;
       if (seen.has(key)) throw new Error(`${label} has duplicate ${kind} path: ${record.path}`);
@@ -159,8 +158,9 @@ function policyChanges(base, candidate, kind) {
     path: record.path,
     base: record,
     candidate: byPath.get(record.path) || null
-  }));
-  const added = candidate[kind].filter(record => !basePaths.has(record.path));
+  })).sort((left, right) => Buffer.compare(Buffer.from(left.path), Buffer.from(right.path)));
+  const added = candidate[kind].filter(record => !basePaths.has(record.path))
+    .sort((left, right) => Buffer.compare(Buffer.from(left.path), Buffer.from(right.path)));
   return { state: missingOrChanged.length || added.length ? 'review_required' : 'pass', preserved: base[kind].length - missingOrChanged.length, missingOrChanged, added };
 }
 
@@ -171,6 +171,32 @@ function pathKey(relativePath) {
 function pathText(pathBytes) {
   const value = pathBytes.toString('utf8');
   return Buffer.from(value, 'utf8').equals(pathBytes) ? value : null;
+}
+
+function globToRegExp(glob) {
+  const source = Buffer.from(String(glob).replace(/\\/g, '/'), 'utf8').toString('latin1');
+  let pattern = '^';
+  for (let index = 0; index < source.length; index++) {
+    const char = source[index];
+    if (char === '*' && source[index + 1] === '*') {
+      if (source[index + 2] === '/') {
+        pattern += '(?:[\\s\\S]*/)?';
+        index += 2;
+      } else {
+        pattern += '[\\s\\S]*';
+        index++;
+      }
+    } else if (char === '*') {
+      pattern += '[^/]*';
+    } else {
+      pattern += char.replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
+    }
+  }
+  return new RegExp(`${pattern}$`);
+}
+
+function matchesConfiguredPath(record, pathBytes, matcher) {
+  return matcher ? matcher.test(pathBytes.toString('latin1')) : Buffer.from(record.path, 'utf8').equals(pathBytes);
 }
 
 function identity(entry) {
@@ -223,27 +249,57 @@ function unknownNewDocuments(baseTree, candidateTree) {
 
 function checkConfiguredPaths(baseTree, candidateTree, config) {
   const details = [];
+  const patterns = [];
   for (const kind of ['governed', 'derived']) {
     for (const record of config[kind]) {
-      const key = pathKey(record.path);
-      const before = baseTree.get(key);
-      const after = candidateTree.get(key);
-      if (!regularBlob(before)) throw new Error(`baseline ${kind} path is missing or not a regular file: ${record.path}`);
-      const sameRegularMode = regularBlob(after) && before.mode === after.mode;
-      const revised = kind === 'governed' && sameRegularMode && before.oid !== after.oid;
-      const identityPreserved = sameRegularMode && before.oid === after.oid;
-      details.push({
-        kind,
-        path: record.path,
-        state: revised ? 'revised' : identityPreserved ? 'pass' : 'review_required',
-        base: identity(before),
-        candidate: identity(after),
-        ...(revised ? { reason: 'Content revisions are tracked by Git identity but are not semantically validated by the guard.' } : {})
-      });
+      const glob = record.path.includes('*');
+      const matcher = glob ? globToRegExp(record.path) : null;
+      const collect = sourceTree => {
+        if (!glob) {
+          const key = pathKey(record.path);
+          const entry = sourceTree.get(key);
+          return new Map(entry ? [[key, entry]] : []);
+        }
+        const matches = new Map();
+        for (const [key, entry] of sourceTree) {
+          if (matchesConfiguredPath(record, entry.pathBytes, matcher)) matches.set(key, entry);
+        }
+        return matches;
+      };
+      const baseMembers = collect(baseTree);
+      const candidateMembers = collect(candidateTree);
+      if (!glob && !regularBlob(baseMembers.values().next().value)) {
+        throw new Error(`baseline ${kind} path is missing or not a regular file: ${record.path}`);
+      }
+      if (glob) patterns.push({ kind, path: record.path, baseMembers: baseMembers.size, candidateMembers: candidateMembers.size });
+      const keys = new Set([...baseMembers.keys(), ...candidateMembers.keys()]);
+      for (const key of keys) {
+        const before = baseMembers.get(key) || null;
+        const after = candidateMembers.get(key) || null;
+        const entry = before || after;
+        const sameRegularMode = regularBlob(before) && regularBlob(after) && before.mode === after.mode;
+        const revised = kind === 'governed' && sameRegularMode && before.oid !== after.oid;
+        const identityPreserved = sameRegularMode && before.oid === after.oid;
+        const memberPath = pathText(entry.pathBytes);
+        details.push({
+          kind,
+          ...(glob ? { pattern: record.path } : {}),
+          path: memberPath,
+          ...(memberPath === null ? { pathBase64: key } : {}),
+          state: revised ? 'revised' : identityPreserved ? 'pass' : 'review_required',
+          base: identity(before),
+          candidate: identity(after),
+          ...(revised ? { reason: 'Content revisions are tracked by Git identity but are not semantically validated by the guard.' } : {})
+        });
+      }
     }
   }
+  patterns.sort((left, right) => Buffer.compare(Buffer.from(left.kind), Buffer.from(right.kind)) || Buffer.compare(Buffer.from(left.path), Buffer.from(right.path)));
+  details.sort((left, right) => Buffer.compare(Buffer.from(left.pathBase64 || Buffer.from(left.path, 'utf8').toString('base64'), 'base64'), Buffer.from(right.pathBase64 || Buffer.from(right.path, 'utf8').toString('base64'), 'base64'))
+    || Buffer.compare(Buffer.from(left.kind), Buffer.from(right.kind))
+    || Buffer.compare(Buffer.from(left.pattern || ''), Buffer.from(right.pattern || '')));
   const failures = details.filter(item => item.state === 'review_required');
-  return { state: failures.length ? 'review_required' : 'pass', paths: details, missingOrChanged: failures };
+  return { state: failures.length ? 'review_required' : 'pass', patterns, paths: details, missingOrChanged: failures };
 }
 
 function parseArgs(argv) {
