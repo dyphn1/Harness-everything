@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.45.0](https://github.com/dyphn1/Harness-everything/compare/v0.44.0...v0.45.0) (2026-10-27)
+
+### Features
+
+* **doc-lifecycle:** produce conflict-check from a full-corpus assessment ([ec596e0](https://github.com/dyphn1/Harness-everything/commit/ec596e02de554f14778f7790551b6990a50dd0b6)), closes [#325](https://github.com/dyphn1/Harness-everything/issues/325)
+
 ## [0.44.0](https://github.com/dyphn1/Harness-everything/compare/v0.43.1...v0.44.0) (2026-10-27)
 
 ### Features
