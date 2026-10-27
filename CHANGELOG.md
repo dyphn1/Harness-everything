@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.44.0](https://github.com/dyphn1/Harness-everything/compare/v0.43.1...v0.44.0) (2026-10-27)
+
+### Features
+
+* **governance:** accept git-aware globs in the base-owned guard ([674a96d](https://github.com/dyphn1/Harness-everything/commit/674a96d7295555926ab3bb1b8ca0204cf59dbad5)), closes [#325](https://github.com/dyphn1/Harness-everything/issues/325)
+
 ## [0.43.1](https://github.com/dyphn1/Harness-everything/compare/v0.43.0...v0.43.1) (2026-10-27)
 
 ### Bug Fixes
