@@ -90,7 +90,13 @@ function seedPilotScenario() {
   obligations.materializeExecutionObligations(context, plan);
   const loaded = obligations.loadObligationSet(context, plan);
   if (!loaded.set) throw new Error(`pilot fixture failed to load obligations: ${loaded.error}`);
-  context.workflow.docReconciliationBaseline = { root, commit: base };
+  const previousPilot = process.env.HARNESS_DOC_RECONCILIATION_PILOT;
+  process.env.HARNESS_DOC_RECONCILIATION_PILOT = '1';
+  try { PILOT.captureBaseline(context); }
+  finally {
+    if (previousPilot === undefined) delete process.env.HARNESS_DOC_RECONCILIATION_PILOT;
+    else process.env.HARNESS_DOC_RECONCILIATION_PILOT = previousPilot;
+  }
   write(sessionDir, 'workflow-run.json', JSON.stringify({ workflowId, revision: 1, docReconciliationBaseline: context.workflow.docReconciliationBaseline }));
   return { root, base, context, plan, set: loaded.set, sessionId, workflowId, sessionDir };
 }
@@ -302,10 +308,10 @@ try {
   });
 
   check('end-to-end pilot discovers conflict-check from real capture records', () => {
-    const scenario = seedPilotScenario();
     const previous = process.env.HARNESS_DOC_RECONCILIATION_PILOT;
     process.env.HARNESS_DOC_RECONCILIATION_PILOT = '1';
     try {
+      const scenario = seedPilotScenario();
       const { capture } = addAssessmentCapture(scenario);
       addReviewCapture(scenario);
       const result = PILOT.assess(scenario.context, scenario.set, { originProvider: testOrigin(scenario) });
