@@ -247,6 +247,9 @@ function captureReferences(context) {
     const ordered = index ? candidates.slice(1).concat(candidates.slice(0, 1)) : candidates;
     references.push(...ordered.map(item => `${item.ref}#${capability}`));
   }
+  const provider = require('./doc-reconciliation-provider');
+  references.push(...candidates.filter(item => provider.resolveDocCheckInvocation(item.command, item.cwd).conflictAssessment === true)
+    .map(item => `${item.ref}#conflict-check`));
   // The adapter accepts one event per capability; rotating candidate order lets separate valid runs fill each capability.
   return [...references, ...reviews.map(item => `${item.ref}#quality-review`)];
 }

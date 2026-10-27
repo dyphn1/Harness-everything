@@ -46,7 +46,9 @@ const HEX64 = /^[0-9a-f]{64}$/;
 const PRE_CAPTURE_TOOLS = ['Bash', 'PowerShell', 'Task', 'Agent'];
 const STDOUT_CAP_BYTES = 1024 * 1024;
 const DOC_CHECK_FLAGS = new Set(['--workspace', '--config', '--changed-path', '--base']);
+const DOC_CHECK_BOOLEAN_FLAGS = new Set(['--conflict-assessment']);
 const DOC_CHECK_SCHEMA = 'harness.doc-check.check.v1';
+const DOC_CHECK_CONFLICT_SCHEMA = 'harness.doc-check.conflict-assessment.v1';
 const DOC_CHECK_SHELLS = new Set(['sh', 'bash', 'dash', 'zsh', 'ksh', 'fish']);
 const DOC_CHECK_LAUNCHERS = new Set(['node', 'nodejs', 'bun', 'deno', 'tsx', 'ts-node']);
 const DOC_CHECK_LAUNCHER_VALUE_FLAGS = new Set(['-r', '--require', '--import', '--loader', '--experimental-loader', '--inspect-port', '--input-type', '--conditions', '--env-file']);
@@ -65,7 +67,7 @@ function isUncPathPrefix(token, command, index) {
   return token === '' && command[index] === '\\' && command[index + 1] === '\\';
 }
 // Canonical SHA-256 of harness-everything/scripts/doc-check.js (CRLF normalised to LF). Re-pin deliberately when that script changes.
-const SHIPPED_DOC_CHECK_DIGEST = 'da5e51a763eda6680afb63ee781b566253df9d358eec1e65436786c9ecebbbdb';
+const SHIPPED_DOC_CHECK_DIGEST = '1afd94d66b356c94206d2441529ec0b7fafa1bcb453b0f1e2cf6994b1e4858e5';
 // This install's own doc-check runtime, relative to hooks/scripts/lib: the source checkout or the packaged plugin.
 const DOC_CHECK_INSTALL_LAYOUTS = [
   ['..', '..', '..', 'harness-everything', 'scripts', 'doc-check.js'],
@@ -357,10 +359,16 @@ function resolveDocCheckInvocation(command, cwd) {
 
   const values = new Map();
   const changedPaths = [];
-  for (let index = 3; index < tokens.length; index += 2) {
-    const flag = tokens[index];
-    const value = tokens[index + 1];
+  let conflictAssessment = false;
+  for (let index = 3; index < tokens.length;) {
+    const flag = tokens[index++];
+    if (DOC_CHECK_BOOLEAN_FLAGS.has(flag)) {
+      if (conflictAssessment) return rejected('duplicate-flag');
+      conflictAssessment = true;
+      continue;
+    }
     if (!DOC_CHECK_FLAGS.has(flag)) return rejected('unknown-flag');
+    const value = tokens[index++];
     if (value === undefined || !value || value.startsWith('--')) return rejected('flag-value-missing');
     if (flag === '--changed-path') changedPaths.push(value);
     else {
@@ -371,6 +379,8 @@ function resolveDocCheckInvocation(command, cwd) {
   if (!values.has('--workspace') || !values.has('--config') || !changedPaths.length) {
     return rejected('required-flag-missing');
   }
+  if (conflictAssessment && !values.has('--base')) return rejected('conflict-assessment-base-required');
+  if (conflictAssessment && !/^[0-9a-f]{40,64}$/.test(values.get('--base'))) return rejected('conflict-assessment-base-unpinned');
 
   installed = installedDocCheck();
   if (!installed) return rejected('implementation-not-installed');
@@ -382,7 +392,8 @@ function resolveDocCheckInvocation(command, cwd) {
       if (fileDigest(registered.installed) !== SHIPPED_DOC_CHECK_DIGEST) return rejected('implementation-pin-mismatch', 'the installed doc-check is not the shipped script (canonical digest differs from SHIPPED_DOC_CHECK_DIGEST); no credit');
     }
   }
-  return { kind: 'accepted', reason: null, installed: registered.installed, digest, argv };
+  return { kind: 'accepted', reason: null, installed: registered.installed, digest, argv,
+    conflictAssessment, base: values.get('--base') || null, changedPaths };
 }
 
 // Observation-time digests of the checked paths, read from the workspace when the check ran. Absent paths are omitted.
@@ -714,6 +725,9 @@ const createClaudeOriginProvider = input => {
       if (cap.event !== 'PostToolUse') return rejected('capability-mismatch', 'only a PostToolUse check invocation can cover a doc capability');
       const registered = resolveDocCheckInvocation(cap.command, cap.cwd);
       if (registered.kind === 'not-candidate') return rejected('unregistered-command', 'the command is not a registered doc-check invocation; an arbitrary successful shell command never covers a doc capability');
+      if (capability === 'conflict-check' && registered.conflictAssessment !== true) {
+        return rejected('capability-mismatch', 'conflict-check requires the structurally parsed --conflict-assessment mode');
+      }
       if (registered.kind === 'rejected' && registered.reason !== 'implementation-pin-mismatch') {
         if (registered.reason === 'implementation-not-installed') return rejected('implementation-not-installed', 'the registered check does not resolve to this install\'s own doc-check runtime; a different path earns no credit');
         return rejected('unregistered-command', `doc-check invocation rejected (${registered.reason}); no credit`);
@@ -744,11 +758,55 @@ const createClaudeOriginProvider = input => {
       }
       const paths = Array.isArray(projection.checkedPaths) ? projection.checkedPaths.slice() : [];
       if (!paths.length) return rejected('scope-empty', `${capability} checked no governed paths`);
+      let corpusBinding;
+      let baselineArtifactDigests;
+      if (capability === 'conflict-check') {
+        const assessment = report.conflictAssessment;
+        const corpus = assessment && assessment.corpus;
+        const config = corpus && corpus.config;
+        if (registered.conflictAssessment !== true || report.mode !== 'conflict-assessment'
+          || assessment?.schema !== DOC_CHECK_CONFLICT_SCHEMA || assessment.state !== 'pass'
+          || projection.corpus?.complete !== true || corpus?.complete !== true
+          || !Array.isArray(corpus.paths) || !corpus.paths.length || !recordOf(corpus.digests)
+          || !recordOf(config) || !textOf(config.path) || path.isAbsolute(config.path)
+          || config.path.split(/[\\/]/).includes('..') || !HEX64.test(String(config.digest || ''))
+          || !/^[0-9a-f]{40,64}$/.test(String(corpus.baseCommit || ''))
+          || JSON.stringify([...new Set(corpus.paths)].sort(compareKeys)) !== JSON.stringify(corpus.paths)
+          || JSON.stringify(Object.keys(corpus.digests).sort(compareKeys)) !== JSON.stringify(corpus.paths)
+          || corpus.paths.some(relative => !textOf(relative) || path.isAbsolute(relative)
+            || relative.split(/[\\/]/).includes('..') || !HEX64.test(String(corpus.digests[relative] || '')))) {
+          return rejected('corpus-binding-invalid', 'conflict-check stdout does not carry a complete, structured full-corpus assessment');
+        }
+        const observedCorpus = recordOf(cap.observedCorpusDigests) ? cap.observedCorpusDigests : {};
+        if (corpus.paths.some(relative => observedCorpus[relative] !== corpus.digests[relative])) {
+          return rejected('corpus-changed-after-check', 'a full-corpus path is missing or changed between assessment and capture');
+        }
+        if (cap.observedConfigDigest !== config.digest) {
+          return rejected('config-changed-after-check', 'the project-docs config changed between assessment and capture');
+        }
+        if (!recordOf(request.identity) || !HEX64.test(String(request.identity.baselineDigest || ''))
+          || !HEX64.test(String(request.identity.candidateDigest || '')) || !HEX64.test(String(request.identity.configDigest || ''))) {
+          return rejected('identity-missing', 'conflict-check needs the complete snapshot identity');
+        }
+        corpusBinding = {
+          complete: true,
+          paths: corpus.paths.slice(),
+          digests: { ...corpus.digests },
+          config: { ...config },
+          baseCommit: corpus.baseCommit,
+          baselineDigest: request.identity.baselineDigest,
+          candidateDigest: request.identity.candidateDigest,
+          configIdentityDigest: request.identity.configDigest,
+        };
+        baselineArtifactDigests = recordOf(assessment.baselineArtifacts) ? assessment.baselineArtifacts : {};
+      }
       const observed = recordOf(cap.observedDigests) ? cap.observedDigests : {};
       const artifactDigests = {};
+      const baselineArtifacts = {};
       for (const relative of paths) {
-        if (typeof observed[relative] !== 'string') return rejected('artifact-unobserved', `no observation-time digest for ${relative}`);
-        artifactDigests[relative] = observed[relative];
+        if (typeof observed[relative] === 'string') artifactDigests[relative] = observed[relative];
+        else if (capability === 'conflict-check' && HEX64.test(String(baselineArtifactDigests[relative] || ''))) baselineArtifacts[relative] = baselineArtifactDigests[relative];
+        else return rejected('artifact-unobserved', `no observation-time digest for ${relative}`);
       }
       const argv = ['node', ...registered.argv];
       const command = argv.join(' ');
@@ -772,6 +830,8 @@ const createClaudeOriginProvider = input => {
         endIdentity: recordOf(request.identity) ? JSON.parse(JSON.stringify(request.identity)) : null,
         paths,
         artifactDigests,
+        ...(Object.keys(baselineArtifacts).length ? { baselineArtifacts } : {}),
+        ...(corpusBinding ? { corpusBinding } : {}),
         captured: { responseRef: cap.responseRef, responseDigest: cap.responseDigest },
       };
       return { status: 'accepted', originRef, event, correlation: { toolCorrelationId: cap.tool_use_id, resultRef: cap.responseRef } };
@@ -1086,12 +1146,25 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
         record.toolResponse = toolResponse;
       } else { record.stdout = null; record.stdoutTruncated = true; }
       let checkedPaths = [];
+      let conflictCorpus = null;
       try {
         const report = JSON.parse(stdout);
         checkedPaths = ['doc-lint', 'link-check'].flatMap(capability => (recordOf(report.capabilities) && recordOf(report.capabilities[capability])
           && Array.isArray(report.capabilities[capability].checkedPaths) ? report.capabilities[capability].checkedPaths : []));
+        const conflict = recordOf(report.capabilities) && report.capabilities['conflict-check'];
+        if (installedCheck.conflictAssessment === true && report.mode === 'conflict-assessment'
+          && recordOf(conflict) && conflict.state === 'pass' && recordOf(conflict.corpus)) {
+          checkedPaths.push(...(Array.isArray(conflict.checkedPaths) ? conflict.checkedPaths : []));
+          conflictCorpus = report.conflictAssessment && report.conflictAssessment.corpus;
+        }
       } catch { /* not JSON: no paths observed, the event will be withheld */ }
       record.observedDigests = typeof workspaceRoot === 'string' && workspaceRoot ? observedDigestsFor(workspaceRoot, [...new Set(checkedPaths)]) : {};
+      if (recordOf(conflictCorpus) && Array.isArray(conflictCorpus.paths) && recordOf(conflictCorpus.config)) {
+        record.observedCorpusDigests = typeof workspaceRoot === 'string' && workspaceRoot
+          ? observedDigestsFor(workspaceRoot, conflictCorpus.paths) : {};
+        record.observedConfigDigest = typeof workspaceRoot === 'string' && workspaceRoot
+          ? observedDigestsFor(workspaceRoot, [conflictCorpus.config.path])[conflictCorpus.config.path] || null : null;
+      }
     }
   } else if (event === 'PostToolUseFailure') {
     record.is_interrupt = Boolean(payload.is_interrupt);

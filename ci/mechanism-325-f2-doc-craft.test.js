@@ -502,8 +502,8 @@ function mp2Apply() {
   const dir = scriptCopy('f2 doc craft mp2 ');
   const file = path.join(dir, MODULE);
   const original = fs.readFileSync(file, 'utf8');
-  const emitMatches = [...original.matchAll(/return emit\(result[^;]*\);/g)];
-  if (emitMatches.length !== 1) throw new ProbeApplyError(`could not uniquely locate the final emit (${emitMatches.length} candidates); update this probe for the green shape`);
+  const emitMatches = [...original.matchAll(/return emit\(result, lintExit === 1 \|\| broken\.length \? 1 : 0\);/g)];
+  if (emitMatches.length !== 1) throw new ProbeApplyError(`could not uniquely locate the plain-check exit mapping (${emitMatches.length} candidates); update this probe for the green shape`);
   const injected = `if (result.reminders && result.reminders.length) return emit(result, 1);\n  ${emitMatches[0][0]}`;
   fs.writeFileSync(file, original.replace(emitMatches[0][0], injected));
   return dir;

@@ -265,7 +265,16 @@ function directoryCanContainMatch(relativeDirectory, globs, exactPaths = []) {
     || exactPathCanMatchDescendant(relativeDirectory, exactPaths);
 }
 
-function collectDocs(root, config) {
+function documentCorpusPaths(records, config) {
+  const selectors = [
+    ...(Array.isArray(config && config.governed) ? config.governed.map(entry => entry && entry.path) : []),
+    ...(Array.isArray(config && config.legacy) ? config.legacy : [])
+  ].filter(value => typeof value === 'string');
+  return [...new Set((records || []).filter(item => item && item.presence === 'present' && item.type === 'file'
+    && typeof item.path === 'string' && matchesAny(item.path, selectors)).map(item => item.path))].sort(compareText);
+}
+
+function collectDocs(root, config, coverage = null) {
   const workspace = path.resolve(root);
   const governed = Array.isArray(config && config.governed) ? config.governed : [];
   const legacyGlobs = Array.isArray(config && config.legacy) ? config.legacy : [];
@@ -274,9 +283,14 @@ function collectDocs(root, config) {
     ...legacyGlobs
   ].filter(value => typeof value === 'string');
   const files = [];
+  const skipped = [];
+  const skip = (relative, reason) => skipped.push({ path: relative || '.', reason });
   function walk(directory, relativeDirectory) {
     let entries;
-    try { entries = fs.readdirSync(directory, { withFileTypes: true }); } catch { return; }
+    try { entries = fs.readdirSync(directory, { withFileTypes: true }); } catch {
+      skip(relativeDirectory, 'unreadable-directory');
+      return;
+    }
     entries.sort((a, b) => compareText(a.name, b.name));
     for (const entry of entries) {
       if (entry.name === '.git' || entry.name === 'node_modules') continue;
@@ -285,6 +299,11 @@ function collectDocs(root, config) {
       if (entry.isDirectory()) {
         if (directoryCanContainMatch(relativePath, globs)) walk(absolute, relativePath);
       } else if (entry.isFile() && matchesAny(relativePath, globs)) files.push(absolute);
+      else if (entry.isSymbolicLink() && (matchesAny(relativePath, globs) || directoryCanContainMatch(relativePath, globs))) {
+        skip(relativePath, 'unsupported-symlink');
+      } else if (!entry.isDirectory() && !entry.isFile() && matchesAny(relativePath, globs)) {
+        skip(relativePath, 'unsupported-entry');
+      }
     }
   }
   walk(workspace, '');
@@ -296,8 +315,22 @@ function collectDocs(root, config) {
     const legacy = matchesAny(relativePath, legacyGlobs);
     if (!roleEntry && !legacy) continue;
     let bytes;
-    try { bytes = fs.readFileSync(absolute); } catch { continue; }
+    try { bytes = fs.readFileSync(absolute); } catch {
+      skip(relativePath, 'unreadable-file');
+      continue;
+    }
     selected.push({ relativePath, role: roleEntry ? roleEntry.role : null, legacy, bytes });
+  }
+  for (const selector of globs.filter(value => !/[*?\[\]{}]/.test(value))) {
+    if (!files.includes(path.resolve(workspace, selector))) skip(selector, 'missing-configured-path');
+  }
+  if (coverage) {
+    coverage.complete = globs.length > 0 && skipped.length === 0;
+    coverage.skipped = skipped;
+    coverage.paths = selected.map(item => item.relativePath).sort(compareText);
+    coverage.digests = Object.fromEntries(selected
+      .sort((a, b) => compareText(a.relativePath, b.relativePath))
+      .map(item => [item.relativePath, crypto.createHash('sha256').update(item.bytes).digest('hex')]));
   }
   const rules = readWorkingTreeRules(workspace, selected.filter(item => item.bytes.includes(0x0d)).map(item => item.relativePath));
   const docs = [];
@@ -2664,7 +2697,11 @@ function main(argv = process.argv.slice(2)) {
     ? path.resolve(options.configFile)
     : path.resolve(workspacePath, options.configFile);
   let config;
-  try { config = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch (error) {
+  let configBytes;
+  try {
+    configBytes = fs.readFileSync(configPath);
+    config = JSON.parse(configBytes.toString('utf8'));
+  } catch (error) {
     process.stderr.write(`cannot read config: ${error.message}\n`);
     return 2;
   }
@@ -2672,7 +2709,14 @@ function main(argv = process.argv.slice(2)) {
     process.stderr.write(`${error.message}\n`);
     return 2;
   }
-  const docs = collectDocs(workspacePath, config);
+  const corpus = options.all ? { complete: false, skipped: [], paths: [], digests: {} } : null;
+  const docs = collectDocs(workspacePath, config, corpus);
+  if (corpus) {
+    const relativeConfig = path.relative(workspacePath, configPath);
+    corpus.config = relativeConfig && relativeConfig !== '..' && !relativeConfig.startsWith(`..${path.sep}`)
+      ? { path: relativeConfig.split(path.sep).join('/'), digest: crypto.createHash('sha256').update(configBytes).digest('hex') }
+      : null;
+  }
   const mode = {
     ...(options.all ? { all: true } : { changedPaths: options.changedPaths }),
     workspace: workspacePath, base: options.base, configPath,
@@ -2688,10 +2732,11 @@ function main(argv = process.argv.slice(2)) {
     }));
     return 0;
   }
+  if (corpus) analysis.corpus = corpus;
   process.stdout.write(`${JSON.stringify(analysis, null, 2)}\n`);
   return analysis.diagnostics.some(item => item.severity === 'error') ? 1 : 0;
 }
 
-module.exports = { readGitBaseInventory, scanWorkspaceFiles, parseFrontmatter, parseRequirementBlocks, collectDocs, analyzeDocs, resolveRef, lintDocs, buildIndex, diffRevisions, buildGitDocumentInventory };
+module.exports = { readGitBaseInventory, scanWorkspaceFiles, parseFrontmatter, parseRequirementBlocks, collectDocs, documentCorpusPaths, analyzeDocs, resolveRef, lintDocs, buildIndex, diffRevisions, buildGitDocumentInventory };
 
 if (require.main === module) process.exitCode = main();

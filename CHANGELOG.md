@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+* **doc-lifecycle:** add complete full-corpus conflict-check evidence with snapshot-bound scope and corpus identity.
+
 ## [0.43.0](https://github.com/dyphn1/Harness-everything/compare/v0.42.2...v0.43.0) (2026-10-27)
 
 ### Features
