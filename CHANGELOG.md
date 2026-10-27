@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.43.1](https://github.com/dyphn1/Harness-everything/compare/v0.43.0...v0.43.1) (2026-10-27)
+
+### Bug Fixes
+
+* **governance:** let the guard pass governed content revisions ([31af03d](https://github.com/dyphn1/Harness-everything/commit/31af03d02475e150210cc6b5ba0e5b90fea0163e))
+
 ## [Unreleased]
 
 ### Fixed
