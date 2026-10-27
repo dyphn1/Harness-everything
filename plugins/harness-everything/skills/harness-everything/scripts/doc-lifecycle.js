@@ -1382,6 +1382,278 @@ function gitOutput(root, args, encoding = 'buffer') {
   return execFileSync('git', ['-C', root, ...args], { encoding, maxBuffer: 64 * 1024 * 1024 });
 }
 
+function nulFields(bytes) {
+  const fields = [];
+  let start = 0;
+  for (let index = 0; index < bytes.length; index++) {
+    if (bytes[index] !== 0) continue;
+    fields.push(bytes.subarray(start, index));
+    start = index + 1;
+  }
+  if (start < bytes.length) fields.push(bytes.subarray(start));
+  return fields;
+}
+
+function gitPathValue(bytes) {
+  const decoded = bytes.toString('utf8');
+  if (Buffer.from(decoded, 'utf8').equals(bytes)) return { path: decoded, matchPath: decoded, encoding: 'utf-8' };
+  let escaped = '';
+  for (const byte of bytes) escaped += byte >= 0x20 && byte <= 0x7e && byte !== 0x5c
+    ? String.fromCharCode(byte)
+    : `\\x${byte.toString(16).padStart(2, '0')}`;
+  return { path: escaped, matchPath: escaped, encoding: 'escaped-bytes' };
+}
+
+function inventoryPathIsDocument(pathBytes, manifest) {
+  return matchesAny(gitPathValue(pathBytes).matchPath, manifest.documentGlobs);
+}
+
+function inventoryPathDisposition(pathBytes, manifest, mode) {
+  const display = gitPathValue(pathBytes);
+  if (!inventoryPathIsDocument(pathBytes, manifest)) {
+    if (mode === '160000') return { role: 'gitlink', lifecycle: 'external', disposition: 'excluded', reason: 'Gitlink identity is retained; inventory does not recurse into submodules.' };
+    if (mode === '120000') return { role: 'symlink', lifecycle: 'current', disposition: 'excluded', reason: 'Symlink identity is retained; inventory does not follow its target.' };
+    return { role: 'non-document endpoint', lifecycle: 'unknown', disposition: 'excluded', reason: 'Non-document endpoint is retained only to preserve Git rename identity.' };
+  }
+  const rule = manifest.rules.find(item => matchesAny(display.matchPath, [item.match]));
+  if (rule) return { role: rule.role, lifecycle: rule.lifecycle, disposition: rule.disposition, reason: rule.reason };
+  return { role: 'unknown', lifecycle: 'unknown', disposition: 'unknown', reason: 'No manifest rule classifies this tracked document path.' };
+}
+
+function assertNoSymlinkPathAncestors(workspace, relative, { allowLeafSymlink = false, allowMissing = false, label = 'path' } = {}) {
+  let current = workspace;
+  const components = relative.split(path.sep);
+  for (let index = 0; index < components.length; index++) {
+    current = path.join(current, components[index]);
+    let entry;
+    try { entry = fs.lstatSync(current); } catch (error) {
+      if (allowMissing && error.code === 'ENOENT') return;
+      throw error;
+    }
+    const leaf = index === components.length - 1;
+    if (entry.isSymbolicLink()) {
+      if (allowLeafSymlink && leaf) return;
+      throw new Error(`${label} cannot pass through a symbolic link`);
+    }
+    if (!leaf && !entry.isDirectory()) throw new Error(`${label} parent path components must be directories`);
+  }
+}
+
+function loadInventoryManifest(root, manifestPath) {
+  const workspace = fs.realpathSync(root);
+  const absolute = path.resolve(workspace, manifestPath);
+  const relative = path.relative(workspace, absolute);
+  if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error('--manifest must name a file within --workspace');
+  }
+  assertNoSymlinkPathAncestors(workspace, relative, { label: '--manifest path' });
+  const stat = fs.lstatSync(absolute);
+  if (!stat.isFile() || stat.size > 1024 * 1024) throw new Error('--manifest must be a regular file no larger than 1 MiB');
+  const bytes = fs.readFileSync(absolute);
+  let manifest;
+  try { manifest = JSON.parse(bytes.toString('utf8')); } catch (error) { throw new Error(`cannot parse inventory manifest: ${error.message}`); }
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest) || manifest.schemaVersion !== 1
+    || !Array.isArray(manifest.documentGlobs) || !manifest.documentGlobs.length
+    || !manifest.documentGlobs.every(item => typeof item === 'string' && item.length)
+    || !Array.isArray(manifest.rules)) {
+    throw new Error('inventory manifest requires schemaVersion 1, documentGlobs, and rules');
+  }
+  for (const rule of manifest.rules) {
+    if (!rule || typeof rule !== 'object' || typeof rule.match !== 'string' || !rule.match
+      || typeof rule.role !== 'string' || !rule.role
+      || typeof rule.lifecycle !== 'string' || !rule.lifecycle
+      || !['applicable', 'inventory-only', 'excluded', 'unknown', 'unavailable'].includes(rule.disposition)
+      || typeof rule.reason !== 'string' || !rule.reason) {
+      throw new Error('each inventory rule requires match, role, lifecycle, disposition, and reason');
+    }
+  }
+  return { manifest, absolute, sha256: crypto.createHash('sha256').update(bytes).digest('hex') };
+}
+
+function proposedInventoryPath(workspace, value) {
+  if (typeof value !== 'string' || !value || path.isAbsolute(value)) throw new Error('--proposed-untracked must name a relative path within --workspace');
+  const absolute = path.resolve(workspace, value);
+  const relative = path.relative(workspace, absolute);
+  if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error('--proposed-untracked must name a path within --workspace');
+  }
+  assertNoSymlinkPathAncestors(workspace, relative, { allowLeafSymlink: true, allowMissing: true, label: '--proposed-untracked path' });
+  return Buffer.from(relative.split(path.sep).join('/'), 'utf8');
+}
+
+function gitTreeEntries(root, commit) {
+  const fields = nulFields(gitOutput(root, ['ls-tree', '-r', '-z', '--full-tree', commit]));
+  const result = new Map();
+  for (const field of fields) {
+    const tab = field.indexOf(0x09);
+    if (tab < 0) throw new Error('malformed NUL-delimited Git tree entry');
+    const header = field.subarray(0, tab).toString('ascii').split(' ');
+    if (header.length !== 3 || !/^\d{6}$/.test(header[0]) || !/^(blob|commit)$/.test(header[1]) || !/^[0-9a-f]{40,64}$/.test(header[2])) {
+      throw new Error('malformed Git tree identity');
+    }
+    const relative = Buffer.from(field.subarray(tab + 1));
+    result.set(relative.toString('base64'), { pathBytes: relative, mode: header[0], type: header[1], oid: header[2] });
+  }
+  return result;
+}
+
+function gitDiffEntries(root, commit) {
+  const fields = nulFields(gitOutput(root, ['diff', '--raw', '--no-abbrev', '-z', '--find-renames', commit, '--']));
+  const result = new Map();
+  for (let index = 0; index < fields.length;) {
+    const header = fields[index++].toString('ascii');
+    const match = /^:(\d{6}) (\d{6}) ([0-9a-f]{40,64}) ([0-9a-f]{40,64}) ([A-Z][0-9]*)$/.exec(header);
+    if (!match || index >= fields.length) throw new Error('malformed NUL-delimited Git diff entry');
+    const [, oldMode, newMode, oldOid, newOid, statusText] = match;
+    const status = statusText[0];
+    const first = Buffer.from(fields[index++]);
+    if (status === 'R' || status === 'C') {
+      if (index >= fields.length) throw new Error('truncated NUL-delimited rename entry');
+      const second = Buffer.from(fields[index++]);
+      const shared = { oldMode, newMode, oldOid, newOid, statusText };
+      result.set(first.toString('base64'), { ...shared, pathBytes: first, status: 'renamed-from', partner: second, endpoint: 'source' });
+      result.set(second.toString('base64'), { ...shared, pathBytes: second, status: 'renamed-to', partner: first, endpoint: 'target' });
+    } else {
+      const isDelete = status === 'D';
+      result.set(first.toString('base64'), {
+        oldMode, newMode, oldOid, newOid, statusText, pathBytes: first,
+        status: status === 'A' ? 'added' : isDelete ? 'deleted' : status === 'T' ? 'type-changed' : status === 'U' ? 'unmerged' : 'modified',
+        endpoint: isDelete ? 'source' : 'target'
+      });
+    }
+  }
+  return result;
+}
+
+function gitBlobOid(root, bytes) {
+  // shortcut: Hash raw worktree bytes without Git filters; use a trusted path-aware oracle if canonical filtered OIDs are required.
+  return execFileSync('git', ['-C', root, 'hash-object', '--stdin'], { encoding: 'utf8', input: bytes, maxBuffer: 1024 * 1024 }).trim();
+}
+
+function gitFilesystemPath(root, pathBytes) {
+  const display = gitPathValue(pathBytes);
+  if (display.encoding === 'utf-8') return path.join(path.resolve(root), ...display.path.split('/'));
+  if (process.platform === 'win32') throw new Error('non-UTF-8 Git path bytes are not openable on Windows');
+  return Buffer.concat([Buffer.from(`${path.resolve(root)}${path.sep}`), pathBytes]);
+}
+
+function worktreeGitIdentity(root, pathBytes) {
+  const absolute = gitFilesystemPath(root, pathBytes);
+  const stat = fs.lstatSync(absolute);
+  let mode;
+  let bytes;
+  if (stat.isSymbolicLink()) {
+    mode = '120000';
+    bytes = fs.readlinkSync(absolute, { encoding: 'buffer' });
+  } else if (stat.isFile()) {
+    mode = stat.mode & 0o111 ? '100755' : '100644';
+    bytes = fs.readFileSync(absolute);
+  } else {
+    return { mode: null, oid: null, type: null, reason: 'candidate path is not a regular file or symlink; no target was opened' };
+  }
+  return { mode, oid: gitBlobOid(root, bytes), type: 'blob', oidBasis: 'raw worktree bytes; no Git filters applied' };
+}
+
+function buildGitDocumentInventory(root, baseRef, manifestPath, proposedPaths = []) {
+  const workspace = fs.realpathSync(root);
+  const loaded = loadInventoryManifest(workspace, manifestPath);
+  const commit = gitOutput(workspace, ['rev-parse', '--verify', '--quiet', '--end-of-options', `${baseRef}^{commit}`], 'utf8').trim();
+  const tree = gitOutput(workspace, ['rev-parse', '--verify', '--quiet', '--end-of-options', `${commit}^{tree}`], 'utf8').trim();
+  const baseEntries = gitTreeEntries(workspace, commit);
+  const changes = gitDiffEntries(workspace, commit);
+  const proposedByKey = new Map(proposedPaths.map(value => {
+    const bytes = proposedInventoryPath(workspace, value);
+    return [bytes.toString('base64'), bytes];
+  }));
+  const relevantKeys = new Set();
+  for (const [key, item] of baseEntries) {
+    if (inventoryPathIsDocument(item.pathBytes, loaded.manifest) || item.mode === '120000' || item.mode === '160000') relevantKeys.add(key);
+  }
+  for (const [key, change] of changes) {
+    const item = baseEntries.get(key);
+    if (inventoryPathIsDocument(change.pathBytes, loaded.manifest)
+      || change.partner && inventoryPathIsDocument(change.partner, loaded.manifest)
+      || item && inventoryPathIsDocument(item.pathBytes, loaded.manifest)
+      || item && (item.mode === '120000' || item.mode === '160000')
+      || change.oldMode === '120000' || change.oldMode === '160000' || change.newMode === '120000' || change.newMode === '160000') {
+      relevantKeys.add(key);
+      if (change.partner) relevantKeys.add(change.partner.toString('base64'));
+    }
+  }
+  for (const key of proposedByKey.keys()) relevantKeys.add(key);
+  const records = [];
+  for (const key of relevantKeys) {
+    const base = baseEntries.get(key) || null;
+    const change = changes.get(key) || null;
+    const recordPathBytes = base ? base.pathBytes : change ? change.pathBytes : proposedByKey.get(key);
+    if (!recordPathBytes) continue;
+    let current = null;
+    let status = change ? change.status : base ? 'unchanged' : 'added';
+    let currentReason = null;
+    if (change && change.status !== 'deleted' && change.status !== 'renamed-from') {
+      if (change.newMode === '160000') {
+        current = /^[0-9a-f]{40,64}$/.test(change.newOid) && !/^0+$/.test(change.newOid)
+          ? { mode: change.newMode, oid: change.newOid, type: 'commit' }
+          : null;
+        if (!current) currentReason = 'gitlink candidate identity unavailable without recursing into the submodule';
+      } else if (change.newMode !== '000000') {
+        try { current = worktreeGitIdentity(workspace, recordPathBytes); }
+        catch (error) { currentReason = `working-tree identity unavailable: ${error.message}`; }
+      }
+    } else if (!change && base) {
+      current = { mode: base.mode, oid: base.oid, type: base.type, oidBasis: 'unchanged base-tree object' };
+    } else if (!base && !change && proposedByKey.has(key)) {
+      try { current = worktreeGitIdentity(workspace, recordPathBytes); }
+      catch (error) { currentReason = `proposed untracked identity unavailable: ${error.message}`; status = 'unavailable'; }
+    }
+    if (current && current.reason) { currentReason = current.reason; current = null; status = 'unavailable'; }
+    const identityMode = (current && current.mode) || (base && base.mode) || (change && change.oldMode);
+    const document = inventoryPathIsDocument(recordPathBytes, loaded.manifest);
+    const disposition = inventoryPathDisposition(recordPathBytes, loaded.manifest, identityMode);
+    const shown = gitPathValue(recordPathBytes);
+    const record = {
+      path: shown.path,
+      pathEncoding: shown.encoding,
+      pathBytesBase64: recordPathBytes.toString('base64'),
+      document,
+      kind: identityMode === '160000' ? 'gitlink' : identityMode === '120000' ? 'symlink' : 'file',
+      status,
+      base: base ? { mode: base.mode, type: base.type, oid: base.oid } : null,
+      current,
+      ...disposition,
+      validation: { outcome: 'unchecked', reason: 'P1 inventory does not execute semantic validators.' }
+    };
+    if (currentReason) record.currentReason = currentReason;
+    if (change && change.partner) {
+      const partner = gitPathValue(change.partner);
+      record.rename = { endpoint: change.endpoint, partnerPath: partner.path, partnerPathBytesBase64: change.partner.toString('base64') };
+    }
+    records.push(record);
+  }
+  records.sort((left, right) => Buffer.compare(Buffer.from(left.pathBytesBase64, 'base64'), Buffer.from(right.pathBytesBase64, 'base64')));
+  const documents = records.filter(item => item.document);
+  const classified = documents.filter(item => item.role && item.lifecycle && item.disposition && item.reason);
+  const identity = records.map(item => ({ pathBytesBase64: item.pathBytesBase64, status: item.status, base: item.base, current: item.current, rename: item.rename || null }));
+  return {
+    schemaVersion: 1,
+    base: { requestedRef: baseRef, commit, tree },
+    candidate: {
+      kind: 'working-tree',
+      scope: 'tracked document paths, explicit proposed paths, and symlink/gitlink and rename endpoint identities',
+      proposedUntrackedPaths: proposedByKey.size,
+      sha256: crypto.createHash('sha256').update(JSON.stringify(identity)).digest('hex')
+    },
+    manifest: { path: path.relative(workspace, loaded.absolute).split(path.sep).join('/'), sha256: loaded.sha256 },
+    coverage: {
+      identifiedDocumentPaths: documents.length,
+      explicitDispositionPaths: classified.length,
+      complete: documents.length === classified.length,
+      claim: 'disposition coverage only; semantic validation was not performed'
+    },
+    records
+  };
+}
+
 function parseInventoryDoc(relativePath, bytes) {
   const parsed = parseFrontmatter(Buffer.from(bytes).toString('utf8'));
   if (parsed.error || !parsed.data || typeof parsed.data.id !== 'string') return null;
@@ -2299,10 +2571,14 @@ function buildIndex(docs, config, options = {}) {
 
 function parseCli(argv) {
   const [command, ...rest] = argv;
-  const options = { command, changedProvided: false, changedPaths: [], all: false };
+  const options = { command, changedProvided: false, changedPaths: [], proposedUntracked: [], all: false };
   for (let index = 0; index < rest.length; index++) {
     const arg = rest[index];
     if (arg === '--all') options.all = true;
+    else if (arg === '--proposed-untracked') {
+      if (index + 1 >= rest.length) throw new Error(`${arg} requires a value`);
+      options.proposedUntracked.push(rest[++index]);
+    }
     else if (arg === '--changed-path') {
       if (index + 1 >= rest.length) throw new Error(`${arg} requires a value`);
       const value = rest[++index];
@@ -2310,16 +2586,24 @@ function parseCli(argv) {
       options.changedProvided = true;
       options.changedPaths.push(value);
     }
-    else if (arg === '--workspace' || arg === '--config' || arg === '--changed' || arg === '--base') {
+    else if (arg === '--workspace' || arg === '--config' || arg === '--changed' || arg === '--base' || arg === '--manifest') {
       if (index + 1 >= rest.length) throw new Error(`${arg} requires a value`);
       const value = rest[++index];
       if (arg === '--workspace') options.workspace = value;
       if (arg === '--config') options.configFile = value;
       if (arg === '--changed') { options.changedProvided = true; options.changedPaths = options.changedPaths.concat(value.split(',').map(item => item.trim()).filter(Boolean)); }
       if (arg === '--base') options.base = value;
+      if (arg === '--manifest') options.manifestFile = value;
     } else throw new Error(`unknown argument: ${arg}`);
   }
+  if (command === 'inventory') {
+    if (!options.workspace || !options.manifestFile || !options.base) throw new Error('inventory requires --workspace, --manifest, and --base');
+    if (options.configFile || options.changedProvided || options.all) throw new Error('inventory accepts only --workspace, --manifest, and --base');
+    return options;
+  }
+  if (options.proposedUntracked.length) throw new Error('--proposed-untracked is only valid with inventory');
   if (!['lint', 'index'].includes(command)) throw new Error('usage: doc-lifecycle.js <lint|index> --workspace <dir> --config <json-file, relative to --workspace> [--changed a,b | --changed-path <path> (repeatable, cumulative) | --all] [--base <git-rev>]');
+  if (options.manifestFile) throw new Error('--manifest is only valid with inventory');
   if (!options.workspace || !options.configFile) throw new Error('--workspace and --config are required');
   if (!options.changedProvided && !options.all) throw new Error('lint and index require --changed, --changed-path, or --all');
   if (options.all && options.changedProvided) throw new Error('choose either --changed/--changed-path or --all');
@@ -2361,6 +2645,15 @@ function main(argv = process.argv.slice(2)) {
   let options;
   try { options = parseCli(argv); } catch (error) { process.stderr.write(`${error.message}\n`); return 2; }
   const workspacePath = path.resolve(options.workspace);
+  if (options.command === 'inventory') {
+    try {
+      process.stdout.write(`${JSON.stringify(buildGitDocumentInventory(workspacePath, options.base, options.manifestFile, options.proposedUntracked), null, 2)}\n`);
+      return 0;
+    } catch (error) {
+      process.stderr.write(`inventory failed: ${error.message}\n`);
+      return 2;
+    }
+  }
   if (options.changedProvided) {
     try { options.changedPaths = options.changedPaths.map(item => normalizeChangedPath(workspacePath, item)); } catch (error) {
       process.stderr.write(`${error.message}\n`);
@@ -2399,6 +2692,6 @@ function main(argv = process.argv.slice(2)) {
   return analysis.diagnostics.some(item => item.severity === 'error') ? 1 : 0;
 }
 
-module.exports = { readGitBaseInventory, scanWorkspaceFiles, parseFrontmatter, parseRequirementBlocks, collectDocs, analyzeDocs, resolveRef, lintDocs, buildIndex, diffRevisions };
+module.exports = { readGitBaseInventory, scanWorkspaceFiles, parseFrontmatter, parseRequirementBlocks, collectDocs, analyzeDocs, resolveRef, lintDocs, buildIndex, diffRevisions, buildGitDocumentInventory };
 
 if (require.main === module) process.exitCode = main();

@@ -9,6 +9,9 @@ const { spawnSync } = require('child_process');
 const helper = require('./test-helper');
 
 const modulePath = path.join(__dirname, '..', 'harness-everything', 'scripts', 'doc-lifecycle.js');
+const governanceGuardPath = path.join(__dirname, '..', 'scripts', 'doc-governance-guard.js');
+const REPOSITORY_ROOT = path.resolve(__dirname, '..');
+const P2_BASE_SHA = 'b733cadec17542b9ae30aabb50c1ba3481a58d74';
 let lifecycle;
 try {
   lifecycle = require(modulePath);
@@ -144,6 +147,219 @@ function gitBytesAt(root, revision, relativePath) {
   });
   if (result.status !== 0) throw new Error(`git show ${revision}:${relativePath} failed: ${String(result.stderr || result.stdout)}`);
   return Buffer.from(result.stdout);
+}
+
+function gitRawAt(root, args) {
+  const result = spawnSync('git', ['-C', root, ...args], {
+    encoding: 'buffer',
+    env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1' }
+  });
+  if (result.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${String(result.stderr || result.stdout)}`);
+  return Buffer.from(result.stdout);
+}
+
+function nulFields(bytes) {
+  if (bytes.length && bytes[bytes.length - 1] !== 0) throw new Error('Git oracle output is not NUL terminated');
+  return bytes.length ? bytes.subarray(0, -1).toString('binary').split('\0').map(value => Buffer.from(value, 'binary')) : [];
+}
+
+function parseTreeOracle(bytes) {
+  const entries = new Map();
+  for (const field of nulFields(bytes)) {
+    const tab = field.indexOf(9);
+    if (tab < 0) throw new Error('malformed raw Git tree entry');
+    const [mode, type, oid] = field.subarray(0, tab).toString('ascii').split(' ');
+    const pathBytes = Buffer.from(field.subarray(tab + 1));
+    entries.set(pathBytes.toString('base64'), { mode, type, oid, pathBytes });
+  }
+  return entries;
+}
+
+function parseStageOracle(bytes) {
+  const entries = new Map();
+  for (const field of nulFields(bytes)) {
+    const tab = field.indexOf(9);
+    if (tab < 0) throw new Error('malformed raw Git index entry');
+    const [mode, oid, stage] = field.subarray(0, tab).toString('ascii').split(' ');
+    if (stage !== '0') throw new Error(`unmerged Git index stage ${stage}`);
+    const pathBytes = Buffer.from(field.subarray(tab + 1));
+    entries.set(pathBytes.toString('base64'), { mode, oid, type: mode === '160000' ? 'commit' : 'blob', pathBytes });
+  }
+  return entries;
+}
+
+function parseNameStatusOracle(bytes) {
+  const fields = nulFields(bytes);
+  const changes = new Map();
+  for (let index = 0; index < fields.length;) {
+    const statusText = fields[index++].toString('ascii');
+    const kind = statusText[0];
+    const first = fields[index++];
+    if (!first) throw new Error('truncated Git name-status entry');
+    if (kind === 'R' || kind === 'C') {
+      const second = fields[index++];
+      if (!second) throw new Error('truncated Git rename/copy entry');
+      changes.set(first.toString('base64'), { pathBytes: first, status: kind === 'R' ? 'renamed-from' : 'copied-from', endpoint: 'source', partner: second, statusText });
+      changes.set(second.toString('base64'), { pathBytes: second, status: kind === 'R' ? 'renamed-to' : 'copied-to', endpoint: 'target', partner: first, statusText });
+    } else {
+      changes.set(first.toString('base64'), {
+        pathBytes: first,
+        status: kind === 'A' ? 'added' : kind === 'D' ? 'deleted' : kind === 'T' ? 'type-changed' : kind === 'U' ? 'unmerged' : 'modified',
+        statusText
+      });
+    }
+  }
+  return changes;
+}
+
+function parseStatusOracle(bytes) {
+  const fields = nulFields(bytes);
+  const paths = new Map();
+  for (let index = 0; index < fields.length;) {
+    const field = fields[index++];
+    if (field.length < 4) throw new Error('malformed Git porcelain status entry');
+    const status = field.subarray(0, 2).toString('ascii');
+    const pathBytes = Buffer.from(field.subarray(3));
+    paths.set(pathBytes.toString('base64'), status);
+    if (status.includes('R') || status.includes('C')) {
+      const partner = fields[index++];
+      if (!partner) throw new Error('truncated Git porcelain rename/copy entry');
+      paths.set(partner.toString('base64'), status);
+    }
+  }
+  return paths;
+}
+
+function isDocumentPath(pathBytes) {
+  const name = pathBytes.toString('latin1');
+  const lower = name.toLowerCase();
+  return /\.(md|mdx|markdown|rst|adoc|txt)$/.test(lower)
+    || /(?:^|\/)(?:readme|license|notice|contributing|changelog|code_of_conduct|security)$/.test(lower)
+    || /(?:^|\/)(?:readme|changelog)[^/]*$/.test(lower);
+}
+
+function inventoryOracle(root, base) {
+  const commit = gitAt(root, ['rev-parse', '--verify', '--quiet', '--end-of-options', `${base}^{commit}`]);
+  const baseEntries = parseTreeOracle(gitRawAt(root, ['ls-tree', '-r', '-z', '--full-tree', commit]));
+  const stageEntries = parseStageOracle(gitRawAt(root, ['ls-files', '-z', '--stage']));
+  const changes = parseNameStatusOracle(gitRawAt(root, ['diff', '--name-status', '-z', '--find-renames', commit, '--']));
+  const statusPaths = parseStatusOracle(gitRawAt(root, ['status', '--porcelain=v1', '-z']));
+  const entries = new Map([...baseEntries, ...stageEntries]);
+  for (const [key, change] of changes) {
+    if (!entries.has(key)) entries.set(key, { pathBytes: change.pathBytes });
+    if (change.partner) {
+      const partnerKey = change.partner.toString('base64');
+      if (!entries.has(partnerKey)) entries.set(partnerKey, { pathBytes: change.partner });
+    }
+  }
+  const documentKeys = new Set([...entries].filter(([, entry]) => isDocumentPath(entry.pathBytes)).map(([key]) => key));
+  return { root, commit, baseEntries, stageEntries, changes, statusPaths, entries, documentKeys };
+}
+
+function rawWorktreeIdentity(root, pathBytes, stageEntry) {
+  const decoded = pathBytes.toString('utf8');
+  const absolute = Buffer.from(decoded, 'utf8').equals(pathBytes)
+    ? path.join(path.resolve(root), ...decoded.split('/'))
+    : process.platform === 'win32' ? null : Buffer.concat([Buffer.from(`${path.resolve(root)}${path.sep}`), pathBytes]);
+  if (!absolute) return null;
+  let stat;
+  try { stat = fs.lstatSync(absolute); } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  }
+  if (stageEntry && stageEntry.mode === '160000' && stat.isDirectory()) {
+    return { mode: stageEntry.mode, type: 'commit', oid: stageEntry.oid };
+  }
+  let mode;
+  let bytes;
+  if (stat.isSymbolicLink()) {
+    mode = '120000';
+    bytes = fs.readlinkSync(absolute, { encoding: 'buffer' });
+  } else if (stat.isFile()) {
+    mode = stat.mode & 0o111 ? '100755' : '100644';
+    bytes = fs.readFileSync(absolute);
+  } else return null;
+  const result = spawnSync('git', ['-C', root, 'hash-object', '--stdin'], {
+    input: bytes,
+    encoding: 'buffer',
+    env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1' }
+  });
+  if (result.status !== 0) throw new Error(`git hash-object failed: ${String(result.stderr || result.stdout)}`);
+  return { mode, type: 'blob', oid: result.stdout.toString('ascii').trim() };
+}
+
+function assertInventoryAgainstOracle(report, oracle, expectedDocumentKeys = oracle.documentKeys) {
+  assert.strictEqual(report.base.commit, oracle.commit, 'inventory base is the pinned oracle commit');
+  const expectedKeys = new Set(expectedDocumentKeys);
+  for (const [key, entry] of oracle.entries) {
+    const base = oracle.baseEntries.get(key);
+    const staged = oracle.stageEntries.get(key);
+    const change = oracle.changes.get(key);
+    if ((base && ['120000', '160000'].includes(base.mode))
+      || (staged && ['120000', '160000'].includes(staged.mode))) expectedKeys.add(key);
+    if (change && change.partner && (expectedDocumentKeys.has(key) || expectedDocumentKeys.has(change.partner.toString('base64')))) {
+      expectedKeys.add(key);
+      expectedKeys.add(change.partner.toString('base64'));
+    }
+  }
+  const records = new Map();
+  for (const record of report.records || []) {
+    assert.ok(Object.prototype.hasOwnProperty.call(record, 'path'), 'report path is present');
+    assert.ok(typeof record.path === 'string' && typeof record.pathEncoding === 'string', 'report has a display path and encoding');
+    assert.ok(typeof record.pathBytesBase64 === 'string' && record.pathBytesBase64, 'raw path identity is present');
+    assert.ok(!records.has(record.pathBytesBase64), `duplicate report identity ${record.pathBytesBase64}`);
+    records.set(record.pathBytesBase64, record);
+  }
+  assert.deepStrictEqual([...records.keys()].sort(), [...expectedKeys].sort(), 'report identity paths equal raw Git oracle paths');
+  for (const key of expectedKeys) {
+    const record = records.get(key);
+    const base = oracle.baseEntries.get(key) || null;
+    const staged = oracle.stageEntries.get(key) || null;
+    const change = oracle.changes.get(key) || null;
+    const localStatus = oracle.statusPaths.get(key);
+    assert.deepStrictEqual(record.base, base ? { mode: base.mode, type: base.type, oid: base.oid } : null, `base identity ${key}`);
+    const deleted = change && ['deleted', 'renamed-from'].includes(change.status);
+    const current = deleted ? null : change ? rawWorktreeIdentity(oracle.root, recordPathBytes(record), staged) : base ? base : staged;
+    if (current) {
+      assert.ok(record.current, `current identity is present for ${key}`);
+      for (const field of ['mode', 'type', 'oid']) assert.strictEqual(record.current[field], current[field], `current ${field} ${key}`);
+      if (staged && (!localStatus || localStatus[1] === ' ')) {
+        for (const field of ['mode', 'type', 'oid']) assert.strictEqual(record.current[field], staged[field], `clean worktree matches staged ${field} ${key}`);
+      }
+    } else if (record.current !== null) {
+      throw new Error(`deleted/unavailable current identity should be null for ${key}`);
+    } else if (!deleted) {
+      assert.ok(typeof record.currentReason === 'string' && record.currentReason, `unavailable identity reason ${key}`);
+    }
+    const expectedStatus = change ? change.status : base ? 'unchanged' : 'added';
+    assert.strictEqual(record.status, expectedStatus, `Git status ${key}`);
+    if (change && change.partner) {
+      assert.strictEqual(record.rename.endpoint, change.endpoint, `rename endpoint ${key}`);
+      assert.strictEqual(record.rename.partnerPathBytesBase64, change.partner.toString('base64'), `rename partner bytes ${key}`);
+    } else assert.strictEqual(record.rename, undefined, `no rename metadata ${key}`);
+    if (expectedDocumentKeys.has(key)) {
+      assert.strictEqual(record.document, true, `identified document ${key}`);
+      for (const axis of ['role', 'lifecycle', 'disposition']) {
+        assert.ok(Object.prototype.hasOwnProperty.call(record, axis) && typeof record[axis] === 'string' && record[axis], `${axis} axis ${key}`);
+      }
+      assert.ok(typeof record.reason === 'string' && record.reason, `disposition reason ${key}`);
+      assert.strictEqual(record.validation && record.validation.outcome, 'unchecked', `semantic validation stays separate and unchecked ${key}`);
+      assert.ok(typeof record.validation.reason === 'string' && record.validation.reason, `validation reason ${key}`);
+      if (record.disposition === 'unknown') assert.ok(record.reason, `unknown disposition remains visible with a reason ${key}`);
+      if (oracle.statusPaths.has(key)) assert.ok(change || !base, `raw status path is represented by a base-relative change ${key}`);
+    }
+  }
+  assert.deepStrictEqual(report.coverage, {
+    identifiedDocumentPaths: expectedDocumentKeys.size,
+    explicitDispositionPaths: expectedDocumentKeys.size,
+    complete: true,
+    claim: 'disposition coverage only; semantic validation was not performed'
+  }, 'coverage counts all oracle documents without promoting semantics');
+  return records;
+}
+
+function recordPathBytes(record) {
+  return Buffer.from(record.pathBytesBase64, 'base64');
 }
 
 function legacyHistory(name, {
@@ -1056,6 +1272,606 @@ checkCase('2ax. scenario fixtures enforce the full inventory and required files'
   copyFullTree(realRoot, unexpected);
   fs.mkdirSync(path.join(unexpected, 'incomplete'), { recursive: true });
   assert.ok(runScenarioSet(unexpected).includes('unexpected scenario: incomplete'), JSON.stringify(runScenarioSet(unexpected)));
+});
+
+checkCase('2ax. Git document inventory preserves dispositions and base/current identity', () => {
+  const root = workspace('git-inventory');
+  const write = (relative, bytes = `${relative}\n`) => {
+    const absolute = path.join(root, ...relative.split('/'));
+    fs.mkdirSync(path.dirname(absolute), { recursive: true });
+    fs.writeFileSync(absolute, bytes);
+    return absolute;
+  };
+  const manifestRelative = '.agents/harness-everything/document-inventory.json';
+  write(manifestRelative, `${JSON.stringify({
+    schemaVersion: 1,
+    documentGlobs: ['**/*.md', '**/*.txt'],
+    rules: [
+      { match: 'docs/reference/**', role: 'reference', lifecycle: 'current', disposition: 'applicable', reason: 'fixture positive control' },
+      { match: '**/archive/**', role: 'legacy/archive', lifecycle: 'historical', disposition: 'inventory-only', reason: 'retained historical fixture' },
+      { match: '**/generated/**', role: 'generated-view', lifecycle: 'generated', disposition: 'inventory-only', reason: 'generator is not run by inventory' },
+      { match: '**/fixtures/**', role: 'fixture', lifecycle: 'retained-test-input', disposition: 'excluded', reason: 'fixture purpose is preserved' },
+      { match: '**/vendor/**', role: 'vendor-document', lifecycle: 'external-content', disposition: 'excluded', reason: 'vendor purpose is preserved' }
+    ]
+  }, null, 2)}\n`);
+  for (const relative of [
+    'README.md', 'docs/reference/positive.md', 'docs/prd/plan.md', 'docs/adr/decision.md',
+    'docs/archive/old.md', 'docs/generated/view.md', 'docs/fixtures/setup.md',
+    'benchmarks/results/evidence.md', 'vendor/pkg/README.md', 'skills/sample/SKILL.md',
+    'references/source.md', 'templates/example.md', 'nested/deep/unknown.md',
+    'docs/delete.md', 'docs/rename-old.md', 'docs/mode.md', ...(process.platform === 'win32' ? [] : ['docs/odd\tline\nname.md'])
+  ]) write(relative);
+  const symlinks = [];
+  const trackedSymlink = path.join(root, 'docs', 'fixtures', 'external.md');
+  fs.mkdirSync(path.dirname(trackedSymlink), { recursive: true });
+  try {
+    fs.symlinkSync(path.join(os.tmpdir(), 'outside-document-not-read.md'), trackedSymlink, process.platform === 'win32' ? 'file' : undefined);
+    symlinks.push('docs/fixtures/external.md');
+  } catch (error) {
+    if (!['EPERM', 'EACCES', 'ENOTSUP'].includes(error.code)) throw error;
+    console.log(`  SKIP 2ax. tracked symlink inventory subcase: symlink creation unavailable (${error.code})`);
+  }
+
+  gitAt(root, ['init', '-q']);
+  for (const [key, value] of [['user.name', 'Harness Test'], ['user.email', 'harness@example.invalid'], ['commit.gpgsign', 'false'], ['core.filemode', 'false']]) gitAt(root, ['config', key, value]);
+  gitAt(root, ['add', '-A']);
+  gitAt(root, ['update-index', '--chmod=+x', '--', 'docs/mode.md']);
+  gitAt(root, ['commit', '-qm', 'inventory fixture']);
+  const gitlinkTarget = gitAt(root, ['rev-parse', 'HEAD']);
+  gitAt(root, ['update-index', '--add', '--cacheinfo', `160000,${gitlinkTarget},vendor/submodule`]);
+  gitAt(root, ['commit', '-qm', 'add gitlink fixture']);
+  const base = gitAt(root, ['rev-parse', 'HEAD']);
+
+  const untrackedSymlink = path.join(root, 'docs', 'fixtures', 'untracked-external.md');
+  try {
+    fs.symlinkSync(path.join(os.tmpdir(), 'outside-document-not-read.md'), untrackedSymlink, process.platform === 'win32' ? 'file' : undefined);
+    symlinks.push('docs/fixtures/untracked-external.md');
+  } catch (error) {
+    if (!['EPERM', 'EACCES', 'ENOTSUP'].includes(error.code)) throw error;
+    console.log(`  SKIP 2ax. proposed symlink inventory subcase: symlink creation unavailable (${error.code})`);
+  }
+
+  fs.rmSync(path.join(root, 'docs', 'delete.md'));
+  fs.renameSync(path.join(root, 'docs', 'rename-old.md'), path.join(root, 'docs', 'rename-new.md'));
+  write('docs/untracked.md');
+  write('docs/staged.md');
+  write('local-session/private-notes.md', 'private sentinel: first value\n');
+  gitAt(root, ['add', '-A', '--', 'docs/rename-old.md', 'docs/rename-new.md', 'docs/staged.md']);
+  write('docs/reference/positive.md', 'modified positive control\n');
+  if (process.platform !== 'win32') write('docs/odd\tline\nname.md', 'modified unusual path\n');
+
+  const cli = (script, extraArgs = []) => {
+    const result = spawnSync(process.execPath, [script, 'inventory', '--workspace', root, '--manifest', manifestRelative, '--base', base, ...extraArgs], { cwd: tempRoot, encoding: 'utf8' });
+    assert.ifError(result.error);
+    assert.strictEqual(result.status, 0, `inventory ${extraArgs.join(' ')}: ${result.stderr}`);
+    return { report: JSON.parse(result.stdout), stdout: result.stdout };
+  };
+  const first = cli(modulePath);
+  write('local-session/private-notes.md', 'private sentinel: changed value\n');
+  const second = cli(modulePath);
+  const report = first.report;
+  assert.strictEqual(first.stdout, second.stdout, 'changes to unproposed scratch files do not affect inventory output');
+  assert.ok(!first.stdout.includes('local-session/private-notes.md'), 'unproposed local session path is not inventoried');
+  assert.ok(!first.stdout.includes('private sentinel'), 'unproposed local session contents do not enter output');
+  assert.strictEqual(report.base.commit, base, 'the requested base resolves to a pinned commit');
+  assert.strictEqual(report.candidate.kind, 'working-tree', 'the current worktree is not mislabeled as the pinned base');
+  assert.ok(report.candidate.sha256, 'the document candidate identity has a digest');
+  assert.deepStrictEqual(report.coverage, {
+    identifiedDocumentPaths: report.records.filter(item => item.document).length,
+    explicitDispositionPaths: report.records.filter(item => item.document && item.reason).length,
+    complete: true,
+    claim: 'disposition coverage only; semantic validation was not performed'
+  });
+  assert.ok(report.records.some(item => item.path === 'README.md'), 'root README is inventoried');
+  for (const relative of ['docs/prd/plan.md', 'docs/adr/decision.md', 'docs/archive/old.md', 'docs/generated/view.md', 'docs/fixtures/setup.md', 'benchmarks/results/evidence.md', 'vendor/pkg/README.md', 'skills/sample/SKILL.md', 'references/source.md', 'templates/example.md', 'nested/deep/unknown.md']) {
+    assert.ok(report.records.some(item => item.path === relative), `nested document is inventoried: ${relative}`);
+  }
+
+  const byPath = new Map(report.records.map(item => [item.path, item]));
+  const positive = byPath.get('docs/reference/positive.md');
+  assert.strictEqual(positive.role, 'reference');
+  assert.strictEqual(positive.lifecycle, 'current');
+  assert.strictEqual(positive.disposition, 'applicable');
+  assert.ok(positive.reason, 'disposition reason is explicit');
+  assert.strictEqual(positive.status, 'modified');
+  assert.strictEqual(positive.validation.outcome, 'unchecked');
+  assert.ok(positive.validation.reason, 'validation outcome has its own reason');
+  assert.strictEqual(positive.current.oid, gitAt(root, ['hash-object', 'docs/reference/positive.md']));
+
+  assert.strictEqual(byPath.get('docs/delete.md').status, 'deleted');
+  assert.strictEqual(byPath.get('docs/delete.md').current, null);
+  assert.strictEqual(byPath.get('docs/delete.md').base.oid, gitAt(root, ['rev-parse', `${base}:docs/delete.md`]));
+  assert.strictEqual(byPath.get('docs/rename-old.md').status, 'renamed-from');
+  assert.strictEqual(byPath.get('docs/rename-new.md').status, 'renamed-to');
+  assert.strictEqual(byPath.get('docs/rename-old.md').rename.partnerPath, 'docs/rename-new.md');
+  assert.strictEqual(byPath.get('docs/rename-new.md').rename.partnerPath, 'docs/rename-old.md');
+  assert.ok(!byPath.has('docs/untracked.md'), 'unproposed untracked docs are excluded');
+  assert.strictEqual(byPath.get('docs/staged.md').status, 'added');
+  assert.strictEqual(byPath.get('docs/mode.md').base.mode, '100755', 'Git index executable mode is preserved across hosts');
+  assert.strictEqual(byPath.get('docs/mode.md').current.mode, '100755');
+
+  if (process.platform !== 'win32') {
+    const unusualPath = 'docs/odd\tline\nname.md';
+    const unusual = report.records.find(item => item.pathBytesBase64 === Buffer.from(unusualPath).toString('base64'));
+    assert.ok(unusual, 'NUL-delimited Git plumbing preserves tabs and newlines in raw path bytes');
+    assert.strictEqual(unusual.status, 'modified');
+    assert.strictEqual(unusual.path, unusualPath);
+  } else console.log('  SKIP 2ax. tab/newline filename subcase: Windows forbids control characters in filenames');
+  assert.strictEqual(byPath.get('nested/deep/unknown.md').disposition, 'unknown');
+  assert.ok(byPath.get('nested/deep/unknown.md').reason, 'unknown classification retains a reason');
+  if (symlinks.includes('docs/fixtures/external.md')) {
+    assert.strictEqual(byPath.get('docs/fixtures/external.md').kind, 'symlink');
+    assert.strictEqual(byPath.get('docs/fixtures/external.md').base.mode, '120000');
+  }
+  const proposed = cli(modulePath, ['--proposed-untracked', 'docs/untracked.md', ...(symlinks.includes('docs/fixtures/untracked-external.md') ? ['--proposed-untracked', 'docs/fixtures/untracked-external.md'] : [])]).report;
+  const proposedByPath = new Map(proposed.records.map(item => [item.path, item]));
+  assert.strictEqual(proposedByPath.get('docs/untracked.md').status, 'added', 'explicitly proposed untracked document is inventoried');
+  if (symlinks.includes('docs/fixtures/untracked-external.md')) {
+    assert.strictEqual(proposedByPath.get('docs/fixtures/untracked-external.md').kind, 'symlink');
+    assert.strictEqual(proposedByPath.get('docs/fixtures/untracked-external.md').current.mode, '120000');
+    assert.strictEqual(proposedByPath.get('docs/fixtures/untracked-external.md').current.oidBasis, 'raw worktree bytes; no Git filters applied');
+    const linkOid = spawnSync('git', ['-C', root, 'hash-object', '--stdin'], { encoding: 'utf8', input: fs.readlinkSync(path.join(root, 'docs', 'fixtures', 'untracked-external.md'), { encoding: 'buffer' }) });
+    assert.ifError(linkOid.error);
+    assert.strictEqual(proposedByPath.get('docs/fixtures/untracked-external.md').current.oid, linkOid.stdout.trim());
+  }
+  assert.strictEqual(byPath.get('vendor/submodule').kind, 'gitlink');
+  assert.strictEqual(byPath.get('vendor/submodule').base.mode, '160000');
+  assert.strictEqual(byPath.get('vendor/submodule').base.oid, gitAt(root, ['rev-parse', `${base}:vendor/submodule`]));
+  assert.ok(!report.records.some(item => item.path.startsWith('vendor/submodule/')), 'gitlink contents are not recursed');
+});
+
+let pinnedBaseAvailable = false;
+try { gitAt(REPOSITORY_ROOT, ['cat-file', '-e', `${P2_BASE_SHA}^{commit}`]); pinnedBaseAvailable = true; } catch { /* reported below as unchecked */ }
+if (!pinnedBaseAvailable) helper.check('2ax P2. actual repository inventory matches the raw Git oracle at a pinned base', false, `UNCHECKED: pinned baseline ${P2_BASE_SHA} unavailable; required repository ratchet not verified`);
+else checkCase('2ax P2. actual repository inventory matches the raw Git oracle at a pinned base', () => {
+    const result = spawnSync(process.execPath, [modulePath, 'inventory', '--workspace', REPOSITORY_ROOT, '--manifest', '.agents/harness-everything/document-inventory.json', '--base', P2_BASE_SHA], { cwd: tempRoot, encoding: 'utf8' });
+    assert.strictEqual(result.status, 0, `actual repository inventory: ${result.stderr}`);
+    const report = JSON.parse(result.stdout);
+    const oracle = inventoryOracle(REPOSITORY_ROOT, P2_BASE_SHA);
+    const records = assertInventoryAgainstOracle(report, oracle);
+    assert.ok(records.has(Buffer.from('README.md').toString('base64')), 'actual repository positive control is present');
+    assert.ok(records.has(Buffer.from('docs/architecture.md').toString('base64')), 'governed repository path is not dropped');
+    console.log(`  P2 repo oracle: ${report.coverage.identifiedDocumentPaths} document paths, ${oracle.changes.size} changed endpoints, ${oracle.stageEntries.size} index entries, ${oracle.statusPaths.size} status paths matched from raw NUL Git commands`);
+  });
+
+checkCase('2ax P2. baseline-to-candidate ratchet detects scope and identity drift', () => {
+  const root = workspace('baseline-ratchet');
+  const manifestPath = '.agents/harness-everything/document-inventory.json';
+  const rule = match => ({ match, role: 'reference', lifecycle: 'current', disposition: 'applicable', reason: `fixture rule for ${match}` });
+  // This expected policy is separate from the candidate manifest under test.
+  const baselineMusts = Object.freeze([
+    Object.freeze({ path: 'docs/reference/keep.md', role: 'reference', lifecycle: 'current', disposition: 'applicable' })
+  ]);
+  const assertBaselineMusts = candidate => {
+    const records = new Map(candidate.records.map(item => [item.pathBytesBase64, item]));
+    for (const must of baselineMusts) {
+      const key = Buffer.from(must.path).toString('base64');
+      const record = records.get(key);
+      assert.ok(record, `baseline MUST document is missing: ${must.path}`);
+      for (const field of ['role', 'lifecycle', 'disposition']) {
+        assert.strictEqual(record[field], must[field], `baseline MUST ${must.path} ${field} changed`);
+      }
+    }
+  };
+  const baselineManifest = {
+    schemaVersion: 1,
+    documentGlobs: ['**/*.md'],
+    rules: [
+      rule('docs/reference/current.md'), rule('docs/reference/keep.md'), rule('docs/reference/deleted.md'),
+      rule('docs/reference/rename-old.md'), rule('docs/reference/new.md'), rule('docs/reference/staged.md'),
+      rule('docs/reference/working.md'), rule('docs/reference/mode.md')
+    ]
+  };
+  const write = (relative, contents) => {
+    const absolute = path.join(root, ...relative.split('/'));
+    fs.mkdirSync(path.dirname(absolute), { recursive: true });
+    fs.writeFileSync(absolute, contents);
+    return absolute;
+  };
+  const writeManifest = value => write(manifestPath, `${JSON.stringify(value, null, 2)}\n`);
+  writeManifest(baselineManifest);
+  for (const relative of [
+    'docs/reference/current.md', 'docs/reference/keep.md', 'docs/reference/deleted.md',
+    'docs/reference/rename-old.md', 'docs/reference/working.md', 'docs/reference/staged.md',
+    'docs/reference/mode.md'
+  ]) write(relative, `${relative}\n`);
+  gitAt(root, ['init', '-q']);
+  for (const [key, value] of [['user.name', 'Harness P2 fixture'], ['user.email', 'harness-p2@example.invalid'], ['commit.gpgsign', 'false'], ['core.filemode', 'false']]) gitAt(root, ['config', key, value]);
+  gitAt(root, ['add', '-A']);
+  gitAt(root, ['update-index', '--chmod=+x', '--', 'docs/reference/mode.md']);
+  gitAt(root, ['commit', '-qm', 'trusted inventory baseline']);
+  const base = gitAt(root, ['rev-parse', 'HEAD']);
+
+  fs.rmSync(path.join(root, 'docs/reference/deleted.md'));
+  fs.renameSync(path.join(root, 'docs/reference/rename-old.md'), path.join(root, 'docs/reference/rename-new.md'));
+  write('docs/reference/new.md', 'new tracked document\n');
+  write('docs/reference/staged.md', 'staged tracked document\n');
+  write('docs/reference/working.md', 'staged contents\n');
+  write('docs/unknown/unclassified.md', 'unknown path remains visible\n');
+  const candidateManifest = { ...baselineManifest, rules: baselineManifest.rules.filter(item => item.match !== 'docs/reference/keep.md').concat(rule('docs/reference/rename-new.md')) };
+  writeManifest(candidateManifest);
+  gitAt(root, ['add', '-A']);
+  write('docs/reference/working.md', 'unstaged worktree contents\n');
+
+  const inventory = () => {
+    const result = spawnSync(process.execPath, [modulePath, 'inventory', '--workspace', root, '--manifest', manifestPath, '--base', base], { cwd: tempRoot, encoding: 'utf8' });
+    assert.ifError(result.error);
+    assert.strictEqual(result.status, 0, `fixture inventory: ${result.stderr}`);
+    return JSON.parse(result.stdout);
+  };
+  const docPaths = [
+    'docs/reference/current.md', 'docs/reference/keep.md', 'docs/reference/deleted.md',
+    'docs/reference/rename-old.md', 'docs/reference/rename-new.md', 'docs/reference/new.md',
+    'docs/reference/staged.md', 'docs/reference/working.md', 'docs/reference/mode.md',
+    'docs/unknown/unclassified.md'
+  ];
+  const expectedDocs = new Set(docPaths.map(value => Buffer.from(value).toString('base64')));
+  const report = inventory();
+  assert.throws(() => assertBaselineMusts(report), /baseline MUST docs\/reference\/keep\.md role changed/, 'dropping a baseline MUST rule is a policy scope regression');
+  const oracle = inventoryOracle(root, base);
+  const records = assertInventoryAgainstOracle(report, oracle, expectedDocs);
+  const get = value => records.get(Buffer.from(value).toString('base64'));
+  assert.strictEqual(get('docs/reference/current.md').disposition, 'applicable', 'unchanged governed path is a positive control');
+  assert.strictEqual(get('docs/reference/new.md').status, 'added', 'new tracked document is visible');
+  assert.ok(oracle.stageEntries.has(Buffer.from('docs/reference/staged.md').toString('base64')), 'staged positive control is in the independent index oracle');
+  assert.ok(oracle.statusPaths.has(Buffer.from('docs/reference/working.md').toString('base64')), 'unstaged positive control is in porcelain status');
+  assert.strictEqual(get('docs/reference/working.md').current.oid, gitAt(root, ['hash-object', 'docs/reference/working.md']), 'working-tree OID is checked independently');
+  const stagedWorkingOid = oracle.stageEntries.get(Buffer.from('docs/reference/working.md').toString('base64')).oid;
+  const stagedWorkingHash = spawnSync('git', ['-C', root, 'hash-object', '--stdin'], { input: Buffer.from('staged contents\n'), encoding: 'utf8' });
+  assert.ifError(stagedWorkingHash.error);
+  assert.strictEqual(stagedWorkingOid, stagedWorkingHash.stdout.trim(), 'index OID comes from its staged bytes');
+  assert.notStrictEqual(get('docs/reference/working.md').current.oid, stagedWorkingOid, 'worktree OID remains distinct from the staged OID');
+  assert.strictEqual(get('docs/reference/mode.md').base.mode, '100755', 'base executable mode is preserved');
+  assert.strictEqual(get('docs/reference/deleted.md').status, 'deleted', 'deleted baseline endpoint remains visible');
+  assert.strictEqual(get('docs/reference/rename-old.md').rename.endpoint, 'source', 'rename source is visible');
+  assert.strictEqual(get('docs/reference/rename-new.md').rename.endpoint, 'target', 'rename target is visible');
+  for (const value of ['docs/reference/keep.md', 'docs/unknown/unclassified.md']) {
+    assert.strictEqual(get(value).disposition, 'unknown', `unknown or dropped entry remains visible: ${value}`);
+    assert.ok(get(value).reason, `unknown or dropped entry keeps a reason: ${value}`);
+    assert.strictEqual(get(value).validation.outcome, 'unchecked', `unknown is not semantic PASS: ${value}`);
+  }
+
+  const retainedMustManifest = { ...candidateManifest, rules: [rule('docs/reference/keep.md'), ...candidateManifest.rules] };
+  writeManifest(retainedMustManifest);
+  gitAt(root, ['add', '--', manifestPath]);
+  const retainedMustReport = inventory();
+  assert.doesNotThrow(() => assertBaselineMusts(retainedMustReport), 'retaining the baseline MUST passes the policy ratchet');
+  const retainedByPath = new Map(retainedMustReport.records.map(item => [item.path, item]));
+  assert.strictEqual(retainedByPath.get('docs/reference/current.md').disposition, 'applicable', 'unchanged baseline path remains a positive control');
+  assert.strictEqual(retainedByPath.get('docs/unknown/unclassified.md').disposition, 'unknown', 'a new unknown path remains visible without shrinking baseline MUSTs');
+
+  const weakenedMustManifest = {
+    ...retainedMustManifest,
+    rules: retainedMustManifest.rules.map(item => item.match === 'docs/reference/keep.md' ? { ...item, disposition: 'inventory-only' } : item)
+  };
+  writeManifest(weakenedMustManifest);
+  gitAt(root, ['add', '--', manifestPath]);
+  const weakenedMustReport = inventory();
+  assert.throws(() => assertBaselineMusts(weakenedMustReport), /baseline MUST docs\/reference\/keep\.md disposition changed/, 'weakening a baseline MUST rule is a policy scope regression');
+
+  function getFrom(candidate, relative) {
+    return candidate.records.find(item => item.pathBytesBase64 === Buffer.from(relative).toString('base64'));
+  }
+  const rejects = (mutate, label) => {
+    const copy = JSON.parse(JSON.stringify(report));
+    mutate(copy);
+    assert.throws(() => assertInventoryAgainstOracle(copy, oracle, expectedDocs), undefined, label);
+  };
+  rejects(copy => { copy.records.pop(); }, 'ratchet rejects an omitted identity');
+  rejects(copy => { delete copy.records[0].path; }, 'ratchet rejects a missing report path');
+  rejects(copy => { delete getFrom(copy, 'docs/reference/new.md').reason; }, 'ratchet rejects a missing disposition reason');
+  rejects(copy => { const item = getFrom(copy, 'docs/reference/new.md'); delete item.lifecycle; delete item.disposition; delete item.validation; }, 'ratchet rejects collapsed axes');
+  rejects(copy => { delete getFrom(copy, 'docs/reference/new.md').current.oid; }, 'ratchet rejects missing object identity');
+
+  const narrowed = { ...candidateManifest, documentGlobs: ['**/*.pdf'] };
+  writeManifest(narrowed);
+  gitAt(root, ['add', '--', manifestPath]);
+  write('docs/reference/scope-gap.md', 'candidate path hidden by narrowed globs\n');
+  gitAt(root, ['add', '--', 'docs/reference/scope-gap.md']);
+  const narrowedReport = inventory();
+  const narrowedOracle = inventoryOracle(root, base);
+  const scopeDocs = new Set([...expectedDocs, Buffer.from('docs/reference/scope-gap.md').toString('base64')]);
+  assert.ok(narrowedOracle.documentKeys.has(Buffer.from('docs/reference/scope-gap.md').toString('base64')));
+  assert.strictEqual(narrowedReport.coverage.identifiedDocumentPaths, 0, 'narrowed globs cannot hide the full expected denominator');
+  assert.strictEqual(narrowedReport.coverage.complete, true, 'the producer-only zero-document claim is deliberately insufficient');
+  assert.throws(() => assertInventoryAgainstOracle(narrowedReport, narrowedOracle, scopeDocs), undefined, 'ratchet rejects a narrowed document glob and visible scope gap');
+});
+
+const symlinkProbe = path.join(tempRoot, 'manifest-ancestor-link-probe');
+try {
+  fs.symlinkSync(tempRoot, symlinkProbe, process.platform === 'win32' ? 'junction' : 'dir');
+  fs.rmSync(symlinkProbe, { recursive: true, force: true });
+  checkCase('2ax. inventory rejects a manifest reached through a workspace symlink ancestor', () => {
+    const root = workspace('manifest-ancestor-symlink');
+    const manifestRelative = '.agents/harness-everything/document-inventory.json';
+    const outside = path.join(tempRoot, 'outside-manifest-ancestor');
+    const manifest = { schemaVersion: 1, documentGlobs: ['**/*.md'], rules: [{ match: '**/*.md', role: 'inside-control', lifecycle: 'current', disposition: 'applicable', reason: 'inside manifest' }] };
+    const write = (target, content) => { fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, content); };
+    write(path.join(root, manifestRelative), `${JSON.stringify(manifest)}\n`);
+    write(path.join(root, 'docs', 'tracked.md'), 'tracked\n');
+    const externalManifest = { ...manifest, rules: [{ ...manifest.rules[0], role: 'external-sentinel-secret', reason: 'must never be read' }] };
+    write(path.join(outside, 'harness-everything', 'document-inventory.json'), `${JSON.stringify(externalManifest)}\n`);
+    gitAt(root, ['init', '-q']);
+    for (const [key, value] of [['user.name', 'Harness Test'], ['user.email', 'harness@example.invalid']]) gitAt(root, ['config', key, value]);
+    gitAt(root, ['add', '-A']);
+    gitAt(root, ['commit', '-qm', 'manifest symlink fixture']);
+    const base = gitAt(root, ['rev-parse', 'HEAD']);
+    const run = () => spawnSync(process.execPath, [modulePath, 'inventory', '--workspace', root, '--manifest', manifestRelative, '--base', base], { cwd: tempRoot, encoding: 'utf8' });
+    const inside = run();
+    assert.strictEqual(inside.status, 0, inside.stderr);
+    assert.strictEqual(JSON.parse(inside.stdout).records.find(item => item.path === 'docs/tracked.md').role, 'inside-control');
+    fs.rmSync(path.join(root, '.agents'), { recursive: true, force: true });
+    fs.symlinkSync(outside, path.join(root, '.agents'), process.platform === 'win32' ? 'junction' : 'dir');
+    const escaped = run();
+    assert.strictEqual(escaped.status, 2, 'manifest reached through an ancestor symlink fails closed');
+    assert.match(escaped.stderr, /symbolic link|symlink/i);
+    assert.ok(!escaped.stdout.includes('external-sentinel-secret'), 'external manifest contents are not accepted');
+  });
+} catch (error) {
+  if (!['EPERM', 'EACCES', 'ENOTSUP'].includes(error.code)) throw error;
+  console.log(`SKIP 2ax. manifest ancestor symlink guard: symlink creation unavailable (${error.code})`);
+}
+
+checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () => {
+  const trustedPaths = [
+    'scripts/doc-governance-guard.js',
+    'ci/mechanism-2ax-doc-lifecycle.test.js',
+    'ci/mechanism-325-f1-doc-check.test.js',
+    'harness-everything/scripts/doc-check.js',
+    'harness-everything/scripts/doc-lifecycle.js',
+    'harness-everything/scripts/project-docs-resolver.js',
+    'plugins/harness-everything/skills/harness-everything/scripts/doc-check.js',
+    'plugins/harness-everything/skills/harness-everything/scripts/doc-lifecycle.js',
+    'plugins/harness-everything/skills/harness-everything/scripts/project-docs-resolver.js',
+    '.agents/harness-everything/project-docs.json',
+    '.agents/harness-everything/document-inventory.json',
+    '.github/workflows/ci.yml',
+    'package.json',
+    'self-evolve/scripts/self-regression.js',
+    'ci/mechanism-test.js',
+    'ci/mutation-check.js',
+    'ci/lib/isolated-test-process.js',
+    'ci/test-helper.js',
+    'scripts/verify-all.js'
+  ];
+  const frozenGuard = fs.readFileSync(governanceGuardPath);
+  const frozenTest = fs.readFileSync(__filename);
+  const frozenGuardPath = path.join(tempRoot, 'frozen-doc-governance-guard.js');
+  const frozenTestPath = path.join(tempRoot, 'frozen-2ax-test.js');
+  fs.writeFileSync(frozenGuardPath, frozenGuard);
+  fs.writeFileSync(frozenTestPath, frozenTest);
+  assert.ok(fs.readFileSync(frozenGuardPath).equals(frozenGuard), 'trusted verifier bytes are frozen before fixture mutations');
+  assert.ok(fs.readFileSync(frozenTestPath).equals(frozenTest), 'trusted test/oracle bytes are frozen before fixture mutations');
+
+  function fixtureGit(root, args, input) {
+    const result = spawnSync('git', ['-C', root, ...args], {
+      encoding: 'buffer',
+      input,
+      env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_NO_REPLACE_OBJECTS: '1' }
+    });
+    assert.ifError(result.error);
+    assert.strictEqual(result.status, 0, `git ${args.join(' ')}: ${Buffer.from(result.stderr || '').toString('utf8')}`);
+    return Buffer.from(result.stdout || '');
+  }
+
+  function writeRelative(root, relativePath, bytes) {
+    const target = path.join(root, ...relativePath.split('/'));
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, bytes);
+  }
+
+  function commitFixture(root, message, executablePath) {
+    fixtureGit(root, ['add', '-A']);
+    if (executablePath) fixtureGit(root, ['update-index', '--chmod=+x', '--', executablePath]);
+    fixtureGit(root, ['commit', '--quiet', '-m', message]);
+    return fixtureGit(root, ['rev-parse', 'HEAD']).toString('ascii').trim();
+  }
+
+  function createFixture() {
+    const root = workspace('governance-guard-git');
+    fs.mkdirSync(path.join(root, '.fixture-hooks'), { recursive: true });
+    fixtureGit(root, ['init', '--quiet']);
+    fixtureGit(root, ['config', 'user.name', 'Harness Guard Test']);
+    fixtureGit(root, ['config', 'user.email', 'guard@example.invalid']);
+    fixtureGit(root, ['config', 'core.hooksPath', path.join(root, '.fixture-hooks')]);
+    for (const relativePath of trustedPaths) {
+      const bytes = relativePath === 'scripts/doc-governance-guard.js' ? frozenGuard
+        : relativePath === 'ci/mechanism-2ax-doc-lifecycle.test.js' ? frozenTest
+          : fs.readFileSync(path.join(REPOSITORY_ROOT, ...relativePath.split('/')));
+      writeRelative(root, relativePath, bytes);
+    }
+    const copyScenarioTree = (from, into) => {
+      fs.mkdirSync(into, { recursive: true });
+      for (const entry of fs.readdirSync(from, { withFileTypes: true })) {
+        const source = path.join(from, entry.name);
+        const target = path.join(into, entry.name);
+        if (entry.isDirectory()) copyScenarioTree(source, target);
+        else fs.copyFileSync(source, target);
+      }
+    };
+    copyScenarioTree(
+      path.join(REPOSITORY_ROOT, 'ci/fixtures/doc-lifecycle/scenarios'),
+      path.join(root, 'ci/fixtures/doc-lifecycle/scenarios')
+    );
+    const policy = JSON.parse(fs.readFileSync(path.join(REPOSITORY_ROOT, '.agents/harness-everything/project-docs.json'), 'utf8'));
+    for (const record of [...policy.governed, ...policy.derived]) writeRelative(root, record.path, `baseline ${record.path}\n`);
+    writeRelative(root, 'docs/ordinary.md', 'baseline ordinary document\n');
+    return { root, base: commitFixture(root, 'fixture baseline') };
+  }
+
+  function resetFixture(fixture) {
+    fixtureGit(fixture.root, ['reset', '--hard', fixture.base]);
+    fixtureGit(fixture.root, ['clean', '-fd']);
+  }
+
+  function runFrozenGuard(fixture, base, candidate, extraArgs = []) {
+    const args = [frozenGuardPath, '--repo', fixture.root, '--base', base, ...extraArgs];
+    if (candidate) args.push('--candidate', candidate);
+    const result = spawnSync(process.execPath, args, { cwd: tempRoot, encoding: 'utf8', timeout: 20000 });
+    assert.ifError(result.error);
+    assert.ok(result.stdout, result.stderr || 'guard returned no JSON');
+    return { status: result.status, report: JSON.parse(result.stdout), stderr: result.stderr };
+  }
+
+  const fixture = createFixture();
+  const ordinaryPath = path.join(fixture.root, 'docs', 'ordinary.md');
+  fs.writeFileSync(ordinaryPath, 'ordinary document edit\n');
+  // Git for Windows rejects LF paths even when they are added directly to the index.
+  const newlinePath = 'docs/new\nunknown.md';
+  const linkOid = fixtureGit(fixture.root, ['hash-object', '-w', '--stdin'], Buffer.from('../outside-target.md\n')).toString('ascii').trim();
+  fixtureGit(fixture.root, ['add', '-A']);
+  if (process.platform !== 'win32') {
+    const newlineOid = fixtureGit(fixture.root, ['hash-object', '-w', '--stdin'], Buffer.from('new document\n')).toString('ascii').trim();
+    fixtureGit(fixture.root, ['update-index', '--add', '--cacheinfo', `100644,${newlineOid},${newlinePath}`]);
+  }
+  fixtureGit(fixture.root, ['update-index', '--add', '--cacheinfo', `120000,${linkOid},docs/link.md`]);
+  fixtureGit(fixture.root, ['update-index', '--add', '--cacheinfo', `160000,${fixture.base},docs/submodule.md`]);
+  fixtureGit(fixture.root, ['commit', '--quiet', '-m', 'ordinary document edits']);
+  const positiveCandidate = fixtureGit(fixture.root, ['rev-parse', 'HEAD']).toString('ascii').trim();
+  const positive = runFrozenGuard(fixture, fixture.base, positiveCandidate);
+  assert.strictEqual(positive.status, 0, positive.stderr);
+  assert.strictEqual(positive.report.verdict, 'PASS', 'ordinary document edits remain permitted');
+  assert.strictEqual(positive.report.inputs.base.commit, fixture.base, 'base SHA is exact in JSON');
+  assert.strictEqual(positive.report.inputs.candidate.commit, positiveCandidate, 'candidate SHA is exact in JSON');
+  assert.strictEqual(positive.report.verifier.sha256, crypto.createHash('sha256').update(frozenGuard).digest('hex'));
+  assert.strictEqual(positive.report.verifier.matchesBaseObject, true, 'running verifier bytes match the baseline guard blob');
+  assert.deepStrictEqual(positive.report.trustSurface.paths.slice(0, trustedPaths.length).map(item => item.path), trustedPaths, 'fixed trust surface is explicit');
+  const scenarioExpectedPath = 'ci/fixtures/doc-lifecycle/scenarios/active-to-active/expected.json';
+  const scenarioOracle = positive.report.trustSurface.paths.find(item => item.path === scenarioExpectedPath);
+  assert.ok(scenarioOracle, 'tracked scenario oracle is part of the baseline trust surface');
+  assert.deepStrictEqual(scenarioOracle.base, scenarioOracle.candidate, 'unchanged oracle identity is a positive control');
+  const newDocs = new Map(positive.report.newDocuments.map(item => [item.path, item]));
+  const specialDocumentPaths = [...(process.platform === 'win32' ? [] : [newlinePath]), 'docs/link.md', 'docs/submodule.md'];
+  for (const relativePath of specialDocumentPaths) {
+    const record = newDocs.get(relativePath);
+    assert.ok(record, `new document is inventoried even with a special path or Git mode: ${relativePath}`);
+    assert.strictEqual(record.role, 'unknown');
+    assert.strictEqual(record.disposition, 'unknown');
+    assert.strictEqual(record.validation, 'unchecked');
+  }
+  assert.strictEqual(newDocs.get('docs/link.md').mode, '120000', 'symlink mode is retained without following the target');
+  assert.strictEqual(newDocs.get('docs/submodule.md').mode, '160000', 'gitlink mode is retained without recursing');
+  assert.strictEqual(newDocs.get('docs/submodule.md').type, 'commit');
+
+  const scenarioExpectedFile = path.join(fixture.root, ...scenarioExpectedPath.split('/'));
+  for (const mutation of ['content', 'delete', 'mode', 'add']) {
+    resetFixture(fixture);
+    if (mutation === 'content') {
+      const expected = JSON.parse(fs.readFileSync(scenarioExpectedFile, 'utf8'));
+      delete expected.resolve['docs/adr/GRPH-002.md'];
+      fs.writeFileSync(scenarioExpectedFile, `${JSON.stringify(expected, null, 2)}\n`);
+    } else if (mutation === 'delete') {
+      fixtureGit(fixture.root, ['rm', '--quiet', '--', scenarioExpectedPath]);
+    } else if (mutation === 'add') {
+      writeRelative(fixture.root, 'ci/fixtures/doc-lifecycle/scenarios/new/expected.json', '{}\n');
+    }
+    const candidate = commitFixture(fixture.root, `mutate scenario oracle ${mutation}`, mutation === 'mode' ? scenarioExpectedPath : undefined);
+    const result = runFrozenGuard(fixture, fixture.base, candidate);
+    assert.strictEqual(result.status, 2, `scenario fixture ${mutation} requires review: ${result.stderr}`);
+    assert.strictEqual(result.report.verdict, 'REVIEW_REQUIRED');
+    const item = result.report.trustSurface.changed.find(entry => entry.path === (mutation === 'add'
+      ? 'ci/fixtures/doc-lifecycle/scenarios/new/expected.json'
+      : scenarioExpectedPath));
+    assert.ok(item, `scenario fixture ${mutation} identity change is reported`);
+    if (mutation === 'delete') assert.strictEqual(item.candidate, null, 'deleted oracle retains its baseline identity');
+    if (mutation === 'add') assert.strictEqual(item.base, null, 'new oracle has no baseline identity');
+    if (mutation === 'content') assert.notStrictEqual(item.base.oid, item.candidate.oid, 'oracle content change is reported by blob OID');
+    if (mutation === 'mode') assert.notStrictEqual(item.base.mode, item.candidate.mode, 'oracle mode change is reported');
+  }
+
+  for (const relativePath of ['docs/architecture.md', 'docs/governed-index.md']) {
+    resetFixture(fixture);
+    writeRelative(fixture.root, relativePath, `changed configured document ${relativePath}\n`);
+    const candidate = commitFixture(fixture.root, `edit configured document ${relativePath}`);
+    const result = runFrozenGuard(fixture, fixture.base, candidate);
+    assert.strictEqual(result.status, 2, `${relativePath} content change requires review: ${result.stderr}`);
+    assert.strictEqual(result.report.verdict, 'REVIEW_REQUIRED');
+    const item = result.report.policyPreservation.configuredPaths.missingOrChanged.find(entry => entry.path === relativePath);
+    assert.ok(item, `${relativePath} identity change is reported`);
+    const baseTree = parseTreeOracle(fixtureGit(fixture.root, ['ls-tree', '-r', '-z', '--full-tree', fixture.base]));
+    const candidateTree = parseTreeOracle(fixtureGit(fixture.root, ['ls-tree', '-r', '-z', '--full-tree', candidate]));
+    const key = Buffer.from(relativePath).toString('base64');
+    const rawIdentity = entry => ({ mode: entry.mode, type: entry.type, oid: entry.oid });
+    assert.deepStrictEqual(item.base, rawIdentity(baseTree.get(key)), 'report includes exact baseline Git identity');
+    assert.deepStrictEqual(item.candidate, rawIdentity(candidateTree.get(key)), 'report includes exact candidate Git identity');
+    assert.notStrictEqual(item.base.oid, item.candidate.oid, 'content change is identified by blob OID');
+  }
+
+  resetFixture(fixture);
+  fixtureGit(fixture.root, ['rm', '--quiet', '--', 'docs/architecture.md']);
+  const deletedGovernedCandidate = commitFixture(fixture.root, 'delete configured document');
+  const deletedGoverned = runFrozenGuard(fixture, fixture.base, deletedGovernedCandidate);
+  assert.strictEqual(deletedGoverned.status, 2);
+  assert.strictEqual(deletedGoverned.report.verdict, 'REVIEW_REQUIRED');
+  assert.ok(deletedGoverned.report.policyPreservation.configuredPaths.missingOrChanged.some(item => item.path === 'docs/architecture.md'));
+
+  for (const relativePath of trustedPaths) {
+    resetFixture(fixture);
+    if (relativePath === '.agents/harness-everything/project-docs.json') {
+      const configPath = path.join(fixture.root, ...relativePath.split('/'));
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      config.governed.pop();
+      fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+    } else if (relativePath === '.agents/harness-everything/document-inventory.json') {
+      const configPath = path.join(fixture.root, ...relativePath.split('/'));
+      fs.appendFileSync(configPath, '\n');
+    } else if (relativePath === 'scripts/doc-governance-guard.js') {
+      writeRelative(fixture.root, relativePath, 'process.exit(0);\n');
+    } else if (relativePath === 'ci/mechanism-2ax-doc-lifecycle.test.js' || relativePath === '.github/workflows/ci.yml') {
+      fixtureGit(fixture.root, ['rm', '--quiet', '--', relativePath]);
+    } else {
+      const filePath = path.join(fixture.root, ...relativePath.split('/'));
+      fs.appendFileSync(filePath, '\n// candidate mutation\n');
+    }
+    if (relativePath === 'scripts/doc-governance-guard.js') {
+      writeRelative(fixture.root, '.harness-review-approval.json', '{"approved":true,"candidate":"self"}\n');
+    }
+    const candidate = commitFixture(fixture.root, `mutate ${relativePath}`);
+    const result = runFrozenGuard(fixture, fixture.base, candidate);
+    assert.strictEqual(result.status, 2, `${relativePath} mutation must require review: ${result.stderr}`);
+    assert.strictEqual(result.report.verdict, 'REVIEW_REQUIRED', `${relativePath} cannot self-approve`);
+    assert.ok(result.report.trustSurface.changed.some(item => item.path === relativePath), `${relativePath} identity change is reported`);
+    assert.ok(!Object.prototype.hasOwnProperty.call(result.report, 'approval'), 'candidate approval material is not an input');
+    if (relativePath === '.agents/harness-everything/project-docs.json') {
+      assert.ok(result.report.policyPreservation.governed.missingOrChanged.length, 'removed baseline governed record remains visible');
+    }
+  }
+
+  for (const relativePath of ['.agents/harness-everything/project-docs.json', '.agents/harness-everything/document-inventory.json']) {
+    resetFixture(fixture);
+    writeRelative(fixture.root, relativePath, '{malformed\n');
+    const malformedCandidate = commitFixture(fixture.root, `malformed candidate ${relativePath}`);
+    const malformed = runFrozenGuard(fixture, fixture.base, malformedCandidate);
+    assert.strictEqual(malformed.status, 1);
+    assert.strictEqual(malformed.report.verdict, 'FAIL');
+    assert.match(malformed.report.errors[0].message, /malformed JSON/i);
+  }
+
+  resetFixture(fixture);
+  fs.writeFileSync(path.join(fixture.root, '.agents/harness-everything/project-docs.json'), '{malformed\n');
+  const malformedBase = commitFixture(fixture.root, 'malformed baseline policy');
+  fs.writeFileSync(ordinaryPath, 'candidate follows malformed baseline\n');
+  const afterMalformedBase = commitFixture(fixture.root, 'candidate after malformed baseline');
+  const malformedBaseline = runFrozenGuard(fixture, malformedBase, afterMalformedBase);
+  assert.strictEqual(malformedBaseline.status, 1);
+  assert.strictEqual(malformedBaseline.report.verdict, 'FAIL');
+
+  resetFixture(fixture);
+  fixtureGit(fixture.root, ['rm', '--quiet', '--', 'scripts/doc-governance-guard.js']);
+  const noGuardBase = commitFixture(fixture.root, 'baseline predates verifier');
+  fs.writeFileSync(ordinaryPath, 'candidate without baseline verifier\n');
+  const noGuardCandidate = commitFixture(fixture.root, 'candidate before verifier bootstrap');
+  const bootstrap = runFrozenGuard(fixture, noGuardBase, noGuardCandidate);
+  assert.strictEqual(bootstrap.status, 3);
+  assert.strictEqual(bootstrap.report.verdict, 'BOOTSTRAP_UNCHECKED');
+  assert.strictEqual(bootstrap.report.verifier.matchesBaseObject, false);
+
+  const missingCandidate = runFrozenGuard(fixture, fixture.base, null);
+  assert.strictEqual(missingCandidate.status, 1);
+  assert.strictEqual(missingCandidate.report.verdict, 'FAIL');
+  const missingCommit = runFrozenGuard(fixture, fixture.base, '0'.repeat(40));
+  assert.notStrictEqual(missingCommit.status, 0);
+  assert.notStrictEqual(missingCommit.report.verdict, 'PASS');
 });
 
 helper.finish();

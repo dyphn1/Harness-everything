@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "documentGlobs": [
+    "**/*.md",
+    "**/*.mdx",
+    "**/*.markdown",
+    "**/*.rst",
+    "**/*.adoc",
+    "**/*.txt",
+    "**/README",
+    "**/LICENSE",
+    "**/NOTICE",
+    "**/CONTRIBUTING",
+    "**/CHANGELOG",
+    "**/CODE_OF_CONDUCT",
+    "**/SECURITY"
+  ],
+  "rules": [
+    {
+      "match": "docs/architecture.md",
+      "role": "reference",
+      "lifecycle": "current",
+      "disposition": "applicable",
+      "reason": "The current project-docs config declares this exact path as a governed reference; inventory does not expand its policy."
+    },
+    {
+      "match": "docs/doc-workflow-reconciliation.md",
+      "role": "reference",
+      "lifecycle": "current",
+      "disposition": "applicable",
+      "reason": "The current project-docs config declares this exact path as a governed reference; inventory does not expand its policy."
+    },
+    {
+      "match": "docs/governed-index.md",
+      "role": "generated-view",
+      "lifecycle": "generated",
+      "disposition": "applicable",
+      "reason": "The current project-docs config declares this exact path as derived; generator parity remains unchecked by inventory."
+    },
+    {
+      "match": "**/legacy/**",
+      "role": "legacy/archive",
+      "lifecycle": "historical",
+      "disposition": "inventory-only",
+      "reason": "Historical path is retained in the inventory; semantic validation policy is not inferred from its extension."
+    },
+    {
+      "match": "**/archive/**",
+      "role": "legacy/archive",
+      "lifecycle": "historical",
+      "disposition": "inventory-only",
+      "reason": "Historical path is retained in the inventory; semantic validation policy is not inferred from its extension."
+    },
+    {
+      "match": "**/fixtures/**",
+      "role": "fixture",
+      "lifecycle": "retained-test-input",
+      "disposition": "excluded",
+      "reason": "Fixture purpose is preserved; this path is excluded from semantic document validation."
+    },
+    {
+      "match": "**/fixture/**",
+      "role": "fixture",
+      "lifecycle": "retained-test-input",
+      "disposition": "excluded",
+      "reason": "Fixture purpose is preserved; this path is excluded from semantic document validation."
+    },
+    {
+      "match": "**/tests/**",
+      "role": "test-input",
+      "lifecycle": "retained-test-input",
+      "disposition": "excluded",
+      "reason": "Test input is preserved; this path is excluded from production document validation."
+    },
+    {
+      "match": "benchmarks/results/**",
+      "role": "evidence",
+      "lifecycle": "retained-evidence",
+      "disposition": "excluded",
+      "reason": "Evidence purpose is preserved; inventory does not claim benchmark validation."
+    },
+    {
+      "match": "**/vendor/**",
+      "role": "vendor-document",
+      "lifecycle": "external-content",
+      "disposition": "excluded",
+      "reason": "Tracked vendor content stays inventoried but is excluded from local semantic validation."
+    },
+    {
+      "match": "**/node_modules/**",
+      "role": "vendor-document",
+      "lifecycle": "external-content",
+      "disposition": "excluded",
+      "reason": "Tracked dependency content stays inventoried but is excluded from local semantic validation."
+    },
+    {
+      "match": "**/generated/**",
+      "role": "generated-view",
+      "lifecycle": "generated",
+      "disposition": "inventory-only",
+      "reason": "Generated path is identified; generator parity is unchecked unless an explicit generator contract is verified."
+    },
+    {
+      "match": "**/SKILL.md",
+      "role": "canonical-skill",
+      "lifecycle": "current",
+      "disposition": "inventory-only",
+      "reason": "Canonical skill is inventoried; routing, token, and package gates are outside this inventory command."
+    },
+    {
+      "match": "evals/**",
+      "role": "routing-eval",
+      "lifecycle": "current",
+      "disposition": "inventory-only",
+      "reason": "Routing evaluation is inventoried; evaluation gates are outside this inventory command."
+    },
+    {
+      "match": "**/templates/**",
+      "role": "template",
+      "lifecycle": "current",
+      "disposition": "inventory-only",
+      "reason": "Template content is inventoried without inferring a document lifecycle policy."
+    },
+    {
+      "match": "references/**",
+      "role": "reference",
+      "lifecycle": "current",
+      "disposition": "inventory-only",
+      "reason": "Reference path is inventoried; no project-specific semantic policy is added."
+    },
+    {
+      "match": "docs/prd/**",
+      "role": "prd",
+      "lifecycle": "unknown",
+      "disposition": "unknown",
+      "reason": "Path suggests a PRD role, but no active project-docs rule or owner decision establishes semantic coverage."
+    },
+    {
+      "match": "docs/adr/**",
+      "role": "adr",
+      "lifecycle": "unknown",
+      "disposition": "unknown",
+      "reason": "Path suggests an ADR role, but no active project-docs rule or owner decision establishes semantic coverage."
+    },
+    {
+      "match": "**/README*",
+      "role": "repository-guide",
+      "lifecycle": "current",
+      "disposition": "inventory-only",
+      "reason": "README content is inventoried without inferring semantic validation from its filename."
+    },
+    {
+      "match": "**/CHANGELOG*",
+      "role": "change-history",
+      "lifecycle": "current",
+      "disposition": "inventory-only",
+      "reason": "Change history is inventoried without adding a document lifecycle policy."
+    },
+    {
+      "match": "docs/**",
+      "role": "project-document",
+      "lifecycle": "unknown",
+      "disposition": "unknown",
+      "reason": "No current path-specific project-docs disposition is declared for this document."
+    }
+  ]
+}
