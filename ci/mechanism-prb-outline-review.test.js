@@ -319,7 +319,8 @@ function createOutlineFixture(options = {}) {
   function finishDraft({ draft = true, nonDescendant = false, finalReview = false, baselineRoot = root,
     omitWorkerStart = false, omitWorkerResult = false, omitWorkerStop = false, tamperHandoff = false,
     providerSessionId = sessionId, providerTaskId = taskId, providerBaseline = { root, commit: baselineCommit },
-    runPilot = false, handAuthoredCapture = false, removeSeam = false, mutateAfterFinalReview = false } = {}) {
+    runPilot = false, handAuthoredCapture = false, removeSeam = false, mutateAfterFinalReview = false,
+    postWorkerCaptures = [] } = {}) {
     if (draft) {
       fs.writeFileSync(path.join(root, target), `---\nid: ${domain}-001\nstatus: proposed\n---\n\n## Decision\nFinal D for row ${rowId}.\n`);
       fixtureGit(root, ['add', '-A']);
@@ -389,7 +390,7 @@ function createOutlineFixture(options = {}) {
         tool_response: { agentId: options.workerPrincipal || 'draft-worker', interrupted: false, status: 'completed' },
       }, 'PostToolUse', root)] : []), ...(!omitWorkerStop ? [provider.buildCaptureRecord({
         session_id: sessionId, cwd: root, hook_event_name: 'SubagentStop', agent_id: options.workerPrincipal || 'draft-worker', agent_type: 'worker',
-      }, 'SubagentStop', root)] : [])];
+      }, 'SubagentStop', root)] : []), ...postWorkerCaptures];
     const qualification = options.noFakeQualification ? undefined : { source: 'fake-test-fixture', faked: true, toolUseIdPopulated: true,
       agentIdPopulated: true, outlineDispatchCaptureVerified: true };
     if (removeSeam && capture.outlineDispatch?.seamRef) {
@@ -979,6 +980,74 @@ test('outline evidence binds exact task, B, O blobs, independent review, worker 
     assert.strictEqual(completed.result.status, 'accepted',
       `a reviewer that started and stopped in O before the dispatch is not a competing writer: ${JSON.stringify(completed.result)}`);
   } finally { stoppedReviewer.cleanup(); }
+
+  const postDraftReviewer = createOutlineFixture();
+  try {
+    const reviewer = 'post-draft-reviewer';
+    const captures = [
+      provider.buildCaptureRecord({ session_id: postDraftReviewer.sessionId, cwd: postDraftReviewer.root,
+        hook_event_name: 'SubagentStart', agent_id: reviewer, agent_type: 'reviewer' }, 'SubagentStart', postDraftReviewer.root),
+      provider.buildCaptureRecord({ session_id: postDraftReviewer.sessionId, cwd: postDraftReviewer.root,
+        hook_event_name: 'PostToolUse', tool_name: 'Read', tool_use_id: 'post-draft-read', agent_id: reviewer,
+        tool_input: { file_path: postDraftReviewer.target }, tool_response: { interrupted: false } }, 'PostToolUse', postDraftReviewer.root),
+      provider.buildCaptureRecord({ session_id: postDraftReviewer.sessionId, cwd: postDraftReviewer.root,
+        hook_event_name: 'PostToolUse', tool_name: 'Task', tool_use_id: 'post-draft-review',
+        tool_response: { agentId: reviewer, status: 'completed' } }, 'PostToolUse', postDraftReviewer.root),
+      provider.buildCaptureRecord({ session_id: postDraftReviewer.sessionId, cwd: postDraftReviewer.root,
+        hook_event_name: 'SubagentStop', agent_id: reviewer, agent_type: 'reviewer' }, 'SubagentStop', postDraftReviewer.root),
+    ];
+    const completed = postDraftReviewer.finishDraft({ postWorkerCaptures: captures });
+    assert.strictEqual(completed.result.status, 'accepted',
+      `a same-root reviewer starting after the draft worker's Stop does not overlap the draft interval: ${JSON.stringify(completed.result)}`);
+  } finally { postDraftReviewer.cleanup(); }
+
+  for (const [name, arrange] of [
+    ['post-stop reviewer missing Stop', fixture => [
+      provider.buildCaptureRecord({ session_id: fixture.sessionId, cwd: fixture.root,
+        hook_event_name: 'SubagentStart', agent_id: 'post-draft-reviewer', agent_type: 'reviewer' }, 'SubagentStart', fixture.root),
+    ]],
+    ['post-stop reviewer with duplicate Starts', fixture => {
+      const start = provider.buildCaptureRecord({ session_id: fixture.sessionId, cwd: fixture.root,
+        hook_event_name: 'SubagentStart', agent_id: 'post-draft-reviewer', agent_type: 'reviewer' }, 'SubagentStart', fixture.root);
+      return [start, { ...start, ref: `${start.ref}:dup`, captureId: `${start.captureId}:dup` }, provider.buildCaptureRecord({
+        session_id: fixture.sessionId, cwd: fixture.root, hook_event_name: 'SubagentStop',
+        agent_id: 'post-draft-reviewer', agent_type: 'reviewer' }, 'SubagentStop', fixture.root)];
+    }],
+    ['post-stop reviewer Stop before Start', fixture => [
+      provider.buildCaptureRecord({ session_id: fixture.sessionId, cwd: fixture.root,
+        hook_event_name: 'SubagentStop', agent_id: 'post-draft-reviewer', agent_type: 'reviewer' }, 'SubagentStop', fixture.root),
+      provider.buildCaptureRecord({ session_id: fixture.sessionId, cwd: fixture.root,
+        hook_event_name: 'SubagentStart', agent_id: 'post-draft-reviewer', agent_type: 'reviewer' }, 'SubagentStart', fixture.root),
+    ]],
+  ]) {
+    const fixture = createOutlineFixture();
+    try {
+      const completed = fixture.finishDraft({ postWorkerCaptures: arrange(fixture) });
+      assert.ok(completed.result.diagnostics?.some(item => item.code === 'outline-competing-writer-start'),
+        `${name} cannot use the post-stop exception: ${JSON.stringify(completed.result)}`);
+    } finally { fixture.cleanup(); }
+  }
+
+  const postDraftWriter = createOutlineFixture();
+  try {
+    const reviewer = 'post-draft-reviewer';
+    const captures = [
+      provider.buildCaptureRecord({ session_id: postDraftWriter.sessionId, cwd: postDraftWriter.root,
+        hook_event_name: 'SubagentStart', agent_id: reviewer, agent_type: 'reviewer' }, 'SubagentStart', postDraftWriter.root),
+      provider.buildCaptureRecord({ session_id: postDraftWriter.sessionId, cwd: postDraftWriter.root,
+        hook_event_name: 'PostToolUse', tool_name: 'Edit', tool_use_id: 'post-draft-edit', agent_id: reviewer,
+        tool_input: { file_path: postDraftWriter.target }, tool_response: { interrupted: false } }, 'PostToolUse', postDraftWriter.root),
+      provider.buildCaptureRecord({ session_id: postDraftWriter.sessionId, cwd: postDraftWriter.root,
+        hook_event_name: 'PostToolUse', tool_name: 'Task', tool_use_id: 'post-draft-review',
+        tool_response: { agentId: reviewer, status: 'completed' } }, 'PostToolUse', postDraftWriter.root),
+      provider.buildCaptureRecord({ session_id: postDraftWriter.sessionId, cwd: postDraftWriter.root,
+        hook_event_name: 'SubagentStop', agent_id: reviewer, agent_type: 'reviewer' }, 'SubagentStop', postDraftWriter.root),
+    ];
+    const completed = postDraftWriter.finishDraft({ postWorkerCaptures: captures });
+    assert.ok(completed.result.diagnostics?.some(item => item.code === 'outline-writer-activity-ambiguous'),
+      `a write after the post-stop reviewer start remains ambiguous: ${JSON.stringify(completed.result)}`);
+  } finally { postDraftWriter.cleanup(); }
+
   for (const [name, arrange] of [
     ['reviewer stop after the dispatch', fixture => {
       const stop = fixture.reviewCaptures.findIndex(item => item.event === 'SubagentStop');

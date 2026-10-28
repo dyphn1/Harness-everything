@@ -1501,20 +1501,31 @@ function resolveOutlineEvidence({ safeInput, capture, captures, request, originR
     // are covered by the clean-O seam check and by unattributedWriters below.
     const journal = Array.isArray(captures) ? captures : [];
     const dispatchIndex = journal.indexOf(correlation.pre);
-    const stoppedBeforeDispatch = start => {
+    const uniqueLifecycle = start => {
+      if (!textOf(start.session_id) || !textOf(start.agent_id)) return null;
       const lifecycle = event => journal.filter(item => recordOf(item) && item.event === event
         && item.session_id === start.session_id && textOf(start.agent_id) && item.agent_id === start.agent_id);
       // Exactly one Start and one Stop per (session_id, agent_id); a duplicate either way stays ambiguous.
       const starts = lifecycle('SubagentStart');
       const stops = lifecycle('SubagentStop');
-      if (starts.length !== 1 || starts[0] !== start || stops.length !== 1) return false;
+      if (starts.length !== 1 || starts[0] !== start || stops.length !== 1) return null;
       const startIndex = journal.indexOf(start);
       const stopIndex = journal.indexOf(stops[0]);
-      return dispatchIndex >= 0 && startIndex >= 0 && startIndex < stopIndex && stopIndex < dispatchIndex;
+      if (startIndex < 0 || stopIndex <= startIndex) return null;
+      return { startIndex, stopIndex };
+    };
+    const stoppedBeforeDispatch = start => {
+      const lifecycle = uniqueLifecycle(start);
+      return Boolean(lifecycle && dispatchIndex >= 0 && lifecycle.stopIndex < dispatchIndex);
+    };
+    const startedAfterWorkerStop = start => {
+      const lifecycle = uniqueLifecycle(start);
+      const workerStopIndex = journal.indexOf(correlation.stop);
+      return Boolean(lifecycle && workerStopIndex >= 0 && lifecycle.startIndex > workerStopIndex);
     };
     const competingStarts = journal.filter(item => recordOf(item)
       && item.event === 'SubagentStart' && item.ref !== worker.ref && sameCanonicalPath(item.cwd, workerRoot)
-      && !stoppedBeforeDispatch(item));
+      && !stoppedBeforeDispatch(item) && !startedAfterWorkerStop(item));
     if (competingStarts.length) return fail('outline-competing-writer-start');
     const unattributedWriters = (Array.isArray(captures) ? captures : []).filter(item => possibleWriterCapture(item)
       && (item.agent_id !== worker.agent_id || !sameCanonicalPath(item.cwd, workerRoot)));

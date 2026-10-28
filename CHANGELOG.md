@@ -7,6 +7,7 @@ All notable changes to this project are documented in this file.
 ### Bug Fixes
 
 * **doc-reconciliation:** pin the owner-approved VERI-to-EVID row mapping and exclude ordinary SubagentStop completions from quality-review candidates.
+* **doc-reconciliation:** allow uniquely identified same-root reviewers that start after the correlated draft worker stops.
 
 ## [0.46.3](https://github.com/dyphn1/Harness-everything/compare/v0.46.2...v0.46.3) (2026-10-28)
 
