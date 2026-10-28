@@ -47,7 +47,7 @@ const QUALIFICATION_EXPORT_SCHEMA = 'harness.doc-reconciliation.qualification.v1
 const HEX64 = /^[0-9a-f]{64}$/;
 const PRE_CAPTURE_TOOLS = ['Bash', 'PowerShell', 'Task', 'Agent', 'Write', 'Edit', 'apply_patch'];
 const STDOUT_CAP_BYTES = 1024 * 1024;
-const DOC_CHECK_FLAGS = new Set(['--workspace', '--config', '--changed-path', '--base']);
+const DOC_CHECK_FLAGS = new Set(['--workspace', '--config', '--changed-path', '--base', '--derived-view']);
 const DOC_CHECK_BOOLEAN_FLAGS = new Set(['--conflict-assessment']);
 const DOC_CHECK_SCHEMA = 'harness.doc-check.check.v1';
 const DOC_CHECK_CONFLICT_SCHEMA = 'harness.doc-check.conflict-assessment.v1';
@@ -99,7 +99,7 @@ function isUncPathPrefix(token, command, index) {
   return token === '' && command[index] === '\\' && command[index + 1] === '\\';
 }
 // Canonical SHA-256 of harness-everything/scripts/doc-check.js (CRLF normalised to LF). Re-pin deliberately when that script changes.
-const SHIPPED_DOC_CHECK_DIGEST = '1afd94d66b356c94206d2441529ec0b7fafa1bcb453b0f1e2cf6994b1e4858e5';
+const SHIPPED_DOC_CHECK_DIGEST = '804a093b31afde07ea6ec40e39fc758b501966bfa2a15c53a5275ad3171b0755';
 // This install's own doc-check runtime, relative to hooks/scripts/lib: the source checkout or the packaged plugin.
 const DOC_CHECK_INSTALL_LAYOUTS = [
   ['..', '..', '..', 'harness-everything', 'scripts', 'doc-check.js'],
@@ -405,6 +405,8 @@ function resolveDocCheckInvocation(command, cwd) {
     if (flag === '--changed-path') changedPaths.push(value);
     else {
       if (values.has(flag)) return rejected('duplicate-flag');
+      if (flag === '--derived-view' && (path.isAbsolute(value) || /^[A-Za-z]:[\\/]/.test(value)
+        || value.split(/[\\/]/).includes('..') || /[*?\[\]{}]/.test(value))) return rejected('derived-view-invalid');
       values.set(flag, value);
     }
   }
@@ -425,7 +427,8 @@ function resolveDocCheckInvocation(command, cwd) {
     }
   }
   return { kind: 'accepted', reason: null, installed: registered.installed, digest, argv,
-    conflictAssessment, base: values.get('--base') || null, changedPaths };
+    conflictAssessment, base: values.get('--base') || null, config: values.get('--config'),
+    derivedView: values.get('--derived-view') || null, changedPaths };
 }
 
 // Observation-time digests of the checked paths, read from the workspace when the check ran. Absent paths are omitted.
@@ -437,6 +440,29 @@ function observedDigestsFor(root, paths) {
     catch { /* absent: the event will lack this digest and be rejected by the checker */ }
   }
   return digests;
+}
+
+function observedConfigSourcesFor(root, sources) {
+  if (!Array.isArray(sources)) return [];
+  return sources.map(source => {
+    const relative = source && source.path;
+    if (typeof relative !== 'string' || !relative || path.isAbsolute(relative) || relative.split(/[\\/]/).includes('..')) {
+      return { path: String(relative || ''), presence: 'unsupported' };
+    }
+    const file = path.resolve(root, relative);
+    const within = path.relative(path.resolve(root), file);
+    if (!within || within === '..' || within.startsWith(`..${path.sep}`) || path.isAbsolute(within)) {
+      return { path: relative, presence: 'unsupported' };
+    }
+    try {
+      if (!fs.lstatSync(file).isFile()) return { path: relative, presence: 'unsupported' };
+      return { path: relative, presence: 'present', digest: crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex') };
+    } catch (error) {
+      return error.code === 'ENOENT' || error.code === 'ENOTDIR'
+        ? { path: relative, presence: 'missing' }
+        : { path: relative, presence: 'unreadable' };
+    }
+  });
 }
 
 function textOf(value) { return typeof value === 'string' && value.trim().length > 0; }
@@ -1734,6 +1760,92 @@ const createClaudeOriginProvider = input => {
       if (!paths.length) return rejected('scope-empty', `${capability} checked no governed paths`);
       let corpusBinding;
       let baselineArtifactDigests;
+      let derivedBinding;
+      if (capability === 'derived-regenerate') {
+        if (!registered.derivedView || paths.length !== 1 || paths[0] !== registered.derivedView) {
+          return rejected('capability-mismatch', 'derived-regenerate requires the exact registered --derived-view path');
+        }
+        const binding = projection.binding;
+        const corpus = binding && binding.sourceCorpus;
+        const config = binding && binding.config;
+        const generator = binding && binding.generator;
+        const generation = binding && binding.generation;
+        const comparison = binding && binding.comparison;
+        if (!recordOf(binding) || binding.view !== registered.derivedView || !recordOf(corpus) || corpus.complete !== true
+          || !Array.isArray(corpus.paths) || !corpus.paths.length || !recordOf(corpus.digests)
+          || JSON.stringify([...new Set(corpus.paths)].sort(compareKeys)) !== JSON.stringify(corpus.paths)
+          || JSON.stringify(Object.keys(corpus.digests).sort(compareKeys)) !== JSON.stringify(corpus.paths)
+          || corpus.paths.some(relative => !textOf(relative) || path.isAbsolute(relative) || relative.split(/[\\/]/).includes('..')
+            || !HEX64.test(String(corpus.digests[relative] || '')))
+          || !recordOf(config) || !textOf(config.path) || path.isAbsolute(config.path)
+          || config.path.split(/[\\/]/).includes('..') || !HEX64.test(String(config.digest || ''))
+          || !Array.isArray(config.sources) || !recordOf(generator) || !textOf(generator.path)
+          || !HEX64.test(String(generator.digest || '')) || !recordOf(generation) || generation.state !== 'pass'
+          || !HEX64.test(String(generation.outputDigest || '')) || !recordOf(comparison) || comparison.state !== 'equal'
+          || comparison.targetDigest !== generation.outputDigest) {
+          return rejected('derived-binding-invalid', 'derived-regenerate stdout lacks complete generation, comparison, and input binding');
+        }
+        const configPath = path.resolve(cap.cwd, registered.config);
+        const configRelative = path.relative(path.resolve(cap.cwd), configPath).split(path.sep).join('/');
+        const observedDerived = recordOf(cap.observedDerivedDigests) ? cap.observedDerivedDigests : {};
+        if (configRelative !== config.path || observedDerived[config.path] !== config.digest
+          || observedDerived[registered.derivedView] !== comparison.targetDigest) {
+          return rejected('derived-input-changed-after-check', 'the selected config or derived target changed before host capture');
+        }
+        const expectedObservedPaths = [...new Set([...corpus.paths, config.path, registered.derivedView])].sort(compareKeys);
+        if (JSON.stringify(Object.keys(observedDerived).sort(compareKeys)) !== JSON.stringify(expectedObservedPaths)
+          || corpus.paths.some(relative => observedDerived[relative] !== corpus.digests[relative])) {
+          return rejected('derived-input-changed-after-check', 'a source path is missing or changed before host capture');
+        }
+        const configSources = config.sources;
+        if (JSON.stringify(configSources.map(item => item && item.path)) !== JSON.stringify([...new Set(configSources.map(item => item && item.path))].sort(compareKeys))
+          || configSources.some(item => !recordOf(item) || !textOf(item.path) || path.isAbsolute(item.path)
+            || item.path.split(/[\\/]/).includes('..') || !['present', 'missing'].includes(item.presence)
+            || (item.presence === 'present' ? !HEX64.test(String(item.digest || '')) : item.digest !== undefined))) {
+          return rejected('derived-config-binding-invalid', 'derived-regenerate config source inventory is malformed');
+        }
+        const observedConfigSources = cap.observedDerivedConfigSources;
+        if (!Array.isArray(observedConfigSources) || JSON.stringify(observedConfigSources) !== JSON.stringify(configSources)) {
+          return rejected('config-changed-after-check', 'a config source changed between check and host capture');
+        }
+        const configSource = configSources.find(item => item.path === config.path);
+        if (!configSource || configSource.presence !== 'present' || configSource.digest !== config.digest) {
+          return rejected('derived-config-binding-invalid', 'the selected config is absent from the observed config inventory');
+        }
+        let configData;
+        try { configData = JSON.parse(fs.readFileSync(configPath, 'utf8')); }
+        catch { return rejected('derived-config-binding-invalid', 'the selected config cannot be read during assessment'); }
+        const selectedViews = Array.isArray(configData.derived) ? configData.derived.filter(item => item && item.path === registered.derivedView) : [];
+        const expectedGenerator = `node harness-everything/scripts/doc-lifecycle.js index --workspace . --config ${registered.config} --all`;
+        if (selectedViews.length !== 1 || selectedViews[0].generator !== expectedGenerator) {
+          return rejected('derived-generator-unsupported', 'the selected config does not declare the supported lifecycle index operation');
+        }
+        let generatorPath;
+        try { generatorPath = fs.realpathSync(path.join(path.dirname(registered.installed), 'doc-lifecycle.js')); }
+        catch { return rejected('derived-generator-unavailable', 'the installed lifecycle index generator is missing'); }
+        if (generator.path !== generatorPath || fileDigest(generatorPath) !== generator.digest) {
+          return rejected('derived-generator-mismatch', 'the lifecycle generator differs from the implementation observed in stdout');
+        }
+        let currentConfigSources;
+        try {
+          const lifecycle = require(generatorPath);
+          currentConfigSources = lifecycle.configSourceInventory(cap.cwd, configPath);
+        } catch { return rejected('derived-config-binding-invalid', 'the lifecycle config inventory is unavailable'); }
+        if (!currentConfigSources || currentConfigSources.complete !== true
+          || JSON.stringify(currentConfigSources.sources) !== JSON.stringify(configSources)) {
+          return rejected('config-changed-after-check', 'the lifecycle config source inventory changed after the check');
+        }
+        if (!recordOf(request.identity) || !HEX64.test(String(request.identity.baselineDigest || ''))
+          || !HEX64.test(String(request.identity.candidateDigest || '')) || !HEX64.test(String(request.identity.configDigest || ''))) {
+          return rejected('identity-missing', 'derived-regenerate needs the complete snapshot identity');
+        }
+        derivedBinding = {
+          ...binding,
+          baselineDigest: request.identity.baselineDigest,
+          candidateDigest: request.identity.candidateDigest,
+          configIdentityDigest: request.identity.configDigest,
+        };
+      }
       if (capability === 'conflict-check') {
         const assessment = report.conflictAssessment;
         const corpus = assessment && assessment.corpus;
@@ -1806,6 +1918,7 @@ const createClaudeOriginProvider = input => {
         artifactDigests,
         ...(Object.keys(baselineArtifacts).length ? { baselineArtifacts } : {}),
         ...(corpusBinding ? { corpusBinding } : {}),
+        ...(derivedBinding ? { derivedBinding } : {}),
         captured: { responseRef: cap.responseRef, responseDigest: cap.responseDigest },
       };
       return { status: 'accepted', originRef, event, correlation: { toolCorrelationId: cap.tool_use_id, resultRef: cap.responseRef } };
@@ -2140,6 +2253,16 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
         const report = JSON.parse(stdout);
         checkedPaths = ['doc-lint', 'link-check'].flatMap(capability => (recordOf(report.capabilities) && recordOf(report.capabilities[capability])
           && Array.isArray(report.capabilities[capability].checkedPaths) ? report.capabilities[capability].checkedPaths : []));
+        const derived = recordOf(report.capabilities) && report.capabilities['derived-regenerate'];
+        const derivedBinding = recordOf(derived) && recordOf(derived.binding) ? derived.binding : null;
+        if (installedCheck.derivedView && typeof workspaceRoot === 'string' && workspaceRoot && derivedBinding && derivedBinding.view === installedCheck.derivedView
+          && recordOf(derivedBinding.sourceCorpus) && Array.isArray(derivedBinding.sourceCorpus.paths)
+          && recordOf(derivedBinding.config) && Array.isArray(derivedBinding.config.sources)) {
+          checkedPaths.push(derivedBinding.view);
+          record.observedDerivedDigests = observedDigestsFor(workspaceRoot,
+            [...derivedBinding.sourceCorpus.paths, derivedBinding.config.path, derivedBinding.view]);
+          record.observedDerivedConfigSources = observedConfigSourcesFor(workspaceRoot, derivedBinding.config.sources);
+        }
         const conflict = recordOf(report.capabilities) && report.capabilities['conflict-check'];
         if (installedCheck.conflictAssessment === true && report.mode === 'conflict-assessment'
           && recordOf(conflict) && conflict.state === 'pass' && recordOf(conflict.corpus)) {

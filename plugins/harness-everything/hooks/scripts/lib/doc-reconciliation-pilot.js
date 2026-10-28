@@ -355,6 +355,8 @@ function captureReferences(context) {
   const provider = require('./doc-reconciliation-provider');
   references.push(...candidates.filter(item => provider.resolveDocCheckInvocation(item.command, item.cwd).conflictAssessment === true)
     .map(item => `${item.ref}#conflict-check`));
+  references.push(...candidates.filter(item => provider.resolveDocCheckInvocation(item.command, item.cwd).derivedView)
+    .map(item => `${item.ref}#derived-regenerate`));
   references.push(...outlineDispatchReferences(captures, taskId, context.sessionDir));
   // The adapter accepts one event per capability; rotating candidate order lets separate valid runs fill each capability.
   return [...references, ...reviews.map(item => `${item.ref}#quality-review`)];

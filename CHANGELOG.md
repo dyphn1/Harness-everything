@@ -56,6 +56,7 @@ All notable changes to this project are documented in this file.
 ### Added
 
 - **doc-governance:** declare six ADR domains (ROUTE, GATE, EVID, SONE, DOCS, DIST) and record the eight DOCS ADRs (DOCS-001 to DOCS-008) for already-in-effect document-lifecycle mechanisms.
+- **doc-reconciliation:** add registered derived-view checks that bind in-memory lifecycle-index generation to the unchanged source corpus, config and target bytes.
 
 ### Features
 
