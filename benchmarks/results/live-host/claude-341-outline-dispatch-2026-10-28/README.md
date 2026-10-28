@@ -9,7 +9,7 @@
 | Host profile | Claude Code 2.1.312 |
 | Staged source baseline | `1bd0f805031c5577a6e7f72a9bc5b41618b71fc1` |
 | Sanitized capture | `hooks/scripts/lib/doc-reconciliation-outline-capture.sanitized.jsonl` |
-| Sanitized capture SHA-256 | `1e2466c10ee94efbe0172b443ed25d99b9751da53dadc56930a62b6b44d08d76` |
+| Sanitized capture SHA-256 | `6feb440af12aaf878a0bed5cb750f29e27d271a9add93001e151746980230b7f` |
 | Pinned inventory bytes for the production-path fixture | `inventory/2741bd4514d2cd68f57d93a2b3ce94cbe597ca62d30e26f0ca58e882df5b03c6.md` |
 
 The inventory copy is byte-identical to the pinned run8 artifact and lets the no-DI integration regression run without a machine-local path.
@@ -23,7 +23,7 @@ node benchmarks/results/live-host/claude-341-outline-dispatch-2026-10-28/sanitiz
   <raw-hooks.jsonl> hooks/scripts/lib/doc-reconciliation-outline-capture.sanitized.jsonl
 ```
 
-The sanitizer flattens each wrapper's observed payload, assigns `event` from `hook_event_name`, and preserves record order and field absence. It removes only wrapper timestamp `t` and `transcript_path`; `agent_transcript_path` is retained with a synthetic absolute path, and its encoded Claude project-folder slug is scrubbed. Private roots map to absolute `/sanitized/run8/...` paths; session, prompt, tool-use and agent IDs receive stable one-to-one placeholders, including `tool_response.agentId`. It does not synthesize interruption, parent dispatch, background, isolation or completion fields. It fails when private path strings or original IDs remain.
+The sanitizer flattens each wrapper's observed payload, assigns `event` from `hook_event_name`, and preserves record order and field absence. It removes only wrapper timestamp `t` and `transcript_path`; `agent_transcript_path` is retained with a synthetic absolute path, and its encoded Claude project-folder slug is scrubbed. Private roots map to absolute `/sanitized/run8/...` paths; session, prompt, tool-use and agent IDs receive stable one-to-one placeholders, including `tool_response.agentId`. Each distinct dispatch-marker `token=` value receives a stable, nonempty, whitespace-free placeholder at every nested occurrence; longer tokens are replaced first to avoid partial overlap. It does not synthesize interruption, parent dispatch, background, isolation or completion fields. It fails when private path strings, original IDs or dispatch tokens remain.
 
 Raw hooks and transcripts stay private. The sanitized file qualifies only the observed Claude Code 2.1.312 profile; it does not qualify OpenCode, Codex, other Claude Code versions or an E1 cycle. The host payload does not attest its own version.
 

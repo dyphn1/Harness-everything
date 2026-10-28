@@ -35,6 +35,19 @@ const collectIds = (value, key) => {
 };
 payloads.forEach(payload => collectIds(payload, ''));
 
+const dispatchTokens = new Map();
+const collectDispatchTokens = value => {
+  if (typeof value === 'string') {
+    for (const match of value.matchAll(/HARNESS_OUTLINE_DISPATCH_V1[^\r\n]*?\btoken=([^\s]+)/g)) {
+      if (!dispatchTokens.has(match[1])) dispatchTokens.set(match[1], `sanitized-dispatch-token-${dispatchTokens.size + 1}`);
+    }
+  } else if (Array.isArray(value)) value.forEach(collectDispatchTokens);
+  else if (value && typeof value === 'object') {
+    for (const child of Object.values(value)) collectDispatchTokens(child);
+  }
+};
+payloads.forEach(collectDispatchTokens);
+
 const transcriptPaths = new Map();
 const privateProjectSlugs = new Set();
 const collectTranscriptPaths = (value, key = '') => {
@@ -71,6 +84,9 @@ for (const record of records) {
 const runRoots = [...workerRoots].map(root => path.dirname(root)).sort((a, b) => b.length - a.length);
 for (let i = 0; i < runRoots.length; i++) text = text.split(runRoots[i]).join(`/sanitized/run8${i ? `/root-${i + 1}` : ''}`);
 text = text.replace(/\/Users\/[^/"\\\s]+/g, '/sanitized/home').replaceAll('/private/', '/sanitized/private/');
+const tokenPattern = [...dispatchTokens.keys()].sort((a, b) => b.length - a.length)
+  .map(value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+if (tokenPattern) text = text.replace(new RegExp(tokenPattern, 'g'), value => dispatchTokens.get(value));
 for (const [key, placeholder] of [...ids].sort((a, b) => b[0].length - a[0].length)) {
   const value = key.slice(key.indexOf('\0') + 1);
   text = text.split(value).join(placeholder);
@@ -82,6 +98,8 @@ assert(sanitized.every(record => record && typeof record === 'object' && !Array.
 assert(!/\/Users\/|\/private\/|toolu_/.test(text), 'sanitized output retains a private path or tool id');
 assert([...sensitiveIds].every(value => !text.includes(value)), 'sanitized output retains a session or agent id');
 assert([...transcriptPaths.keys(), ...privateProjectSlugs].every(value => !text.includes(value)), 'sanitized output retains a private transcript path');
+assert([...dispatchTokens.keys()].every(value => !text.includes(value)), 'sanitized output retains a dispatch token');
+assert([...dispatchTokens.values()].every(value => value.length > 0 && !/\s/.test(value)), 'synthetic dispatch token is invalid');
 fs.mkdirSync(path.dirname(path.resolve(output)), { recursive: true });
 fs.writeFileSync(output, sanitized.map(record => JSON.stringify(record)).join('\n') + '\n');
 console.log(`sanitized records=${sanitized.length}; privacy audit=clear`);
