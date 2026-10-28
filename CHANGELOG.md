@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.46.2](https://github.com/dyphn1/Harness-everything/compare/v0.46.1...v0.46.2) (2026-10-28)
+
+### Bug Fixes
+
+* **doc-reconciliation:** pin the outline task binding at plan/start ([5823c48](https://github.com/dyphn1/Harness-everything/commit/5823c4881ccd6647c1af58e8d295f878e4f1020e))
+
 ## [0.46.1](https://github.com/dyphn1/Harness-everything/compare/v0.46.0...v0.46.1) (2026-10-28)
 
 ### Bug Fixes
