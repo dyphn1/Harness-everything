@@ -770,6 +770,46 @@ test('pilot exposes a real-capture-only outline reference resolver', () => {
   assert.deepStrictEqual(resolve([], 'task-prb'), [], 'hand-authored JSON with no host capture creates no event ref');
 });
 
+test('shipped route + plan/start CLI pins the outline task binding in canonical and packaged layouts', () => {
+  // Live run 2026-10-28: the pilot's module lookup missed workflow-obligations, so no task pin was ever written.
+  for (const [layout, base] of [['canonical', ROOT], ['packaged', path.join(ROOT, 'plugins/harness-everything')]]) {
+    const root = canonical(fs.mkdtempSync(path.join(os.tmpdir(), 'prb-task-pin-')));
+    const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), 'prb-task-pin-state-'));
+    try {
+      fixtureGit(root, ['init', '-q']);
+      fs.writeFileSync(path.join(root, 'README.md'), 'B\n');
+      fixtureGit(root, ['add', '-A']);
+      fixtureGit(root, ['commit', '-q', '-m', 'B baseline']);
+      const sessionId = `task-pin-${layout}`;
+      const env = { ...process.env, HARNESS_STATE_HOME: stateHome, HARNESS_WORKSPACE_ROOT: root, HARNESS_DOC_RECONCILIATION_PILOT: '1' };
+      const kernel = layout === 'canonical' ? path.join(base, 'harness-everything/scripts/kernel-router.js')
+        : path.join(base, 'skills/harness-everything/scripts/kernel-router.js');
+      const run = (script, args, input) => {
+        const child = spawnSync(process.execPath, [script, ...args], { cwd: root, env, encoding: 'utf8', input });
+        assert.strictEqual(child.status, 0, `${layout} ${path.basename(script)} ${args[0] || ''}: ${child.stderr || child.stdout}`);
+      };
+      run(kernel, [], JSON.stringify({ session_id: sessionId, cwd: root, prompt: 'Draft an ADR from the reviewed outline and verify it' }));
+      const controller = path.join(base, 'hooks/scripts/workflow-disposition.js');
+      run(controller, ['plan', '--session-id', sessionId, '--strategy', 'iterative-single', '--evidence', 'task pin fixture',
+        '--requirements-json', JSON.stringify([
+          { id: 'adr', stepType: 'doc-change', summary: 'draft ADR', acceptance: 'outline review precedes drafting' },
+          { id: 'verify', stepType: 'verification', summary: 'verify', acceptance: 'checker runs' }])]);
+      run(controller, ['start', '--session-id', sessionId]);
+      const prior = process.env.HARNESS_STATE_HOME;
+      process.env.HARNESS_STATE_HOME = stateHome;
+      let sessionDir;
+      try { sessionDir = require(path.join(ROOT, 'hooks/scripts/lib/harness-state.js')).getSessionDir(root, sessionId); }
+      finally { if (prior === undefined) delete process.env.HARNESS_STATE_HOME; else process.env.HARNESS_STATE_HOME = prior; }
+      const workflow = JSON.parse(fs.readFileSync(path.join(sessionDir, 'workflow-run.json'), 'utf8'));
+      assert.ok(workflow.docReconciliationBaseline, `${layout}: baseline pin is captured`);
+      assert.strictEqual(workflow.docReconciliationTask?.taskId, 'task-adr+verify', `${layout}: task pin is captured at plan/start`);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+      fs.rmSync(stateHome, { recursive: true, force: true });
+    }
+  }
+});
+
 test('pre-dispatch seam requires review, exact worker root, clean O tree, lease, pin, and immutable handoff', () => {
   assert.strictEqual(typeof internals.captureOutlineDispatch, 'function', 'missing synchronous pre-dispatch seam');
   const differentWorkerRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prb-outline-different-worker-'));

@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.46.1](https://github.com/dyphn1/Harness-everything/compare/v0.46.0...v0.46.1) (2026-10-28)
+
+### Bug Fixes
+
+* **doc-reconciliation:** correlate outline dispatch by observed agent result ([c63e1ef](https://github.com/dyphn1/Harness-everything/commit/c63e1efa299496283bffb1019983b0dd54595f64))
+
 ## [0.46.0](https://github.com/dyphn1/Harness-everything/compare/v0.45.0...v0.46.0) (2026-10-28)
 
 ### Features
