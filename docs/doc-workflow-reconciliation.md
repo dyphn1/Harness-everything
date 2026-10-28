@@ -966,7 +966,7 @@ fields through sanitization; a transcript alone, synthetic payload or screenshot
 this hook-capture evidence.
 
 The origin provider's qualification check MUST resolve that retained evidence reference (or its
-verified export), validate captured host/event kinds, nonempty tool/subagent IDs, parent/session
+verified export), validate captured host/event kinds, nonempty tool/subagent IDs, session/tool-use
 correlation and recorded digests, and match the supported host/capture implementation being used.
 Missing, malformed, mismatched or unresolvable qualification evidence returns unavailable and no
 credit. Do not enable qualification from a caller `trusted` flag, environment toggle, populated
@@ -975,6 +975,22 @@ through dependency injection; production has no fixture trust switch. Qualificat
 host capture path exposed the fields; every later event still needs current origin/identity checks.
 A retained capture does not authenticate arbitrary local journals or imply E1 GO. Record the live
 gate as unmet until this check actually passes; do not label the docs or deterministic tests as live.
+
+For PR-B outline dispatches, the versioned mapping contract is
+`claude-outline-dispatch-mapping/2`. A Task/Agent `PreToolUse` anchor requires `session_id` plus
+`tool_use_id`, one valid marker in `tool_input.prompt`, explicit
+`tool_input.run_in_background === false`, and no `tool_input.isolation` property. Exactly one
+Task/Agent `PostToolUse` with that key must report `tool_response.status === 'completed'` and a
+nonempty `tool_response.agentId`; that observed ID must match exactly one `SubagentStart` and one
+`SubagentStop` with the same session. Journal order requires PreToolUse before SubagentStart before
+SubagentStop; the completed PostToolUse may appear before or after SubagentStop. The Start and Stop
+must each report a canonical `cwd` equal to the marker's worker root. `prompt_id` is shared across
+dispatches, and neither `parent_tool_use_id` nor `interrupted` is an outline dispatch key or
+completion signal. Captured records retain `tool_response.status` as `tool_response_status`, the
+explicit `run_in_background` value, and whether `isolation` was present; absent status or background
+fields remain absent. Async launches and ambiguous or contradictory matches stay unresolved.
+The retained qualification export still has no outline mapping, so production remains
+`outline-live-gate-unmet` and this contract does not enable positive credit.
 
 ### Workflow credit, review progression and freshness
 
@@ -1236,10 +1252,10 @@ flowchart LR
 | B and task | Keep the workflow-start B commit/root/tree and ordered requirement IDs for every attempt. Config scope must still match B. An attempt cannot reset B to O. |
 | Inventory | The coordinator supplies exact bytes and `inventory-pin.json` outside the candidate tree. The pinned source is `report-inv.md`, SHA-256 `2741bd4514d2cd68f57d93a2b3ce94cbe597ca62d30e26f0ca58e882df5b03c6`, run `e1-inv-1`, input SHA `0ef0541c6cae550e8269ba712e03797e0e987dfb`, approval `#325` comment `6436207729`, decision 1. The provider rehashes the bytes and compares every pin field before resolving one row and domain. Missing, stale, duplicate, ambiguous, wrong-target or unavailable evidence is unresolved with no fallback. Synthetic test pins prove parser/mechanism binding only. |
 | O and review | O is bound to its commit, tree, target blobs and stored-byte digests. Its `proposed` ADR frontmatter cites one `Inventory row: <id>`, target and domain, and contains no completed Decision text. A host-captured `SubagentStop` review must approve those exact O bytes and the pinned inventory, with a distinct host `agent_id` and correlated Agent/Task result. |
-| Handoff and dispatch | One immutable attempt handoff binds B, O, scope, inventory, accepted review, coordinator principal, lease and one-use token. Agent/Task dispatch accepts exactly one `HARNESS_OUTLINE_DISPATCH_V1` block in `tool_input.prompt`, whose token must equal the handoff token; it does not search free-form text or use another field or cwd as a fallback. Before worker start, PreToolUse verifies the handoff, review, pin, exclusive lease, canonical root, HEAD/tree at O and clean index/worktree including untracked files; it creates a write-once handoff-digest seal, stores validation digests/reasons, then consumes the token by exclusive creation. Every predecessor seal, seam and token remains bound to the original handoff bytes, so an overwritten predecessor invalidates the chain. |
-| Worker and D | Worker start must correlate to the dispatch token/tool ID, principal and declared root; the eventual Task/Agent result must name that same worker. D is checked against the current candidate separately from O. O must be a strict ancestor of D. A squash may retain the cycle only when a coordinator correspondence record proves identical target blobs between retained pre-merge D and the merged tree; changed bytes need fresh final quality review. |
+| Handoff and dispatch | One immutable attempt handoff binds B, O, scope, inventory, accepted review, coordinator principal, lease and one-use token. Agent/Task dispatch accepts exactly one `HARNESS_OUTLINE_DISPATCH_V1` block in `tool_input.prompt`, whose token must equal the handoff token; it does not search free-form text or use another field or cwd as a fallback. The outline anchor also requires explicit `run_in_background === false` and absence of any `isolation` key, including null or empty values. Before worker start, PreToolUse verifies the handoff, review, pin, exclusive lease, canonical root, HEAD/tree at O and clean index/worktree including untracked files; it creates a write-once handoff-digest seal, stores validation digests/reasons, then consumes the token by exclusive creation. Every predecessor seal, seam and token remains bound to the original handoff bytes, so an overwritten predecessor invalidates the chain. |
+| Worker and D | The dispatch key is `(session_id, tool_use_id)`. Exactly one matching Task/Agent result must carry `tool_response.status === 'completed'`; its observed `tool_response.agentId` must map to exactly one `SubagentStart` and one `SubagentStop` with the same `session_id` and `agent_id`. Require PreToolUse < SubagentStart < SubagentStop in journal order, but do not order the completed result against Stop. Both worker events need exact canonical `cwd === workerRoot`. `prompt_id` and `parent_tool_use_id` are not correlation keys; `interrupted` is not completion proof. Async launches, failures, cancellation, missing/duplicate events, replayed IDs, worktree isolation and root mismatch stay unresolved. D is checked against the current candidate separately from O. O must be a strict ancestor of D. A squash may retain the cycle only when a coordinator correspondence record proves identical target blobs between retained pre-merge D and the merged tree; changed bytes need fresh final quality review. |
 | Checker outcome | `outline-confirmation` has its own pass/unresolved lane. Generic command success and waivers never satisfy it. No D is incomplete/unresolved. Its result is separate from the aggregate result over every MUST derived from original B→D; an outline pass never waives lint, conflict, quality review, requirement-sync or other MUSTs. |
 
-Capture and validation failures stay fail-open to host tools and withhold evidence credit. Unclassified shell commands and writes outside the correlated worker/root remain unresolved. Retries use a fresh attempt, token, clean worktree and immutable handoff; only one non-superseded leaf is current. Exact same-tool-ID/input duplicates may resolve to one seam; changed input or token reuse is unresolved. OpenCode and Codex remain unsupported for positive outline credit.
+Capture and validation failures stay fail-open to host tools and withhold evidence credit. Unclassified shell commands and writes outside the correlated worker/root remain unresolved. Retries use a fresh attempt, token, clean worktree and immutable handoff; only one non-superseded leaf is current. An identical same-tool-ID/input callback may reuse its stored seam, but repeated PreToolUse records remain ambiguous for evidence credit; changed input or token reuse is unresolved. OpenCode and Codex remain unsupported for positive outline credit.
 
-The current retained Claude qualification does not establish the frozen prompt field, coordinator principal, synchronous PreToolUse boundary or worker-root mapping. The outline provider therefore grants no positive live-host credit until a retained Claude capture validates those mappings. Deterministic fixtures exercise the real hook/provider/adapter/checker/pilot path with a synthetic inventory pin; they are mechanism evidence, not live-host behavior or E1 readiness.
+The current retained Claude qualification does not establish the versioned `claude-outline-dispatch-mapping/2` contract. The outline provider therefore grants no positive live-host credit until a retained Claude capture validates the prompt, coordinator, result status/agent ID, explicit non-background boundary, isolation absence and exact worker-root mapping. Deterministic fixtures exercise the real hook/provider/adapter/checker/pilot path with a synthetic inventory pin; they are mechanism evidence, not live-host behavior or E1 readiness.
