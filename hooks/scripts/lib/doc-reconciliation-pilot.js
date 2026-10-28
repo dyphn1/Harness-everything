@@ -45,7 +45,8 @@ function captureBaseline(context) {
     }
     if (!context.workflow.docReconciliationTask) {
       const plan = context.workflow.pendingPlan || context.workflow.workflowPlan;
-      const loaded = plan && runtimeModule('workflow-obligations').loadObligationSet(context, plan);
+      // workflow-obligations is a hook-lib sibling in every layout, not a skill runtime script.
+      const loaded = plan && require('./workflow-obligations').loadObligationSet(context, plan);
       const requirementIds = loaded?.set?.requirements?.map(item => item.id);
       if (Array.isArray(requirementIds) && requirementIds.length && requirementIds.every(id => typeof id === 'string' && id)) {
         const baseline = context.workflow.docReconciliationBaseline;
