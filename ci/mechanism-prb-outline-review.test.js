@@ -892,6 +892,14 @@ test('outline evidence binds exact task, B, O blobs, independent review, worker 
         hook_event_name: 'SubagentStart', agent_id: 'other-agent', agent_type: 'reviewer' }, 'SubagentStart', fixture.root));
     }],
     ['reviewer start after its stop', fixture => { fixture.reviewCaptures.push(reviewerStart(fixture)); }],
+    ['duplicate reviewer start with one stop before the dispatch', fixture => {
+      fixture.reviewCaptures.unshift(reviewerStart(fixture), reviewerStart(fixture));
+    }],
+    ['reviewer start with duplicate stops before the dispatch', fixture => {
+      const stop = fixture.reviewCaptures.find(item => item.event === 'SubagentStop');
+      fixture.reviewCaptures.unshift(reviewerStart(fixture));
+      fixture.reviewCaptures.push({ ...stop, ref: `${stop.ref}:dup`, captureId: `${stop.captureId}:dup` });
+    }],
     ['reviewer start after the dispatch', fixture => { fixture.extraCaptures.push(reviewerStart(fixture)); }],
   ]) {
     const fixture = createOutlineFixture();

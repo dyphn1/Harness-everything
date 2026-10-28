@@ -1457,10 +1457,14 @@ function resolveOutlineEvidence({ safeInput, capture, captures, request, originR
     const journal = Array.isArray(captures) ? captures : [];
     const dispatchIndex = journal.indexOf(correlation.pre);
     const stoppedBeforeDispatch = start => {
-      const stops = journal.filter(item => recordOf(item) && item.event === 'SubagentStop'
+      const lifecycle = event => journal.filter(item => recordOf(item) && item.event === event
         && item.session_id === start.session_id && textOf(start.agent_id) && item.agent_id === start.agent_id);
+      // Exactly one Start and one Stop per (session_id, agent_id); a duplicate either way stays ambiguous.
+      const starts = lifecycle('SubagentStart');
+      const stops = lifecycle('SubagentStop');
+      if (starts.length !== 1 || starts[0] !== start || stops.length !== 1) return false;
       const startIndex = journal.indexOf(start);
-      const stopIndex = stops.length === 1 ? journal.indexOf(stops[0]) : -1;
+      const stopIndex = journal.indexOf(stops[0]);
       return dispatchIndex >= 0 && startIndex >= 0 && startIndex < stopIndex && stopIndex < dispatchIndex;
     };
     const competingStarts = journal.filter(item => recordOf(item)
