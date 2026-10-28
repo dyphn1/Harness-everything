@@ -1165,11 +1165,20 @@ function validateOutlineCaptureQualification(input, expectedHost = HOST_ID) {
     const qualificationError = validateQualificationExport(expectedHost);
     if (qualificationError) return { open: false, reason: qualificationError };
     const exported = JSON.parse(fs.readFileSync(path.join(__dirname, EXPORT_FILE), 'utf8'));
-    const mapping = exported.outlineDispatchCapture;
-    const source = exported.sanitizedCapture;
-    const records = fs.readFileSync(path.join(__dirname, source.file), 'utf8').split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
-    if (!outlineCaptureMappingValid(mapping, records)) return { open: false, reason: 'outline-live-capture-unqualified' };
-    return { open: true, source: 'validated-export', captureFile: source.file };
+    const wrapper = exported.outlineDispatchCapture;
+    if (!recordOf(wrapper) || !textOf(wrapper.hostVersion) || !textOf(wrapper.run) || !textOf(wrapper.baseline)
+      || !textOf(wrapper.file) || /[\\/]/.test(wrapper.file) || wrapper.file.includes('..')) {
+      return { open: false, reason: 'outline-live-capture-unqualified' };
+    }
+    const bytes = fs.readFileSync(path.join(__dirname, wrapper.file));
+    if (crypto.createHash('sha256').update(bytes).digest('hex') !== wrapper.sha256) {
+      return { open: false, reason: 'outline-live-capture-unqualified' };
+    }
+    const records = bytes.toString('utf8').split(/\r?\n/).filter(line => line.trim()).map(line => JSON.parse(line));
+    if (!records.every(recordOf) || !outlineCaptureMappingValid(wrapper.mapping, records)) {
+      return { open: false, reason: 'outline-live-capture-unqualified' };
+    }
+    return { open: true, source: 'validated-export', captureFile: wrapper.file };
   } catch (error) {
     return { open: false, reason: `outline-live-capture-unqualified:${error.code || 'invalid'}` };
   }

@@ -60,7 +60,8 @@ All notable changes to this project are documented in this file.
 ### Features
 
 * **doc-lifecycle:** add complete full-corpus conflict-check evidence with snapshot-bound scope and corpus identity.
-* **doc-reconciliation:** add a dedicated pre-draft outline review lane bound to the pinned inventory and exact O→D Git cycle; positive live-host credit remains gated.
+* **doc-reconciliation:** add a dedicated pre-draft outline review lane bound to the pinned inventory and exact O→D Git cycle.
+* **doc-reconciliation:** qualify the retained Claude Code 2.1.312 run8 outline mapping only; OpenCode, Codex, other Claude versions and E1 remain unqualified.
 
 ### Fixed
 

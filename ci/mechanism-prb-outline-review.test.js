@@ -8,6 +8,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { spawnSync } = require('child_process');
 const { canonical } = require(path.resolve(__dirname, '../hooks/scripts/lib/workflow-isolation.js'));
+const { stage: stageQualificationTree } = require('./lib/doc-reconciliation-staged-tree.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const provider = require(path.join(ROOT, 'hooks/scripts/lib/doc-reconciliation-provider.js'));
@@ -76,7 +77,10 @@ function outlineText({ complete = false, decisionPlaceholder = false, duplicateD
 
 function createOutlineFixture(options = {}) {
   const root = canonical(fs.mkdtempSync(path.join(os.tmpdir(), 'prb-outline-fixture-')));
-  const target = options.target || 'docs/adr/DOCS-001.md';
+  const retainedInventory = options.retainedInventory === true;
+  const target = options.target || (retainedInventory ? 'docs/adr/VERI-001.md' : 'docs/adr/DOCS-001.md');
+  const rowId = options.rowId || (retainedInventory ? '16' : '20');
+  const domain = options.domain || (retainedInventory ? 'VERI' : 'DOCS');
   const taskId = options.taskId || 'task-prb';
   const attemptId = options.attemptId || 'attempt-1';
   const sessionId = options.sessionId || 'author-session';
@@ -85,7 +89,7 @@ function createOutlineFixture(options = {}) {
     ? `${root}${path.sep}..${path.sep}${path.basename(root)}` : root;
   const workflowId = 'workflow-prb';
   const workflowRevision = 2;
-  const config = JSON.stringify({ governed: [{ path: 'docs/adr/*.md', role: 'adr' }], domains: ['DOCS'], derived: [] }, null, 2) + '\n';
+  const config = JSON.stringify({ governed: [{ path: 'docs/adr/*.md', role: 'adr' }], domains: [domain], derived: [] }, null, 2) + '\n';
   const configDigest = sha(config);
   fs.mkdirSync(path.join(root, '.agents/harness-everything'), { recursive: true });
   fs.mkdirSync(path.dirname(path.join(root, target)), { recursive: true });
@@ -110,7 +114,7 @@ function createOutlineFixture(options = {}) {
     decisionPlaceholder: options.decisionPlaceholder === true,
     duplicateDecision: options.duplicateDecision === true,
     indentedDecision: options.indentedDecision === true,
-    rowId: options.rowId || '20', target, domain: options.domain || 'DOCS',
+    rowId, target, domain,
   }));
   fixtureGit(root, ['add', '-A']);
   fixtureGit(root, ['commit', '-q', '-m', 'O outline']);
@@ -119,16 +123,20 @@ function createOutlineFixture(options = {}) {
   const outlineBytes = fs.readFileSync(path.join(root, target));
   const outlineBlob = fixtureGit(root, ['rev-parse', `HEAD:${target}`]);
 
-  const pinDigest = sha(syntheticInventory);
-  const expectedPin = {
+  const inventoryBytes = retainedInventory
+    ? fs.readFileSync(path.join(ROOT, 'benchmarks/results/live-host/claude-341-outline-dispatch-2026-10-28/inventory/2741bd4514d2cd68f57d93a2b3ce94cbe597ca62d30e26f0ca58e882df5b03c6.md'))
+    : Buffer.from(syntheticInventory);
+  const pinDigest = sha(inventoryBytes);
+  const expectedPin = retainedInventory ? internals.OUTLINE_INVENTORY_PIN : {
     source: 'synthetic://approved-inventory', sha256: pinDigest, runId: 'synthetic-run', inputSha: 'abcdef012345',
     approvalRef: { issue: 325, commentId: 'synthetic-comment', decision: 1 },
     retainedArtifactPath: `inventory/${pinDigest}.md`,
   };
+  if (retainedInventory) assert.strictEqual(pinDigest, expectedPin.sha256, 'retained inventory bytes must match the pinned digest');
   const outlineRoot = path.join(sessionDir, 'doc-reconciliation/outline-confirmation');
   const inventoryDir = path.join(outlineRoot, 'inventory');
   fs.mkdirSync(inventoryDir, { recursive: true });
-  fs.writeFileSync(path.join(inventoryDir, `${pinDigest}.md`), syntheticInventory);
+  fs.writeFileSync(path.join(inventoryDir, `${pinDigest}.md`), inventoryBytes);
   writeJson(path.join(inventoryDir, 'inventory-pin.json'), expectedPin);
   const requirementIds = ['prb'];
   const workspaceId = 'ws-' + internals.digestText(internals.captureJson({ workspaceRoot: root }));
@@ -183,7 +191,7 @@ function createOutlineFixture(options = {}) {
     'Review verdict: approve',
     `Reviewed artifact: ${target} sha256:${sha(outlineBytes)}`,
     `Reviewed artifact: ${inventoryPath} sha256:${pinDigest}`,
-    `Summary: Approved inventory row 20 for ${target} in domain DOCS.`,
+    `Summary: Approved inventory row ${rowId} for ${target} in domain ${domain}.`,
   ].join('\n');
   const reviewResultPayload = {
     session_id: sessionId, cwd: root, hook_event_name: 'PostToolUse', tool_name: 'Task',
@@ -229,7 +237,7 @@ function createOutlineFixture(options = {}) {
     baseline: { root, commit: baselineCommit, tree: baselineTree, configDigest },
     configDigest, targetPaths: [target], draftWorktreeRoot: workerRoot,
     outline: { commit: outlineCommit, tree: outlineTree, targetBlobs: { [target]: { blobOid: outlineBlob, storedBytesSha256: sha(outlineBytes) } } },
-    inventory: { ...expectedPin, rowId: options.rowId || '20', domain: options.domain || 'DOCS', targetPaths: [target] },
+    inventory: { ...expectedPin, rowId, domain, targetPaths: [target] },
     reviewCaptureRef: reviewStop.ref, reviewCaptureDigest: reviewRecordDigest, reviewDigest: reviewStop.reviewDigest,
     coordinatorPrincipal: sessionId, writerLeaseId: lease.id, writerLeaseDigest: leaseDigest,
     draftDispatchToken: options.token || 'token-1',
@@ -382,7 +390,7 @@ function createOutlineFixture(options = {}) {
       }, 'PostToolUse', root)] : []), ...(!omitWorkerStop ? [provider.buildCaptureRecord({
         session_id: sessionId, cwd: root, hook_event_name: 'SubagentStop', agent_id: options.workerPrincipal || 'draft-worker', agent_type: 'worker',
       }, 'SubagentStop', root)] : [])];
-    const qualification = { source: 'fake-test-fixture', faked: true, toolUseIdPopulated: true,
+    const qualification = options.noFakeQualification ? undefined : { source: 'fake-test-fixture', faked: true, toolUseIdPopulated: true,
       agentIdPopulated: true, outlineDispatchCaptureVerified: true };
     if (removeSeam && capture.outlineDispatch?.seamRef) {
       fs.rmSync(path.join(sessionDir, capture.outlineDispatch.seamRef), { force: true });
@@ -396,7 +404,8 @@ function createOutlineFixture(options = {}) {
     const origin = provider.createClaudeOriginProvider({
       hostId: 'claude-code', sessionId: providerSessionId, workspaceRoot: root, workflowId, workflowRevision, taskId: providerTaskId,
       principals: { author: providerSessionId, executors: [] }, baseline: providerBaseline,
-      captures, sessionDir, taskBinding, qualification, outlineFixture: { expectedPin },
+      captures, sessionDir, taskBinding,
+      ...(qualification ? { qualification, outlineFixture: { expectedPin } } : {}),
     });
     const identity = {
       workspaceId: origin.resolveContext({}).context.workspaceId, sessionId: providerSessionId, workflowId, workflowRevision, taskId: providerTaskId,
@@ -408,8 +417,8 @@ function createOutlineFixture(options = {}) {
     if (runPilot) {
       const previousSwitch = process.env.HARNESS_DOC_RECONCILIATION_PILOT;
       const previousFactory = provider.createClaudeOriginProvider;
-      provider.createClaudeOriginProvider = input => previousFactory({ ...input, qualification,
-        outlineFixture: { expectedPin }, taskBinding });
+      provider.createClaudeOriginProvider = input => previousFactory({ ...input,
+        ...(qualification ? { qualification, outlineFixture: { expectedPin } } : {}), taskBinding });
       process.env.HARNESS_DOC_RECONCILIATION_PILOT = '1';
       const context = { root, sessionId, sessionDir, activeHost: 'claude-code', workflow: {
         workflowId, revision: workflowRevision, strategy: 'iterative-single', state: 'running',
@@ -1049,6 +1058,23 @@ const outlineMappingV2 = {
   workerRootField: 'cwd',
 };
 
+test('valid separate outline export opens outline qualification', () => {
+  const staged = stageQualificationTree('source');
+  try {
+    const records = [qualificationDispatch(), qualificationStart(), qualificationResult(), qualificationStop()];
+    const bytes = Buffer.from(records.map(record => JSON.stringify(record)).join('\n') + '\n');
+    const file = 'doc-reconciliation-outline-capture.sanitized.jsonl';
+    fs.writeFileSync(path.join(staged.libDir, file), bytes);
+    staged.writeExport(staged.validExport({
+      outlineDispatchCapture: { mapping: outlineMappingV2, file, sha256: sha(bytes), hostVersion: '2.1.312',
+        run: 'run8', baseline: '1bd0f805031c5577a6e7f72a9bc5b41618b71fc1' },
+    }));
+    const outcome = require(path.join(staged.libDir, 'doc-reconciliation-provider.js'))
+      ._internals.validateOutlineCaptureQualification({ hostId: 'claude-code' });
+    assert.strictEqual(outcome.open, true, JSON.stringify(outcome));
+  } finally { staged.cleanup(); }
+});
+
 function qualificationDispatch({ id = 'dispatch-1', promptId = 'shared-prompt', background = false, hasBackground = true,
   isolation, hasIsolation = false, session = 'coordinator' } = {}) {
   const toolInput = { prompt: dispatchLine, ...(hasBackground ? { run_in_background: background } : {}) };
@@ -1070,6 +1096,85 @@ function qualificationResult(id = 'dispatch-1', agentId = 'worker', status = 'co
   return { event: 'PostToolUse', tool_name: 'Task', tool_use_id: id, session_id: session,
     ...(legacyAgentId !== undefined ? { agent_id: legacyAgentId } : {}), tool_response: toolResponse };
 }
+
+function stagedOutlineOutcome(staged) {
+  return require(path.join(staged.libDir, 'doc-reconciliation-provider.js'))
+    ._internals.validateOutlineCaptureQualification({ hostId: 'claude-code' });
+}
+
+function writeStagedOutlineEvidence(staged, records) {
+  const file = 'doc-reconciliation-outline-capture.sanitized.jsonl';
+  const bytes = Buffer.from(records.map(record => JSON.stringify(record)).join('\n') + '\n');
+  fs.writeFileSync(path.join(staged.libDir, file), bytes);
+  const wrapper = { mapping: outlineMappingV2, file, sha256: sha(bytes), hostVersion: '2.1.312', run: 'run8',
+    baseline: '1bd0f805031c5577a6e7f72a9bc5b41618b71fc1' };
+  staged.writeExport(staged.validExport({ outlineDispatchCapture: wrapper }));
+  return { wrapper, filePath: path.join(staged.libDir, file), bytes };
+}
+
+test('shipped run8 capture opens production qualification without DI', () => {
+  const qualification = internals.validateOutlineCaptureQualification({ hostId: 'claude-code' });
+  assert.strictEqual(qualification.open, true, JSON.stringify(qualification));
+  assert.strictEqual(qualification.source, 'validated-export');
+  assert.strictEqual(qualification.captureFile, 'doc-reconciliation-outline-capture.sanitized.jsonl');
+});
+
+test('shipped run8 export resolves the real-hook integrated fixture without fake qualification', () => {
+  const originalFactory = provider.createClaudeOriginProvider;
+  let originInput;
+  provider.createClaudeOriginProvider = input => {
+    originInput = input;
+    return originalFactory(input);
+  };
+  const fixture = createOutlineFixture({ realHook: true, retainedInventory: true, noFakeQualification: true });
+  try {
+    const completed = fixture.finishDraft();
+    assert.strictEqual(completed.result.status, 'accepted', JSON.stringify(completed.result));
+    assert.strictEqual(Object.hasOwn(originInput, 'qualification'), false, 'production resolution must use the shipped export');
+  } finally {
+    provider.createClaudeOriginProvider = originalFactory;
+    fixture.cleanup();
+  }
+});
+
+test('separate outline export failures stay closed for digest, path, file, wrapper, mapping, and chain corruption', () => {
+  const staged = stageQualificationTree('source');
+  const validRecords = [qualificationDispatch(), qualificationStart(), qualificationResult(), qualificationStop()];
+  try {
+    const closed = (name, mutate, records = validRecords) => {
+      const { wrapper, filePath } = writeStagedOutlineEvidence(staged, records);
+      mutate(wrapper, filePath);
+      const outcome = stagedOutlineOutcome(staged);
+      assert.strictEqual(outcome.open, false, `${name}: ${JSON.stringify(outcome)}`);
+    };
+    closed('wrong digest', wrapper => {
+      wrapper.sha256 = '0'.repeat(64);
+      staged.writeExport(staged.validExport({ outlineDispatchCapture: wrapper }));
+    });
+    closed('unsafe filename', wrapper => {
+      wrapper.file = '../doc-reconciliation-outline-capture.sanitized.jsonl';
+      staged.writeExport(staged.validExport({ outlineDispatchCapture: wrapper }));
+    });
+    closed('missing file', (_wrapper, filePath) => fs.rmSync(filePath));
+    closed('malformed file', (wrapper, filePath) => {
+      const bytes = Buffer.from('{malformed json}\n');
+      fs.writeFileSync(filePath, bytes);
+      wrapper.sha256 = sha(bytes);
+      staged.writeExport(staged.validExport({ outlineDispatchCapture: wrapper }));
+    });
+    closed('malformed wrapper', () => staged.writeExport(staged.validExport({ outlineDispatchCapture: null })));
+    closed('mapping mismatch', wrapper => {
+      wrapper.mapping = { ...outlineMappingV2, workerRootField: 'cwd.unobserved' };
+      staged.writeExport(staged.validExport({ outlineDispatchCapture: wrapper }));
+    });
+    const crossSession = validRecords.map(record => ({ ...record }));
+    crossSession[2].session_id = 'other-coordinator';
+    closed('only dispatch chain crosses coordinator sessions', () => {}, crossSession);
+    const wrongRoot = validRecords.map(record => ({ ...record }));
+    wrongRoot[1].cwd = '/tmp/other-worker';
+    closed('only dispatch chain has a worker-root mismatch', () => {}, wrongRoot);
+  } finally { staged.cleanup(); }
+});
 
 function outlineCorrelation(records, anchor = records.find(item => item.event === 'PreToolUse')) {
   return internals.correlateOutlineDispatch(records, anchor, '/tmp/prb-worker');
@@ -1215,22 +1320,13 @@ test('runtime resolution accepts Stop after the completed result through the syn
   } finally { fixture.cleanup(); }
 });
 
-test('production export without an outline mapping keeps outline-live-gate-unmet', () => {
-  const fixture = createOutlineFixture();
+test('missing outline wrapper keeps outline-live-gate-unmet', () => {
+  const staged = stageQualificationTree('source');
   try {
-    const completed = fixture.finishDraft();
-    const production = provider.createClaudeOriginProvider({
-      hostId: 'claude-code', sessionId: fixture.sessionId, workspaceRoot: fixture.root,
-      workflowId: fixture.workflowId, workflowRevision: fixture.workflowRevision, taskId: fixture.taskId,
-      principals: { author: fixture.sessionId, executors: [] },
-      baseline: { root: fixture.root, commit: fixture.baselineCommit }, captures: completed.captures,
-      sessionDir: fixture.sessionDir, taskBinding: fixture.taskBinding,
-      outlineFixture: { expectedPin: fixture.expectedPin },
-    });
-    const result = production.resolveEvent({ reference: `${fixture.capture.ref}#outline-confirmation`, identity: completed.identity });
-    assert.strictEqual(result.status, 'unavailable');
-    assert.ok(result.diagnostics.some(item => item.code === 'outline-live-gate-unmet'), JSON.stringify(result));
-  } finally { fixture.cleanup(); }
+    staged.writeExport(staged.validExport());
+    const qualification = stagedOutlineOutcome(staged);
+    assert.strictEqual(qualification.open, false, JSON.stringify(qualification));
+  } finally { staged.cleanup(); }
 });
 
 test('original B and immutable attempt chain survive reconfirmation; stale attempts/tokens never cover new scope', () => {
