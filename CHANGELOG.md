@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.46.3](https://github.com/dyphn1/Harness-everything/compare/v0.46.2...v0.46.3) (2026-10-28)
+
+### Bug Fixes
+
+* **doc-reconciliation:** clear outline reviewers that stopped before dispatch ([d62bdb8](https://github.com/dyphn1/Harness-everything/commit/d62bdb870523e39a19f63a117557794c21387e3c))
+* **doc-reconciliation:** require a unique reviewer start before clearing it ([99527f6](https://github.com/dyphn1/Harness-everything/commit/99527f6df6729ae8a5db331fc39bed5359797f17))
+
 ## [0.46.2](https://github.com/dyphn1/Harness-everything/compare/v0.46.1...v0.46.2) (2026-10-28)
 
 ### Bug Fixes
