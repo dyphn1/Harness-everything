@@ -188,7 +188,7 @@ function createOutlineFixture(options = {}) {
   const reviewResultPayload = {
     session_id: sessionId, cwd: root, hook_event_name: 'PostToolUse', tool_name: 'Task',
     tool_use_id: 'review-dispatch', tool_input: { command: 'Task' },
-    tool_response: { agentId: reviewerPrincipal, interrupted: false },
+    tool_response: { agentId: reviewerPrincipal, interrupted: false, status: 'completed' },
   };
   const reviewStopPayload = {
     session_id: sessionId, cwd: root, hook_event_name: 'SubagentStop', agent_id: reviewerPrincipal,
@@ -239,7 +239,7 @@ function createOutlineFixture(options = {}) {
 
   const payload = {
     session_id: sessionId, cwd: root, hook_event_name: 'PreToolUse', tool_name: 'Task',
-    tool_use_id: options.toolUseId || 'dispatch-1', tool_input: { prompt: marker },
+    tool_use_id: options.toolUseId || 'dispatch-1', tool_input: { prompt: marker, run_in_background: false },
   };
   if (options.blockSeamStorage) {
     fs.mkdirSync(path.join(attemptDir, 'seams', `${sha(String(payload.tool_use_id))}.json`), { recursive: true });
@@ -281,7 +281,7 @@ function createOutlineFixture(options = {}) {
   if (seam) capture.outlineDispatch = seam;
   const workerStartPayload = {
     session_id: sessionId, cwd: options.workerStartRoot || root, hook_event_name: 'SubagentStart',
-    agent_id: options.workerPrincipal || 'draft-worker', agent_type: 'worker', parent_tool_use_id: capture?.tool_use_id || payload.tool_use_id,
+    agent_id: options.workerPrincipal || 'draft-worker', agent_type: 'worker',
   };
   let workerStart;
   if (options.realHook) {
@@ -295,7 +295,7 @@ function createOutlineFixture(options = {}) {
   const extraCaptures = [];
 
   function dispatchAgain({ toolUseId = capture.tool_use_id, prompt = payload.tool_input.prompt } = {}) {
-    const extraPayload = { ...payload, tool_use_id: toolUseId, tool_input: { prompt } };
+    const extraPayload = { ...payload, tool_use_id: toolUseId, tool_input: { prompt, run_in_background: false } };
     const extra = provider.buildCaptureRecord(extraPayload, 'PreToolUse', root);
     extra.observedIdentity = capture.observedIdentity;
     if (internals.captureOutlineDispatch) {
@@ -309,7 +309,7 @@ function createOutlineFixture(options = {}) {
   }
 
   function finishDraft({ draft = true, nonDescendant = false, finalReview = false, baselineRoot = root,
-    omitWorkerStart = false, omitWorkerResult = false, tamperHandoff = false,
+    omitWorkerStart = false, omitWorkerResult = false, omitWorkerStop = false, tamperHandoff = false,
     providerSessionId = sessionId, providerTaskId = taskId, providerBaseline = { root, commit: baselineCommit },
     runPilot = false, handAuthoredCapture = false, removeSeam = false, mutateAfterFinalReview = false } = {}) {
     if (draft) {
@@ -337,7 +337,11 @@ function createOutlineFixture(options = {}) {
       if (!omitWorkerResult) runHook({
         session_id: sessionId, cwd: root, hook_event_name: 'PostToolUse', tool_name: 'Task',
         tool_use_id: capture.tool_use_id, tool_input: { command: 'Task' },
-        tool_response: { agentId: options.workerPrincipal || 'draft-worker', interrupted: false },
+        tool_response: { agentId: options.workerPrincipal || 'draft-worker', interrupted: false, status: 'completed' },
+      });
+      if (!omitWorkerStop) runHook({
+        session_id: sessionId, cwd: root, hook_event_name: 'SubagentStop',
+        agent_id: options.workerPrincipal || 'draft-worker', agent_type: 'worker',
       });
     }
     if (finalReview) {
@@ -345,7 +349,7 @@ function createOutlineFixture(options = {}) {
       const finalResultPayload = {
         session_id: sessionId, cwd: root, hook_event_name: 'PostToolUse', tool_name: 'Task',
         tool_use_id: 'final-review-dispatch', tool_input: { command: 'Task' },
-        tool_response: { agentId: finalReviewer, interrupted: false },
+        tool_response: { agentId: finalReviewer, interrupted: false, status: 'completed' },
       };
       const finalStopPayload = {
         session_id: sessionId, cwd: root, hook_event_name: 'SubagentStop', agent_id: finalReviewer,
@@ -374,8 +378,10 @@ function createOutlineFixture(options = {}) {
       : [...reviewCaptures, capture, ...extraCaptures, ...(!omitWorkerStart ? [workerStart] : []), ...(!omitWorkerResult ? [provider.buildCaptureRecord({
         session_id: sessionId, cwd: root, hook_event_name: 'PostToolUse', tool_name: 'Task',
         tool_use_id: capture.tool_use_id, tool_input: { command: 'Task' },
-        tool_response: { agentId: options.workerPrincipal || 'draft-worker', interrupted: false },
-      }, 'PostToolUse', root)] : [])];
+        tool_response: { agentId: options.workerPrincipal || 'draft-worker', interrupted: false, status: 'completed' },
+      }, 'PostToolUse', root)] : []), ...(!omitWorkerStop ? [provider.buildCaptureRecord({
+        session_id: sessionId, cwd: root, hook_event_name: 'SubagentStop', agent_id: options.workerPrincipal || 'draft-worker', agent_type: 'worker',
+      }, 'SubagentStop', root)] : [])];
     const qualification = { source: 'fake-test-fixture', faked: true, toolUseIdPopulated: true,
       agentIdPopulated: true, outlineDispatchCaptureVerified: true };
     if (removeSeam && capture.outlineDispatch?.seamRef) {
@@ -805,14 +811,14 @@ test('canonical root identity accepts an alias across marker, handoff, lease, an
   } finally { fixture.cleanup(); }
 });
 
-test('one-use token and tool correlation allow only an identical same-ID duplicate', () => {
+test('one-use token deduplicates identical seams but replayed tool-use records stay unresolved', () => {
   assert.strictEqual(typeof internals.captureOutlineDispatch, 'function', 'missing token-consuming seam');
   const duplicate = createOutlineFixture();
   try {
     const same = duplicate.dispatchAgain();
     assert.strictEqual(same.outlineDispatch.state, 'accepted', JSON.stringify(same.outlineDispatch));
     assert.strictEqual(same.outlineDispatch.duplicate, true);
-    assert.strictEqual(duplicate.finishDraft().result.status, 'accepted', 'same ID and same input deduplicate to one seam');
+    assert.notStrictEqual(duplicate.finishDraft().result.status, 'accepted', 'a replayed host PreToolUse record is not a unique dispatch anchor');
   } finally { duplicate.cleanup(); }
 
   for (const [name, replay] of [
@@ -949,24 +955,202 @@ test('baseline integrity, callback order, delayed result, stash/restore, and uno
   } finally { shellWriter.cleanup(); }
 });
 
-test('live qualification requires same-session dispatch, worker-start root, and result correlation', () => {
+const outlineMappingV2 = {
+  version: 'claude-outline-dispatch-mapping/2',
+  promptField: 'tool_input.prompt',
+  dispatchKey: 'session_id+tool_use_id',
+  runInBackgroundField: 'tool_input.run_in_background',
+  isolationPresenceField: 'tool_input.isolation',
+  resultAgentIdField: 'tool_response.agentId',
+  resultStatusField: 'tool_response.status',
+  workerStartEvent: 'SubagentStart',
+  workerStopEvent: 'SubagentStop',
+  workerIdentity: 'session_id+agent_id',
+  workerRootField: 'cwd',
+};
+
+function qualificationDispatch({ id = 'dispatch-1', promptId = 'shared-prompt', background = false, hasBackground = true,
+  isolation, hasIsolation = false, session = 'coordinator' } = {}) {
+  const toolInput = { prompt: dispatchLine, ...(hasBackground ? { run_in_background: background } : {}) };
+  if (hasIsolation) toolInput.isolation = isolation;
+  return { event: 'PreToolUse', tool_name: 'Task', tool_use_id: id, session_id: session, prompt_id: promptId, tool_input: toolInput };
+}
+
+function qualificationStart(agentId = 'worker', { session = 'coordinator', cwd = '/tmp/prb-worker', id } = {}) {
+  return { event: 'SubagentStart', ...(id ? { tool_use_id: id } : {}), agent_id: agentId, session_id: session, cwd };
+}
+
+function qualificationStop(agentId = 'worker', { session = 'coordinator', cwd = '/tmp/prb-worker' } = {}) {
+  return { event: 'SubagentStop', agent_id: agentId, session_id: session, cwd };
+}
+
+function qualificationResult(id = 'dispatch-1', agentId = 'worker', status = 'completed', { session = 'coordinator', legacyAgentId } = {}) {
+  const toolResponse = { agentId };
+  if (status !== null) toolResponse.status = status;
+  return { event: 'PostToolUse', tool_name: 'Task', tool_use_id: id, session_id: session,
+    ...(legacyAgentId !== undefined ? { agent_id: legacyAgentId } : {}), tool_response: toolResponse };
+}
+
+function outlineCorrelation(records, anchor = records.find(item => item.event === 'PreToolUse')) {
+  return internals.correlateOutlineDispatch(records, anchor, '/tmp/prb-worker');
+}
+
+test('live qualification accepts the versioned Claude 2.1.312 dispatch/result/worker field contract', () => {
   assert.strictEqual(typeof internals.outlineCaptureMappingValid, 'function', 'missing qualification correlation validator');
-  const mapping = { promptField: 'tool_input.prompt', coordinatorPrincipalField: 'session_id', synchronousPreToolUse: true,
-    workerStartDispatchField: 'parent_tool_use_id', workerStartRootField: 'cwd', taskResultDispatchField: 'tool_use_id' };
-  const records = [
-    { event: 'PreToolUse', tool_name: 'Task', tool_use_id: 'dispatch-1', session_id: 'coordinator',
-      tool_input: { prompt: 'HARNESS_OUTLINE_DISPATCH_V1 taskId=task-prb attemptId=attempt-1 token=token-1 workerRoot=/tmp/worker' } },
-    { event: 'SubagentStart', parent_tool_use_id: 'dispatch-1', agent_id: 'worker', session_id: 'coordinator', cwd: '/tmp/worker' },
-    { event: 'PostToolUse', tool_name: 'Task', tool_use_id: 'dispatch-1', agent_id: 'worker', session_id: 'coordinator', interrupted: false },
-  ];
-  assert.strictEqual(internals.outlineCaptureMappingValid(mapping, records), true);
+  assert.deepStrictEqual(internals.OUTLINE_CAPTURE_MAPPING, outlineMappingV2, 'mapping field contract must be explicitly versioned');
+  const pre = qualificationDispatch();
+  const records = [pre, qualificationStart(), qualificationResult(), qualificationStop()];
+  assert.strictEqual(internals.outlineCaptureMappingValid(outlineMappingV2, records), true,
+    'PreToolUse → completed tool_response.agentId → unique Start/Stop is the 2.1.312 host shape');
   const crossSession = records.map(item => ({ ...item }));
   crossSession[2].session_id = 'different-session';
-  assert.strictEqual(internals.outlineCaptureMappingValid(mapping, crossSession), false,
+  assert.strictEqual(internals.outlineCaptureMappingValid(outlineMappingV2, crossSession), false,
     'matching tool IDs across different coordinator sessions do not qualify the live mapping');
   const wrongRoot = records.map(item => ({ ...item }));
   wrongRoot[1].cwd = '/tmp/other-worker';
-  assert.strictEqual(internals.outlineCaptureMappingValid(mapping, wrongRoot), false);
+  assert.strictEqual(internals.outlineCaptureMappingValid(outlineMappingV2, wrongRoot), false);
+});
+
+test('capture record retains only explicit outline result and dispatch fields', () => {
+  const pre = provider.buildCaptureRecord({ session_id: 'coordinator', tool_name: 'Task', tool_use_id: 'explicit',
+    tool_input: { prompt: dispatchLine, run_in_background: false } }, 'PreToolUse', '/tmp/prb-worker');
+  assert.strictEqual(pre.run_in_background, false);
+  assert.strictEqual(pre.isolationSet, false);
+  const omitted = provider.buildCaptureRecord({ session_id: 'coordinator', tool_name: 'Agent', tool_use_id: 'omitted',
+    tool_input: { prompt: dispatchLine } }, 'PreToolUse', '/tmp/prb-worker');
+  assert.strictEqual(Object.hasOwn(omitted, 'run_in_background'), false, 'missing background input stays absent');
+  const isolated = provider.buildCaptureRecord({ session_id: 'coordinator', tool_name: 'Agent', tool_use_id: 'isolated',
+    tool_input: { prompt: dispatchLine, run_in_background: false, isolation: null } }, 'PreToolUse', '/tmp/prb-worker');
+  assert.strictEqual(isolated.isolationSet, true, 'present null isolation is not normalized to absence');
+  const result = provider.buildCaptureRecord({ session_id: 'coordinator', tool_name: 'Task', tool_use_id: 'result',
+    tool_response: { agentId: 'worker', status: 'completed' } }, 'PostToolUse', '/tmp/prb-worker');
+  assert.strictEqual(result.tool_response_status, 'completed');
+  const noStatus = provider.buildCaptureRecord({ session_id: 'coordinator', tool_name: 'Task', tool_use_id: 'no-status',
+    tool_response: { agentId: 'worker' } }, 'PostToolUse', '/tmp/prb-worker');
+  assert.strictEqual(Object.hasOwn(noStatus, 'tool_response_status'), false, 'missing result status stays absent');
+});
+
+for (const [name, make, reason] of [
+  ['concurrent same-session dispatches cannot reuse one worker result', () => {
+    const one = qualificationDispatch({ id: 'dispatch-1' });
+    const two = qualificationDispatch({ id: 'dispatch-2' });
+    return { records: [one, two, qualificationStart(), qualificationResult('dispatch-1'),
+      qualificationResult('dispatch-2'), qualificationStop()], anchor: one };
+  }, 'outline-worker-agent-id-replayed'],
+  ['a shared prompt_id cannot replace the target tool_use_id', () => {
+    const one = qualificationDispatch({ id: 'dispatch-1' });
+    const two = qualificationDispatch({ id: 'dispatch-2' });
+    return { records: [one, two, qualificationStart('worker-2'), qualificationResult('dispatch-2', 'worker-2'),
+      qualificationStop('worker-2')], anchor: one };
+  }, 'outline-worker-result-missing-or-ambiguous'],
+  ['reordered Stop-before-Start is unresolved', () => {
+    const pre = qualificationDispatch();
+    return { records: [pre, qualificationStop(), qualificationStart(), qualificationResult()], anchor: pre };
+  }, 'outline-worker-stop-before-start'],
+  ['Start-before-Pre is unresolved', () => {
+    const pre = qualificationDispatch();
+    return { records: [qualificationStart(), pre, qualificationResult(), qualificationStop()], anchor: pre };
+  }, 'outline-worker-start-before-dispatch'],
+  ['missing result is unresolved', () => {
+    const pre = qualificationDispatch();
+    return { records: [pre, qualificationStart(), qualificationStop()], anchor: pre };
+  }, 'outline-worker-result-missing-or-ambiguous'],
+  ['duplicate result is unresolved', () => {
+    const pre = qualificationDispatch();
+    return { records: [pre, qualificationStart(), qualificationResult(), qualificationResult(), qualificationStop()], anchor: pre };
+  }, 'outline-worker-result-missing-or-ambiguous'],
+  ['duplicate worker start is unresolved', () => {
+    const pre = qualificationDispatch();
+    return { records: [pre, qualificationStart(), qualificationStart(), qualificationResult(), qualificationStop()], anchor: pre };
+  }, 'outline-worker-start-missing-or-ambiguous'],
+  ['duplicate worker stop is unresolved', () => {
+    const pre = qualificationDispatch();
+    return { records: [pre, qualificationStart(), qualificationResult(), qualificationStop(), qualificationStop()], anchor: pre };
+  }, 'outline-worker-stop-missing-or-ambiguous'],
+  ['conflicting top-level and observed agentId is unresolved', () => {
+    const pre = qualificationDispatch();
+    return { records: [pre, qualificationStart(), qualificationResult('dispatch-1', 'worker', 'completed', { legacyAgentId: 'other-worker' }),
+      qualificationStop()], anchor: pre };
+  }, 'outline-worker-result-agent-id-conflict'],
+  ['async_launched is unresolved', () => {
+    const pre = qualificationDispatch();
+    return { records: [pre, qualificationStart(), qualificationResult('dispatch-1', 'worker', 'async_launched'), qualificationStop()], anchor: pre };
+  }, 'outline-worker-result-async'],
+  ['absent result status is unresolved', () => {
+    const pre = qualificationDispatch();
+    return { records: [pre, qualificationStart(), qualificationResult('dispatch-1', 'worker', null), qualificationStop()], anchor: pre };
+  }, 'outline-worker-result-status-missing'],
+  ['failed result status is unresolved', () => {
+    const pre = qualificationDispatch();
+    return { records: [pre, qualificationStart(), qualificationResult('dispatch-1', 'worker', 'failed'), qualificationStop()], anchor: pre };
+  }, 'outline-worker-result-failed'],
+  ['cancelled result status is unresolved', () => {
+    const pre = qualificationDispatch();
+    return { records: [pre, qualificationStart(), qualificationResult('dispatch-1', 'worker', 'cancelled'), qualificationStop()], anchor: pre };
+  }, 'outline-worker-result-failed'],
+  ['missing Stop is unresolved', () => {
+    const pre = qualificationDispatch();
+    return { records: [pre, qualificationStart(), qualificationResult()], anchor: pre };
+  }, 'outline-worker-stop-missing-or-ambiguous'],
+  ['worker-root mismatch is unresolved', () => {
+    const pre = qualificationDispatch();
+    return { records: [pre, qualificationStart('worker', { cwd: '/tmp/other-worker' }), qualificationResult(), qualificationStop()], anchor: pre };
+  }, 'outline-worker-root-mismatch'],
+  ['worktree isolation is unresolved', () => {
+    const pre = qualificationDispatch({ hasIsolation: true, isolation: 'worktree' });
+    return { records: [pre, qualificationStart(), qualificationResult(), qualificationStop()], anchor: pre };
+  }, 'outline-dispatch-isolation-unsupported'],
+  ['present null isolation is unresolved', () => {
+    const pre = qualificationDispatch({ hasIsolation: true, isolation: null });
+    return { records: [pre, qualificationStart(), qualificationResult(), qualificationStop()], anchor: pre };
+  }, 'outline-dispatch-isolation-unsupported'],
+  ['omitted run_in_background is unresolved', () => {
+    const pre = qualificationDispatch({ hasBackground: false });
+    return { records: [pre, qualificationStart(), qualificationResult(), qualificationStop()], anchor: pre };
+  }, 'outline-dispatch-background-unobserved'],
+  ['an Agent PostToolUseFailure invalidates a completed result', () => {
+    const pre = qualificationDispatch();
+    return { records: [pre, qualificationStart(), qualificationResult(),
+      { event: 'PostToolUseFailure', tool_name: 'Task', tool_use_id: 'dispatch-1', session_id: 'coordinator' }, qualificationStop()], anchor: pre };
+  }, 'outline-worker-result-failed'],
+]) {
+  test(`outline correlation rejects ${name}`, () => {
+    const { records, anchor } = make();
+    const result = outlineCorrelation(records, anchor);
+    assert.deepStrictEqual(result, { state: 'unresolved', reason });
+  });
+}
+
+test('runtime resolution accepts Stop after the completed result through the synthetic qualification seam', () => {
+  const fixture = createOutlineFixture();
+  try {
+    const completed = fixture.finishDraft();
+    assert.strictEqual(completed.result.status, 'accepted', JSON.stringify(completed.result));
+    const workerResultIndex = completed.captures.findIndex(item => item.event === 'PostToolUse'
+      && item.tool_use_id === fixture.capture.tool_use_id);
+    const workerStopIndex = completed.captures.findIndex(item => item.event === 'SubagentStop'
+      && item.agent_id === 'draft-worker');
+    assert.ok(workerResultIndex >= 0 && workerStopIndex > workerResultIndex,
+      'the 2.1.312 field shape allows result before Stop; no Stop-before-result condition is implied');
+  } finally { fixture.cleanup(); }
+});
+
+test('production export without an outline mapping keeps outline-live-gate-unmet', () => {
+  const fixture = createOutlineFixture();
+  try {
+    const completed = fixture.finishDraft();
+    const production = provider.createClaudeOriginProvider({
+      hostId: 'claude-code', sessionId: fixture.sessionId, workspaceRoot: fixture.root,
+      workflowId: fixture.workflowId, workflowRevision: fixture.workflowRevision, taskId: fixture.taskId,
+      principals: { author: fixture.sessionId, executors: [] },
+      baseline: { root: fixture.root, commit: fixture.baselineCommit }, captures: completed.captures,
+      sessionDir: fixture.sessionDir, taskBinding: fixture.taskBinding,
+      outlineFixture: { expectedPin: fixture.expectedPin },
+    });
+    const result = production.resolveEvent({ reference: `${fixture.capture.ref}#outline-confirmation`, identity: completed.identity });
+    assert.strictEqual(result.status, 'unavailable');
+    assert.ok(result.diagnostics.some(item => item.code === 'outline-live-gate-unmet'), JSON.stringify(result));
+  } finally { fixture.cleanup(); }
 });
 
 test('original B and immutable attempt chain survive reconfirmation; stale attempts/tokens never cover new scope', () => {

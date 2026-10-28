@@ -52,6 +52,19 @@ const DOC_CHECK_BOOLEAN_FLAGS = new Set(['--conflict-assessment']);
 const DOC_CHECK_SCHEMA = 'harness.doc-check.check.v1';
 const DOC_CHECK_CONFLICT_SCHEMA = 'harness.doc-check.conflict-assessment.v1';
 const OUTLINE_DISPATCH_SCHEMA = 'harness.outline-dispatch.v1';
+const OUTLINE_CAPTURE_MAPPING = Object.freeze({
+  version: 'claude-outline-dispatch-mapping/2',
+  promptField: 'tool_input.prompt',
+  dispatchKey: 'session_id+tool_use_id',
+  runInBackgroundField: 'tool_input.run_in_background',
+  isolationPresenceField: 'tool_input.isolation',
+  resultAgentIdField: 'tool_response.agentId',
+  resultStatusField: 'tool_response.status',
+  workerStartEvent: 'SubagentStart',
+  workerStopEvent: 'SubagentStop',
+  workerIdentity: 'session_id+agent_id',
+  workerRootField: 'cwd',
+});
 const OUTLINE_SEAM_SCHEMA = 'harness.outline-dispatch-seam.v1';
 const OUTLINE_HANDOFF_SCHEMA = 'harness.outline-handoff.v1';
 const OUTLINE_LEASE_SCHEMA = 'harness.outline-writer-lease.v1';
@@ -1163,28 +1176,125 @@ function validateOutlineCaptureQualification(input, expectedHost = HOST_ID) {
 }
 
 function outlineCaptureMappingValid(mapping, records) {
-  if (!recordOf(mapping) || mapping.promptField !== 'tool_input.prompt'
-    || mapping.coordinatorPrincipalField !== 'session_id' || mapping.synchronousPreToolUse !== true
-    || mapping.workerStartDispatchField !== 'parent_tool_use_id' || mapping.workerStartRootField !== 'cwd'
-    || mapping.taskResultDispatchField !== 'tool_use_id' || !Array.isArray(records)) return false;
+  if (!recordOf(mapping) || captureJson(mapping) !== captureJson(OUTLINE_CAPTURE_MAPPING) || !Array.isArray(records)) return false;
   const pres = records.filter(item => recordOf(item) && item.event === 'PreToolUse'
     && ['Task', 'Agent'].includes(item.tool_name) && recordOf(item.tool_input)
     && typeof item.tool_input.prompt === 'string' && textOf(item.session_id) && textOf(item.tool_use_id));
-  return pres.some(pre => {
+  return pres.some(pre => correlateOutlineDispatch(records, pre).state === 'accepted');
+}
+
+function outlineCorrelationFailure(reason) { return { state: 'unresolved', reason }; }
+
+function outlineDispatchKeyMatches(item, pre) {
+  return recordOf(item) && item.session_id === pre.session_id && item.tool_use_id === pre.tool_use_id;
+}
+
+function outlineResultAgentId(result) {
+  if (recordOf(result.tool_response)) {
+    const observed = result.tool_response.agentId;
+    if (textOf(result.agent_id) && textOf(observed) && result.agent_id !== observed) {
+      return { state: 'unresolved', reason: 'outline-worker-result-agent-id-conflict' };
+    }
+    return { state: textOf(observed) ? 'accepted' : 'unresolved', agentId: observed,
+      ...(textOf(observed) ? {} : { reason: 'outline-worker-result-agent-id-missing' }) };
+  }
+  return textOf(result.agent_id)
+    ? { state: 'accepted', agentId: result.agent_id }
+    : { state: 'unresolved', reason: 'outline-worker-result-agent-id-missing' };
+}
+
+function outlineResultStatus(result) {
+  if (recordOf(result.tool_response)) return Object.prototype.hasOwnProperty.call(result.tool_response, 'status')
+    ? { present: true, value: result.tool_response.status } : { present: false };
+  return Object.prototype.hasOwnProperty.call(result, 'tool_response_status')
+    ? { present: true, value: result.tool_response_status } : { present: false };
+}
+
+function correlateOutlineDispatch(records, anchor, expectedWorkerRoot) {
+  if (!Array.isArray(records)) return outlineCorrelationFailure('outline-capture-records-missing');
+  if (!recordOf(anchor) || anchor.event !== 'PreToolUse' || !['Task', 'Agent'].includes(anchor.tool_name)) {
+    return outlineCorrelationFailure('outline-dispatch-anchor-invalid');
+  }
+  if (!textOf(anchor.session_id) || !textOf(anchor.tool_use_id)) return outlineCorrelationFailure('outline-dispatch-key-missing');
+  const pres = records.filter(item => recordOf(item) && item.event === 'PreToolUse'
+    && ['Task', 'Agent'].includes(item.tool_name) && outlineDispatchKeyMatches(item, anchor));
+  if (pres.length !== 1) return outlineCorrelationFailure('outline-dispatch-anchor-missing-or-ambiguous');
+  const pre = pres[0];
+  let workerRoot = expectedWorkerRoot;
+  if (recordOf(pre.tool_input)) {
     const marker = parseOutlineDispatchPrompt(pre.tool_input.prompt);
-    if (!marker) return false;
-    const starts = records.filter(item => recordOf(item) && item.event === 'SubagentStart'
-      && item.parent_tool_use_id === pre.tool_use_id && item.session_id === pre.session_id
-      && textOf(item.cwd) && textOf(marker.workerRoot) && key(item.cwd) === key(marker.workerRoot)
-      && textOf(item.agent_id));
-    if (starts.length !== 1) return false;
-    const worker = starts[0];
-    const results = records.filter(item => recordOf(item) && item.event === 'PostToolUse'
-      && ['Task', 'Agent'].includes(item.tool_name) && item.tool_use_id === pre.tool_use_id
-      && item.session_id === pre.session_id && item.agent_id === worker.agent_id
-      && item.interrupted === false);
-    return results.length === 1;
-  });
+    if (!marker) return outlineCorrelationFailure('outline-dispatch-marker-invalid');
+    if (workerRoot !== undefined && !samePathKey(marker.workerRoot, workerRoot)) {
+      return outlineCorrelationFailure('outline-dispatch-worker-root-mismatch');
+    }
+    workerRoot = marker.workerRoot;
+    if (!Object.prototype.hasOwnProperty.call(pre.tool_input, 'run_in_background')) {
+      return outlineCorrelationFailure('outline-dispatch-background-unobserved');
+    }
+    if (pre.tool_input.run_in_background !== false) {
+      return outlineCorrelationFailure('outline-dispatch-background-enabled');
+    }
+    if (Object.prototype.hasOwnProperty.call(pre.tool_input, 'isolation')) {
+      return outlineCorrelationFailure('outline-dispatch-isolation-unsupported');
+    }
+  } else {
+    if (!recordOf(pre.outlineDispatch) || pre.outlineDispatch.state !== 'accepted' || !textOf(pre.outlineDispatch.workerRoot)) {
+      return outlineCorrelationFailure('outline-dispatch-marker-unobserved');
+    }
+    if (workerRoot !== undefined && !samePathKey(pre.outlineDispatch.workerRoot, workerRoot)) {
+      return outlineCorrelationFailure('outline-dispatch-worker-root-mismatch');
+    }
+    workerRoot = pre.outlineDispatch.workerRoot;
+    if (!Object.prototype.hasOwnProperty.call(pre, 'run_in_background')) {
+      return outlineCorrelationFailure('outline-dispatch-background-unobserved');
+    }
+    if (pre.run_in_background !== false) return outlineCorrelationFailure('outline-dispatch-background-enabled');
+    if (!Object.prototype.hasOwnProperty.call(pre, 'isolationSet')) {
+      return outlineCorrelationFailure('outline-dispatch-isolation-unobserved');
+    }
+    if (pre.isolationSet !== false) return outlineCorrelationFailure('outline-dispatch-isolation-unsupported');
+  }
+  if (!textOf(workerRoot) || !path.isAbsolute(workerRoot)) return outlineCorrelationFailure('outline-dispatch-worker-root-unobserved');
+
+  const failures = records.filter(item => outlineDispatchKeyMatches(item, pre) && item.event === 'PostToolUseFailure');
+  if (failures.length) return outlineCorrelationFailure('outline-worker-result-failed');
+  const results = records.filter(item => outlineDispatchKeyMatches(item, pre) && item.event === 'PostToolUse'
+    && ['Task', 'Agent'].includes(item.tool_name));
+  if (results.length !== 1) return outlineCorrelationFailure('outline-worker-result-missing-or-ambiguous');
+  const result = results[0];
+  const status = outlineResultStatus(result);
+  if (!status.present || status.value === undefined) return outlineCorrelationFailure('outline-worker-result-status-missing');
+  if (status.value === 'async_launched') return outlineCorrelationFailure('outline-worker-result-async');
+  if (status.value !== 'completed') return outlineCorrelationFailure('outline-worker-result-failed');
+  const observedAgent = outlineResultAgentId(result);
+  if (observedAgent.state !== 'accepted') return outlineCorrelationFailure(observedAgent.reason);
+  const agentId = observedAgent.agentId;
+  const sameAgentResults = records.filter(item => recordOf(item) && item.event === 'PostToolUse'
+    && ['Task', 'Agent'].includes(item.tool_name) && item.session_id === pre.session_id
+    && outlineResultAgentId(item).state === 'accepted' && outlineResultAgentId(item).agentId === agentId);
+  if (sameAgentResults.length !== 1) return outlineCorrelationFailure('outline-worker-agent-id-replayed');
+
+  const starts = records.filter(item => recordOf(item) && item.event === 'SubagentStart'
+    && item.session_id === pre.session_id && item.agent_id === agentId);
+  if (starts.length !== 1) return outlineCorrelationFailure('outline-worker-start-missing-or-ambiguous');
+  const stops = records.filter(item => recordOf(item) && item.event === 'SubagentStop'
+    && item.session_id === pre.session_id && item.agent_id === agentId);
+  if (stops.length !== 1) return outlineCorrelationFailure('outline-worker-stop-missing-or-ambiguous');
+  const start = starts[0];
+  const stop = stops[0];
+  const preIndex = records.indexOf(pre);
+  const startIndex = records.indexOf(start);
+  const stopIndex = records.indexOf(stop);
+  if (preIndex < 0 || startIndex < 0 || stopIndex < 0) return outlineCorrelationFailure('outline-worker-journal-position-unavailable');
+  if (startIndex <= preIndex) return outlineCorrelationFailure('outline-worker-start-before-dispatch');
+  if (stopIndex <= startIndex) return outlineCorrelationFailure('outline-worker-stop-before-start');
+  for (const workerEvent of [start, stop]) {
+    if (!textOf(workerEvent.cwd) || !path.isAbsolute(workerEvent.cwd)) {
+      return outlineCorrelationFailure('outline-worker-root-unobserved');
+    }
+    if (!samePathKey(workerEvent.cwd, workerRoot)) return outlineCorrelationFailure('outline-worker-root-mismatch');
+  }
+  return { state: 'accepted', pre, result, start, stop, workerRoot, agentId };
 }
 
 function verifyOutlineMergeCorrespondence({ root, outlineCommit, draftCommit, mergedCommit, targetPaths, record } = {}) {
@@ -1335,20 +1445,10 @@ function resolveOutlineEvidence({ safeInput, capture, captures, request, originR
       || review.reviewDigest !== seam.reviewDigest || review.reviewerPrincipal !== seam.reviewerPrincipal) {
       return fail(review.reason || 'outline-review-changed-after-dispatch');
     }
-    const startEvents = (Array.isArray(captures) ? captures : []).filter(item => recordOf(item)
-      && item.event === 'SubagentStart' && item.parent_tool_use_id === cap.tool_use_id && item.session_id === cap.session_id);
-    if (startEvents.length !== 1 || !textOf(startEvents[0].agent_id)) return fail('outline-worker-start-missing-or-ambiguous');
-    const worker = startEvents[0];
-    let workerRoot;
-    try { workerRoot = canonicalOutlineRoot(worker.cwd); }
-    catch { return fail('outline-worker-root-unobserved'); }
-    if (!sameCanonicalPath(workerRoot, seam.workerRoot)) return fail('outline-worker-root-mismatch');
-    const results = (Array.isArray(captures) ? captures : []).filter(item => recordOf(item)
-      && item.event === 'PostToolUse' && ['Task', 'Agent'].includes(item.tool_name)
-      && item.tool_use_id === cap.tool_use_id && item.session_id === cap.session_id);
-    if (results.length !== 1 || results[0].agent_id !== worker.agent_id || results[0].interrupted !== false) {
-      return fail('outline-worker-result-missing-or-mismatched');
-    }
+    const correlation = correlateOutlineDispatch(captures, cap, seam.workerRoot);
+    if (correlation.state !== 'accepted') return fail(correlation.reason);
+    const worker = correlation.start;
+    const workerRoot = correlation.workerRoot;
     if (review.reviewerPrincipal === worker.agent_id) return fail('outline-reviewer-is-draft-worker');
     const principals = { author: safeInput.sessionId, executors: journalExecutors(captures, safeInput.sessionId) };
     if (!reviewRecordIndependent(review.review, captures, principals)) return fail('outline-review-not-independent');
@@ -1949,6 +2049,8 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
   if (event === 'PreToolUse' && PRE_CAPTURE_TOOLS.indexOf(payload.tool_name) === -1) return null;
   const toolInput = recordOf(payload.tool_input) ? payload.tool_input : {};
   const toolResponse = payload.tool_response;
+  const outlinePre = event === 'PreToolUse' && ['Task', 'Agent'].includes(payload.tool_name);
+  const outlineResult = event === 'PostToolUse' && ['Task', 'Agent'].includes(payload.tool_name);
   // Demonstrated alias mapping (doc: "Host result aliases such as agentId
   // require a demonstrated capture mapping to the same subagent identity"):
   // the PostToolUse Task/Agent result surface reports the subagent id as
@@ -1961,17 +2063,28 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
     ref: captureId,
     event,
     command: typeof toolInput.command === 'string' ? toolInput.command : '',
-    cwd: typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : (typeof workspaceRoot === 'string' && workspaceRoot ? workspaceRoot : ''),
     tool_use_id: typeof payload.tool_use_id === 'string' ? payload.tool_use_id : '',
     session_id: payload.session_id === undefined && payload.sessionId === undefined ? '' : String(payload.session_id !== undefined ? payload.session_id : payload.sessionId),
     responseDigest: captureDigest(toolResponse),
     responseRef: `host-payload/${event}/${captureId}`,
   };
+  if (typeof payload.cwd === 'string' && payload.cwd) record.cwd = payload.cwd;
+  else if (!['SubagentStart', 'SubagentStop'].includes(event) && typeof workspaceRoot === 'string' && workspaceRoot) record.cwd = workspaceRoot;
   if (payload.prompt_id !== undefined) record.prompt_id = payload.prompt_id;
   if (payload.parent_tool_use_id !== undefined) record.parent_tool_use_id = payload.parent_tool_use_id;
   // The launch tool name separates the Agent/Task result surface and the subagent launch from executed tools (F4/F5).
   if (typeof payload.tool_name === 'string') record.tool_name = payload.tool_name;
-  const agentId = payload.agent_id !== undefined ? payload.agent_id : responseAliasAgentId;
+  if (outlinePre) {
+    if (Object.prototype.hasOwnProperty.call(toolInput, 'run_in_background')) record.run_in_background = toolInput.run_in_background;
+    record.isolationSet = Object.prototype.hasOwnProperty.call(toolInput, 'isolation');
+  }
+  if (outlineResult && recordOf(toolResponse) && Object.prototype.hasOwnProperty.call(toolResponse, 'status')) {
+    record.tool_response_status = toolResponse.status;
+  }
+  const resultAgentConflict = outlineResult && textOf(payload.agent_id) && textOf(responseAliasAgentId)
+    && payload.agent_id !== responseAliasAgentId;
+  const agentId = outlineResult ? (resultAgentConflict ? undefined : responseAliasAgentId)
+    : payload.agent_id !== undefined ? payload.agent_id : responseAliasAgentId;
   if (agentId !== undefined) {
     record.agent_id = agentId;
     if (payload.agent_type !== undefined) record.agent_type = payload.agent_type;
@@ -2132,4 +2245,4 @@ module.exports = { createClaudeOriginProvider, createOpencodeOriginProvider, bui
   _internals: { captureJson, captureDigest, digestText, canonicalCapture, parseOutlineDispatchPrompt,
     parseInventoryPinRows, validateOutlineInventoryPin, resolveInventoryRow, parseOutlineCitation, resolveOutlineAttempt,
     captureOutlineDispatch, resolveOutlineEvidence, verifyOutlineMergeCorrespondence, validateOutlineCaptureQualification,
-    outlineCaptureMappingValid, OUTLINE_INVENTORY_PIN } };
+    outlineCaptureMappingValid, correlateOutlineDispatch, OUTLINE_CAPTURE_MAPPING, OUTLINE_INVENTORY_PIN } };
