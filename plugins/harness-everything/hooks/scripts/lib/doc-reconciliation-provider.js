@@ -76,6 +76,8 @@ const OUTLINE_INVENTORY_PIN = Object.freeze({
   runId: 'e1-inv-1',
   inputSha: '0ef0541c6cae550e8269ba712e03797e0e987dfb',
   approvalRef: { issue: 325, commentId: '6436207729', decision: 1 },
+  rowDomainMappings: Object.freeze([Object.freeze({ rowIds: Object.freeze(['15', '16', '17', '18']),
+    sourceDomain: 'VERI', domain: 'EVID', approvalRef: '../e1-feasibility-2026-10-28/owner-decision-veri-evid.md' })]),
   retainedArtifactPath: `inventory/${OUTLINE_INVENTORY_SHA256}.md`,
 });
 const OUTLINE_MARKER = 'HARNESS_OUTLINE_DISPATCH_V1';
@@ -721,7 +723,7 @@ function parseInventoryPinRows(bytes) {
 
 function validateOutlineInventoryPin({ bytes, pin, expectedPin = OUTLINE_INVENTORY_PIN } = {}) {
   if (!Buffer.isBuffer(bytes) || !recordOf(pin) || !recordOf(expectedPin)) return { state: 'unresolved', reason: 'inventory-unavailable' };
-  const fields = ['source', 'sha256', 'runId', 'inputSha', 'approvalRef', 'retainedArtifactPath'];
+  const fields = ['source', 'sha256', 'runId', 'inputSha', 'approvalRef', 'rowDomainMappings', 'retainedArtifactPath'];
   const actualPin = Object.fromEntries(fields.map(field => [field, pin[field]]));
   const trustedPin = Object.fromEntries(fields.map(field => [field, expectedPin[field]]));
   if (captureJson(actualPin) !== captureJson(trustedPin)) return { state: 'unresolved', reason: 'inventory-pin-mismatch' };
@@ -742,10 +744,18 @@ function resolveInventoryRow(inventory, rowId) {
   if (!parsed || parsed.state !== 'parsed' || !textOf(rowId)) return { state: 'unresolved', reason: 'inventory-row-missing' };
   const matches = [...parsed.rows.entries()].filter(([id]) => id === rowId);
   const domains = parsed.domains.get(rowId) || [];
-  if (matches.length !== 1 || matches[0][1] !== 1 || domains.length !== 1) {
+  if (matches.length !== 1 || matches[0][1] !== 1) {
     return { state: 'unresolved', reason: 'inventory-row-ambiguous' };
   }
-  return { state: 'accepted', row: { rowId, domain: domains[0] } };
+  const mappings = (Array.isArray(inventory.pin?.rowDomainMappings) ? inventory.pin.rowDomainMappings : [])
+    .filter(item => recordOf(item) && Array.isArray(item.rowIds) && item.rowIds.includes(rowId));
+  if (mappings.length > 1) return { state: 'unresolved', reason: 'inventory-row-ambiguous' };
+  const mapping = mappings[0];
+  if (mapping && (!domains.includes(mapping.sourceDomain) || !textOf(mapping.domain) || !textOf(mapping.approvalRef))) {
+    return { state: 'unresolved', reason: 'inventory-row-mapping-invalid' };
+  }
+  if (!mapping && domains.length !== 1) return { state: 'unresolved', reason: 'inventory-row-ambiguous' };
+  return { state: 'accepted', row: { rowId, domain: mapping ? mapping.domain : domains[0] } };
 }
 
 function hasSubstantiveDecision(text) {

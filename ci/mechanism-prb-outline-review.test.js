@@ -78,9 +78,9 @@ function outlineText({ complete = false, decisionPlaceholder = false, duplicateD
 function createOutlineFixture(options = {}) {
   const root = canonical(fs.mkdtempSync(path.join(os.tmpdir(), 'prb-outline-fixture-')));
   const retainedInventory = options.retainedInventory === true;
-  const target = options.target || (retainedInventory ? 'docs/adr/VERI-001.md' : 'docs/adr/DOCS-001.md');
-  const rowId = options.rowId || (retainedInventory ? '16' : '20');
-  const domain = options.domain || (retainedInventory ? 'VERI' : 'DOCS');
+  const target = options.target || (retainedInventory ? 'docs/adr/EVID-001.md' : 'docs/adr/DOCS-001.md');
+  const rowId = options.rowId || (retainedInventory ? '17' : '20');
+  const domain = options.domain || (retainedInventory ? 'EVID' : 'DOCS');
   const taskId = options.taskId || 'task-prb';
   const attemptId = options.attemptId || 'attempt-1';
   const sessionId = options.sessionId || 'author-session';
@@ -321,7 +321,7 @@ function createOutlineFixture(options = {}) {
     providerSessionId = sessionId, providerTaskId = taskId, providerBaseline = { root, commit: baselineCommit },
     runPilot = false, handAuthoredCapture = false, removeSeam = false, mutateAfterFinalReview = false } = {}) {
     if (draft) {
-      fs.writeFileSync(path.join(root, target), `---\nid: DOCS-001\nstatus: proposed\n---\n\n## Decision\nFinal D for row 20.\n`);
+      fs.writeFileSync(path.join(root, target), `---\nid: ${domain}-001\nstatus: proposed\n---\n\n## Decision\nFinal D for row ${rowId}.\n`);
       fixtureGit(root, ['add', '-A']);
       fixtureGit(root, ['commit', '-q', '-m', 'D final draft']);
     }
@@ -329,7 +329,7 @@ function createOutlineFixture(options = {}) {
       fixtureGit(root, ['checkout', '--orphan', 'unrelated']);
       fixtureGit(root, ['rm', '-rf', '.']);
       fs.mkdirSync(path.dirname(path.join(root, target)), { recursive: true });
-      fs.writeFileSync(path.join(root, target), `---\nid: DOCS-001\nstatus: proposed\n---\n\n## Decision\nUnrelated D.\n`);
+      fs.writeFileSync(path.join(root, target), `---\nid: ${domain}-001\nstatus: proposed\n---\n\n## Decision\nUnrelated D for row ${rowId}.\n`);
       fixtureGit(root, ['add', '-A']);
       fixtureGit(root, ['-c', 'user.name=outline-fixture', '-c', 'user.email=outline-fixture@invalid', 'commit', '-q', '-m', 'unrelated D']);
     }
@@ -525,6 +525,55 @@ test('coordinator-seeded inventory pin requires exact bytes, all fixed fields, a
   const multiDomainResult = internals.validateOutlineInventoryPin({ bytes: Buffer.from(multiDomain),
     pin: multiDomainPin, expectedPin: multiDomainPin });
   assert.strictEqual(internals.resolveInventoryRow(multiDomainResult, '20').state, 'unresolved', 'ambiguous domain mapping is unresolved');
+});
+
+test('the trusted inventory pin maps only owner-approved VERI rows 15–18 to EVID', () => {
+  const pin = internals.OUTLINE_INVENTORY_PIN;
+  const bytes = fs.readFileSync(path.join(ROOT,
+    'benchmarks/results/live-host/claude-341-outline-dispatch-2026-10-28/inventory/2741bd4514d2cd68f57d93a2b3ce94cbe597ca62d30e26f0ca58e882df5b03c6.md'));
+  const mapping = [{ rowIds: ['15', '16', '17', '18'], sourceDomain: 'VERI', domain: 'EVID',
+    approvalRef: '../e1-feasibility-2026-10-28/owner-decision-veri-evid.md' }];
+  assert.deepStrictEqual(pin.rowDomainMappings, mapping, 'the owner approval is part of the trusted pin');
+  const valid = internals.validateOutlineInventoryPin({ bytes, pin, expectedPin: pin });
+  assert.strictEqual(valid.state, 'accepted');
+  for (const rowId of ['15', '16', '17', '18']) {
+    assert.deepStrictEqual(internals.resolveInventoryRow(valid, rowId).row, { rowId, domain: 'EVID' });
+  }
+  const substituted = { ...pin, rowDomainMappings: [{ ...mapping[0], domain: 'VERI' }] };
+  const stale = internals.validateOutlineInventoryPin({ bytes, pin: substituted, expectedPin: pin });
+  assert.strictEqual(stale.state, 'unresolved', 'a substituted domain cannot change the trusted mapping');
+  assert.strictEqual(stale.reason, 'inventory-pin-mismatch');
+});
+
+test('pilot offers structured SubagentStop reviews only and preserves drafter independence rejection', () => {
+  const sessionDir = fs.mkdtempSync(path.join(os.tmpdir(), 'prb-review-candidates-'));
+  const author = 'author-session';
+  const draft = provider.buildCaptureRecord({ session_id: author, hook_event_name: 'PostToolUse', tool_name: 'Task',
+    tool_use_id: 'draft-dispatch', tool_response: { agentId: 'draft-worker', status: 'completed' } }, 'PostToolUse', '/tmp');
+  const ordinary = provider.buildCaptureRecord({ session_id: author, hook_event_name: 'SubagentStop', agent_id: 'draft-worker',
+    last_assistant_message: 'Draft complete. The document is ready.' }, 'SubagentStop', '/tmp');
+  const reviewResult = provider.buildCaptureRecord({ session_id: author, hook_event_name: 'PostToolUse', tool_name: 'Task',
+    tool_use_id: 'review-dispatch', tool_response: { agentId: 'independent-reviewer', status: 'completed' } }, 'PostToolUse', '/tmp');
+  const approval = provider.buildCaptureRecord({ session_id: author, hook_event_name: 'SubagentStop', agent_id: 'independent-reviewer',
+    last_assistant_message: `Review verdict: approve\nReviewed artifact: docs/adr/EVID-001.md sha256:${'a'.repeat(64)}\nSummary: exact ADR reviewed.` }, 'SubagentStop', '/tmp');
+  for (const record of [draft, ordinary, reviewResult, approval]) provider.writeImmutableEvent(sessionDir, record);
+  provider.rebuildJournalView(sessionDir);
+  const context = { sessionDir, activeHost: 'claude-code', workflow: { docReconciliationTask: { taskId: 'task-review-selection' } } };
+  const captures = provider.readCaptureView(sessionDir).records;
+  const reviewRefs = pilot._internals.captureReferences(context).filter(ref => ref.endsWith('#quality-review'));
+  assert.deepStrictEqual(reviewRefs, [`${approval.ref}#quality-review`], 'ordinary draft completion is not a review candidate');
+  assert.strictEqual(provider.reviewRecordIndependent(approval, captures, { author, executors: ['draft-worker'] }), true);
+
+  const drafterApproval = provider.buildCaptureRecord({ session_id: author, hook_event_name: 'SubagentStop', agent_id: 'draft-worker',
+    last_assistant_message: `Review verdict: approve\nReviewed artifact: docs/adr/EVID-001.md sha256:${'a'.repeat(64)}\nSummary: self approval.` }, 'SubagentStop', '/tmp');
+  provider.writeImmutableEvent(sessionDir, drafterApproval);
+  provider.rebuildJournalView(sessionDir);
+  const withDrafterApproval = provider.readCaptureView(sessionDir).records;
+  assert.ok(pilot._internals.captureReferences(context).includes(`${drafterApproval.ref}#quality-review`),
+    'an explicit approval remains visible to the provider independence check');
+  assert.strictEqual(provider.reviewRecordIndependent(drafterApproval, withDrafterApproval,
+    { author, executors: ['draft-worker'] }), false, 'a drafter cannot approve its own work');
+  fs.rmSync(sessionDir, { recursive: true, force: true });
 });
 
 test('generic successful execution or waiver cannot pass outline-confirmation', () => {
@@ -1135,6 +1184,39 @@ test('shipped run8 export resolves the real-hook integrated fixture without fake
     provider.createClaudeOriginProvider = originalFactory;
     fixture.cleanup();
   }
+});
+
+test('mapped row 17 dispatch accepts EVID-001 while the old VERI request and a substituted domain reject', () => {
+  const valid = createOutlineFixture({ retainedInventory: true, noFakeQualification: true });
+  try {
+    const completed = valid.finishDraft();
+    assert.strictEqual(completed.result.status, 'accepted', JSON.stringify(completed.result));
+    assert.strictEqual(completed.result.event.outlineEvidence.inventoryRowId, '17');
+    assert.strictEqual(completed.result.event.outlineEvidence.domain, 'EVID');
+  } finally { valid.cleanup(); }
+
+  const unapprovedVeri = createOutlineFixture({ retainedInventory: true, rowId: '16',
+    target: 'docs/adr/VERI-001.md', domain: 'VERI' });
+  try {
+    assert.strictEqual(unapprovedVeri.capture.outlineDispatch.state, 'unresolved');
+    assert.ok(unapprovedVeri.capture.outlineDispatch.reasons.includes('outline-inventory-binding-mismatch'));
+  } finally { unapprovedVeri.cleanup(); }
+
+  const unchangedRun8 = createOutlineFixture({ retainedInventory: true, rowId: '17',
+    target: 'docs/adr/EVID-001-verify-all-evidence.md', domain: 'EVID' });
+  try {
+    assert.strictEqual(unchangedRun8.capture.outlineDispatch.state, 'unresolved');
+    assert.ok(unchangedRun8.capture.outlineDispatch.reasons.includes('outline-domain-target-mismatch'),
+      'the original descriptive filename still fails the citation-id/basename check');
+  } finally { unchangedRun8.cleanup(); }
+
+  const substituted = createOutlineFixture({ retainedInventory: true,
+    handoffOverrides: { inventory: { ...internals.OUTLINE_INVENTORY_PIN, rowId: '17', domain: 'VERI',
+      targetPaths: ['docs/adr/EVID-001.md'] } } });
+  try {
+    assert.strictEqual(substituted.capture.outlineDispatch.state, 'unresolved');
+    assert.ok(substituted.capture.outlineDispatch.reasons.includes('outline-inventory-binding-mismatch'));
+  } finally { substituted.cleanup(); }
 });
 
 test('separate outline export failures stay closed for digest, path, file, wrapper, mapping, and chain corruption', () => {

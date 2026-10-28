@@ -346,7 +346,7 @@ function captureReferences(context) {
   const taskId = context.workflow.docReconciliationTask?.taskId;
   const outlineReviews = outlineReviewCaptureRefs(context.sessionDir, taskId);
   const reviews = captures.filter(item => item && typeof item.ref === 'string' && item.event === 'SubagentStop'
-    && !outlineReviews.has(item.ref));
+    && ['approve', 'reject'].includes(item.reviewVerdict) && !outlineReviews.has(item.ref));
   const references = [];
   for (const [index, capability] of ['doc-lint', 'link-check'].entries()) {
     const ordered = index ? candidates.slice(1).concat(candidates.slice(0, 1)) : candidates;
