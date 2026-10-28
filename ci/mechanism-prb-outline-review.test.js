@@ -911,6 +911,46 @@ test('outline evidence binds exact task, B, O blobs, independent review, worker 
       'a delayed write/edit callback from the coordinator remains visible and blocks ambiguous writer history');
   } finally { delayedWriter.cleanup(); }
 
+  // Live run 2026-10-28: a non-isolated reviewer starts in O; only a stop journaled before the dispatch clears it.
+  const reviewerStart = fixture => provider.buildCaptureRecord({ session_id: fixture.sessionId, cwd: fixture.root,
+    hook_event_name: 'SubagentStart', agent_id: 'outline-reviewer', agent_type: 'reviewer' }, 'SubagentStart', fixture.root);
+  const stoppedReviewer = createOutlineFixture();
+  try {
+    stoppedReviewer.reviewCaptures.unshift(reviewerStart(stoppedReviewer));
+    const completed = stoppedReviewer.finishDraft();
+    assert.strictEqual(completed.result.status, 'accepted',
+      `a reviewer that started and stopped in O before the dispatch is not a competing writer: ${JSON.stringify(completed.result)}`);
+  } finally { stoppedReviewer.cleanup(); }
+  for (const [name, arrange] of [
+    ['reviewer stop after the dispatch', fixture => {
+      const stop = fixture.reviewCaptures.findIndex(item => item.event === 'SubagentStop');
+      fixture.extraCaptures.push(...fixture.reviewCaptures.splice(stop, 1));
+      fixture.reviewCaptures.unshift(reviewerStart(fixture));
+    }],
+    ['reviewer start without a stop', fixture => {
+      fixture.reviewCaptures.unshift(provider.buildCaptureRecord({ session_id: fixture.sessionId, cwd: fixture.root,
+        hook_event_name: 'SubagentStart', agent_id: 'other-agent', agent_type: 'reviewer' }, 'SubagentStart', fixture.root));
+    }],
+    ['reviewer start after its stop', fixture => { fixture.reviewCaptures.push(reviewerStart(fixture)); }],
+    ['duplicate reviewer start with one stop before the dispatch', fixture => {
+      fixture.reviewCaptures.unshift(reviewerStart(fixture), reviewerStart(fixture));
+    }],
+    ['reviewer start with duplicate stops before the dispatch', fixture => {
+      const stop = fixture.reviewCaptures.find(item => item.event === 'SubagentStop');
+      fixture.reviewCaptures.unshift(reviewerStart(fixture));
+      fixture.reviewCaptures.push({ ...stop, ref: `${stop.ref}:dup`, captureId: `${stop.captureId}:dup` });
+    }],
+    ['reviewer start after the dispatch', fixture => { fixture.extraCaptures.push(reviewerStart(fixture)); }],
+  ]) {
+    const fixture = createOutlineFixture();
+    try {
+      arrange(fixture);
+      const completed = fixture.finishDraft();
+      assert.ok(completed.result.diagnostics?.some(item => item.code === 'outline-competing-writer-start'),
+        `${name} stays a competing writer start: ${JSON.stringify(completed.result)}`);
+    } finally { fixture.cleanup(); }
+  }
+
   const unqualified = createOutlineFixture();
   try {
     const completed = unqualified.finishDraft();

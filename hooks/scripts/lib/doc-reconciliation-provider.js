@@ -1452,8 +1452,24 @@ function resolveOutlineEvidence({ safeInput, capture, captures, request, originR
     if (review.reviewerPrincipal === worker.agent_id) return fail('outline-reviewer-is-draft-worker');
     const principals = { author: safeInput.sessionId, executors: journalExecutors(captures, safeInput.sessionId) };
     if (!reviewRecordIndependent(review.review, captures, principals)) return fail('outline-review-not-independent');
-    const competingStarts = (Array.isArray(captures) ? captures : []).filter(item => recordOf(item)
-      && item.event === 'SubagentStart' && item.ref !== worker.ref && sameCanonicalPath(item.cwd, workerRoot));
+    // An agent whose start and unique stop both precede the dispatch cannot write after the seam; earlier writes
+    // are covered by the clean-O seam check and by unattributedWriters below.
+    const journal = Array.isArray(captures) ? captures : [];
+    const dispatchIndex = journal.indexOf(correlation.pre);
+    const stoppedBeforeDispatch = start => {
+      const lifecycle = event => journal.filter(item => recordOf(item) && item.event === event
+        && item.session_id === start.session_id && textOf(start.agent_id) && item.agent_id === start.agent_id);
+      // Exactly one Start and one Stop per (session_id, agent_id); a duplicate either way stays ambiguous.
+      const starts = lifecycle('SubagentStart');
+      const stops = lifecycle('SubagentStop');
+      if (starts.length !== 1 || starts[0] !== start || stops.length !== 1) return false;
+      const startIndex = journal.indexOf(start);
+      const stopIndex = journal.indexOf(stops[0]);
+      return dispatchIndex >= 0 && startIndex >= 0 && startIndex < stopIndex && stopIndex < dispatchIndex;
+    };
+    const competingStarts = journal.filter(item => recordOf(item)
+      && item.event === 'SubagentStart' && item.ref !== worker.ref && sameCanonicalPath(item.cwd, workerRoot)
+      && !stoppedBeforeDispatch(item));
     if (competingStarts.length) return fail('outline-competing-writer-start');
     const unattributedWriters = (Array.isArray(captures) ? captures : []).filter(item => possibleWriterCapture(item)
       && (item.agent_id !== worker.agent_id || !sameCanonicalPath(item.cwd, workerRoot)));
