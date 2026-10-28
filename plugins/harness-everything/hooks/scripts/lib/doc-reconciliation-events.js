@@ -226,6 +226,28 @@ function acceptDocEvents(input = {}, dependencies = {}) {
         if (!configSource || configSource.presence !== 'present'
           || U.sha(U.bytes(configSource.bytes)) !== binding?.config?.digest) reject('config-capture-mismatch');
       }
+      if (event?.capability === 'derived-regenerate') {
+        const binding = event.derivedBinding;
+        const corpus = binding?.sourceCorpus;
+        const expectedPaths = U.runtimeModule('doc-lifecycle.js').documentCorpusPaths(
+          snapshot.candidate.records, snapshot.config.resolution.config
+        );
+        if (!U.record(binding) || binding.view !== paths[0] || !U.record(corpus) || corpus.complete !== true
+          || !Array.isArray(corpus.paths) || U.stable(corpus.paths) !== U.stable(expectedPaths)
+          || !U.record(corpus.digests) || U.stable(Object.keys(corpus.digests).sort()) !== U.stable(expectedPaths)
+          || !expectedPaths.every(p => artifacts[p] && corpus.digests[p] === artifacts[p].digest)) reject('corpus-mismatch');
+        if (binding?.baselineDigest !== snapshot.identity.baselineDigest
+          || binding?.candidateDigest !== snapshot.identity.candidateDigest
+          || binding?.configIdentityDigest !== snapshot.identity.configDigest) reject('snapshot-changed');
+        const configSource = snapshot.config.capture.sources.find(source => source.path === binding?.config?.path);
+        if (!configSource || configSource.presence !== 'present'
+          || U.sha(U.bytes(configSource.bytes)) !== binding?.config?.digest) reject('config-capture-mismatch');
+        const generated = binding?.generation?.outputDigest;
+        const target = binding?.comparison?.targetDigest;
+        if (binding?.generation?.state !== 'pass' || binding?.comparison?.state !== 'equal'
+          || !U.text(generated) || generated !== target || !artifacts[binding.view]
+          || artifacts[binding.view].digest !== target) reject('derived-binding-mismatch');
+      }
       if (event?.kind === 'review') {
         if (event.verdict !== 'approve' || !U.text(event.summary)) reject('event-invalid');
         const principals = context?.principals;

@@ -8,13 +8,14 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { execFileSync, spawnSync } = require('child_process');
-const { collectDocs } = require('./doc-lifecycle');
+const { isDeepStrictEqual } = require('node:util');
+const { collectDocs, buildIndexSnapshot } = require('./doc-lifecycle');
 
 // Logical command IDs (A3 section 3): stdout that repeats an ID is not trusted as credit by itself.
 const CHECK_ID = 'harness.doc-check.check.v1';
 const COMPARE_ID = 'harness.doc-check.compare-derived.v1';
-const USAGE = 'usage: doc-check.js check --workspace <dir> --config <json-file, relative to --workspace> --changed-path <path> [--changed-path <path> ...] [--base <git-rev>] [--conflict-assessment]';
-const VALUE_FLAGS = ['--workspace', '--config', '--changed-path', '--base'];
+const USAGE = 'usage: doc-check.js check --workspace <dir> --config <json-file, relative to --workspace> --changed-path <path> [--changed-path <path> ...] [--base <git-rev>] [--derived-view <path>] [--conflict-assessment]';
+const VALUE_FLAGS = ['--workspace', '--config', '--changed-path', '--base', '--derived-view'];
 const CONFLICT_SCHEMA = 'harness.doc-check.conflict-assessment.v1';
 const EXTERNAL = /^(?:https?:|mailto:)/i;
 const SCHEME = /^[a-z][a-z0-9+.-]*:/i;
@@ -91,10 +92,11 @@ function parseArgs(argv) {
     if (!VALUE_FLAGS.includes(flag) || rest[index + 1] === undefined) throw new Error(`${USAGE}\nunknown or incomplete argument: ${flag}`);
     const value = rest[++index];
     if (value.startsWith('--')) throw new Error(`${USAGE}\n${flag} requires a value, not a flag: ${value}`);
-    if (flag === '--changed-path') options.changedPaths.push(value);
+      if (flag === '--changed-path') options.changedPaths.push(value);
     else {
-      if (options[flag.slice(2)] !== undefined) throw new Error(`${USAGE}\nrepeated argument: ${flag}`);
-      options[flag.slice(2)] = value;
+        const key = flag === '--derived-view' ? 'derivedView' : flag.slice(2);
+        if (options[key] !== undefined) throw new Error(`${USAGE}\nrepeated argument: ${flag}`);
+        options[key] = value;
     }
   }
   if (!options.workspace || !options.config) throw new Error(`${USAGE}\n--workspace and --config are required`);
@@ -310,7 +312,7 @@ function compareDerived(argv) {
 }
 
 const GLOB_CHARS = /[*?[\]{}]/;
-const VIEW_REASON = 'derived view not verified: run its authorized generator, then compare-derived';
+const VIEW_REASON = 'derived view not verified: request check --derived-view to regenerate and compare it';
 
 // Near-miss comparison only (separators, leading ./, trailing /, case); never used to accept a view.
 function normalizeView(value) {
@@ -364,6 +366,97 @@ function derivedCoverage(config, { workspace, configRelative, configChanged, aff
     else if (current.generator !== old.generator) entries.push({ path: old.path, state: 'unverified', applicability: 'declaration-changed', reason: `generator changed since ${base}; not verified` });
   }
   return entries;
+}
+
+function digest(bytes) { return crypto.createHash('sha256').update(bytes).digest('hex'); }
+
+function derivedRegenerate(workspace, options, config, configBytes) {
+  const view = options.derivedView;
+  const unavailable = reason => ({ state: 'unavailable', checkedPaths: [view], reason });
+  if (typeof view !== 'string' || !view || path.isAbsolute(view) || view.includes('\\')
+    || view.split('/').some(part => !part || part === '.' || part === '..') || GLOB_CHARS.test(view)) {
+    return { state: 'unsupported', checkedPaths: [], reason: 'view must be a literal workspace-relative path' };
+  }
+  const configRelative = workspaceRelative(workspace, options.config);
+  if (!configRelative || path.isAbsolute(options.config) || options.config.includes('\\')
+    || !/^[A-Za-z0-9._/-]+$/.test(options.config)
+    || options.config.split('/').some(part => !part || part === '.' || part === '..')) {
+    return { state: 'unsupported', checkedPaths: [view], reason: 'config must be a canonical workspace-relative path' };
+  }
+  const selected = (Array.isArray(config.derived) ? config.derived : []).filter(item => item && item.path === view);
+  if (selected.length !== 1) return { state: 'unsupported', checkedPaths: [view], reason: 'view must name exactly one declared derived path' };
+  const governedPatterns = [
+    ...(Array.isArray(config.governed) ? config.governed.map(item => item && item.path) : []),
+    ...(Array.isArray(config.legacy) ? config.legacy : [])
+  ].filter(item => typeof item === 'string');
+  if (governedPatterns.some(pattern => globToRegExp(pattern).test(view))) {
+    return { state: 'unsupported', checkedPaths: [view], reason: 'a derived view cannot be governed by its own index' };
+  }
+  const expectedGenerator = `node harness-everything/scripts/doc-lifecycle.js index --workspace . --config ${options.config} --all`;
+  if (selected[0].generator !== expectedGenerator) {
+    return { state: 'unsupported', checkedPaths: [view], reason: 'configured generator is not the supported lifecycle index operation' };
+  }
+
+  const target = path.resolve(workspace, view);
+  const generatorPath = path.resolve(__dirname, 'doc-lifecycle.js');
+  const rootReal = fs.realpathSync(workspace);
+  const targetBytes = () => {
+    const stat = fs.lstatSync(target);
+    if (!stat.isFile()) throw new Error('view is not a regular file');
+    const real = fs.realpathSync(target);
+    const relative = path.relative(rootReal, real);
+    if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+      throw new Error('view resolves outside the workspace');
+    }
+    return readRegularFile(target);
+  };
+
+  try {
+    const configPath = path.resolve(workspace, options.config);
+    const configReal = fs.realpathSync(configPath);
+    const configPathRelative = path.relative(rootReal, configReal);
+    if (!configPathRelative || configPathRelative === '..' || configPathRelative.startsWith(`..${path.sep}`)
+      || !fs.lstatSync(configPath).isFile()) return { state: 'unsupported', checkedPaths: [view], reason: 'config is not a workspace-contained regular file' };
+    const beforeTarget = targetBytes();
+    const generatorDigest = digest(fs.readFileSync(generatorPath, 'utf8').replace(/\r\n/g, '\n'));
+    const first = buildIndexSnapshot(workspace, configPath, config, configBytes);
+    const currentConfigBytes = fs.readFileSync(configPath);
+    const currentConfig = JSON.parse(currentConfigBytes.toString('utf8'));
+    const second = buildIndexSnapshot(workspace, configPath, currentConfig, currentConfigBytes);
+    const afterTarget = targetBytes();
+    const currentGeneratorDigest = digest(fs.readFileSync(generatorPath, 'utf8').replace(/\r\n/g, '\n'));
+    const outputDigest = digest(first.bytes);
+    const targetDigest = digest(beforeTarget);
+    const stable = digest(configBytes) === digest(currentConfigBytes)
+      && first.corpus.complete === true && second.corpus.complete === true
+      && first.configInventory.complete === true && second.configInventory.complete === true
+      && isDeepStrictEqual(first.corpus.paths, second.corpus.paths)
+      && isDeepStrictEqual(first.corpus.digests, second.corpus.digests)
+      && isDeepStrictEqual(first.configInventory.sources, second.configInventory.sources)
+      && isDeepStrictEqual(first.configSources, second.configSources)
+      && Buffer.compare(first.bytes, second.bytes) === 0
+      && generatorDigest === currentGeneratorDigest
+      && digest(afterTarget) === targetDigest;
+    const equal = Buffer.compare(first.bytes, beforeTarget) === 0;
+    const comparisonState = stable ? (equal ? 'equal' : 'stale') : 'unavailable';
+    const binding = {
+      view,
+      sourceCorpus: { complete: first.corpus.complete === true, paths: first.corpus.paths, digests: first.corpus.digests },
+      config: { path: configRelative, digest: digest(configBytes), sources: first.configInventory.sources },
+      generator: { path: fs.realpathSync(generatorPath), digest: generatorDigest },
+      generation: { state: 'pass', outputDigest },
+      comparison: { state: comparisonState, targetDigest },
+    };
+    return {
+      state: stable && equal ? 'pass' : stable ? 'stale' : 'unavailable',
+      checkedPaths: [view],
+      ...(stable ? {} : { reason: 'source, config, generator, or target changed during the check' }),
+      ...(!stable && !first.corpus.complete ? { reason: 'source corpus is incomplete' } : {}),
+      binding,
+    };
+  } catch (error) {
+    return unavailable(error.message || 'generation or comparison unavailable');
+  }
 }
 
 function check(options) {
@@ -422,7 +515,7 @@ function check(options) {
   // SHOULD reminders only: they never change the exit code and are never diagnostics.
   const changed = new Set(options.changedPaths.map(value => path.relative(workspace, path.resolve(workspace, value)).split(path.sep).join('/')));
   // F3 applicability (conservative): a governed or legacy source, an unknown or deleted path, a derived output or the config
-  // itself marks every declared view unverified. check still never runs a generator.
+  // itself marks every declared view unverified until the explicit derived-view mode is selected.
   const configRelative = path.relative(workspace, configPath).split(path.sep).join('/');
   const declaredViews = [...new Set((Array.isArray(config.derived) ? config.derived : []).map(entry => entry.path))];
   const affectsViews = [...changed].some(item => {
@@ -465,6 +558,11 @@ function check(options) {
       },
     }
   };
+  if (options.derivedView) {
+    const derived = derivedRegenerate(workspace, options, config, configBytes);
+    result.capabilities['derived-regenerate'] = derived;
+    if (derived.state === 'pass') result.coverage.unsupported = result.coverage.unsupported.filter(item => item.path !== options.derivedView || item.state !== 'unverified');
+  }
   if (options.conflictAssessment) {
     const scopePaths = [...new Set(options.changedPaths.map(value => workspaceRelative(workspace, value)).filter(Boolean))].sort();
     const corpus = analysis.corpus;

@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Bug Fixes
+
+* **doc-reconciliation:** pin the owner-approved VERI-to-EVID row mapping and exclude ordinary SubagentStop completions from quality-review candidates.
+* **doc-reconciliation:** allow uniquely identified same-root reviewers that start after the correlated draft worker stops.
+
 ## [0.46.3](https://github.com/dyphn1/Harness-everything/compare/v0.46.2...v0.46.3) (2026-10-28)
 
 ### Bug Fixes
@@ -56,11 +63,13 @@ All notable changes to this project are documented in this file.
 ### Added
 
 - **doc-governance:** declare six ADR domains (ROUTE, GATE, EVID, SONE, DOCS, DIST) and record the eight DOCS ADRs (DOCS-001 to DOCS-008) for already-in-effect document-lifecycle mechanisms.
+- **doc-reconciliation:** add registered derived-view checks that bind in-memory lifecycle-index generation to the unchanged source corpus, config and target bytes.
 
 ### Features
 
 * **doc-lifecycle:** add complete full-corpus conflict-check evidence with snapshot-bound scope and corpus identity.
-* **doc-reconciliation:** add a dedicated pre-draft outline review lane bound to the pinned inventory and exact O→D Git cycle; positive live-host credit remains gated.
+* **doc-reconciliation:** add a dedicated pre-draft outline review lane bound to the pinned inventory and exact O→D Git cycle.
+* **doc-reconciliation:** qualify the retained Claude Code 2.1.312 run8 outline mapping only; OpenCode, Codex, other Claude versions and E1 remain unqualified.
 
 ### Fixed
 

@@ -1,8 +1,33 @@
 # Live-host capture: claude-341-outline-dispatch (2026-10-28)
 
-**Verdict: the outline live gate stays UNMET.** Claude Code 2.1.312 carries the `HARNESS_OUTLINE_DISPATCH_V1` prompt, the coordinator `session_id` and a synchronous PreToolUse boundary. It does not carry two fields that `outlineCaptureMappingValid` requires: `SubagentStart.parent_tool_use_id` and an `interrupted` field on the Agent PostToolUse. This is field-availability evidence, not live-host credit. `hooks/scripts/lib/doc-reconciliation-qualification.json` is unchanged, so positive outline credit stays disabled.
+**Run8 now qualifies the retained Claude Code 2.1.312 outline-dispatch profile** at main baseline `1bd0f805031c5577a6e7f72a9bc5b41618b71fc1`, using a separate sanitized capture. This does not enforce a running host version or establish an E1 qualifying cycle. OpenCode, Codex and other Claude Code versions remain unqualified. The earlier probe below remains historical field-availability evidence only.
 
-## What was captured
+## Run8: retained qualification evidence
+
+| Item | Value |
+|---|---|
+| Host profile | Claude Code 2.1.312 |
+| Staged source baseline | `1bd0f805031c5577a6e7f72a9bc5b41618b71fc1` |
+| Sanitized capture | `hooks/scripts/lib/doc-reconciliation-outline-capture.sanitized.jsonl` |
+| Sanitized capture SHA-256 | `6feb440af12aaf878a0bed5cb750f29e27d271a9add93001e151746980230b7f` |
+| Pinned inventory bytes for the production-path fixture | `inventory/2741bd4514d2cd68f57d93a2b3ce94cbe597ca62d30e26f0ca58e882df5b03c6.md` |
+
+The inventory copy is byte-identical to the pinned run8 artifact and lets the no-DI integration regression run without a machine-local path.
+
+The retained `PIN.txt` records the staged plugin baseline and host. Run8's `assess.json` records an accepted mapping and `resolveIfQualified.status: accepted`; its production qualification was closed before this separate export existed. This is retained assessment evidence, not an independent rerun.
+
+Reproduce from the repository root:
+
+```sh
+node benchmarks/results/live-host/claude-341-outline-dispatch-2026-10-28/sanitize-outline-capture.js \
+  <raw-hooks.jsonl> hooks/scripts/lib/doc-reconciliation-outline-capture.sanitized.jsonl
+```
+
+The sanitizer flattens each wrapper's observed payload, assigns `event` from `hook_event_name`, and preserves record order and field absence. It removes only wrapper timestamp `t` and `transcript_path`; `agent_transcript_path` is retained with a synthetic absolute path, and its encoded Claude project-folder slug is scrubbed. Private roots map to absolute `/sanitized/run8/...` paths; session, prompt, tool-use and agent IDs receive stable one-to-one placeholders, including `tool_response.agentId`. Each distinct dispatch-marker `token=` value receives a stable, nonempty, whitespace-free placeholder at every nested occurrence; longer tokens are replaced first to avoid partial overlap. It does not synthesize interruption, parent dispatch, background, isolation or completion fields. It fails when private path strings, original IDs or dispatch tokens remain.
+
+Raw hooks and transcripts stay private. The sanitized file qualifies only the observed Claude Code 2.1.312 profile; it does not qualify OpenCode, Codex, other Claude Code versions or an E1 cycle. The host payload does not attest its own version.
+
+## Earlier probe: what was captured
 
 ```mermaid
 sequenceDiagram
@@ -16,7 +41,7 @@ sequenceDiagram
   C->>C: PostToolUse Agent, tool_use_id matches Pre<br/>agent id only in tool_response.agentId, no interrupted
 ```
 
-## Pins
+## Earlier probe pins
 
 | Item | Value |
 |---|---|
@@ -33,7 +58,7 @@ sequenceDiagram
 | staged `hooks/hooks.json` | `aca70167da0fa792e34fb55e2904e2935c83f8f087de9e3cd130dd536b01eafd` |
 | staged `hooks/scripts/lib/doc-reconciliation-provider.js` | `1e0a9cc6fd040c074d96a79ec6445c328957951a7c0074427687d0a22179ec3b` |
 
-## Command (sanitized)
+## Earlier probe command (sanitized)
 
 ```text
 cd <scratch>/project            # fresh git repo, one commit
@@ -50,7 +75,7 @@ No bypass flag. Marker: `HARNESS_OUTLINE_DISPATCH_V1 taskId=<id> attemptId=a1 to
 - **Run 1** used `taskId=cap-00N`. The plugin rejected it as `dispatch-marker-invalid`, because task ids must match `task-*`. This was a fixture error. The raw host payloads are still valid field evidence.
 - **Run 2** used `taskId=task-cap-00N`. The plugin parsed the marker and recorded `workflow-task-binding-invalid`. That rejection is expected, since no accepted review, handoff or lease exists in this bounded fixture.
 
-## Must-report table (mapping in `outlineCaptureMappingValid`)
+## Earlier probe mapping observations
 
 | Mapping clause | 2.1.312 observed | Evidence |
 |---|---|---|
@@ -62,14 +87,14 @@ No bypass flag. Marker: `HARNESS_OUTLINE_DISPATCH_V1 taskId=<id> attemptId=a1 to
 | `taskResultDispatchField: tool_use_id` | **yes** | PostToolUse `tool_use_id` equals the Pre's, 4/4 |
 | Result `agent_id` + `interrupted === false` | **no** | No top-level `agent_id` (the plugin journal lifts `tool_response.agentId`). No `interrupted` field on the Agent result at all |
 
-## Extra finding: async launch
+## Earlier probe finding: async launch
 
 In Run 2 dispatch 1 the model omitted `run_in_background`. The host launched the worker asynchronously: PostToolUse `status: async_launched`, `isAsync: true`, and it fired **before** SubagentStop (+2040 ms vs +3490 ms). A PostToolUse is therefore not proof that the worker finished. Any result correlation must require `status: completed` or an explicit `run_in_background: false`.
 
-## What would unblock the gate (owner/advisor decision, not done here)
+## Earlier probe limit at the time
 
 - Correlate worker start without `parent_tool_use_id`: for example, by the order of Pre end → next SubagentStart within the same `session_id` while one dispatch is in flight, or by `tool_response.agentId` ↔ SubagentStart `agent_id` after the fact.
 - Replace `interrupted === false` with `tool_response.status === 'completed'`.
 - Define worker-root for isolation worktrees, where the path is derived from `agent_id`, not predeclared.
 
-Each of these changes the mapping in `doc-reconciliation-provider.js`, so it needs advisor adjudication against answer-10 item 2/3 before any implementation.
+That was the earlier position. Advisor answer 12 subsequently approved the run8 field mapping; the observations above remain limited to their original probe.

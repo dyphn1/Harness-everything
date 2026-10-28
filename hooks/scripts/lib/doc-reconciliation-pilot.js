@@ -346,7 +346,7 @@ function captureReferences(context) {
   const taskId = context.workflow.docReconciliationTask?.taskId;
   const outlineReviews = outlineReviewCaptureRefs(context.sessionDir, taskId);
   const reviews = captures.filter(item => item && typeof item.ref === 'string' && item.event === 'SubagentStop'
-    && !outlineReviews.has(item.ref));
+    && ['approve', 'reject'].includes(item.reviewVerdict) && !outlineReviews.has(item.ref));
   const references = [];
   for (const [index, capability] of ['doc-lint', 'link-check'].entries()) {
     const ordered = index ? candidates.slice(1).concat(candidates.slice(0, 1)) : candidates;
@@ -355,6 +355,8 @@ function captureReferences(context) {
   const provider = require('./doc-reconciliation-provider');
   references.push(...candidates.filter(item => provider.resolveDocCheckInvocation(item.command, item.cwd).conflictAssessment === true)
     .map(item => `${item.ref}#conflict-check`));
+  references.push(...candidates.filter(item => provider.resolveDocCheckInvocation(item.command, item.cwd).derivedView)
+    .map(item => `${item.ref}#derived-regenerate`));
   references.push(...outlineDispatchReferences(captures, taskId, context.sessionDir));
   // The adapter accepts one event per capability; rotating candidate order lets separate valid runs fill each capability.
   return [...references, ...reviews.map(item => `${item.ref}#quality-review`)];

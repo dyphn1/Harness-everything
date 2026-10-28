@@ -47,7 +47,7 @@ const QUALIFICATION_EXPORT_SCHEMA = 'harness.doc-reconciliation.qualification.v1
 const HEX64 = /^[0-9a-f]{64}$/;
 const PRE_CAPTURE_TOOLS = ['Bash', 'PowerShell', 'Task', 'Agent', 'Write', 'Edit', 'apply_patch'];
 const STDOUT_CAP_BYTES = 1024 * 1024;
-const DOC_CHECK_FLAGS = new Set(['--workspace', '--config', '--changed-path', '--base']);
+const DOC_CHECK_FLAGS = new Set(['--workspace', '--config', '--changed-path', '--base', '--derived-view']);
 const DOC_CHECK_BOOLEAN_FLAGS = new Set(['--conflict-assessment']);
 const DOC_CHECK_SCHEMA = 'harness.doc-check.check.v1';
 const DOC_CHECK_CONFLICT_SCHEMA = 'harness.doc-check.conflict-assessment.v1';
@@ -76,6 +76,8 @@ const OUTLINE_INVENTORY_PIN = Object.freeze({
   runId: 'e1-inv-1',
   inputSha: '0ef0541c6cae550e8269ba712e03797e0e987dfb',
   approvalRef: { issue: 325, commentId: '6436207729', decision: 1 },
+  rowDomainMappings: Object.freeze([Object.freeze({ rowIds: Object.freeze(['15', '16', '17', '18']),
+    sourceDomain: 'VERI', domain: 'EVID', approvalRef: '../e1-feasibility-2026-10-28/owner-decision-veri-evid.md' })]),
   retainedArtifactPath: `inventory/${OUTLINE_INVENTORY_SHA256}.md`,
 });
 const OUTLINE_MARKER = 'HARNESS_OUTLINE_DISPATCH_V1';
@@ -99,7 +101,7 @@ function isUncPathPrefix(token, command, index) {
   return token === '' && command[index] === '\\' && command[index + 1] === '\\';
 }
 // Canonical SHA-256 of harness-everything/scripts/doc-check.js (CRLF normalised to LF). Re-pin deliberately when that script changes.
-const SHIPPED_DOC_CHECK_DIGEST = '1afd94d66b356c94206d2441529ec0b7fafa1bcb453b0f1e2cf6994b1e4858e5';
+const SHIPPED_DOC_CHECK_DIGEST = '804a093b31afde07ea6ec40e39fc758b501966bfa2a15c53a5275ad3171b0755';
 // This install's own doc-check runtime, relative to hooks/scripts/lib: the source checkout or the packaged plugin.
 const DOC_CHECK_INSTALL_LAYOUTS = [
   ['..', '..', '..', 'harness-everything', 'scripts', 'doc-check.js'],
@@ -405,6 +407,8 @@ function resolveDocCheckInvocation(command, cwd) {
     if (flag === '--changed-path') changedPaths.push(value);
     else {
       if (values.has(flag)) return rejected('duplicate-flag');
+      if (flag === '--derived-view' && (path.isAbsolute(value) || /^[A-Za-z]:[\\/]/.test(value)
+        || value.split(/[\\/]/).includes('..') || /[*?\[\]{}]/.test(value))) return rejected('derived-view-invalid');
       values.set(flag, value);
     }
   }
@@ -425,7 +429,8 @@ function resolveDocCheckInvocation(command, cwd) {
     }
   }
   return { kind: 'accepted', reason: null, installed: registered.installed, digest, argv,
-    conflictAssessment, base: values.get('--base') || null, changedPaths };
+    conflictAssessment, base: values.get('--base') || null, config: values.get('--config'),
+    derivedView: values.get('--derived-view') || null, changedPaths };
 }
 
 // Observation-time digests of the checked paths, read from the workspace when the check ran. Absent paths are omitted.
@@ -437,6 +442,29 @@ function observedDigestsFor(root, paths) {
     catch { /* absent: the event will lack this digest and be rejected by the checker */ }
   }
   return digests;
+}
+
+function observedConfigSourcesFor(root, sources) {
+  if (!Array.isArray(sources)) return [];
+  return sources.map(source => {
+    const relative = source && source.path;
+    if (typeof relative !== 'string' || !relative || path.isAbsolute(relative) || relative.split(/[\\/]/).includes('..')) {
+      return { path: String(relative || ''), presence: 'unsupported' };
+    }
+    const file = path.resolve(root, relative);
+    const within = path.relative(path.resolve(root), file);
+    if (!within || within === '..' || within.startsWith(`..${path.sep}`) || path.isAbsolute(within)) {
+      return { path: relative, presence: 'unsupported' };
+    }
+    try {
+      if (!fs.lstatSync(file).isFile()) return { path: relative, presence: 'unsupported' };
+      return { path: relative, presence: 'present', digest: crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex') };
+    } catch (error) {
+      return error.code === 'ENOENT' || error.code === 'ENOTDIR'
+        ? { path: relative, presence: 'missing' }
+        : { path: relative, presence: 'unreadable' };
+    }
+  });
 }
 
 function textOf(value) { return typeof value === 'string' && value.trim().length > 0; }
@@ -695,7 +723,7 @@ function parseInventoryPinRows(bytes) {
 
 function validateOutlineInventoryPin({ bytes, pin, expectedPin = OUTLINE_INVENTORY_PIN } = {}) {
   if (!Buffer.isBuffer(bytes) || !recordOf(pin) || !recordOf(expectedPin)) return { state: 'unresolved', reason: 'inventory-unavailable' };
-  const fields = ['source', 'sha256', 'runId', 'inputSha', 'approvalRef', 'retainedArtifactPath'];
+  const fields = ['source', 'sha256', 'runId', 'inputSha', 'approvalRef', 'rowDomainMappings', 'retainedArtifactPath'];
   const actualPin = Object.fromEntries(fields.map(field => [field, pin[field]]));
   const trustedPin = Object.fromEntries(fields.map(field => [field, expectedPin[field]]));
   if (captureJson(actualPin) !== captureJson(trustedPin)) return { state: 'unresolved', reason: 'inventory-pin-mismatch' };
@@ -716,10 +744,18 @@ function resolveInventoryRow(inventory, rowId) {
   if (!parsed || parsed.state !== 'parsed' || !textOf(rowId)) return { state: 'unresolved', reason: 'inventory-row-missing' };
   const matches = [...parsed.rows.entries()].filter(([id]) => id === rowId);
   const domains = parsed.domains.get(rowId) || [];
-  if (matches.length !== 1 || matches[0][1] !== 1 || domains.length !== 1) {
+  if (matches.length !== 1 || matches[0][1] !== 1) {
     return { state: 'unresolved', reason: 'inventory-row-ambiguous' };
   }
-  return { state: 'accepted', row: { rowId, domain: domains[0] } };
+  const mappings = (Array.isArray(inventory.pin?.rowDomainMappings) ? inventory.pin.rowDomainMappings : [])
+    .filter(item => recordOf(item) && Array.isArray(item.rowIds) && item.rowIds.includes(rowId));
+  if (mappings.length > 1) return { state: 'unresolved', reason: 'inventory-row-ambiguous' };
+  const mapping = mappings[0];
+  if (mapping && (!domains.includes(mapping.sourceDomain) || !textOf(mapping.domain) || !textOf(mapping.approvalRef))) {
+    return { state: 'unresolved', reason: 'inventory-row-mapping-invalid' };
+  }
+  if (!mapping && domains.length !== 1) return { state: 'unresolved', reason: 'inventory-row-ambiguous' };
+  return { state: 'accepted', row: { rowId, domain: mapping ? mapping.domain : domains[0] } };
 }
 
 function hasSubstantiveDecision(text) {
@@ -1165,11 +1201,20 @@ function validateOutlineCaptureQualification(input, expectedHost = HOST_ID) {
     const qualificationError = validateQualificationExport(expectedHost);
     if (qualificationError) return { open: false, reason: qualificationError };
     const exported = JSON.parse(fs.readFileSync(path.join(__dirname, EXPORT_FILE), 'utf8'));
-    const mapping = exported.outlineDispatchCapture;
-    const source = exported.sanitizedCapture;
-    const records = fs.readFileSync(path.join(__dirname, source.file), 'utf8').split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
-    if (!outlineCaptureMappingValid(mapping, records)) return { open: false, reason: 'outline-live-capture-unqualified' };
-    return { open: true, source: 'validated-export', captureFile: source.file };
+    const wrapper = exported.outlineDispatchCapture;
+    if (!recordOf(wrapper) || !textOf(wrapper.hostVersion) || !textOf(wrapper.run) || !textOf(wrapper.baseline)
+      || !textOf(wrapper.file) || /[\\/]/.test(wrapper.file) || wrapper.file.includes('..')) {
+      return { open: false, reason: 'outline-live-capture-unqualified' };
+    }
+    const bytes = fs.readFileSync(path.join(__dirname, wrapper.file));
+    if (crypto.createHash('sha256').update(bytes).digest('hex') !== wrapper.sha256) {
+      return { open: false, reason: 'outline-live-capture-unqualified' };
+    }
+    const records = bytes.toString('utf8').split(/\r?\n/).filter(line => line.trim()).map(line => JSON.parse(line));
+    if (!records.every(recordOf) || !outlineCaptureMappingValid(wrapper.mapping, records)) {
+      return { open: false, reason: 'outline-live-capture-unqualified' };
+    }
+    return { open: true, source: 'validated-export', captureFile: wrapper.file };
   } catch (error) {
     return { open: false, reason: `outline-live-capture-unqualified:${error.code || 'invalid'}` };
   }
@@ -1456,20 +1501,31 @@ function resolveOutlineEvidence({ safeInput, capture, captures, request, originR
     // are covered by the clean-O seam check and by unattributedWriters below.
     const journal = Array.isArray(captures) ? captures : [];
     const dispatchIndex = journal.indexOf(correlation.pre);
-    const stoppedBeforeDispatch = start => {
+    const uniqueLifecycle = start => {
+      if (!textOf(start.session_id) || !textOf(start.agent_id)) return null;
       const lifecycle = event => journal.filter(item => recordOf(item) && item.event === event
         && item.session_id === start.session_id && textOf(start.agent_id) && item.agent_id === start.agent_id);
       // Exactly one Start and one Stop per (session_id, agent_id); a duplicate either way stays ambiguous.
       const starts = lifecycle('SubagentStart');
       const stops = lifecycle('SubagentStop');
-      if (starts.length !== 1 || starts[0] !== start || stops.length !== 1) return false;
+      if (starts.length !== 1 || starts[0] !== start || stops.length !== 1) return null;
       const startIndex = journal.indexOf(start);
       const stopIndex = journal.indexOf(stops[0]);
-      return dispatchIndex >= 0 && startIndex >= 0 && startIndex < stopIndex && stopIndex < dispatchIndex;
+      if (startIndex < 0 || stopIndex <= startIndex) return null;
+      return { startIndex, stopIndex };
+    };
+    const stoppedBeforeDispatch = start => {
+      const lifecycle = uniqueLifecycle(start);
+      return Boolean(lifecycle && dispatchIndex >= 0 && lifecycle.stopIndex < dispatchIndex);
+    };
+    const startedAfterWorkerStop = start => {
+      const lifecycle = uniqueLifecycle(start);
+      const workerStopIndex = journal.indexOf(correlation.stop);
+      return Boolean(lifecycle && workerStopIndex >= 0 && lifecycle.startIndex > workerStopIndex);
     };
     const competingStarts = journal.filter(item => recordOf(item)
       && item.event === 'SubagentStart' && item.ref !== worker.ref && sameCanonicalPath(item.cwd, workerRoot)
-      && !stoppedBeforeDispatch(item));
+      && !stoppedBeforeDispatch(item) && !startedAfterWorkerStop(item));
     if (competingStarts.length) return fail('outline-competing-writer-start');
     const unattributedWriters = (Array.isArray(captures) ? captures : []).filter(item => possibleWriterCapture(item)
       && (item.agent_id !== worker.agent_id || !sameCanonicalPath(item.cwd, workerRoot)));
@@ -1725,6 +1781,92 @@ const createClaudeOriginProvider = input => {
       if (!paths.length) return rejected('scope-empty', `${capability} checked no governed paths`);
       let corpusBinding;
       let baselineArtifactDigests;
+      let derivedBinding;
+      if (capability === 'derived-regenerate') {
+        if (!registered.derivedView || paths.length !== 1 || paths[0] !== registered.derivedView) {
+          return rejected('capability-mismatch', 'derived-regenerate requires the exact registered --derived-view path');
+        }
+        const binding = projection.binding;
+        const corpus = binding && binding.sourceCorpus;
+        const config = binding && binding.config;
+        const generator = binding && binding.generator;
+        const generation = binding && binding.generation;
+        const comparison = binding && binding.comparison;
+        if (!recordOf(binding) || binding.view !== registered.derivedView || !recordOf(corpus) || corpus.complete !== true
+          || !Array.isArray(corpus.paths) || !corpus.paths.length || !recordOf(corpus.digests)
+          || JSON.stringify([...new Set(corpus.paths)].sort(compareKeys)) !== JSON.stringify(corpus.paths)
+          || JSON.stringify(Object.keys(corpus.digests).sort(compareKeys)) !== JSON.stringify(corpus.paths)
+          || corpus.paths.some(relative => !textOf(relative) || path.isAbsolute(relative) || relative.split(/[\\/]/).includes('..')
+            || !HEX64.test(String(corpus.digests[relative] || '')))
+          || !recordOf(config) || !textOf(config.path) || path.isAbsolute(config.path)
+          || config.path.split(/[\\/]/).includes('..') || !HEX64.test(String(config.digest || ''))
+          || !Array.isArray(config.sources) || !recordOf(generator) || !textOf(generator.path)
+          || !HEX64.test(String(generator.digest || '')) || !recordOf(generation) || generation.state !== 'pass'
+          || !HEX64.test(String(generation.outputDigest || '')) || !recordOf(comparison) || comparison.state !== 'equal'
+          || comparison.targetDigest !== generation.outputDigest) {
+          return rejected('derived-binding-invalid', 'derived-regenerate stdout lacks complete generation, comparison, and input binding');
+        }
+        const configPath = path.resolve(cap.cwd, registered.config);
+        const configRelative = path.relative(path.resolve(cap.cwd), configPath).split(path.sep).join('/');
+        const observedDerived = recordOf(cap.observedDerivedDigests) ? cap.observedDerivedDigests : {};
+        if (configRelative !== config.path || observedDerived[config.path] !== config.digest
+          || observedDerived[registered.derivedView] !== comparison.targetDigest) {
+          return rejected('derived-input-changed-after-check', 'the selected config or derived target changed before host capture');
+        }
+        const expectedObservedPaths = [...new Set([...corpus.paths, config.path, registered.derivedView])].sort(compareKeys);
+        if (JSON.stringify(Object.keys(observedDerived).sort(compareKeys)) !== JSON.stringify(expectedObservedPaths)
+          || corpus.paths.some(relative => observedDerived[relative] !== corpus.digests[relative])) {
+          return rejected('derived-input-changed-after-check', 'a source path is missing or changed before host capture');
+        }
+        const configSources = config.sources;
+        if (JSON.stringify(configSources.map(item => item && item.path)) !== JSON.stringify([...new Set(configSources.map(item => item && item.path))].sort(compareKeys))
+          || configSources.some(item => !recordOf(item) || !textOf(item.path) || path.isAbsolute(item.path)
+            || item.path.split(/[\\/]/).includes('..') || !['present', 'missing'].includes(item.presence)
+            || (item.presence === 'present' ? !HEX64.test(String(item.digest || '')) : item.digest !== undefined))) {
+          return rejected('derived-config-binding-invalid', 'derived-regenerate config source inventory is malformed');
+        }
+        const observedConfigSources = cap.observedDerivedConfigSources;
+        if (!Array.isArray(observedConfigSources) || JSON.stringify(observedConfigSources) !== JSON.stringify(configSources)) {
+          return rejected('config-changed-after-check', 'a config source changed between check and host capture');
+        }
+        const configSource = configSources.find(item => item.path === config.path);
+        if (!configSource || configSource.presence !== 'present' || configSource.digest !== config.digest) {
+          return rejected('derived-config-binding-invalid', 'the selected config is absent from the observed config inventory');
+        }
+        let configData;
+        try { configData = JSON.parse(fs.readFileSync(configPath, 'utf8')); }
+        catch { return rejected('derived-config-binding-invalid', 'the selected config cannot be read during assessment'); }
+        const selectedViews = Array.isArray(configData.derived) ? configData.derived.filter(item => item && item.path === registered.derivedView) : [];
+        const expectedGenerator = `node harness-everything/scripts/doc-lifecycle.js index --workspace . --config ${registered.config} --all`;
+        if (selectedViews.length !== 1 || selectedViews[0].generator !== expectedGenerator) {
+          return rejected('derived-generator-unsupported', 'the selected config does not declare the supported lifecycle index operation');
+        }
+        let generatorPath;
+        try { generatorPath = fs.realpathSync(path.join(path.dirname(registered.installed), 'doc-lifecycle.js')); }
+        catch { return rejected('derived-generator-unavailable', 'the installed lifecycle index generator is missing'); }
+        if (generator.path !== generatorPath || fileDigest(generatorPath) !== generator.digest) {
+          return rejected('derived-generator-mismatch', 'the lifecycle generator differs from the implementation observed in stdout');
+        }
+        let currentConfigSources;
+        try {
+          const lifecycle = require(generatorPath);
+          currentConfigSources = lifecycle.configSourceInventory(cap.cwd, configPath);
+        } catch { return rejected('derived-config-binding-invalid', 'the lifecycle config inventory is unavailable'); }
+        if (!currentConfigSources || currentConfigSources.complete !== true
+          || JSON.stringify(currentConfigSources.sources) !== JSON.stringify(configSources)) {
+          return rejected('config-changed-after-check', 'the lifecycle config source inventory changed after the check');
+        }
+        if (!recordOf(request.identity) || !HEX64.test(String(request.identity.baselineDigest || ''))
+          || !HEX64.test(String(request.identity.candidateDigest || '')) || !HEX64.test(String(request.identity.configDigest || ''))) {
+          return rejected('identity-missing', 'derived-regenerate needs the complete snapshot identity');
+        }
+        derivedBinding = {
+          ...binding,
+          baselineDigest: request.identity.baselineDigest,
+          candidateDigest: request.identity.candidateDigest,
+          configIdentityDigest: request.identity.configDigest,
+        };
+      }
       if (capability === 'conflict-check') {
         const assessment = report.conflictAssessment;
         const corpus = assessment && assessment.corpus;
@@ -1797,6 +1939,7 @@ const createClaudeOriginProvider = input => {
         artifactDigests,
         ...(Object.keys(baselineArtifacts).length ? { baselineArtifacts } : {}),
         ...(corpusBinding ? { corpusBinding } : {}),
+        ...(derivedBinding ? { derivedBinding } : {}),
         captured: { responseRef: cap.responseRef, responseDigest: cap.responseDigest },
       };
       return { status: 'accepted', originRef, event, correlation: { toolCorrelationId: cap.tool_use_id, resultRef: cap.responseRef } };
@@ -2131,6 +2274,16 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
         const report = JSON.parse(stdout);
         checkedPaths = ['doc-lint', 'link-check'].flatMap(capability => (recordOf(report.capabilities) && recordOf(report.capabilities[capability])
           && Array.isArray(report.capabilities[capability].checkedPaths) ? report.capabilities[capability].checkedPaths : []));
+        const derived = recordOf(report.capabilities) && report.capabilities['derived-regenerate'];
+        const derivedBinding = recordOf(derived) && recordOf(derived.binding) ? derived.binding : null;
+        if (installedCheck.derivedView && typeof workspaceRoot === 'string' && workspaceRoot && derivedBinding && derivedBinding.view === installedCheck.derivedView
+          && recordOf(derivedBinding.sourceCorpus) && Array.isArray(derivedBinding.sourceCorpus.paths)
+          && recordOf(derivedBinding.config) && Array.isArray(derivedBinding.config.sources)) {
+          checkedPaths.push(derivedBinding.view);
+          record.observedDerivedDigests = observedDigestsFor(workspaceRoot,
+            [...derivedBinding.sourceCorpus.paths, derivedBinding.config.path, derivedBinding.view]);
+          record.observedDerivedConfigSources = observedConfigSourcesFor(workspaceRoot, derivedBinding.config.sources);
+        }
         const conflict = recordOf(report.capabilities) && report.capabilities['conflict-check'];
         if (installedCheck.conflictAssessment === true && report.mode === 'conflict-assessment'
           && recordOf(conflict) && conflict.state === 'pass' && recordOf(conflict.corpus)) {

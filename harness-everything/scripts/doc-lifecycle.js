@@ -1839,6 +1839,24 @@ function readWorkspaceConfigSources(root, explicitConfigPath, fallbackConfig) {
   return sources.length ? sources : [fallbackConfig];
 }
 
+function configSourceInventory(root, explicitConfigPath) {
+  const sources = [];
+  let complete = true;
+  for (const relativePath of [...configPathsForWorkspace(root, explicitConfigPath)].sort(compareText)) {
+    const file = path.join(root, ...relativePath.split('/'));
+    try {
+      const stat = fs.lstatSync(file);
+      if (!stat.isFile()) { sources.push({ path: relativePath, presence: 'unsupported' }); complete = false; continue; }
+      const bytes = fs.readFileSync(file);
+      sources.push({ path: relativePath, presence: 'present', digest: crypto.createHash('sha256').update(bytes).digest('hex') });
+    } catch (error) {
+      if (error.code === 'ENOENT' || error.code === 'ENOTDIR') sources.push({ path: relativePath, presence: 'missing' });
+      else { sources.push({ path: relativePath, presence: 'unreadable' }); complete = false; }
+    }
+  }
+  return { complete, sources };
+}
+
 function readGitBaseInventory(root, baseRef, config, explicitConfigPath = null) {
   if (!root || typeof baseRef !== 'string' || !baseRef.trim()) return { available: false, inventory: [], files: [] };
   try {
@@ -2602,6 +2620,27 @@ function buildIndex(docs, config, options = {}) {
   return `${lines.join('\n').replace(/\n+$/, '')}\n`;
 }
 
+function buildIndexSnapshot(workspace, configPath, config, configBytes, options = {}) {
+  const root = path.resolve(workspace);
+  const corpus = { complete: false, skipped: [], paths: [], digests: {} };
+  const docs = collectDocs(root, config, corpus);
+  const relativeConfig = path.relative(root, configPath);
+  corpus.config = relativeConfig && relativeConfig !== '..' && !relativeConfig.startsWith(`..${path.sep}`)
+    ? { path: relativeConfig.split(path.sep).join('/'), digest: crypto.createHash('sha256').update(configBytes).digest('hex') }
+    : null;
+  const configSources = readWorkspaceConfigSources(root, configPath, config);
+  const configInventory = configSourceInventory(root, configPath);
+  const mode = { all: true, workspace: root, base: options.base, configPath, configSources };
+  const analysis = analyzeDocs(docs, config, mode);
+  const bytes = Buffer.from(buildIndex(docs, config, {
+    ...mode,
+    diagnostics: analysis.diagnostics,
+    _graph: analysis._graph,
+    _retirementEligibleSources: analysis._retirementEligibleSources
+  }), 'utf8');
+  return { bytes, corpus, configSources, configInventory };
+}
+
 function parseCli(argv) {
   const [command, ...rest] = argv;
   const options = { command, changedProvided: false, changedPaths: [], proposedUntracked: [], all: false };
@@ -2709,6 +2748,15 @@ function main(argv = process.argv.slice(2)) {
     process.stderr.write(`${error.message}\n`);
     return 2;
   }
+  if (options.command === 'index' && options.all) {
+    try {
+      process.stdout.write(buildIndexSnapshot(workspacePath, configPath, config, configBytes, options).bytes);
+      return 0;
+    } catch (error) {
+      process.stderr.write(`index generation failed: ${error.message}\n`);
+      return 2;
+    }
+  }
   const corpus = options.all ? { complete: false, skipped: [], paths: [], digests: {} } : null;
   const docs = collectDocs(workspacePath, config, corpus);
   if (corpus) {
@@ -2737,6 +2785,6 @@ function main(argv = process.argv.slice(2)) {
   return analysis.diagnostics.some(item => item.severity === 'error') ? 1 : 0;
 }
 
-module.exports = { readGitBaseInventory, scanWorkspaceFiles, parseFrontmatter, parseRequirementBlocks, collectDocs, documentCorpusPaths, analyzeDocs, resolveRef, lintDocs, buildIndex, diffRevisions, buildGitDocumentInventory };
+module.exports = { readGitBaseInventory, scanWorkspaceFiles, parseFrontmatter, parseRequirementBlocks, collectDocs, documentCorpusPaths, analyzeDocs, resolveRef, lintDocs, buildIndex, buildIndexSnapshot, configSourceInventory, diffRevisions, buildGitDocumentInventory };
 
 if (require.main === module) process.exitCode = main();
