@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.46.0](https://github.com/dyphn1/Harness-everything/compare/v0.45.0...v0.46.0) (2026-10-28)
+
+### Features
+
+* **doc-reconciliation:** add pre-draft outline review evidence lane ([ac41562](https://github.com/dyphn1/Harness-everything/commit/ac415627369fa0ecadcb19c265d7fe1052d291e1)), closes [#325](https://github.com/dyphn1/Harness-everything/issues/325)
+
+### Bug Fixes
+
+* **doc-reconciliation:** canonicalize outline roots for windows short paths ([c508e43](https://github.com/dyphn1/Harness-everything/commit/c508e43141c684e70ee94f4c359e427706a85320))
+* **doc-reconciliation:** keep legacy session-dir keying on the raw workspace root ([f39f533](https://github.com/dyphn1/Harness-everything/commit/f39f53332435e58beb2bb5b01fff3e1707dd18a2))
+* **doc-reconciliation:** observe file-tool writers and deny seal-only retries ([9cbe0ea](https://github.com/dyphn1/Harness-everything/commit/9cbe0ea6b1af7bfadc2be954a6f8337be11eac0c)), closes [#325](https://github.com/dyphn1/Harness-everything/issues/325)
+
 ## [0.45.0](https://github.com/dyphn1/Harness-everything/compare/v0.44.0...v0.45.0) (2026-10-27)
 
 ### Features
