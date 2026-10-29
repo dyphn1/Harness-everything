@@ -1,0 +1,42 @@
+[
+  {
+    "id": "adr-evid",
+    "order": 1,
+    "summary": "Draft the row-17 EVID-001 verification-evidence ADR.",
+    "acceptance": "A real proposed O is independently reviewed before the draft D; D is a strict descendant of O and changes only the ADR.",
+    "suggestedSkills": [],
+    "stepType": "doc-change",
+    "status": "pending",
+    "evidence": null,
+    "reasonCode": null,
+    "updatedAt": null,
+    "requiredBindings": [],
+    "optionalBindings": []
+  },
+  {
+    "id": "verify-row17",
+    "order": 2,
+    "summary": "Generate the governed index and verify the final ADR through one combined registered check and independent review.",
+    "acceptance": "All four combined-check capabilities and the ADR-only final review are captured before normal Stop reconciliation.",
+    "suggestedSkills": [],
+    "stepType": "verification",
+    "status": "pending",
+    "evidence": null,
+    "reasonCode": null,
+    "updatedAt": null,
+    "requiredBindings": [
+      {
+        "id": "verification-loop",
+        "required": true,
+        "status": "pending",
+        "path": "verification-loop/SKILL.md",
+        "availability": "available",
+        "resolvedPath": "/private/tmp/row17/plugin-f/verification-loop/SKILL.md",
+        "evidence": null,
+        "reasonCode": null,
+        "updatedAt": null
+      }
+    ],
+    "optionalBindings": []
+  }
+]

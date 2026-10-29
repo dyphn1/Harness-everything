@@ -19,7 +19,7 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
-* **doc-reconciliation:** support a baseline-pinned, opt-in inventory exclusion for untracked artifacts under `node_modules` and `.husky/_`, with overlap guards that ignore task-pin identity metadata while retaining task and scope selectors.
+* **doc-reconciliation:** support a baseline-pinned, opt-in inventory exclusion for untracked artifacts under `node_modules` and `.husky/_`, with overlap guards that resolve absolute selectors against the workspace while ignoring task-pin identity metadata.
 
 ### Bug Fixes
 

@@ -7,6 +7,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const H = require('./fixtures/doc-obligations/reconciliation-s2a/harness.js');
+const RUN13_REQUIREMENTS = require('./fixtures/doc-obligations/reconciliation-s2a/run13-workflow-requirements.json');
 
 const PRODUCER = 'doc-reconciliation-producer.js';
 const EVENTS = 'doc-reconciliation-events.js';
@@ -261,6 +262,39 @@ runCase('host-config-opt-in-cannot-prune-dependency-artifacts', [REQUIREMENTS.pr
   });
 });
 
+runCase('run13-external-absolute-binding-path-allows-narrowed-snapshot', [REQUIREMENTS.producer], mods => {
+  withRepo({ config: artifactConfig() }, repo => {
+    const pin = realTaskPin(repo);
+    const task = { ...pin.task, requirements: RUN13_REQUIREMENTS };
+    const snapshot = ready(produceWithRealTaskPin(mods, repo, { ...pin, task }).result,
+      'real run13 requirements with an outside-workspace absolute binding path');
+    assert.deepStrictEqual(snapshot.candidate.coverage.dependencyArtifactRoots, EXPECTED_ROOTS,
+      'the explicit baseline policy still produces the narrowed snapshot');
+  });
+});
+
+runCase('outside-absolute-path-containing-root-segment-remains-disjoint', [REQUIREMENTS.producer], mods => {
+  withRepo({ config: artifactConfig() }, repo => {
+    const pin = realTaskPin(repo);
+    const requirements = JSON.parse(JSON.stringify(RUN13_REQUIREMENTS));
+    requirements[1].requiredBindings[0].resolvedPath = path.join(os.tmpdir(), 'node_modules', 'external-binding', 'SKILL.md');
+    const task = { ...pin.task, requirements };
+    const snapshot = ready(produceWithRealTaskPin(mods, repo, { ...pin, task }).result,
+      'outside-workspace absolute path mentioning node_modules');
+    assert.deepStrictEqual(snapshot.candidate.coverage.dependencyArtifactRoots, EXPECTED_ROOTS);
+  });
+});
+
+runCase('task-pin-identity-containing-root-name-is-not-a-path-selector', [REQUIREMENTS.producer], mods => {
+  withRepo({ config: artifactConfig() }, repo => {
+    const pin = realTaskPin(repo);
+    const task = { ...pin.task, taskId: 'node_modules' };
+    const snapshot = ready(produceWithRealTaskPin(mods, repo, { ...pin, task }).result,
+      'task identity equal to an approved-root name');
+    assert.deepStrictEqual(snapshot.candidate.coverage.dependencyArtifactRoots, EXPECTED_ROOTS);
+  });
+});
+
 runCase('config-validator-accepts-only-the-two-exact-optional-roots', [REQUIREMENTS.resolver], mods => {
   for (const roots of [[], ['node_modules'], ['.husky/_'], EXPECTED_ROOTS]) {
     assert.strictEqual(mods[RESOLVER].validateDocsConfig({ inventory: { dependencyArtifactRoots: roots } }).valid, true,
@@ -296,13 +330,20 @@ runCase('governed-derived-broad-and-task-input-overlaps-block-pruning', [REQUIRE
   const cases = [
     { label: 'governed selector', config: { governed: [{ path: 'node_modules/**', role: 'reference' }] }, reason: 'config-selector-overlap' },
     { label: 'ambiguous broad selector', config: { legacy: ['**'] }, reason: 'config-selector-overlap' },
+    { label: 'single-segment broad selector', config: { legacy: ['*'] }, reason: 'config-selector-overlap' },
     { label: 'derived output', config: { derived: [{ path: 'node_modules/generated.js', generator: 'node scripts/gen.js' }] }, reason: 'config-selector-overlap' },
     { label: 'derived source', config: { derived: [{ path: 'docs/generated.md', generator: 'node node_modules/generate.js' }] }, reason: 'config-selector-overlap' },
     { label: 'relative explicit requirement input', makeTask: () => {
       const task = H.taskInput(); task.requirements[0].inputPath = 'node_modules/fixture-package/index.js'; return task;
     }, reason: 'task-input-overlap' },
+    { label: 'empty broad task selector', makeTask: () => {
+      const task = H.taskInput(); task.requirements[0].inputPath = ''; return task;
+    }, reason: 'task-input-overlap' },
     { label: 'absolute explicit requirement input', makeTask: root => {
       const task = H.taskInput(); task.requirements[0].inputPath = path.join(root, 'node_modules/fixture-package/index.js'); return task;
+    }, reason: 'task-input-overlap' },
+    { label: 'case-alias absolute requirement input', makeTask: root => {
+      const task = H.taskInput(); task.requirements[0].inputPath = path.join(root.toUpperCase(), 'node_modules/fixture-package/index.js'); return task;
     }, reason: 'task-input-overlap' },
     { label: 'relative scope selector', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['node_modules/fixture-package/index.js'] }), reason: 'task-input-overlap' },
     { label: 'absolute scope selector', makeScope: root => ({ prdRoot: 'docs/prd/', paths: [path.join(root, 'node_modules/fixture-package/index.js')] }), reason: 'task-input-overlap' }
@@ -316,6 +357,14 @@ runCase('governed-derived-broad-and-task-input-overlaps-block-pruning', [REQUIRE
       unavailable(produce(mods, repo, overrides).result, item.label, item.reason);
     });
   }
+});
+
+if (process.platform !== 'win32') runCase('unresolved-windows-drive-path-stays-conservative', [REQUIREMENTS.producer], mods => {
+  withRepo({ config: artifactConfig() }, repo => {
+    const task = H.taskInput();
+    task.requirements[0].inputPath = 'C:\\workspace\\node_modules\\fixture-package\\index.js';
+    unavailable(produce(mods, repo, { task }).result, 'unresolved Windows drive path', 'task-input-overlap');
+  });
 });
 
 runCase('captured-config-source-overlap-blocks-pruning', [REQUIREMENTS.producer], (_mods, leg) => {

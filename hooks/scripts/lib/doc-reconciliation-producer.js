@@ -90,10 +90,8 @@ function globSegmentMatches(pattern, segment) {
   const escaped = pattern.split('*').map(part => part.replace(/[|\\{}()[\]^$+?.]/g, '\\$&')).join('.*');
   return new RegExp(`^${escaped}$`).test(segment);
 }
-function selectorMayIntersectRoot(selector, root) {
-  if (typeof selector !== 'string' || !selector.trim()) return true;
+function relativeSelectorMayIntersectRoot(selector, root) {
   const normalized = selector.replace(/\\/g, '/').replace(/^\.\//, '');
-  if (normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized)) return true;
   const pattern = normalized.split('/');
   const target = root.split('/');
   let states = new Set([0]);
@@ -124,24 +122,83 @@ function selectorMayIntersectRoot(selector, root) {
   }
   return states.size > 0;
 }
-function valueMayIntersectRoots(value, roots) {
-  if (typeof value === 'string') return roots.some(root => rootMention(value, root)
-    || ((value.includes('/') || /[*?]/.test(value)) && selectorMayIntersectRoot(value, root)));
-  if (Array.isArray(value)) return value.some(item => valueMayIntersectRoots(item, roots));
-  if (U.record(value)) return Object.entries(value).some(([key, item]) => valueMayIntersectRoots(key, roots)
-    || valueMayIntersectRoots(item, roots));
+function relativePathWithin(workspace, candidate, pathApi) {
+  const relative = pathApi.relative(workspace, candidate);
+  if (!relative) return '';
+  const normalized = relative.replace(/\\/g, '/');
+  // Case and filesystem aliases that cannot be resolved exactly must fail closed.
+  const workspaceParts = workspace.replace(/\\/g, '/').split('/').filter(Boolean);
+  const candidateParts = candidate.replace(/\\/g, '/').split('/').filter(Boolean);
+  const samePrefix = workspaceParts.length <= candidateParts.length
+    && workspaceParts.every((part, index) => part.normalize('NFC').toLowerCase()
+      === candidateParts[index].normalize('NFC').toLowerCase());
+  if (samePrefix) return candidateParts.slice(workspaceParts.length).join('/');
+  if (pathApi.isAbsolute(relative) || normalized === '..' || normalized.startsWith('../')) return null;
+  return normalized;
+}
+function realpathWithMissingSuffix(candidate, pathApi) {
+  let current = candidate;
+  const suffix = [];
+  while (true) {
+    try { return pathApi.resolve(fs.realpathSync.native(current), ...suffix); }
+    catch (error) {
+      if (!['ENOENT', 'ENOTDIR'].includes(error.code)) return null;
+      const parent = pathApi.dirname(current);
+      if (parent === current) return null;
+      suffix.unshift(pathApi.basename(current));
+      current = parent;
+    }
+  }
+}
+function absoluteSelectorRelatives(selector, workspaceRoot) {
+  const windowsDrive = /^[A-Za-z]:/.test(selector);
+  if ((windowsDrive || selector.startsWith('\\') || selector.startsWith('//')) && process.platform !== 'win32') return true;
+  const pathApi = process.platform === 'win32' ? path.win32 : path;
+  if (windowsDrive && !pathApi.isAbsolute(selector)) return true;
+  if (!pathApi.isAbsolute(selector)) return null;
+
+  const workspace = canonicalPath(workspaceRoot);
+  const absolute = pathApi.resolve(selector);
+  const lexicalRelative = relativePathWithin(workspace, absolute, pathApi);
+  const resolved = realpathWithMissingSuffix(absolute, pathApi);
+  if (!resolved) return true;
+  const realRelative = relativePathWithin(workspace, resolved, pathApi);
+  if (lexicalRelative !== null && realRelative !== null) return [lexicalRelative, realRelative];
+  if (lexicalRelative !== null || realRelative !== null) return true;
+  return false;
+}
+function selectorMayIntersectRoot(selector, root, workspaceRoot) {
+  if (typeof selector !== 'string' || !selector.trim()) return true;
+  const absolute = absoluteSelectorRelatives(selector, workspaceRoot);
+  if (absolute === true) return true;
+  if (absolute === false) return false;
+  if (absolute !== null) return absolute.some(relative => relativeSelectorMayIntersectRoot(relative || '.', root));
+  return relativeSelectorMayIntersectRoot(selector, root);
+}
+function valueMayIntersectRoots(value, roots, workspaceRoot) {
+  if (typeof value === 'string') {
+    const absolute = absoluteSelectorRelatives(value, workspaceRoot);
+    if (absolute === true) return true;
+    if (absolute === false) return false;
+    if (absolute !== null) return roots.some(root => absolute.some(relative => {
+      const selector = relative || '.';
+      return rootMention(selector, root)
+        || ((selector.includes('/') || /[*?]/.test(selector)) && selectorMayIntersectRoot(selector, root, workspaceRoot));
+    }));
+    return roots.some(root => rootMention(value, root)
+      || ((!value.trim() || value.includes('/') || /[*?]/.test(value))
+        && selectorMayIntersectRoot(value, root, workspaceRoot)));
+  }
+  if (Array.isArray(value)) return value.some(item => valueMayIntersectRoots(item, roots, workspaceRoot));
+  if (U.record(value)) return Object.entries(value).some(([key, item]) => valueMayIntersectRoots(key, roots, workspaceRoot)
+    || valueMayIntersectRoots(item, roots, workspaceRoot));
   return false;
 }
 function withoutTaskPinIdentity(value) {
   if (Array.isArray(value)) return value.map(withoutTaskPinIdentity);
   if (!U.record(value)) return value;
   return Object.fromEntries(Object.entries(value)
-    .filter(([key]) => {
-      const normalized = key.toLowerCase();
-      return !['baselineroot', 'baselinecommit', 'workflowrevision'].includes(normalized)
-        && !/^(?:id|ids)$/.test(normalized)
-        && !/(?:ids?|digests?)$/.test(normalized);
-    })
+    .filter(([key]) => !/ids?$/i.test(key))
     .map(([key, item]) => [key, withoutTaskPinIdentity(item)]));
 }
 function projectConfigFromBytes(bytes) {
@@ -223,9 +280,9 @@ function guardedPolicy(root, baseline, capturedConfig, input) {
   if (configs.some(config => {
     if (!U.record(config)) return false;
     const selectors = Object.fromEntries(Object.entries(config).filter(([key]) => key !== 'inventory'));
-    return valueMayIntersectRoots(selectors, roots);
+    return valueMayIntersectRoots(selectors, roots, root);
   })) fail('inventory-unsupported', 'config-selector-overlap');
-  if (valueMayIntersectRoots(withoutTaskPinIdentity(input.task), roots) || valueMayIntersectRoots(input.scope, roots)) {
+  if (valueMayIntersectRoots(withoutTaskPinIdentity(input.task), roots, root) || valueMayIntersectRoots(input.scope, roots, root)) {
     fail('inventory-unsupported', 'task-input-overlap');
   }
   return {
