@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.47.0](https://github.com/dyphn1/Harness-everything/compare/v0.46.3...v0.47.0) (2026-10-29)
+
+### Features
+
+* **doc-reconciliation:** qualify claude outline dispatch from flat run8 capture ([dc524e5](https://github.com/dyphn1/Harness-everything/commit/dc524e50596429e9b9d504e11fb5584a5b75805c))
+
+### Bug Fixes
+
+* **doc-reconciliation:** give derived-regenerate a registered production producer ([a070b65](https://github.com/dyphn1/Harness-everything/commit/a070b6562f6d0c3931d014abfdb3a6f23aa3cfc9))
+* **doc-reconciliation:** let a post-draft reviewer start outside the draft interval ([ae60b04](https://github.com/dyphn1/Harness-everything/commit/ae60b045da6313b17a151ece0be3c424a48477d4))
+* **doc-reconciliation:** map pinned evid rows and select only verdict reviews ([ecf907d](https://github.com/dyphn1/Harness-everything/commit/ecf907d46827aaff3f4fc645f9a7b1547e26b146))
+* **doc-reconciliation:** sanitize outline dispatch tokens and test the derived seam end to end ([c30b20b](https://github.com/dyphn1/Harness-everything/commit/c30b20ba6d5899805a6f6e6468fe68b04a71ef31))
+
 ## [Unreleased]
 
 ### Added
