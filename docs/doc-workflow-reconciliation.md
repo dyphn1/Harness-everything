@@ -406,7 +406,9 @@ cannot replace that baseline with the latest HEAD or trust a persisted PASS.
 and governed cases exercise actual diffs. Fixtures without `baseFiles` remain non-Git, so their
 baseline is unavailable and credit is withheld. Fixture maps alone are not runtime authority.
 
-- **Accepted S1 residual (gitignored paths):** ignored, untracked candidate content is outside the non-ignored inventory. S1 grants no positive credit either way; the S2 producer must close this gap or explicitly re-accept it.
+- **F4 inventory coverage (S2 producer):** ignored and untracked paths remain in the candidate inventory, including new files and rename destinations, except for the bounded dependency-artifact policy below. With no policy, there are no new exclusions.
+- **Dependency-artifact policy:** the original project config `.agents/harness-everything/project-docs.json` may set `inventory.dependencyArtifactRoots` to any of `node_modules` and `.husky/_` (each is optional). These exact roots are pinned from baseline B; the candidate field must match B. Candidate-only config, host config, `.gitignore`, globs, aliases and other paths do not authorize pruning.
+- Before pruning, baseline and current-index paths, config sources, governed/legacy selectors, derived sources/outputs, and explicit task inputs are checked for overlap. Any overlap, ambiguous selector, unsafe root (file, symlink, alias, or outside the workspace), or retained-path symlink makes capture unavailable. Package files and `.bin` symlinks inside an approved root are not traversed; lockfiles, other paths, and ignored content outside the roots remain covered. Exclusion means installed bytes are outside this task's identity and ordinary code/frontmatter facts; it does not attest dependency contents or execution behavior.
 
 ### Refusal and completion contract
 
