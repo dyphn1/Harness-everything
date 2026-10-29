@@ -24,6 +24,10 @@ episodes:
         change: "Whole-seam test through pilot.assess"
         review: independent
         result: "Closed for derived; the dependency-scope consumer test then used a hand-built task pin, passed review, and missed the live `task-input-overlap` defect twice"
+      - round: 2
+        change: "Dependency-scope test copies installed artifacts from the host checkout as its witness"
+        review: full-gate
+        result: "Passed in the developer checkout and in the fast gate; failed every case with ENOENT in a clean verify root because `.husky/_` exists only where husky was installed locally"
 ---
 
 ## Cue
@@ -37,3 +41,5 @@ The deterministic positive for a live-path feature loads a real artifact from th
 ## Evidence
 
 - #341, PR #393 review findings; live runs 12-13 of the row-17 kit.
+
+A second shape of the same class: a fixture that borrows real artifacts from the developer's own checkout is not self-contained. It passes where those artifacts happen to exist and fails in a clean root or CI. Real inputs must be produced inside the fixture (or captured and committed), never read from the host tree.
