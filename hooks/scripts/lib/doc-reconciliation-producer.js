@@ -132,6 +132,18 @@ function valueMayIntersectRoots(value, roots) {
     || valueMayIntersectRoots(item, roots));
   return false;
 }
+function withoutTaskPinIdentity(value) {
+  if (Array.isArray(value)) return value.map(withoutTaskPinIdentity);
+  if (!U.record(value)) return value;
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => {
+      const normalized = key.toLowerCase();
+      return !['baselineroot', 'baselinecommit', 'workflowrevision'].includes(normalized)
+        && !/^(?:id|ids)$/.test(normalized)
+        && !/(?:ids?|digests?)$/.test(normalized);
+    })
+    .map(([key, item]) => [key, withoutTaskPinIdentity(item)]));
+}
 function projectConfigFromBytes(bytes) {
   try {
     const config = JSON.parse(Buffer.from(bytes).toString('utf8'));
@@ -213,7 +225,7 @@ function guardedPolicy(root, baseline, capturedConfig, input) {
     const selectors = Object.fromEntries(Object.entries(config).filter(([key]) => key !== 'inventory'));
     return valueMayIntersectRoots(selectors, roots);
   })) fail('inventory-unsupported', 'config-selector-overlap');
-  if (valueMayIntersectRoots({ task: input.task, scope: input.scope }, roots)) {
+  if (valueMayIntersectRoots(withoutTaskPinIdentity(input.task), roots) || valueMayIntersectRoots(input.scope, roots)) {
     fail('inventory-unsupported', 'task-input-overlap');
   }
   return {

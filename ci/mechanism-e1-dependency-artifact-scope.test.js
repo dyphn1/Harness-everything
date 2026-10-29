@@ -5,6 +5,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { spawnSync } = require('child_process');
 const H = require('./fixtures/doc-obligations/reconciliation-s2a/harness.js');
 
 const PRODUCER = 'doc-reconciliation-producer.js';
@@ -86,6 +87,59 @@ function produce(mods, repo, overrides = {}) {
   return { result: mods[PRODUCER].produceDocSnapshot(H.producerInput(repo, overrides), { originProvider: origin }), origin };
 }
 
+function realTaskPin(repo) {
+  const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), 'e1-dep-scope-state-'));
+  const sessionId = `e1-dep-scope-${process.pid}-${Date.now()}`;
+  const requirements = [
+    { id: 'dep-scope-change', stepType: 'doc-change', summary: 'Change dependency artifact scope.', acceptance: 'The pinned task can capture the installed dependency tree.' },
+    { id: 'dep-scope-verify', stepType: 'verification', summary: 'Verify dependency artifact scope.', acceptance: 'The pinned task and selector overlap guards are verified.' }
+  ];
+  const env = { ...process.env, HARNESS_STATE_HOME: stateHome, HARNESS_WORKSPACE_ROOT: repo.root,
+    HARNESS_DOC_RECONCILIATION_PILOT: '1' };
+  const run = (script, args, input) => {
+    const child = spawnSync(process.execPath, [script, ...args], { cwd: repo.root, env, encoding: 'utf8', input });
+    assert.strictEqual(child.status, 0, `${path.basename(script)} ${args[0] || ''}: ${child.stderr || child.stdout}`);
+  };
+  try {
+    run(path.join(H.ROOT, 'harness-everything/scripts/kernel-router.js'), [], JSON.stringify({
+      session_id: sessionId, cwd: repo.root,
+      prompt: 'Implement a bounded software behavior change, write a focused test, and run integration verification for the dependency artifact scope.'
+    }));
+    const controller = path.join(H.ROOT, 'hooks/scripts/workflow-disposition.js');
+    run(controller, ['plan', '--session-id', sessionId, '--strategy', 'iterative-single', '--evidence', 'real task pin regression witness',
+      '--requirements-json', JSON.stringify(requirements)]);
+    run(controller, ['start', '--session-id', sessionId]);
+
+    const previousStateHome = process.env.HARNESS_STATE_HOME;
+    process.env.HARNESS_STATE_HOME = stateHome;
+    let sessionDir;
+    try { sessionDir = require(path.join(H.ROOT, 'hooks/scripts/lib/harness-state.js')).getSessionDir(repo.root, sessionId); }
+    finally {
+      if (previousStateHome === undefined) delete process.env.HARNESS_STATE_HOME;
+      else process.env.HARNESS_STATE_HOME = previousStateHome;
+    }
+    const workflow = JSON.parse(fs.readFileSync(path.join(sessionDir, 'workflow-run.json'), 'utf8'));
+    assert.strictEqual(workflow.docReconciliationTask?.taskId, 'task-dep-scope-change+dep-scope-verify',
+      'shipped plan/start must produce the task pin used by the consumer-positive');
+    assert.strictEqual(workflow.docReconciliationTask?.baselineRoot, repo.root, 'real task pin carries its absolute baseline identity');
+    return { workflow, task: { ...workflow.docReconciliationTask, requirements } };
+  } finally {
+    fs.rmSync(stateHome, { recursive: true, force: true });
+  }
+}
+
+function produceWithRealTaskPin(mods, repo, pin) {
+  const workflow = {
+    workflowId: pin.workflow.workflowId,
+    sessionId: pin.workflow.sessionId,
+    workflowRevision: pin.workflow.revision
+  };
+  const activeHost = { hostId: 'fake-host' };
+  const origin = new H.FakeOrigin({ context: H.fakeContext({ ...workflow, taskId: pin.task.taskId, activeHost }, repo) });
+  const input = H.producerInput(repo, { task: pin.task, workflow });
+  return { result: mods[PRODUCER].produceDocSnapshot(input, { originProvider: origin }), origin };
+}
+
 function ready(result, label) {
   assert.strictEqual(result.state, 'ready', `${label}: expected ready, got ${JSON.stringify(H.codesOf(result))}`);
   assert(result.snapshot, `${label}: ready result must contain a snapshot`);
@@ -132,7 +186,8 @@ function runCase(name, required, fn) {
 
 runCase('primary-installed-tree-and-truthful-coverage', [REQUIREMENTS.producer], (mods, leg) => {
   withRepo({ config: artifactConfig(), baseFiles: { 'docs/prd/retired.md': 'old baseline file\n' }, candidateFiles: { 'docs/prd/retired.md': null } }, repo => {
-    const snapshot = ready(produce(mods, repo).result, 'installed-tree capture');
+    const pin = realTaskPin(repo);
+    const snapshot = ready(produceWithRealTaskPin(mods, repo, pin).result, 'installed-tree capture from shipped plan/start task pin');
     const coverage = snapshot.candidate.coverage;
     assert.strictEqual(coverage.kind, 'project-with-dependency-artifact-exclusions');
     assert.strictEqual(coverage.policyVersion, 'dependency-artifact-scope/1');
@@ -243,11 +298,23 @@ runCase('governed-derived-broad-and-task-input-overlaps-block-pruning', [REQUIRE
     { label: 'ambiguous broad selector', config: { legacy: ['**'] }, reason: 'config-selector-overlap' },
     { label: 'derived output', config: { derived: [{ path: 'node_modules/generated.js', generator: 'node scripts/gen.js' }] }, reason: 'config-selector-overlap' },
     { label: 'derived source', config: { derived: [{ path: 'docs/generated.md', generator: 'node node_modules/generate.js' }] }, reason: 'config-selector-overlap' },
-    { label: 'explicit requirement input', task: (() => { const task = H.taskInput(); task.requirements[0].inputPath = 'node_modules/fixture-package/index.js'; return task; })(), reason: 'task-input-overlap' }
+    { label: 'relative explicit requirement input', makeTask: () => {
+      const task = H.taskInput(); task.requirements[0].inputPath = 'node_modules/fixture-package/index.js'; return task;
+    }, reason: 'task-input-overlap' },
+    { label: 'absolute explicit requirement input', makeTask: root => {
+      const task = H.taskInput(); task.requirements[0].inputPath = path.join(root, 'node_modules/fixture-package/index.js'); return task;
+    }, reason: 'task-input-overlap' },
+    { label: 'relative scope selector', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['node_modules/fixture-package/index.js'] }), reason: 'task-input-overlap' },
+    { label: 'absolute scope selector', makeScope: root => ({ prdRoot: 'docs/prd/', paths: [path.join(root, 'node_modules/fixture-package/index.js')] }), reason: 'task-input-overlap' }
   ];
   for (const item of cases) {
     const config = { ...artifactConfig(), ...item.config };
-    withRepo({ config }, repo => unavailable(produce(mods, repo, item.task ? { task: item.task } : {}).result, item.label, item.reason));
+    withRepo({ config }, repo => {
+      const overrides = {};
+      if (item.makeTask) overrides.task = item.makeTask(repo.root);
+      if (item.makeScope) overrides.top = { scope: item.makeScope(repo.root) };
+      unavailable(produce(mods, repo, overrides).result, item.label, item.reason);
+    });
   }
 });
 
