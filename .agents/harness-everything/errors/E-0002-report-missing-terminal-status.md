@@ -14,7 +14,7 @@ sites:
   - F4-T12 report
 violates: "End every report with `STATUS: DONE` or `STATUS: BLOCKED: <reason>`."
 scope: in
-status: open
+status: lesson
 mechanism_ref: null
 episodes:
   - episode: 325-f4-report-status
@@ -22,6 +22,19 @@ episodes:
     date: 2026-10-22
     closed: false
     rounds: unknown
+  - episode: 341-e1-verdict-addendum
+    feature: "#341 E1 stage-1 verdict addendum"
+    date: 2026-10-29
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "An addendum was appended after the verdict's `STATUS: DONE`, leaving the terminal line in the middle of the report"
+      - round: 1
+        change: "Moved the single `STATUS: DONE` back to the last line"
+        review: coordinator
+        result: "One column-zero terminal STATUS line"
 ---
 
 ## Cue
@@ -40,3 +53,7 @@ Every report ends with one plain column-zero `STATUS: DONE` or `STATUS: BLOCKED:
 
 - PR #358 (F4), issue #359 (error ledger and per-site ownership proposal); F4 revision `0308386058ad942e2764475d48fd65a013910e1e`.
 - Process review of F4 observes the eight reports and the resulting completion ambiguity.
+
+## Episode 2 (2026-10-29, #341)
+
+The coordinator itself, not a dispatched agent, broke the rule by appending a section after an existing terminal `STATUS:` line. Lesson: an addendum is inserted before the STATUS line, never appended to the file. Point-of-action injection is proposed in #394.
