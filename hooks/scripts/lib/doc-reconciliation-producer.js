@@ -4,14 +4,17 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { _internals: U } = require('./doc-reconciliation-core');
-const { scanWorkspaceFiles } = U.runtimeModule('doc-lifecycle.js');
-const { resolveDocsConfigCaptured } = U.runtimeModule('project-docs-resolver.js');
+const { convertWorkspaceFiles } = U.runtimeModule('doc-lifecycle.js');
+const { resolveDocsConfigCaptured, validateDocsConfig } = U.runtimeModule('project-docs-resolver.js');
 const { deriveDocFacts, deriveDocObligations } = U.runtimeModule('doc-obligations.js');
 
 const MAX_FILES = 10000;
 const MAX_BYTES = 64 * 1024 * 1024;
 const POSIX_MODES = process.platform !== 'win32';
-function fail(code) { throw new Error(code); }
+const PROJECT_CONFIG_PATH = '.agents/harness-everything/project-docs.json';
+const SUPPORTED_ARTIFACT_ROOTS = new Set(['node_modules', '.husky/_']);
+const POLICY_VERSION = 'dependency-artifact-scope/1';
+function fail(code, reasonCode) { throw Object.assign(new Error(code), reasonCode ? { reasonCode } : {}); }
 // The JS realpath keeps Windows 8.3 spellings (RUNNER~1) while Git reports the long name, so
 // directory identity uses native resolution and is case-insensitive on Windows (as workflow-isolation).
 function canonicalPath(value) { return fs.realpathSync.native(path.resolve(value)); }
@@ -64,7 +67,170 @@ function captureBaseline(root, pin) {
   validatePaths(records);
   return { commit, treeRef, records };
 }
-function captureCandidate(root, baseline) {
+
+function pathUnderRoot(relative, root) {
+  const candidate = String(relative).replace(/\\/g, '/').normalize('NFC').toLowerCase();
+  const expected = root.normalize('NFC').toLowerCase();
+  return candidate === expected || candidate.startsWith(`${expected}/`);
+}
+function rootMention(value, root) {
+  const normalized = String(value).replace(/\\/g, '/').normalize('NFC').toLowerCase();
+  const needle = root.normalize('NFC').toLowerCase();
+  let offset = 0;
+  while ((offset = normalized.indexOf(needle, offset)) >= 0) {
+    const before = offset === 0 || !/[a-z0-9_.-]/.test(normalized[offset - 1]);
+    const after = offset + needle.length;
+    const boundary = after === normalized.length || /[/*?\s"'`:#),;\]]/.test(normalized[after]);
+    if (before && boundary) return true;
+    offset++;
+  }
+  return false;
+}
+function globSegmentMatches(pattern, segment) {
+  const escaped = pattern.split('*').map(part => part.replace(/[|\\{}()[\]^$+?.]/g, '\\$&')).join('.*');
+  return new RegExp(`^${escaped}$`).test(segment);
+}
+function selectorMayIntersectRoot(selector, root) {
+  if (typeof selector !== 'string' || !selector.trim()) return true;
+  const normalized = selector.replace(/\\/g, '/').replace(/^\.\//, '');
+  if (normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized)) return true;
+  const pattern = normalized.split('/');
+  const target = root.split('/');
+  let states = new Set([0]);
+  const closure = values => {
+    const expanded = new Set(values);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const index of expanded) {
+        if (pattern[index] === '**' && !expanded.has(index + 1)) {
+          expanded.add(index + 1);
+          changed = true;
+        }
+      }
+    }
+    return expanded;
+  };
+  states = closure(states);
+  for (const segment of target) {
+    const next = new Set();
+    for (const index of states) {
+      if (index >= pattern.length) continue;
+      if (pattern[index] === '**') next.add(index);
+      else if (globSegmentMatches(pattern[index], segment)) next.add(index + 1);
+    }
+    states = closure(next);
+    if (!states.size) return false;
+  }
+  return states.size > 0;
+}
+function valueMayIntersectRoots(value, roots) {
+  if (typeof value === 'string') return roots.some(root => rootMention(value, root)
+    || ((value.includes('/') || /[*?]/.test(value)) && selectorMayIntersectRoot(value, root)));
+  if (Array.isArray(value)) return value.some(item => valueMayIntersectRoots(item, roots));
+  if (U.record(value)) return Object.entries(value).some(([key, item]) => valueMayIntersectRoots(key, roots)
+    || valueMayIntersectRoots(item, roots));
+  return false;
+}
+function projectConfigFromBytes(bytes) {
+  try {
+    const config = JSON.parse(Buffer.from(bytes).toString('utf8'));
+    return { config, valid: validateDocsConfig(config).valid };
+  } catch { return { config: null, valid: false }; }
+}
+function baselineProjectConfig(baseline) {
+  const source = baseline.records.find(item => item.path === PROJECT_CONFIG_PATH && item.presence === 'present');
+  return source ? { source, ...projectConfigFromBytes(source.storedBytes) } : { source: null, config: null, valid: false };
+}
+function capturedProjectConfig(config) {
+  const source = config.capture.sources.find(item => item.path === PROJECT_CONFIG_PATH);
+  return source && source.presence === 'present'
+    ? { source, ...projectConfigFromBytes(source.bytes) }
+    : { source: source || null, config: null, valid: false };
+}
+function dependencyRoots(config) {
+  return U.record(config) && U.record(config.inventory)
+    && Object.prototype.hasOwnProperty.call(config.inventory, 'dependencyArtifactRoots')
+    ? config.inventory.dependencyArtifactRoots : undefined;
+}
+function sameRootField(left, right) {
+  if (left === undefined || right === undefined) return left === right;
+  return U.stable([...left].sort()) === U.stable([...right].sort());
+}
+function validateExcludedRoots(workspaceRoot, roots) {
+  const workspace = canonicalPath(workspaceRoot);
+  const states = [];
+  for (const root of roots) {
+    let parent = workspace;
+    let presence = 'present-directory';
+    for (const component of root.split('/')) {
+      let entries;
+      try { entries = fs.readdirSync(parent, { withFileTypes: true }); }
+      catch { fail('inventory-incomplete', 'dependency-root-parent-unreadable'); }
+      const aliases = entries.filter(entry => entry.name.normalize('NFC').toLowerCase() === component.normalize('NFC').toLowerCase());
+      if (aliases.length > 1 || aliases.some(entry => entry.name !== component)) fail('inventory-unsupported', 'dependency-root-alias');
+      const current = path.join(parent, component);
+      let stat;
+      try { stat = fs.lstatSync(current); }
+      catch (error) {
+        if (error.code === 'ENOENT') { presence = 'absent'; break; }
+        fail('inventory-incomplete', 'dependency-root-unreadable');
+      }
+      if (stat.isSymbolicLink() || !stat.isDirectory()) fail('inventory-unsupported', 'dependency-root-not-plain-directory');
+      let real;
+      try { real = fs.realpathSync.native(current); }
+      catch { fail('inventory-incomplete', 'dependency-root-unreadable'); }
+      const within = process.platform === 'win32'
+        ? real.toLowerCase().startsWith(`${workspace.toLowerCase()}${path.sep}`)
+        : real.startsWith(`${workspace}${path.sep}`);
+      if (!within) fail('inventory-unsupported', 'dependency-root-outside-workspace');
+      parent = current;
+    }
+    states.push({ path: root, presence });
+  }
+  return states;
+}
+function guardedPolicy(root, baseline, capturedConfig, input) {
+  const base = baselineProjectConfig(baseline);
+  const current = capturedProjectConfig(capturedConfig);
+  const baselineRoots = base.valid ? dependencyRoots(base.config) : undefined;
+  const candidateRoots = current.valid ? dependencyRoots(current.config) : undefined;
+  if (current.valid && candidateRoots !== undefined && (!base.valid || !sameRootField(baselineRoots, candidateRoots))) {
+    fail('inventory-unsupported', 'dependency-artifact-policy-changed-or-unpinned');
+  }
+  if (!base.valid || baselineRoots === undefined || baselineRoots.length === 0) return null;
+  if (!current.valid || !sameRootField(baselineRoots, candidateRoots)) fail('inventory-unsupported', 'dependency-artifact-policy-changed-or-unpinned');
+  const roots = [...baselineRoots].sort();
+  const indexed = git(root, ['ls-files', '-z']).toString('utf8').split('\0').filter(Boolean);
+  if (baseline.records.some(item => roots.some(value => pathUnderRoot(item.path, value)))) fail('inventory-unsupported', 'baseline-path-overlap');
+  if (indexed.some(item => roots.some(value => pathUnderRoot(item, value)))) fail('inventory-unsupported', 'index-path-overlap');
+  if (capturedConfig.capture.sources.some(item => roots.some(value => pathUnderRoot(item.path, value)))) {
+    fail('inventory-unsupported', 'config-source-overlap');
+  }
+  const configs = [base.config, capturedConfig.resolution.config];
+  if (configs.some(config => {
+    if (!U.record(config)) return false;
+    const selectors = Object.fromEntries(Object.entries(config).filter(([key]) => key !== 'inventory'));
+    return valueMayIntersectRoots(selectors, roots);
+  })) fail('inventory-unsupported', 'config-selector-overlap');
+  if (valueMayIntersectRoots({ task: input.task, scope: input.scope }, roots)) {
+    fail('inventory-unsupported', 'task-input-overlap');
+  }
+  return {
+    roots,
+    baselineCommit: baseline.commit,
+    storedBytesDigest: U.sha(base.source.storedBytes),
+    guardOutcomes: [
+      { guard: 'baseline-paths', state: 'clear', reason: 'No baseline path intersects an approved root.' },
+      { guard: 'index-paths', state: 'clear', reason: 'No current index path intersects an approved root.' },
+      { guard: 'config-sources', state: 'clear', reason: 'No baseline or current config source intersects an approved root.' },
+      { guard: 'config-selectors', state: 'clear', reason: 'Baseline and current config declarations are disjoint from approved roots.' },
+      { guard: 'task-inputs', state: 'clear', reason: 'No explicit task or requirement input intersects an approved root.' }
+    ]
+  };
+}
+function captureCandidate(root, baseline, excludedRoots = []) {
+  const excludedRootStates = excludedRoots.length ? validateExcludedRoots(root, excludedRoots) : [];
   const raw = [];
   let total = 0;
   let visited = 0;
@@ -72,8 +238,9 @@ function captureCandidate(root, baseline) {
     const entries = fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => U.compare(a.name, b.name));
     for (const entry of entries) {
       if (!prefix && entry.name === '.git') continue;
-      if (++visited > MAX_FILES) fail('inventory-unsupported');
       const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (excludedRoots.includes(relative)) continue;
+      if (++visited > MAX_FILES) fail('inventory-unsupported');
       const absolute = path.join(dir, entry.name);
       const stat = fs.lstatSync(absolute);
       if (stat.isDirectory()) {
@@ -102,7 +269,8 @@ function captureCandidate(root, baseline) {
     }
   }
   // Lifecycle owns text/eol/autocrlf conversion. A completeness walk above detects its skipped paths.
-  const stored = new Map(scanWorkspaceFiles(root).map(item => [item.path, item.bytes]));
+  const stored = new Map(convertWorkspaceFiles(root, raw.map(item => ({ path: item.path, bytes: item.raw })))
+    .map(item => [item.path, item.bytes]));
   const records = raw.map(item => {
     const converted = stored.get(item.path);
     if (!converted) fail('inventory-unsupported');
@@ -111,7 +279,7 @@ function captureCandidate(root, baseline) {
     return fileRecord(item.path, item.mode, converted);
   });
   for (const item of baseline.records) if (!stored.has(item.path)) records.push(fileRecord(item.path, '', Buffer.alloc(0), 'deleted'));
-  return records;
+  return { records, excludedRootStates };
 }
 const progressKeys = new Set(['status', 'state', 'evidence', 'loaded', 'loadedAt', 'updatedAt', 'createdAt', 'completedAt', 'timestamp', 'report', 'reports']);
 // Progress fields are excluded only at their defined record locations (top-level task/workflow, each
@@ -169,8 +337,20 @@ function produceDocSnapshot(input, dependencies = {}) {
     const baseline = captureBaseline(root, detached.baseline);
     const config = resolveDocsConfigCaptured(root, { activeHost: detached.activeHost });
     if (!['project', 'host'].includes(config.resolution.status) || config.capture.sources.some(s => s.presence === 'unreadable')) fail('config-unavailable');
-    const coverage = { kind: 'whole-project', excluded: ['.git'], scope: U.clone(detached.scope) };
-    const candidate = { records: captureCandidate(root, baseline), coverage };
+    const policy = guardedPolicy(root, baseline, config, detached);
+    const firstCapture = captureCandidate(root, baseline, policy?.roots || []);
+    const coverage = policy ? {
+      kind: 'project-with-dependency-artifact-exclusions',
+      policyVersion: POLICY_VERSION,
+      policySource: { path: PROJECT_CONFIG_PATH, baselineCommit: policy.baselineCommit, storedBytesDigest: policy.storedBytesDigest },
+      dependencyArtifactRoots: policy.roots,
+      excluded: ['.git', ...policy.roots],
+      excludedRootStates: firstCapture.excludedRootStates,
+      guardOutcomes: [...policy.guardOutcomes,
+        { guard: 'excluded-root-types', state: 'clear', reason: 'Each approved root is an in-workspace directory or absent.', roots: firstCapture.excludedRootStates }],
+      scope: U.clone(detached.scope)
+    } : { kind: 'whole-project', excluded: ['.git'], scope: U.clone(detached.scope) };
+    const candidate = { records: firstCapture.records, coverage };
     // Same owned config bytes must be the bytes covered by the working-tree capture.
     for (const source of config.capture.sources) {
       const file = candidate.records.find(r => r.path === source.path && r.presence === 'present');
@@ -189,18 +369,21 @@ function produceDocSnapshot(input, dependencies = {}) {
     const facts = derived.facts;
     const obligations = deriveDocObligations(facts);
     const derivationReasons = Object.fromEntries(obligations.map(o => [o.id, { applicability: o.applicability, reason: `captured facts derive ${o.capability}: ${o.applicability}`, factRefs: ['facts', ...(o.scope?.paths || []).map(p => `inventory:${p}`)] }]));
-    const again = captureCandidate(root, baseline);
+    const again = captureCandidate(root, baseline, policy?.roots || []);
     const configAgain = resolveDocsConfigCaptured(root, { activeHost: detached.activeHost });
+    const policyAgain = guardedPolicy(root, baseline, configAgain, detached);
     let finalContext;
     try { finalContext = contextFor(detached, originProvider); }
     catch { fail('snapshot-changed'); }
-    if (U.snapshotDigest('candidate', baseline, coverage, again) !== candidate.digest || U.configDigest(configAgain) !== config.digest
+    if (U.snapshotDigest('candidate', baseline, coverage, again.records) !== candidate.digest
+      || U.stable(again.excludedRootStates) !== U.stable(firstCapture.excludedRootStates)
+      || U.stable(policyAgain) !== U.stable(policy) || U.configDigest(configAgain) !== config.digest
       || U.stable(originContext) !== U.stable(finalContext)) fail('snapshot-changed');
     return { state: 'ready', snapshot: { identity, baseline, candidate, config, originContext, taskSemantics: planIdentity, facts, obligations, derivationReasons }, diagnostics: [] };
   } catch (error) {
     const codes = ['invalid-input', 'baseline-unavailable', 'inventory-incomplete', 'inventory-unsupported', 'snapshot-changed', 'config-unavailable', 'unsupported-prd-root', 'identity-mismatch', 'origin-unavailable', 'origin-untrusted'];
     const code = codes.includes(error.message) ? error.message : 'inventory-unsupported';
-    return { state: 'unavailable', snapshot: null, diagnostics: [U.diagnostic(code)] };
+    return { state: 'unavailable', snapshot: null, diagnostics: [U.diagnostic(code, error.reasonCode ? { reasonCode: error.reasonCode } : {})] };
   }
 }
 module.exports = { produceDocSnapshot };

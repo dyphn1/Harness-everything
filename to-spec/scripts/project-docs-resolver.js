@@ -21,6 +21,7 @@ const PROJECT_DOCS_CONFIG = path.join('.agents', 'harness-everything', 'project-
 const PROJECT_DOC_ROLES = Object.freeze(['prd', 'adr', 'ticket', 'reference', 'log', 'report']);
 const PROJECT_DOC_CONFIG_KEYS = new Set([
   'governed', 'domains', 'legacy', 'derived', 'tickets',
+  'inventory',
   'docLocation', 'tracker', 'issueDefinition', 'contextMap', 'contextMapPath',
   'decisionLocation', 'decisions', 'adrLocation', 'adr',
   'domainLocation', 'contextLocation', 'contexts', 'domain',
@@ -324,6 +325,17 @@ function validateDocsConfig(config) {
           }
         }
       });
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(config, 'inventory')) {
+    const inventory = config.inventory;
+    const roots = inventory && inventory.dependencyArtifactRoots;
+    const supportedRoots = new Set(['node_modules', '.husky/_']);
+    if (!isPlainObject(inventory) || Object.keys(inventory).some(key => key !== 'dependencyArtifactRoots')
+      || !Array.isArray(roots) || roots.some(root => typeof root !== 'string' || !supportedRoots.has(root))
+      || new Set(roots).size !== roots.length) {
+      invalid('invalid-dependency-artifact-roots', 'inventory.dependencyArtifactRoots must contain distinct exact roots from node_modules and .husky/_');
     }
   }
 

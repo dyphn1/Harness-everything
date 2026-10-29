@@ -12,6 +12,7 @@ function runtimeModule(name) {
 }
 const { checkDocObligations } = runtimeModule('doc-evidence.js');
 const { deriveDocFacts, deriveDocObligations } = runtimeModule('doc-obligations.js');
+const { validateDocsConfig } = runtimeModule('project-docs-resolver.js');
 const text = value => typeof value === 'string' && value.trim().length > 0;
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const compare = (a, b) => a < b ? -1 : a > b ? 1 : 0;
@@ -38,6 +39,9 @@ const sameIdentity = (a, b) => validIdentity(a) && validIdentity(b) && identityF
 const diagnostic = (code, context = {}) => ({ code, message: code.replace(/-/g, ' '), ...context });
 const pathCompare = (a, b) => Buffer.compare(Buffer.from(a.path), Buffer.from(b.path));
 const codedError = code => Object.assign(new Error(code), { code });
+const PROJECT_CONFIG_PATH = '.agents/harness-everything/project-docs.json';
+const DEPENDENCY_ARTIFACT_ROOTS = new Set(['node_modules', '.husky/_']);
+const DEPENDENCY_POLICY_VERSION = 'dependency-artifact-scope/1';
 // The derive contract (doc-obligations.js) decides applicability from governed/legacy documents, derived
 // outputs and code/REQ-test paths. Records outside them cannot affect document obligations.
 // shortcut: mirrors derive path rules, update them together until a shared classifier is exposed.
@@ -136,6 +140,57 @@ function snapshotDigest(kind, baseline, coverage, records) {
   for (const item of [...records].sort(pathCompare)) fields.push(item.path, item.presence, item.type, item.mode, bytes(item.storedBytes));
   return hashFrames(fields);
 }
+function pathUnderDependencyRoot(relative, root) {
+  const candidate = String(relative).replace(/\\/g, '/').normalize('NFC').toLowerCase();
+  const prefix = root.normalize('NFC').toLowerCase();
+  return candidate === prefix || candidate.startsWith(`${prefix}/`);
+}
+function projectConfigFromStoredBytes(value) {
+  try {
+    const config = JSON.parse(bytes(value).toString('utf8'));
+    return validateDocsConfig(config).valid ? config : null;
+  } catch { return null; }
+}
+function validCoverage(snapshot) {
+  const coverage = snapshot.candidate?.coverage;
+  if (!record(coverage) || !Array.isArray(coverage.excluded) || !record(coverage.scope)) return false;
+  if (coverage.kind === 'whole-project') {
+    return Object.keys(coverage).sort(compare).join('\0') === ['excluded', 'kind', 'scope'].sort(compare).join('\0')
+      && stable(coverage.excluded) === stable(['.git']);
+  }
+  const fields = ['dependencyArtifactRoots', 'excluded', 'excludedRootStates', 'guardOutcomes', 'kind', 'policySource', 'policyVersion', 'scope'];
+  if (coverage.kind !== 'project-with-dependency-artifact-exclusions'
+    || Object.keys(coverage).sort(compare).join('\0') !== fields.sort(compare).join('\0')
+    || coverage.policyVersion !== DEPENDENCY_POLICY_VERSION || !record(coverage.policySource)
+    || Object.keys(coverage.policySource).sort(compare).join('\0') !== ['baselineCommit', 'path', 'storedBytesDigest'].sort(compare).join('\0')
+    || coverage.policySource.path !== PROJECT_CONFIG_PATH || coverage.policySource.baselineCommit !== snapshot.baseline.commit
+    || !/^[a-f0-9]{64}$/.test(coverage.policySource.storedBytesDigest || '')
+    || !Array.isArray(coverage.dependencyArtifactRoots) || !coverage.dependencyArtifactRoots.length
+    || coverage.dependencyArtifactRoots.some(root => !DEPENDENCY_ARTIFACT_ROOTS.has(root))
+    || stable(coverage.dependencyArtifactRoots) !== stable([...coverage.dependencyArtifactRoots].sort())
+    || new Set(coverage.dependencyArtifactRoots).size !== coverage.dependencyArtifactRoots.length
+    || stable(coverage.excluded) !== stable(['.git', ...coverage.dependencyArtifactRoots])) return false;
+  const roots = coverage.dependencyArtifactRoots;
+  const baselinePolicy = snapshot.baseline.records.find(item => item.path === PROJECT_CONFIG_PATH && item.presence === 'present');
+  const candidatePolicy = snapshot.config.capture.sources.find(item => item.path === PROJECT_CONFIG_PATH && item.presence === 'present');
+  if (!baselinePolicy || !candidatePolicy || sha(bytes(baselinePolicy.storedBytes)) !== coverage.policySource.storedBytesDigest) return false;
+  const baseConfig = projectConfigFromStoredBytes(baselinePolicy.storedBytes);
+  const candidateConfig = projectConfigFromStoredBytes(candidatePolicy.bytes);
+  const baseRoots = baseConfig?.inventory?.dependencyArtifactRoots;
+  const candidateRoots = candidateConfig?.inventory?.dependencyArtifactRoots;
+  if (!Array.isArray(baseRoots) || !Array.isArray(candidateRoots)
+    || stable([...baseRoots].sort()) !== stable([...candidateRoots].sort())
+    || stable([...baseRoots].sort()) !== stable(roots)) return false;
+  if ([...snapshot.baseline.records, ...snapshot.candidate.records].some(item => roots.some(root => pathUnderDependencyRoot(item.path, root)))) return false;
+  if (!Array.isArray(coverage.excludedRootStates) || coverage.excludedRootStates.length !== roots.length
+    || coverage.excludedRootStates.some((item, index) => !record(item) || item.path !== roots[index]
+      || !['absent', 'present-directory'].includes(item.presence)
+      || Object.keys(item).sort(compare).join('\0') !== ['path', 'presence'].sort(compare).join('\0'))) return false;
+  const guards = ['baseline-paths', 'index-paths', 'config-sources', 'config-selectors', 'task-inputs', 'excluded-root-types'];
+  return Array.isArray(coverage.guardOutcomes) && coverage.guardOutcomes.length === guards.length
+    && coverage.guardOutcomes.every((item, index) => record(item) && item.guard === guards[index] && item.state === 'clear'
+      && text(item.reason) && (index !== guards.length - 1 || stable(item.roots) === stable(coverage.excludedRootStates)));
+}
 function configDigest(config) {
   const sources = [...config.capture.sources].sort(pathCompare);
   const fields = ['doc-config-v1', stable({ activeHost: config.capture.activeHost, selectionInputs: config.capture.selectionInputs, resolution: config.resolution }), String(sources.length)];
@@ -146,6 +201,7 @@ function validateSnapshot(snapshot) {
   const errors = [];
   try {
     if (!validIdentity(snapshot.identity) || !record(snapshot.facts) || !Array.isArray(snapshot.obligations)) throw new Error('invalid-input');
+    if (!validCoverage(snapshot)) errors.push(diagnostic('inventory-unsupported'));
     // Roots are canonicalized at capture; keep reconciliation detached and free of filesystem reads.
     const context = snapshot.originContext;
     if (!record(context) || !record(context.baseline) || !text(context.workspaceRoot)
