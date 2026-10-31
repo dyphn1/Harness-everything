@@ -68,6 +68,14 @@ def regenerate():
                 if document['source_sha256'] != digest or hashlib.sha256(document['content'].encode()).hexdigest() != digest:
                     raise ValueError('document revision differs from episode manifest')
                 documents[name] = document['content']
+            # The live JS fixture declared ESM, but the original episode
+            # exporter retained only the implementation. Restore that pinned
+            # launch prerequisite instead of relying on host module detection.
+            if manifest['workload'] == 'polyglot-simple-linked-list-staged':
+                package = '{"type":"module"}\n'
+                if manifest['fixture'].get('package.json') != hashlib.sha256(package.encode()).hexdigest():
+                    raise ValueError('unexpected module fixture identity')
+                (episode/'package.json').write_text(package)
             row = inspect_episode(episode, offline=True, frozen=frozen[key(identity)], documents=documents)
             row['series'] = episode.parent.name
             # No host reasoning, assistant prose, dispatch arguments, or child
@@ -115,6 +123,26 @@ def main():
     if args.check:
         for name, text in result.items():
             if not destination(name).is_file() or destination(name).read_text() != text:
+                if name.endswith('.json') and destination(name).is_file():
+                    def differences(expected, actual, path='$'):
+                        if type(expected) is not type(actual):
+                            yield path+' (type)'
+                        elif isinstance(expected, dict):
+                            for field in sorted(set(expected) | set(actual)):
+                                if field not in expected or field not in actual:
+                                    yield path+'.'+field+' (missing)'
+                                else:
+                                    yield from differences(expected[field], actual[field], path+'.'+field)
+                        elif isinstance(expected, list):
+                            if len(expected) != len(actual):
+                                yield path+' (length)'
+                            for index, (left, right) in enumerate(zip(expected, actual)):
+                                yield from differences(left, right, f'{path}[{index}]')
+                        elif expected != actual:
+                            yield path
+                    import itertools
+                    print('different fields:', ', '.join(itertools.islice(differences(
+                        json.loads(destination(name).read_text()), json.loads(text)), 12)))
                 raise SystemExit('offline replay differs: '+name)
         readme = (HERE/'README.md').read_text()
         if '<!-- BEGIN REPLAY TABLES -->\n'+result['tables.md']+'<!-- END REPLAY TABLES -->' not in readme:
