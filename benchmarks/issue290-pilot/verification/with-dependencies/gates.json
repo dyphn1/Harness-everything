@@ -1,0 +1,26 @@
+[
+  {
+    "check": "test",
+    "exit": 0
+  },
+  {
+    "check": "test:mechanism",
+    "exit": 0
+  },
+  {
+    "check": "test:consistency",
+    "exit": 0
+  },
+  {
+    "check": "test:release",
+    "exit": 0
+  },
+  {
+    "check": "test:collision",
+    "exit": 0
+  },
+  {
+    "check": "test:routing:skills",
+    "exit": 0
+  }
+]

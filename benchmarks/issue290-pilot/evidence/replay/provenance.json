@@ -1,0 +1,24 @@
+{
+  "archive_sha256": "93bcb349c6ebbdcd3673641f3dc23148e73e87a0ec975d31bf31d2731d828723",
+  "frozen_documents_sha256": "d294738c15c313f9800d900fcaf4c0689ecc150f71a3de2443119676d0adc136",
+  "frozen_not_independently_recovered": [
+    "request usage",
+    "child dispatch metadata",
+    "effort",
+    "usage aggregates"
+  ],
+  "irretrievable": [
+    "unobserved worker usage/model identities",
+    "interrupted final usage"
+  ],
+  "pricing_assumptions_sha256": "b8cfd7cd8afb882a2bf55d666110a6967fefa90d307f9b2105fc7cece2e935b7",
+  "recomputed": [
+    "parent-stream content attribution",
+    "artifact checks",
+    "gate-name invocation",
+    "metric denominators",
+    "paired deltas"
+  ],
+  "unknown_policy": "non-reconstructable whole-run costs remain null; no host-home reads or model calls",
+  "verified_exported_files": 621
+}
