@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import time
 import uuid
+from read_metrics import collect_reads
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
@@ -107,6 +108,12 @@ def grade(workload, ws, transcript):
         result = command(['node',str(HERE/'grader.cjs'), str(ws/'simple-linked-list.js')], ws, 20)
     result['pass'] = result['exit'] == 0
     return result
+
+def require_router_attribution(episode):
+    router = episode/'router.txt'
+    text = router.read_text() if router.exists() else ''
+    if 'ROUTER WORKFLOW PLAN' not in text and 'RETAINED EXECUTION CONTRACT' not in text:
+        raise RuntimeError('router attribution absent; stop before further model calls')
 
 def run_episode(base, model, workload, arm, repeat, smoke=False):
     episode, ws, hooks = prepare(base,workload,arm,model,repeat)
@@ -218,7 +225,7 @@ def summarize(base):
                     event=json.loads(line)
                     if event.get('type')=='turn_context':
                         actual=event['payload'].get('model');effective_effort=event['payload'].get('effort')
-        reference_reads=[x for x in reads if any(s in json.dumps(x) for s in ['.harness','SKILL.md','references/','CONTRACT-FORMAT'])]
+        reference_reads, _, _ = collect_reads(events, {name:(ROOT/name).read_text() for name in m['documents']}, str(ROOT))
         row={**m,**r,'actual_model_reported':actual,'usage':usage,'host_reported_cost_usd':reported_cost,
              'tool_calls':tool_calls,'reference_read_operations':reference_reads,'router_attributed':attributed,
              'hook_event_count':len(host_trace.splitlines()),'final':final,
@@ -251,4 +258,5 @@ if __name__=='__main__':
                                     total_output+=event.get('usage',{}).get('output_tokens',0)
                         if total_output > PROTOCOL['aggregate_output_token_cap']:
                             raise SystemExit('aggregate output budget reached; remaining trials not attempted')
-                        run_episode(base,model,workload,arm,repeat,args.mode=='preflight')
+                        completed = run_episode(base,model,workload,arm,repeat,args.mode=='preflight')
+                        require_router_attribution(completed)

@@ -51,7 +51,5 @@ if __name__=='__main__':
                 if existing_seconds>pilot.PROTOCOL['aggregate_wall_budget_seconds'] or existing_output>pilot.PROTOCOL['aggregate_output_token_cap']:
                     raise SystemExit('shared original budget reached; remaining Fable rows unattempted')
                 episode=pilot.run_episode(base,model,WORKLOAD,arm,repeat)
-                router=episode/'router.txt'
-                if not router.exists() or not router.read_text():
-                    raise SystemExit('missing initial router attribution: retain infrastructure failure and stop for diagnosis')
+                pilot.require_router_attribution(episode)
     pilot.summarize(base)

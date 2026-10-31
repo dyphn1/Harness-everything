@@ -25,19 +25,27 @@ class AttributionTest(unittest.TestCase):
             'npm run tdd:quality --help',
             'npm run tdd:quality --dry-run',
             'node ./quality-gate.js.backup',
+            'node ./fixtures/quality-gate.js',
+            'node /tmp/unrelated/quality-gate.js',
+            'npm --prefix /tmp/other-project run tdd:quality',
+            'npm --prefix=/tmp/other-project run tdd:quality',
+            'npm --workspace unrelated run tdd:quality',
+            'npm run tdd:quality --prefix /tmp/other-project',
+            'npm run tdd:quality --workspace unrelated',
             '', 'npm run "unterminated',
         ]
         positives = [
             'npm run tdd:quality -- evidence.json',
+            'npm run test:tdd-quality',
             '  npm\t run  tdd:quality  ',
             'node ./tdd/scripts/quality-gate.js evidence.json',
-            'node "/path with spaces/quality-gate.js" evidence.json',
+            'node .harness/tdd/scripts/quality-gate.js evidence.json',
             'HARNESS_STATE_HOME=/tmp/state npm run tdd:quality',
             'env HARNESS_STATE_HOME=/tmp/state npm run tdd:quality',
             'command npm run tdd:quality',
             'bash -lc \'npm run tdd:quality -- evidence.json\'',
             '/usr/bin/node --no-warnings ./tdd/scripts/quality-gate.js evidence.json',
-            'npm --prefix ./project run tdd:quality',
+
         ]
         for command in negatives:
             with self.subTest(command=command):
@@ -60,7 +68,7 @@ class AttributionTest(unittest.TestCase):
                 transcript.write_text(json.dumps({'type':'item.completed','item':{
                     'type':'command_execution','command':command,
                     'aggregated_output':'','exit_code':0}})+'\n')
-                return audit.inspect_episode(episode)['tdd_quality_gate_executed']
+                return audit.inspect_episode(episode)['tdd_quality_gate_name_matched_invocation']
             self.assertFalse(inspect('node workflow-disposition.js stage-binding --evidence "npm tdd:quality gate N/A (no package.json in workspace)"'))
             self.assertTrue(inspect('npm run tdd:quality -- evidence.json'))
 
@@ -96,7 +104,7 @@ class AttributionTest(unittest.TestCase):
         self.assertEqual(len(rows),40)
         for row in rows:
             key=(row['series'],row['model']['engine'],row['workload'],row['arm'],row['repeat'])
-            self.assertEqual(row['tdd_quality_gate_executed'],actual[key],key)
+            self.assertEqual(row.get('tdd_quality_gate_name_matched_invocation', row.get('tdd_quality_gate_executed')),actual[key],key)
 
     def test_inventory_not_content(self):
         for command in ['rg --files .harness','find .harness -name SKILL.md','ls .harness','wc -c .harness/fable-mode/SKILL.md']:
@@ -132,7 +140,7 @@ class AttributionTest(unittest.TestCase):
                 'command':'cat .harness/verification-loop/SKILL.md',
                 'aggregated_output':'observed reference content','exit_code':0}}]
             (episode/'transcript.jsonl').write_text('\n'.join(map(json.dumps,events))+'\n')
-            row=audit.inspect_episode(episode)
+            row=audit.inspect_episode(episode, documents={'verification-loop/SKILL.md':'observed reference content'})
             self.assertEqual(row['observed_reference_reads'][0]['active_step'],'verify')
 
 if __name__=='__main__':unittest.main()

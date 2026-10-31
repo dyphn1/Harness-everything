@@ -8,6 +8,7 @@ const vm = require('vm');
 const assert = require('node:assert/strict');
 const { pathToFileURL } = require('url');
 const path = require('path');
+const equalValues = (actual, expected) => assert.deepEqual(structuredClone(actual), structuredClone(expected));
 
 async function grade(target) {
   const api = await import(pathToFileURL(path.resolve(target)).href);
@@ -25,7 +26,7 @@ async function grade(target) {
       catch (e) { results.push({name, pass: false, error: e.message}); }
     },
     expect: actual => ({
-      toEqual: expected => assert.deepEqual(JSON.parse(JSON.stringify(actual)), JSON.parse(JSON.stringify(expected))),
+      toEqual: expected => equalValues(actual, expected),
       toBeDefined: () => assert.notEqual(actual, undefined),
       not: {toThrow: () => assert.doesNotThrow(actual)},
     }),
@@ -39,4 +40,4 @@ async function grade(target) {
 if (require.main === module) grade(process.argv[2]).then(pass => { process.exitCode = pass ? 0 : 1; }).catch(e => {
   console.log(JSON.stringify({pass: false, graderError: e.message})); process.exitCode = 2;
 });
-module.exports = {grade};
+module.exports = {grade, equalValues};

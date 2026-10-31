@@ -16,4 +16,13 @@ class LinkedFixtureTest(unittest.TestCase):
             self.assertTrue((workspace/'.git').is_file(),'must use the linked checkout')
             self.assertTrue((workspace/'.pilot.json').is_file())
 
+    def test_router_attribution_is_required_before_next_trial(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            with self.assertRaises(RuntimeError):supp.pilot.require_router_attribution(root)
+            (root/'router.txt').write_text('unrelated stdout')
+            with self.assertRaises(RuntimeError):supp.pilot.require_router_attribution(root)
+            (root/'router.txt').write_text('ROUTER WORKFLOW PLAN')
+            supp.pilot.require_router_attribution(root)
+
 if __name__=='__main__':unittest.main()

@@ -1,0 +1,482 @@
+[
+  {
+    "api_equivalent_cost_usd": {
+      "A": null,
+      "B": null,
+      "delta_percent": null,
+      "included": false
+    },
+    "api_equivalent_input_cost_usd": {
+      "A": null,
+      "B": null,
+      "delta_percent": null,
+      "included": false
+    },
+    "engine": "codex",
+    "reference_returned_bytes": {
+      "A": 22023,
+      "B": 3066,
+      "delta_percent": -86.07819098215502,
+      "included": true
+    },
+    "repeat": 1,
+    "series": "issue290-fable-20261014",
+    "wall_seconds": {
+      "A": 600.392,
+      "B": 601.001,
+      "delta_percent": 0.10143372996307803,
+      "included": true
+    },
+    "workload": "polyglot-simple-linked-list-staged"
+  },
+  {
+    "api_equivalent_cost_usd": {
+      "A": null,
+      "B": null,
+      "delta_percent": null,
+      "included": false
+    },
+    "api_equivalent_input_cost_usd": {
+      "A": null,
+      "B": null,
+      "delta_percent": null,
+      "included": false
+    },
+    "engine": "codex",
+    "reference_returned_bytes": {
+      "A": 30683,
+      "B": 15124,
+      "delta_percent": -50.708861584590814,
+      "included": true
+    },
+    "repeat": 2,
+    "series": "issue290-fable-20261014",
+    "wall_seconds": {
+      "A": 439.355,
+      "B": 600.761,
+      "delta_percent": 36.73703497171989,
+      "included": true
+    },
+    "workload": "polyglot-simple-linked-list-staged"
+  },
+  {
+    "api_equivalent_cost_usd": {
+      "A": 0.04073616,
+      "B": 0.05423884000000001,
+      "delta_percent": 33.14666870907815,
+      "included": true
+    },
+    "api_equivalent_input_cost_usd": {
+      "A": 0.024593660000000003,
+      "B": 0.031938339999999996,
+      "delta_percent": 29.864119451923756,
+      "included": true
+    },
+    "engine": "claude",
+    "reference_returned_bytes": {
+      "A": 8300,
+      "B": 16914,
+      "delta_percent": 103.78313253012048,
+      "included": true
+    },
+    "repeat": 1,
+    "series": "issue290-fable-claude-retry-20261014",
+    "wall_seconds": {
+      "A": 265.736,
+      "B": 238.026,
+      "delta_percent": -10.427642472228069,
+      "included": true
+    },
+    "workload": "polyglot-simple-linked-list-staged"
+  },
+  {
+    "api_equivalent_cost_usd": {
+      "A": 0.029205180000000004,
+      "B": 0.050429640000000005,
+      "delta_percent": 72.67361474916434,
+      "included": true
+    },
+    "api_equivalent_input_cost_usd": {
+      "A": 0.017736180000000004,
+      "B": 0.03127264,
+      "delta_percent": 76.3211694964755,
+      "included": true
+    },
+    "engine": "claude",
+    "reference_returned_bytes": {
+      "A": 20633,
+      "B": 13910,
+      "delta_percent": -32.58372510056705,
+      "included": true
+    },
+    "repeat": 2,
+    "series": "issue290-fable-claude-retry-20261014",
+    "wall_seconds": {
+      "A": 128.821,
+      "B": 199.68,
+      "delta_percent": 55.00578321857462,
+      "included": true
+    },
+    "workload": "polyglot-simple-linked-list-staged"
+  },
+  {
+    "api_equivalent_cost_usd": {
+      "A": 0.01959743,
+      "B": 0.03243657,
+      "delta_percent": 65.51440673598528,
+      "included": true
+    },
+    "api_equivalent_input_cost_usd": {
+      "A": 0.01159493,
+      "B": 0.02028157,
+      "delta_percent": 74.91757173178276,
+      "included": true
+    },
+    "engine": "claude",
+    "reference_returned_bytes": {
+      "A": 5250,
+      "B": 3064,
+      "delta_percent": -41.63809523809524,
+      "included": true
+    },
+    "repeat": 1,
+    "series": "issue290-formal-20261014",
+    "wall_seconds": {
+      "A": 88.905,
+      "B": 154.669,
+      "delta_percent": 73.97109273944099,
+      "included": true
+    },
+    "workload": "polyglot-simple-linked-list-staged"
+  },
+  {
+    "api_equivalent_cost_usd": {
+      "A": 0.01798511,
+      "B": 0.023325329999999995,
+      "delta_percent": 29.69245114430769,
+      "included": true
+    },
+    "api_equivalent_input_cost_usd": {
+      "A": 0.01129711,
+      "B": 0.014302330000000002,
+      "delta_percent": 26.601670692770107,
+      "included": true
+    },
+    "engine": "claude",
+    "reference_returned_bytes": {
+      "A": 3065,
+      "B": 3066,
+      "delta_percent": 0.03262642740619902,
+      "included": true
+    },
+    "repeat": 2,
+    "series": "issue290-formal-20261014",
+    "wall_seconds": {
+      "A": 84.91,
+      "B": 110.124,
+      "delta_percent": 29.694971145919208,
+      "included": true
+    },
+    "workload": "polyglot-simple-linked-list-staged"
+  },
+  {
+    "api_equivalent_cost_usd": {
+      "A": 0.00581582,
+      "B": 0.0050241700000000005,
+      "delta_percent": -13.612010000309493,
+      "included": true
+    },
+    "api_equivalent_input_cost_usd": {
+      "A": 0.00481082,
+      "B": 0.004093670000000001,
+      "delta_percent": -14.907022087710612,
+      "included": true
+    },
+    "engine": "claude",
+    "reference_returned_bytes": {
+      "A": 18957,
+      "B": 3571,
+      "delta_percent": -81.16263121801973,
+      "included": true
+    },
+    "repeat": 1,
+    "series": "issue290-formal-20261014",
+    "wall_seconds": {
+      "A": 12.103,
+      "B": 16.151,
+      "delta_percent": 33.44625299512518,
+      "included": true
+    },
+    "workload": "profile-lookup"
+  },
+  {
+    "api_equivalent_cost_usd": {
+      "A": 0.005840049999999999,
+      "B": 0.00497036,
+      "delta_percent": -14.891824556296598,
+      "included": true
+    },
+    "api_equivalent_input_cost_usd": {
+      "A": 0.0048185500000000004,
+      "B": 0.00400936,
+      "delta_percent": -16.793226177999614,
+      "included": true
+    },
+    "engine": "claude",
+    "reference_returned_bytes": {
+      "A": 18957,
+      "B": 3571,
+      "delta_percent": -81.16263121801973,
+      "included": true
+    },
+    "repeat": 2,
+    "series": "issue290-formal-20261014",
+    "wall_seconds": {
+      "A": 12.116,
+      "B": 15.131,
+      "delta_percent": 24.88445031363487,
+      "included": true
+    },
+    "workload": "profile-lookup"
+  },
+  {
+    "api_equivalent_cost_usd": {
+      "A": 0.009865480000000001,
+      "B": 0.01780674,
+      "delta_percent": 80.49542444969732,
+      "included": true
+    },
+    "api_equivalent_input_cost_usd": {
+      "A": 0.00746998,
+      "B": 0.012818239999999998,
+      "delta_percent": 71.59671110230546,
+      "included": true
+    },
+    "engine": "claude",
+    "reference_returned_bytes": {
+      "A": 15078,
+      "B": 3182,
+      "delta_percent": -78.8964053588009,
+      "included": true
+    },
+    "repeat": 1,
+    "series": "issue290-formal-20261014",
+    "wall_seconds": {
+      "A": 36.318,
+      "B": 84.865,
+      "delta_percent": 133.67200837050498,
+      "included": true
+    },
+    "workload": "quixbugs-find-in-sorted"
+  },
+  {
+    "api_equivalent_cost_usd": {
+      "A": 0.01293407,
+      "B": 0.01267222,
+      "delta_percent": -2.0244980891552387,
+      "included": true
+    },
+    "api_equivalent_input_cost_usd": {
+      "A": 0.008934570000000001,
+      "B": 0.008777720000000001,
+      "delta_percent": -1.755540557631761,
+      "included": true
+    },
+    "engine": "claude",
+    "reference_returned_bytes": {
+      "A": 15078,
+      "B": 3065,
+      "delta_percent": -79.67237034089402,
+      "included": true
+    },
+    "repeat": 2,
+    "series": "issue290-formal-20261014",
+    "wall_seconds": {
+      "A": 54.511,
+      "B": 69.67,
+      "delta_percent": 27.809066060061266,
+      "included": true
+    },
+    "workload": "quixbugs-find-in-sorted"
+  },
+  {
+    "api_equivalent_cost_usd": {
+      "A": 0.02572438,
+      "B": 0.02799634,
+      "delta_percent": 8.831932975644117,
+      "included": true
+    },
+    "api_equivalent_input_cost_usd": {
+      "A": 0.015737880000000003,
+      "B": 0.016671340000000003,
+      "delta_percent": 5.931294431016124,
+      "included": true
+    },
+    "engine": "codex",
+    "reference_returned_bytes": {
+      "A": 22023,
+      "B": 3066,
+      "delta_percent": -86.07819098215502,
+      "included": true
+    },
+    "repeat": 1,
+    "series": "issue290-formal-20261014",
+    "wall_seconds": {
+      "A": 218.852,
+      "B": 250.42,
+      "delta_percent": 14.424359841353967,
+      "included": true
+    },
+    "workload": "polyglot-simple-linked-list-staged"
+  },
+  {
+    "api_equivalent_cost_usd": {
+      "A": 0.0254005,
+      "B": 0.022629200000000002,
+      "delta_percent": -10.910415149308074,
+      "included": true
+    },
+    "api_equivalent_input_cost_usd": {
+      "A": 0.015807000000000005,
+      "B": 0.014696699999999998,
+      "delta_percent": -7.024103245397649,
+      "included": true
+    },
+    "engine": "codex",
+    "reference_returned_bytes": {
+      "A": 22023,
+      "B": 3066,
+      "delta_percent": -86.07819098215502,
+      "included": true
+    },
+    "repeat": 2,
+    "series": "issue290-formal-20261014",
+    "wall_seconds": {
+      "A": 237.141,
+      "B": 177.548,
+      "delta_percent": -25.129775112696663,
+      "included": true
+    },
+    "workload": "polyglot-simple-linked-list-staged"
+  },
+  {
+    "api_equivalent_cost_usd": {
+      "A": 0.00220756,
+      "B": 0.00229032,
+      "delta_percent": 3.7489354762724596,
+      "included": true
+    },
+    "api_equivalent_input_cost_usd": {
+      "A": 0.00194956,
+      "B": 0.00192282,
+      "delta_percent": -1.3715915386035786,
+      "included": true
+    },
+    "engine": "codex",
+    "reference_returned_bytes": {
+      "A": 18957,
+      "B": 3571,
+      "delta_percent": -81.16263121801973,
+      "included": true
+    },
+    "repeat": 1,
+    "series": "issue290-formal-20261014",
+    "wall_seconds": {
+      "A": 17.148,
+      "B": 17.136,
+      "delta_percent": -0.06997900629811322,
+      "included": true
+    },
+    "workload": "profile-lookup"
+  },
+  {
+    "api_equivalent_cost_usd": {
+      "A": 0.00204398,
+      "B": 0.0029894,
+      "delta_percent": 46.25387723950333,
+      "included": true
+    },
+    "api_equivalent_input_cost_usd": {
+      "A": 0.00154448,
+      "B": 0.0026714,
+      "delta_percent": 72.96436341033875,
+      "included": true
+    },
+    "engine": "codex",
+    "reference_returned_bytes": {
+      "A": 18957,
+      "B": 3571,
+      "delta_percent": -81.16263121801973,
+      "included": true
+    },
+    "repeat": 2,
+    "series": "issue290-formal-20261014",
+    "wall_seconds": {
+      "A": 19.145,
+      "B": 16.12,
+      "delta_percent": -15.800470096630967,
+      "included": true
+    },
+    "workload": "profile-lookup"
+  },
+  {
+    "api_equivalent_cost_usd": {
+      "A": 0.00857276,
+      "B": 0.01922112,
+      "delta_percent": 124.21157246907649,
+      "included": true
+    },
+    "api_equivalent_input_cost_usd": {
+      "A": 0.00615976,
+      "B": 0.014933620000000002,
+      "delta_percent": 142.43834175357483,
+      "included": true
+    },
+    "engine": "codex",
+    "reference_returned_bytes": {
+      "A": 15078,
+      "B": 4665,
+      "delta_percent": -69.0608834062873,
+      "included": true
+    },
+    "repeat": 1,
+    "series": "issue290-formal-20261014",
+    "wall_seconds": {
+      "A": 69.562,
+      "B": 179.458,
+      "delta_percent": 157.98280670481012,
+      "included": true
+    },
+    "workload": "quixbugs-find-in-sorted"
+  },
+  {
+    "api_equivalent_cost_usd": {
+      "A": 0.01109618,
+      "B": 0.0148342,
+      "delta_percent": 33.6874491942272,
+      "included": true
+    },
+    "api_equivalent_input_cost_usd": {
+      "A": 0.007470180000000001,
+      "B": 0.0114482,
+      "delta_percent": 53.251996605168806,
+      "included": true
+    },
+    "engine": "codex",
+    "reference_returned_bytes": {
+      "A": 15078,
+      "B": 3066,
+      "delta_percent": -79.66573816155989,
+      "included": true
+    },
+    "repeat": 2,
+    "series": "issue290-formal-20261014",
+    "wall_seconds": {
+      "A": 146.2,
+      "B": 98.86,
+      "delta_percent": -32.38030095759233,
+      "included": true
+    },
+    "workload": "quixbugs-find-in-sorted"
+  }
+]

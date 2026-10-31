@@ -9,6 +9,18 @@ on:
   workflow_call:
 
 jobs:
+  pilot-offline-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Install helper dependencies
+        run: npm ci
+      - name: Verify pilot instrumentation, sanitizer and offline replay
+        run: python3 benchmarks/issue290-pilot/check.py
+
   self-regression:
     strategy:
       fail-fast: false
