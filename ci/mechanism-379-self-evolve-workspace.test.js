@@ -27,6 +27,12 @@ function layout(name, packaged = false, helper = true) {
   const scripts = path.join(root, packaged ? 'skills/self-evolve/scripts' : 'self-evolve/scripts');
   fs.mkdirSync(path.dirname(scripts), { recursive: true });
   fs.cpSync(path.join(ROOT, 'self-evolve/scripts'), scripts, { recursive: true });
+  if (packaged) {
+    fs.mkdirSync(path.join(root, '.codex-plugin'), { recursive: true });
+    fs.writeFileSync(path.join(root, '.codex-plugin/plugin.json'), JSON.stringify({ name: 'harness-everything', skills: './skills/' }));
+  } else {
+    fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: 'harness-everything' }));
+  }
   if (helper) {
     fs.mkdirSync(path.join(root, 'scripts'), { recursive: true });
     fs.cpSync(path.join(ROOT, 'scripts/lib'), path.join(root, 'scripts/lib'), { recursive: true });
@@ -87,6 +93,26 @@ try {
     fs.mkdirSync(path.join(hostile, 'scripts/lib'), { recursive: true });
     fs.writeFileSync(path.join(hostile, 'scripts/lib/workspace.js'), `require('fs').writeFileSync(${JSON.stringify(sentinel)}, 'loaded');`);
     error(run(missing, 'lesson-candidate.js', ['list', '--workspace', hostile], { cwd: hostile }), 'WORKSPACE_HELPER_UNAVAILABLE');
+    assert.strictEqual(fs.existsSync(sentinel), false);
+  });
+  test('missing source helper never imports a hostile ancestor helper', () => {
+    const sourceMissing = layout('ancestor-attack/checkout', false, false);
+    const ancestorHelper = path.join(temp, 'ancestor-attack/scripts/lib/workspace.js');
+    const sentinel = path.join(temp, 'ancestor-helper-loaded');
+    fs.mkdirSync(path.dirname(ancestorHelper), { recursive: true });
+    fs.writeFileSync(ancestorHelper, `require('fs').writeFileSync(${JSON.stringify(sentinel)}, 'loaded'); module.exports = {getWorkspaceRoot: () => ${JSON.stringify(workspace)}, getWorkspaceStateDir: () => ${JSON.stringify(state)}, getWorkspaceKey: () => 'hostile'};`);
+    error(run(sourceMissing, 'lesson-candidate.js', ['list', '--workspace', workspace]), 'WORKSPACE_HELPER_UNAVAILABLE');
+    assert.strictEqual(fs.existsSync(sentinel), false);
+  });
+  test('source checkout named skills never falls through to a parent plugin marker', () => {
+    const namedSkills = layout('named-skills/skills', false, false);
+    const parent = path.dirname(namedSkills.root);
+    const sentinel = path.join(temp, 'false-plugin-helper-loaded');
+    fs.mkdirSync(path.join(parent, '.codex-plugin'), { recursive: true });
+    fs.mkdirSync(path.join(parent, 'scripts/lib'), { recursive: true });
+    fs.writeFileSync(path.join(parent, '.codex-plugin/plugin.json'), JSON.stringify({ name: 'harness-everything', skills: './skills/' }));
+    fs.writeFileSync(path.join(parent, 'scripts/lib/workspace.js'), `require('fs').writeFileSync(${JSON.stringify(sentinel)}, 'loaded'); module.exports = {getWorkspaceRoot: () => ${JSON.stringify(workspace)}, getWorkspaceStateDir: () => ${JSON.stringify(state)}, getWorkspaceKey: () => 'hostile'};`);
+    error(run(namedSkills, 'lesson-candidate.js', ['list', '--workspace', workspace]), 'WORKSPACE_HELPER_UNAVAILABLE');
     assert.strictEqual(fs.existsSync(sentinel), false);
   });
   const broken = layout('broken');

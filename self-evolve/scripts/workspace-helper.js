@@ -9,34 +9,48 @@ function workspaceError(code, message, cause) {
   return error;
 }
 
+function readMarker(file) {
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')); }
+  catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw workspaceError('WORKSPACE_HELPER_UNAVAILABLE', `cannot read installation marker ${file}`, error);
+  }
+}
+
 let helper;
 function loadHelper() {
   if (helper) return helper;
-  const attempted = [
-    path.resolve(__dirname, '../../scripts/lib/workspace.js'),
-    path.resolve(__dirname, '../../../scripts/lib/workspace.js'),
-  ];
-  for (const candidate of attempted) {
-    try {
-      // Only an absent candidate permits trying the other supported layout.
-      // A missing dependency or malformed existing module must remain visible.
-      fs.statSync(candidate);
-    } catch (error) {
-      if (error.code === 'ENOENT' || error.code === 'ENOTDIR') continue;
-      throw workspaceError('WORKSPACE_HELPER_UNAVAILABLE', `cannot access ${candidate}`, error);
+  const sourceRoot = path.resolve(__dirname, '../..');
+  const sourceMarker = path.join(sourceRoot, 'package.json');
+  const source = readMarker(sourceMarker);
+  let installRoot;
+  // A source checkout may itself be named "skills". Its own package marker
+  // takes precedence, including when its helper is absent or broken.
+  if (source) {
+    if (source.name !== 'harness-everything') {
+      throw workspaceError('WORKSPACE_HELPER_UNAVAILABLE', `unrecognized source installation marker ${sourceMarker}`);
     }
-    try {
-      const loaded = require(candidate);
-      for (const name of ['getWorkspaceRoot', 'getWorkspaceStateDir', 'getWorkspaceKey']) {
-        if (typeof loaded[name] !== 'function') throw new Error(`missing ${name} export`);
-      }
-      helper = loaded;
-      return helper;
-    } catch (error) {
-      throw workspaceError('WORKSPACE_HELPER_UNAVAILABLE', `cannot load ${candidate}; attempted ${attempted.join(', ')}`, error);
+    installRoot = sourceRoot;
+  } else {
+    const pluginRoot = path.dirname(sourceRoot);
+    const marker = path.join(pluginRoot, '.codex-plugin/plugin.json');
+    const plugin = path.basename(sourceRoot) === 'skills' ? readMarker(marker) : null;
+    if (!plugin || plugin.name !== 'harness-everything' || plugin.skills !== './skills/') {
+      throw workspaceError('WORKSPACE_HELPER_UNAVAILABLE', `unrecognized layout; expected ${sourceMarker} or packaged skills under ${marker}`);
     }
+    installRoot = pluginRoot;
   }
-  throw workspaceError('WORKSPACE_HELPER_UNAVAILABLE', `canonical helper missing; attempted ${attempted.join(', ')}`);
+  const candidate = path.join(installRoot, 'scripts/lib/workspace.js');
+  try {
+    const loaded = require(candidate);
+    for (const name of ['getWorkspaceRoot', 'getWorkspaceStateDir', 'getWorkspaceKey']) {
+      if (typeof loaded[name] !== 'function') throw new Error(`missing ${name} export`);
+    }
+    helper = loaded;
+    return helper;
+  } catch (error) {
+    throw workspaceError('WORKSPACE_HELPER_UNAVAILABLE', `cannot load selected installation helper ${candidate}`, error);
+  }
 }
 
 function getWorkspaceRoot(context) {
