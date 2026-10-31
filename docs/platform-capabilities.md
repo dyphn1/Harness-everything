@@ -43,6 +43,10 @@ upgrade any platform row's live-host status.
 
 The registered `doc-check check --conflict-assessment` mode runs document lifecycle lint across the full governed and legacy corpus and requires `--base` as an exact commit SHA. It emits `conflict-check` only when collection is complete and there are no lifecycle errors. Its event preserves the exact obligation scope separately from full-corpus paths and digests, config bytes and base commit, then checks those bindings against the workflow snapshot. The acceptance is limited to recorded and structural conflicts; prose contradictions remain with independent `quality-review`. Plain `check` never earns this credit, and OpenCode still refuses the capability. Deterministic mechanism coverage does not establish live-host behavior or change the platform matrix's live-verification status.
 
+### Self-evolve workspace resolution (mechanism only)
+
+Source and packaged plugin self-evolve entrypoints use installation-relative canonical workspace helpers and the same workspace/session state path. Missing helpers, unresolved identities, and unusable state paths fail explicitly; only absent candidate directories yield an empty list. The [resolver contract](../self-evolve/references/memory-resolution.md#workspace-helper-and-diagnostics) and source/package subprocess regressions establish deterministic mechanism coverage, not a live-host upgrade. Existing memory authorization remains required.
+
 ## Current capability summary
 
 | Platform surface | Standalone skills | Plugin support | Hooks/lifecycle | Project scope | Global scope | Current evidence boundary |

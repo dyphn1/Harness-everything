@@ -50,8 +50,8 @@ function globToRegExp(glob) {
   for (let index = 0; index < source.length; index++) {
     const char = source[index];
     if (char === '*' && source[index + 1] === '*') {
-      if (source[index + 2] === '/') { pattern += '(?:.*/)?'; index += 2; }
-      else { pattern += '.*'; index += 1; }
+      if (source[index + 2] === '/') { pattern += '(?:[\\s\\S]*/)?'; index += 2; }
+      else { pattern += '[\\s\\S]*'; index += 1; }
     } else if (char === '*') pattern += '[^/]*';
     else pattern += char.replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
   }

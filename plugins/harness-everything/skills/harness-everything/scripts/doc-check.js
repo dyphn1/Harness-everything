@@ -243,7 +243,7 @@ function parseCompareArgs(argv) {
 
 // Escape regex metacharacters, then translate `**`, `*` and `?`. Used only to detect a declared glob.
 function globToRegExp(pattern) {
-  const body = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '\u0000').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]').replace(/\u0000/g, '.*');
+  const body = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '\u0000').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]').replace(/\u0000/g, '[\\s\\S]*');
   return new RegExp(`^${body}$`);
 }
 

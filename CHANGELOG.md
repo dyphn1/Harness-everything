@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.47.1](https://github.com/dyphn1/Harness-everything/compare/v0.47.0...v0.47.1) (2026-10-31)
+
+### Bug Fixes
+
+* **doc-reconciliation:** match line terminators in derive-mirror ** globs ([900ec05](https://github.com/dyphn1/Harness-everything/commit/900ec054d408616ff7f7b61dc550586164a809c8)), closes [#383](https://github.com/dyphn1/Harness-everything/issues/383)
+* **docs:** match line terminators in recursive document globs ([7c6259d](https://github.com/dyphn1/Harness-everything/commit/7c6259d7070c429d00326076d42e53bb14b092dd)), closes [#383](https://github.com/dyphn1/Harness-everything/issues/383)
+* **self-evolve:** bind helper lookup to one validated installation ([e28d478](https://github.com/dyphn1/Harness-everything/commit/e28d478bd7304e5e12842962e42bda445776a21d))
+* **self-evolve:** resolve workspace helpers across source and packaged layouts ([57d1017](https://github.com/dyphn1/Harness-everything/commit/57d101735bdab7dea9da71a1c5e71d6beae4eae6)), closes [#379](https://github.com/dyphn1/Harness-everything/issues/379)
+
 ## [0.47.0](https://github.com/dyphn1/Harness-everything/compare/v0.46.3...v0.47.0) (2026-10-29)
 
 ### Features
