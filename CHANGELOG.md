@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.47.3](https://github.com/dyphn1/Harness-everything/compare/v0.47.2...v0.47.3) (2026-10-31)
+
+### Bug Fixes
+
+* **docs:** preserve exact file identities in derived comparisons ([8bc3ddb](https://github.com/dyphn1/Harness-everything/commit/8bc3ddbac38eaffa7495e70922dc1240f9aa63eb))
+* **docs:** repin shipped verifier after exact file identity fix ([c24d0f1](https://github.com/dyphn1/Harness-everything/commit/c24d0f100ce392edd02275aa06b58f141ade6cdd))
+* **opencode:** invalidate idle waiters on session reset ([41b2663](https://github.com/dyphn1/Harness-everything/commit/41b2663f66edbe77188c3ca9fa3b0add6f7ab76d))
+* **opencode:** stream verification asynchronously within a shared budget ([1470247](https://github.com/dyphn1/Harness-everything/commit/1470247249548ec6ccf2acaf97463824e0268be4)), closes [#338](https://github.com/dyphn1/Harness-everything/issues/338)
+
 ## [0.47.2](https://github.com/dyphn1/Harness-everything/compare/v0.47.1...v0.47.2) (2026-10-31)
 
 ### Bug Fixes
