@@ -6,7 +6,60 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import shlex
 import subprocess
+
+def is_tdd_quality_command(command, depth=0):
+    """Recognize explicit invocations, never gate names inside argument text.
+
+    Deliberately conservative: compound shell programs and dynamic expansion
+    are not execution evidence. Supported transparent wrappers are env,
+    command/exec and a shell's single -c/-lc command.
+    """
+    if not isinstance(command, str) or depth > 4:
+        return False
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=';&|()<>')
+        lexer.whitespace_split = True
+        tokens = list(lexer)
+    except ValueError:
+        return False
+    if any(token and all(c in ';&|()<>' for c in token) for token in tokens):
+        return False
+    while tokens and re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*=.*', tokens[0]):
+        tokens.pop(0)
+    if not tokens:
+        return False
+    executable = tokens.pop(0).replace('\\', '/').rsplit('/', 1)[-1]
+    if executable in ('command', 'exec'):
+        if tokens[:1] == ['--']:
+            tokens.pop(0)
+        return is_tdd_quality_command(shlex.join(tokens), depth+1)
+    if executable == 'env':
+        if tokens[:1] == ['--']:
+            tokens.pop(0)
+        return is_tdd_quality_command(shlex.join(tokens), depth+1)
+    if executable in ('sh', 'bash', 'zsh'):
+        return (len(tokens) == 2 and tokens[0] in ('-c', '-lc')
+                and is_tdd_quality_command(tokens[1], depth+1))
+    if executable in ('npm', 'npm.cmd'):
+        while tokens and tokens[0].startswith('-'):
+            option = tokens.pop(0)
+            if option in ('--prefix', '--workspace', '-w'):
+                if not tokens:
+                    return False
+                tokens.pop(0)
+            elif option not in ('--silent', '-s', '--quiet') and not option.startswith(('--prefix=', '--workspace=')):
+                return False
+        if len(tokens) < 2 or tokens[0] not in ('run', 'run-script') or tokens[1] != 'tdd:quality':
+            return False
+        options = tokens[2:tokens.index('--')] if '--' in tokens else tokens[2:]
+        return not any(option in ('--help', '-h', '--version', '-v', '--dry-run') for option in options)
+    if executable in ('node', 'node.exe'):
+        while tokens and tokens[0] in ('--no-warnings', '--enable-source-maps'):
+            tokens.pop(0)
+        return bool(tokens and tokens[0].replace('\\', '/').rsplit('/', 1)[-1] == 'quality-gate.js')
+    return False
 
 def is_content_command(command):
     if re.search(r'\brg\s+--files\b|\bfind\b|\bls\b|\bwc\b', command):
@@ -233,7 +286,7 @@ def inspect_episode(episode):
                 'exact_reference_bytes_lower_bound':sum(x['exact_reference_bytes'] for x in reads),
                 'observed_errors':errors,'required_bindings':bindings,'steps':steps,'strategies':strategies,
                 'stages':stages,'child_calls':children,'ttft_ms':ttft,'api_equivalent_cost_usd':price,
-                'tdd_quality_gate_executed':any('quality-gate.js' in c or 'tdd:quality' in c for c in commands),
+                'tdd_quality_gate_executed':any(is_tdd_quality_command(c) for c in commands),
                 'cost_basis':'list-price estimate, not subscription billing',
                 'request_usage':requests,'api_equivalent_input_cost_usd':input_price,
                 'request_usage_sums':sums,'input_usage_reconciles':input_reconciles,

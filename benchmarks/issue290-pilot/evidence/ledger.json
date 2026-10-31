@@ -578,7 +578,7 @@
     "strategies": [
       "iterative-single"
     ],
-    "tdd_quality_gate_executed": true,
+    "tdd_quality_gate_executed": false,
     "independent_grader": {
       "pass": true,
       "format_pass": null,
