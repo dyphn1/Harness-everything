@@ -228,7 +228,7 @@ function caseD4(leg) {
   fs.writeFileSync(candidate, differing);
   const before = sha256(path.join(ws, 'docs', 'index.md'));
   const result = runCompare(leg.dir, { workspace: ws, config: CONFIG, view: 'docs/index.md', candidate, status: 'ok' });
-  same(result.status, 1, 'exit');
+  same(result.status, 1, `exit; stdout=${truncate(result.stdout)}; stderr=${truncate(result.stderr)}`);
   if (!JSON.stringify(jsonOut(result)).includes('stale')) throw new Error(`result state is not stale: ${truncate(result.stdout)}`);
   same(sha256(path.join(ws, 'docs', 'index.md')), before, 'target preserved');
 }

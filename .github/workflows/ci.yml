@@ -106,6 +106,8 @@ jobs:
           node-version: 24
       - name: Install dependencies for regression suite
         run: npm ci
+      - name: Verify OpenCode async process fixtures before the full suite
+        run: node ci/mechanism-338-opencode-async.test.js
       - name: Run hermetic self-regression suite
         run: npm test
       - name: Run focused mutation checks

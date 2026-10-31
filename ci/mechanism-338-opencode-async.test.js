@@ -17,12 +17,13 @@ const helper = require('./test-helper');
   const runner = require('./lib/opencode-verification-loader')(helper.root);
   const configure = scripts => fs.writeFileSync(path.join(workspace, 'package.json'), JSON.stringify({ name: 'async-fixture', scripts }));
   // npm uses cmd.exe on Windows: JSON string escaping is not shell quoting.
-  // Keep source code out of shell commands and normalize executable separators.
-  const nodeFile = file => `"${process.execPath.replace(/\\/g, '/')}" "${file}"`;
+  // Keep source out of shell commands. setup-node places this Node on PATH;
+  // a quoted absolute executable adds another cmd.exe /s quoting boundary.
+  const nodeFile = file => `node "${file}"`;
   let fixtureID = 0;
   const node = program => {
     const file = `program-${++fixtureID}.cjs`;
-    fs.writeFileSync(path.join(workspace, file), program);
+    fs.writeFileSync(path.join(workspace, file), `require('fs').writeFileSync('${file}.started', 'yes');\n${program}`);
     return nodeFile(file);
   };
   let calls = 0;
@@ -36,20 +37,21 @@ const helper = require('./test-helper');
     }
   };
 
-  configure({ test: node('setTimeout(() => {}, 600)') });
+  const slowCommand = node('setTimeout(() => {}, 600)');
+  configure({ test: slowCommand });
   await edit('heartbeat');
   let heartbeats = 0;
   const ticker = setInterval(() => { heartbeats++; }, 20);
   await idle('heartbeat');
   clearInterval(ticker);
-  helper.check('338. slow verification leaves the plugin event loop responsive', heartbeats >= 3, `heartbeats=${heartbeats}`);
+  helper.check('338. slow verification leaves the plugin event loop responsive', heartbeats >= 3 && fs.existsSync(path.join(workspace, 'program-1.cjs.started')), `heartbeats=${heartbeats}; ${prompts.at(-1) || ''}`);
 
   const largeBytes = 320 * 65536;
   const largeCommand = node("for(let i=0;i<320;i++)process.stdout.write('x'.repeat(65536)); process.stdout.write('',()=>require('fs').writeFileSync('large-output-bytes.txt',String(320*65536))); console.error('AssertionError: large-output-check');process.exitCode=1");
   configure({ test: largeCommand });
   await edit('large-output');
   await idle('large-output');
-  helper.check('338. output beyond the former 16 MiB cap preserves a real test verdict', fs.readFileSync(path.join(workspace, 'large-output-bytes.txt'), 'utf8') === String(largeBytes) && /verification failed/.test(prompts.at(-1)) && /large-output-check/.test(prompts.at(-1)), prompts.at(-1));
+  helper.check('338. output beyond the former 16 MiB cap preserves a real test verdict', fs.existsSync(path.join(workspace, 'large-output-bytes.txt')) && fs.readFileSync(path.join(workspace, 'large-output-bytes.txt'), 'utf8') === String(largeBytes) && /verification failed/.test(prompts.at(-1)) && /large-output-check/.test(prompts.at(-1)), prompts.at(-1));
   // A producer receipt proves the npm script ran; an independent expected
   // stream digest additionally proves the runner consumed every emitted byte.
   const largeResult = await runner.runVerificationCommand(workspace, largeCommand, 10000);
@@ -62,14 +64,14 @@ const helper = require('./test-helper');
     JSON.stringify(largeResult));
   helper.check('338. streamed diagnostics stay bounded', prompts.at(-1).length < 2600, `prompt bytes=${prompts.at(-1).length}`);
 
-  configure({ test: node('setTimeout(() => {}, 600)'), lint: node('setTimeout(() => {}, 600)'), build: node("require('fs').writeFileSync('must-not-build.txt','ran')") });
-  process.env.HARNESS_VERIFY_TIMEOUT_MS = '1000';
+  configure({ test: node("setTimeout(() => require('fs').writeFileSync('budget-test-finished.txt','yes'), 2200)"), lint: node("require('fs').writeFileSync('budget-lint-started.txt','yes');setTimeout(() => {}, 2200)"), build: node("require('fs').writeFileSync('must-not-build.txt','ran')") });
+  process.env.HARNESS_VERIFY_TIMEOUT_MS = '4000';
   await edit('total-budget');
   const started = Date.now();
   const previous = prompts.length;
   await idle('total-budget');
   delete process.env.HARNESS_VERIFY_TIMEOUT_MS;
-  helper.check('338. all scripts share one verification budget', prompts.length === previous+1 && /timed out/.test(prompts.at(-1)), `duration=${Date.now()-started}; ${prompts.at(-1)}`);
+  helper.check('338. all scripts share one verification budget', prompts.length === previous+1 && /timed out/.test(prompts.at(-1)) && fs.existsSync(path.join(workspace, 'budget-test-finished.txt')) && fs.existsSync(path.join(workspace, 'budget-lint-started.txt')), `duration=${Date.now()-started}; ${prompts.at(-1)}`);
   helper.check('338. an expired sequence never launches later scripts', !fs.existsSync(path.join(workspace, 'must-not-build.txt')));
 
   const missing = await runner.runVerificationCommand(path.join(workspace, 'missing-cwd'), 'npm test', 2000);
