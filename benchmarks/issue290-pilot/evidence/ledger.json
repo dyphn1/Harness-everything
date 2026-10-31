@@ -218,12 +218,6 @@
             "step": "cold-verify"
           },
           {
-            "id": "tdd",
-            "path": "tdd/SKILL.md",
-            "stage": "list-operations",
-            "step": null
-          },
-          {
             "id": "verification-loop",
             "path": "verification-loop/SKILL.md",
             "stage": "cold-verify",
@@ -239,6 +233,12 @@
             "id": "tdd",
             "path": "tdd/SKILL.md",
             "stage": "list-core",
+            "step": null
+          },
+          {
+            "id": "tdd",
+            "path": "tdd/SKILL.md",
+            "stage": "list-operations",
             "step": null
           }
         ],
@@ -679,12 +679,6 @@
           {
             "id": "tdd",
             "path": "tdd/SKILL.md",
-            "stage": "stage-3-array-reverse",
-            "step": null
-          },
-          {
-            "id": "tdd",
-            "path": "tdd/SKILL.md",
             "stage": "stage-1-element",
             "step": null
           },
@@ -692,6 +686,12 @@
             "id": "tdd",
             "path": "tdd/SKILL.md",
             "stage": "stage-2-list-core",
+            "step": null
+          },
+          {
+            "id": "tdd",
+            "path": "tdd/SKILL.md",
+            "stage": "stage-3-array-reverse",
             "step": null
           }
         ],
@@ -1082,7 +1082,7 @@
           {
             "id": "tdd",
             "path": "tdd/SKILL.md",
-            "stage": "stage-3",
+            "stage": "stage-1",
             "step": null
           },
           {
@@ -1094,7 +1094,7 @@
           {
             "id": "tdd",
             "path": "tdd/SKILL.md",
-            "stage": "stage-1",
+            "stage": "stage-3",
             "step": null
           }
         ],
@@ -1227,7 +1227,7 @@
           {
             "id": "tdd",
             "path": "tdd/SKILL.md",
-            "stage": "stage-3",
+            "stage": "stage-1",
             "step": null
           },
           {
@@ -1239,7 +1239,7 @@
           {
             "id": "tdd",
             "path": "tdd/SKILL.md",
-            "stage": "stage-1",
+            "stage": "stage-3",
             "step": null
           }
         ],

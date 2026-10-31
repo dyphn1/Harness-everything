@@ -168,14 +168,14 @@ def inspect_episode(episode, *, offline=False, frozen=None, documents=None):
         if len(known_children) < len(children):
             row.setdefault('child_audits', []).append({'usage_observability': 'unknown'})
     bindings=[];steps=[];strategies=[];stages=[]
-    for file in (episode/'state').rglob('workflow-obligations.json'):
+    for file in sorted((episode/'state').rglob('workflow-obligations.json')):
         data=json.loads(file.read_text())
         for step in data.get('requirements',[]):
             steps.append({'id':step['id'],'type':step.get('stepType'),'status':step.get('status')})
             bindings.extend({'step':step['id'],**b} for b in step.get('requiredBindings',[]))
-    for file in (episode/'state').rglob('workflow-run.json'):
+    for file in sorted((episode/'state').rglob('workflow-run.json')):
         data=json.loads(file.read_text());strategies.append(data.get('strategy'))
-    for file in (episode/'state').rglob('*.json'):
+    for file in sorted((episode/'state').rglob('*.json')):
         data=json.loads(file.read_text())
         if isinstance(data,dict) and data.get('schemaVersion')==2 and data.get('stageId') and data.get('runId'):
             stages.append({'file':str(file.relative_to(episode)),'stage':data['stageId'],'status':data.get('status'),

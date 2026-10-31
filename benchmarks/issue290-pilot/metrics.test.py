@@ -89,6 +89,27 @@ class AccountingTest(unittest.TestCase):
                 row = analyze.inspect_episode(root, offline=True, documents={})
             self.assertEqual(row['independent_grader'], {'pass':False, 'timeout':True})
 
+    def test_filesystem_enumeration_order_does_not_change_binding_attribution(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            content = 'A sufficiently distinctive reference content line.\n'
+            self.episode(root, events=[{'type':'item.completed', 'item':{
+                'type':'command_execution', 'command':'cat .harness/find-skills/SKILL.md',
+                'aggregated_output':content, 'exit_code':0}}])
+            state = root/'state'
+            state.mkdir()
+            for name in ('z', 'a'):
+                (state/(name+'.json')).write_text(json.dumps({'schemaVersion':2, 'stageId':name,
+                    'runId':'fixture', 'requiredBindings':[{'id':'read', 'path':'find-skills/SKILL.md'}]}))
+            documents = {'find-skills/SKILL.md':content}
+            first = analyze.inspect_episode(root, offline=True, documents=documents)
+            original = Path.rglob
+            def reverse_listing(path, pattern):
+                return iter(reversed(list(original(path, pattern))))
+            with patch.object(Path, 'rglob', reverse_listing):
+                second = analyze.inspect_episode(root, offline=True, documents=documents)
+            self.assertEqual(first['observed_reference_reads'], second['observed_reference_reads'])
+
     def test_null_costs_and_metric_specific_denominators(self):
         base = {'series':'test', 'model':{'engine':'codex'}, 'workload':'test', 'arm':'A', 'repeat':1,
                 'preflight':False, 'classification':'definitive', 'independent_grader':{'pass':True},
