@@ -97,5 +97,35 @@ for (const [legIndex, dir] of LEGS.entries()) {
     });
   }
 }
+
+// #383 F1: the doc-reconciliation core mirrors the ** branch; each copy must match line terminators too.
+const CORE_LEGS = [
+  path.join(ROOT, 'hooks', 'scripts', 'lib', 'doc-reconciliation-core.js'),
+  path.join(ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'lib', 'doc-reconciliation-core.js')
+];
+const binaryRecord = relative => ({ presence: 'present', path: relative, type: 'file', mode: '100644', storedBytes: Buffer.from([0xff, 0xfe, 0x41]) });
+for (const [legIndex, corePath] of CORE_LEGS.entries()) {
+  const leg = legIndex === 0 ? 'source' : 'packaged';
+  const { deriveFiles, semanticRelevance } = require(corePath)._internals;
+  const config = { governed: [{ path: 'docs/**/*.md', role: 'reference' }] };
+  for (const terminator of ['\n', '\r', ' ', ' ']) {
+    const relative = `docs/a${terminator}b/file.md`;
+    check(`${leg}/doc-reconciliation-core: ${JSON.stringify(terminator)} is governed by docs/**/*.md`, () => {
+      assert.strictEqual(semanticRelevance(relative, config), 'document', JSON.stringify(relative));
+    });
+    check(`${leg}/doc-reconciliation-core: ${JSON.stringify(terminator)} undecodable record fails closed`, () => {
+      assert.throws(() => deriveFiles([binaryRecord(relative)], config), error => error.code === 'inventory-unsupported');
+    });
+    check(`${leg}/doc-reconciliation-core: ${JSON.stringify(terminator)} negative control (ungoverned path) is not fail-closed`, () => {
+      const other = `other/a${terminator}b/file.md`;
+      assert.strictEqual(semanticRelevance(other, config), null, JSON.stringify(other));
+      assert.deepStrictEqual(deriveFiles([binaryRecord(other)], config), {});
+    });
+  }
+  check(`${leg}/doc-reconciliation-core: positive control docs/ab/file.md fails closed`, () => {
+    assert.strictEqual(semanticRelevance('docs/ab/file.md', config), 'document');
+    assert.throws(() => deriveFiles([binaryRecord('docs/ab/file.md')], config), error => error.code === 'inventory-unsupported');
+  });
+}
 console.log(`${checks} checks passed; ${failures} failed`);
 process.exitCode = failures ? 1 : 0;
