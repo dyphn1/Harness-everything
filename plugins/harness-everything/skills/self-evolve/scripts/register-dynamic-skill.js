@@ -1,16 +1,12 @@
 #!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
-let getWorkspaceRoot;
-try {
-  ({ getWorkspaceRoot } = require('../../scripts/lib/workspace'));
-} catch (err) {
-  getWorkspaceRoot = () => null;
-}
+const { getWorkspaceRoot } = require('./workspace-helper');
 
-const workspaceRoot = getWorkspaceRoot();
-if (!workspaceRoot) {
-  console.error('[self-evolve] Cannot register a dynamic skill without a resolved git workspace.');
+let workspaceRoot;
+try { workspaceRoot = getWorkspaceRoot(); }
+catch (error) {
+  console.error(`[self-evolve] ${error.message}`);
   process.exit(1);
 }
 
