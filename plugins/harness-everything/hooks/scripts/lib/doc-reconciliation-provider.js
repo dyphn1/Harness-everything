@@ -101,7 +101,7 @@ function isUncPathPrefix(token, command, index) {
   return token === '' && command[index] === '\\' && command[index + 1] === '\\';
 }
 // Canonical SHA-256 of harness-everything/scripts/doc-check.js (CRLF normalised to LF). Re-pin deliberately when that script changes.
-const SHIPPED_DOC_CHECK_DIGEST = '804a093b31afde07ea6ec40e39fc758b501966bfa2a15c53a5275ad3171b0755';
+const SHIPPED_DOC_CHECK_DIGEST = '1167ad7355c47740fb8a372f350da53e08eb0ad48068f63dcfa2f2495b5df34b';
 // This install's own doc-check runtime, relative to hooks/scripts/lib: the source checkout or the packaged plugin.
 const DOC_CHECK_INSTALL_LAYOUTS = [
   ['..', '..', '..', 'harness-everything', 'scripts', 'doc-check.js'],
