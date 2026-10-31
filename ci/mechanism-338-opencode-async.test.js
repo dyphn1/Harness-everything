@@ -16,7 +16,15 @@ const helper = require('./test-helper');
   const hooks = await HarnessEnforcement({ client, directory: workspace });
   const runner = require('./lib/opencode-verification-loader')(helper.root);
   const configure = scripts => fs.writeFileSync(path.join(workspace, 'package.json'), JSON.stringify({ name: 'async-fixture', scripts }));
-  const node = program => `${JSON.stringify(process.execPath)} -e ${JSON.stringify(program)}`;
+  // npm uses cmd.exe on Windows: JSON string escaping is not shell quoting.
+  // Keep source code out of shell commands and normalize executable separators.
+  const nodeFile = file => `"${process.execPath.replace(/\\/g, '/')}" "${file}"`;
+  let fixtureID = 0;
+  const node = program => {
+    const file = `program-${++fixtureID}.cjs`;
+    fs.writeFileSync(path.join(workspace, file), program);
+    return nodeFile(file);
+  };
   let calls = 0;
   const edit = sessionID => hooks['tool.execute.after']({ tool: 'edit', sessionID, callID: `338-${++calls}`, args: { filePath: 'code.js' } }, {});
   const idle = sessionID => hooks.event({ event: { type: 'session.idle', properties: { sessionID } } });
@@ -36,10 +44,22 @@ const helper = require('./test-helper');
   clearInterval(ticker);
   helper.check('338. slow verification leaves the plugin event loop responsive', heartbeats >= 3, `heartbeats=${heartbeats}`);
 
-  configure({ test: node("for(let i=0;i<320;i++)process.stdout.write('x'.repeat(65536)); console.error('AssertionError: large-output-check');process.exitCode=1") });
+  const largeBytes = 320 * 65536;
+  const largeCommand = node("for(let i=0;i<320;i++)process.stdout.write('x'.repeat(65536)); process.stdout.write('',()=>require('fs').writeFileSync('large-output-bytes.txt',String(320*65536))); console.error('AssertionError: large-output-check');process.exitCode=1");
+  configure({ test: largeCommand });
   await edit('large-output');
   await idle('large-output');
-  helper.check('338. output beyond the former 16 MiB cap preserves a real test verdict', /verification failed/.test(prompts.at(-1)) && /large-output-check/.test(prompts.at(-1)), prompts.at(-1));
+  helper.check('338. output beyond the former 16 MiB cap preserves a real test verdict', fs.readFileSync(path.join(workspace, 'large-output-bytes.txt'), 'utf8') === String(largeBytes) && /verification failed/.test(prompts.at(-1)) && /large-output-check/.test(prompts.at(-1)), prompts.at(-1));
+  // A producer receipt proves the npm script ran; an independent expected
+  // stream digest additionally proves the runner consumed every emitted byte.
+  const largeResult = await runner.runVerificationCommand(workspace, largeCommand, 10000);
+  const stdoutDigest = crypto.createHash('sha256').update('x'.repeat(largeBytes)).digest('hex');
+  const stderrDigest = crypto.createHash('sha256').update('AssertionError: large-output-check').digest('hex');
+  const expectedDigest = crypto.createHash('sha256').update(`stdout:${stdoutDigest}\nstderr:${stderrDigest}`).digest('hex').slice(0, 16);
+  helper.check('338. the complete >16 MiB producer stream reaches the runner',
+    largeBytes > 16*1024*1024 && largeResult.outcome === 'test_failure' && largeResult.exitCode === 1
+      && largeResult.failureMarker === 'AssertionError: large-output-check' && largeResult.evidenceDigest === expectedDigest,
+    JSON.stringify(largeResult));
   helper.check('338. streamed diagnostics stay bounded', prompts.at(-1).length < 2600, `prompt bytes=${prompts.at(-1).length}`);
 
   configure({ test: node('setTimeout(() => {}, 600)'), lint: node('setTimeout(() => {}, 600)'), build: node("require('fs').writeFileSync('must-not-build.txt','ran')") });
@@ -75,14 +95,14 @@ const helper = require('./test-helper');
   const observedLong = [];
   for (const name of ['ALPHA', 'BETA']) {
     fs.writeFileSync(path.join(workspace, 'long-marker.js'), `console.log(${JSON.stringify(longPrefix+name)});process.exitCode=1`);
-    observedLong.push(await runner.runVerificationCommand(workspace, `${JSON.stringify(process.execPath)} long-marker.js`, 2000));
+    observedLong.push(await runner.runVerificationCommand(workspace, nodeFile('long-marker.js'), 2000));
   }
   helper.check('338. real long-marker child verdicts cannot collide after truncation', observedLong.every(value => value.outcome === 'test_failure' && value.failureMarker === null) && runner.buildFailureSignature(observedLong[0]) !== runner.buildFailureSignature(observedLong[1]));
   helper.check('338. truncated suite contexts cannot merge distinct failures', signature(`FAIL ${longPrefix}ALPHA\n`, 'AssertionError: same assertion\n') !== signature(`FAIL ${longPrefix}BETA\n`, 'AssertionError: same assertion\n'));
   const stableFailures = [];
   for (const banner of ['ALPHA', 'BETA']) {
     fs.writeFileSync(path.join(workspace, 'volatile-banner.js'), `process.stdout.write('${banner}'+'x'.repeat(17*1024*1024));console.error('AssertionError: stable failure');process.exitCode=1`);
-    stableFailures.push(await runner.runVerificationCommand(workspace, `${JSON.stringify(process.execPath)} volatile-banner.js`, 3000));
+    stableFailures.push(await runner.runVerificationCommand(workspace, nodeFile('volatile-banner.js'), 3000));
   }
   helper.check('338. huge volatile non-marker banners preserve a later stable failure identity', stableFailures.every(value => value.failureMarker === 'AssertionError: stable failure') && runner.buildFailureSignature(stableFailures[0]) === runner.buildFailureSignature(stableFailures[1]));
   const context = 'FAIL parser.test.js\n  ● Console\n    console.log\n      ● payload\n';
@@ -93,7 +113,7 @@ const helper = require('./test-helper');
   // Both shell and nested child remain in the inherited process group.
   fs.writeFileSync(path.join(workspace, 'grandchild.js'), "const fs=require('fs');process.on('SIGTERM',()=>{});setInterval(()=>fs.appendFileSync('heartbeat.txt','x'),20)");
   fs.writeFileSync(path.join(workspace, 'worker.js'), "require('child_process').spawn(process.execPath,['grandchild.js'],{stdio:'inherit'});setInterval(()=>{},1000)");
-  const cleanupResult = await runner.runVerificationCommand(workspace, `${JSON.stringify(process.execPath)} worker.js`, 700);
+  const cleanupResult = await runner.runVerificationCommand(workspace, nodeFile('worker.js'), 700);
   const heartbeat = path.join(workspace, 'heartbeat.txt');
   const size = fs.existsSync(heartbeat) ? fs.statSync(heartbeat).size : -1;
   await new Promise(resolve => setTimeout(resolve, 200));
@@ -104,14 +124,14 @@ const helper = require('./test-helper');
       setTimeout(() => { try { child.kill('SIGTERM'); } catch {} }, 300);
       return child;
     } });
-    const signalled = await externalRunner.runVerificationCommand(workspace, `${JSON.stringify(process.execPath)} worker.js`, 3000);
+    const signalled = await externalRunner.runVerificationCommand(workspace, nodeFile('worker.js'), 3000);
     const afterSignal = fs.statSync(heartbeat).size;
     await new Promise(resolve => setTimeout(resolve, 200));
     helper.check('338. early external signals are execution errors and also clean the group', signalled.outcome === 'execution_error' && signalled.signal === 'SIGTERM' && !signalled.timedOut && fs.statSync(heartbeat).size === afterSignal, JSON.stringify(signalled));
   }
 
   fs.writeFileSync(path.join(workspace, 'ready.js'), "require('fs').writeFileSync('ready.txt','yes');setInterval(()=>{},1000)");
-  configure({ test: `${JSON.stringify(process.execPath)} ready.js` });
+  configure({ test: nodeFile('ready.js') });
   await edit('edited-during-run');
   const beforeConcurrent = prompts.length;
   const active = idle('edited-during-run');
@@ -129,7 +149,7 @@ const helper = require('./test-helper');
   helper.check('338. a fresh idle verifies the newer edits', JSON.parse(fs.readFileSync(path.join(sessions, 'edited-during-run/edit-state.json'))).verificationPending === false);
 
   fs.unlinkSync(path.join(workspace, 'ready.txt'));
-  configure({ test: `${JSON.stringify(process.execPath)} ready.js` });
+  configure({ test: nodeFile('ready.js') });
   await edit('deleted-during-run');
   const deleting = idle('deleted-during-run');
   await waitFor(() => fs.existsSync(path.join(workspace, 'ready.txt')));
@@ -152,7 +172,7 @@ const helper = require('./test-helper');
     } },
   });
   fs.writeFileSync(path.join(workspace, 'v2.js'), "const fs=require('fs');fs.writeFileSync('v2-ready.txt','yes');setInterval(()=>fs.appendFileSync('v2-heartbeat.txt','x'),20)");
-  configure({ test: `${JSON.stringify(process.execPath)} v2.js` });
+  configure({ test: nodeFile('v2.js') });
   const v2Edit = sessionID => registrations.get('execute.after')({ tool: 'edit', sessionID, id: `338-v2-${++calls}`, input: { filePath: 'code.js' } });
   const v2Ready = path.join(workspace, 'v2-ready.txt');
   const v2Heartbeat = path.join(workspace, 'v2-heartbeat.txt');
@@ -180,7 +200,7 @@ const helper = require('./test-helper');
   // A new idle can arrive while an edit-cancelled child is still being reaped.
   // That idle must verify the newer revision after cleanup, rather than vanish.
   fs.unlinkSync(path.join(workspace, 'ready.txt'));
-  configure({ test: `${JSON.stringify(process.execPath)} ready.js` });
+  configure({ test: nodeFile('ready.js') });
   await edit('idle-during-cleanup');
   const cancellingIdle = idle('idle-during-cleanup');
   await waitFor(() => fs.existsSync(path.join(workspace, 'ready.txt')));
@@ -193,7 +213,7 @@ const helper = require('./test-helper');
     JSON.stringify(afterCleanup));
 
   fs.unlinkSync(path.join(workspace, 'ready.txt'));
-  configure({ test: `${JSON.stringify(process.execPath)} ready.js` });
+  configure({ test: nodeFile('ready.js') });
   await edit('deleted-while-waiting');
   const runningBeforeDelete = idle('deleted-while-waiting');
   await waitFor(() => fs.existsSync(path.join(workspace, 'ready.txt')));
