@@ -25,7 +25,7 @@
  * The circuit breaker trips on repeated *verification* failures of the same
  * underlying check (same command + normalized failure evidence: the first
  * test-level failing marker with its suite header as context, or a digest of
- * the full captured stdout+stderr when no test-level marker exists), not on
+ * the complete streamed stdout+stderr when no test-level marker exists), not on
  * arbitrary tool failures: tool.execute.after
  * gives back `{title, output, metadata}` for every tool with no normalized
  * success/failure field, so there is no reliable cross-tool failure signal to
@@ -39,7 +39,7 @@
 import { homedir } from "node:os"
 import { join, dirname, resolve, basename, relative, isAbsolute } from "node:path"
 import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync, rmSync, realpathSync, readdirSync, statSync } from "node:fs"
-import { execSync } from "node:child_process"
+import { spawn } from "node:child_process"
 import { createHash, randomUUID } from "node:crypto"
 import { createRequire } from "node:module"
 import { fileURLToPath } from "node:url"
@@ -175,6 +175,7 @@ function defaultEditState() {
     lastEditTime: null,
     verificationPending: false,
     editsSinceVerification: 0,
+    editRevision: 0,
     followUpPending: false,
     followUpDeliveryPending: false,
     followUpMessage: null,
@@ -354,22 +355,22 @@ function firstFailureMarker(text) {
 // A stable, normalized signature: command + outcome + exit condition + the
 // first test-level failing marker (with a suite/file context line when the
 // runner printed one). Without a test-level marker the signature falls back
-// to a digest of the full captured evidence (stdout and stderr both), so
+// to a digest of the complete streams (stdout and stderr both), so
 // suite-header-only or banner-only prefixes from *different* failures can
 // never collide (identical byte-for-byte evidence still matches, which is
 // the honest reading: the same observation repeated). The user-visible
-// `error` is a bounded diagnostic and is only the fallback when no full
-// evidence was kept.
+// `error` is a bounded diagnostic and is only the legacy fallback when no incremental
+// identity was supplied.
 function buildFailureSignature(result) {
   const evidence = String((result && (result.evidence || result.error)) || "");
-  const marker = firstFailureMarker(evidence);
+  const marker = result && Object.hasOwn(result, "failureMarker") ? result.failureMarker : firstFailureMarker(evidence);
   const exit =
     result && Number.isInteger(result.exitCode) ? `exit=${result.exitCode}`
       : result && result.signal ? `signal=${result.signal}`
         : "exit=unknown";
   const base = `${(result && result.command) || "verification"} [${(result && result.outcome) || "unknown"}] ${exit}`;
   if (marker) return `${base}: ${marker}`;
-  const digest = createHash("sha256").update(evidence.replace(/\s+/g, " ").trim()).digest("hex").slice(0, 16);
+  const digest = result && result.evidenceDigest || createHash("sha256").update(evidence.replace(/\s+/g, " ").trim()).digest("hex").slice(0, 16);
   return `${base}: unrecognized-output ${digest}`;
 }
 
@@ -387,116 +388,203 @@ function getAvailableScripts(cwd) {
 // self-regression suite needs ~2 minutes on a laptop, so the original 60s cap
 // killed healthy runs and reported them as failures (same truncated stdout as
 // the failure signature, three times in a row -> forced reflection).
-// Known limits of this synchronous runner, kept honest: execSync blocks the
-// plugin's event loop for the duration of each command (worst case one budget
-// per script), and a command whose output exceeds VERIFY_MAX_BUFFER is
-// classified as an execution error - never as a failed check - so buffer
-// pressure cannot impersonate a test failure.
+// One wall-clock budget covers the sequence. Output is consumed as it arrives;
+// only bounded excerpts/line prefixes remain in memory, while all bytes feed
+// incremental failure evidence. The manual verification CLI remains separate.
 const VERIFY_TIMEOUT_ENV = "HARNESS_VERIFY_TIMEOUT_MS"
 const DEFAULT_VERIFY_TIMEOUT_MS = 600000
-const VERIFY_MAX_BUFFER = 16 * 1024 * 1024
 const VERIFY_OUTPUT_LIMIT = 2000
+const VERIFY_LINE_LIMIT = 4096
+const VERIFY_KILL_GRACE_MS = 150
 
 function verifyTimeoutMs() {
   const raw = Number(process.env[VERIFY_TIMEOUT_ENV])
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_VERIFY_TIMEOUT_MS
 }
 
-// Full failure evidence for signature analysis: both captured streams, in
-// full. execSync already bounds each stream at VERIFY_MAX_BUFFER, and the old
-// stdout-only 2 KiB prefix cut happened *before* buildFailureSignature() ran,
-// so distinct failures behind a shared banner collapsed into one signature.
-function verificationEvidence(stdout, stderr) {
-  const out = String(stdout || "")
-  const err = String(stderr || "")
-  if (out && err) return `${out}\nstderr:\n${err}`
-  return out || err
-}
-
-// Bounded, human-readable excerpt that keeps both ends: the npm banner at the
-// head and the failure marker/summary at the tail survive truncation.
-function boundedDiagnostic(text, limit) {
-  const value = String(text || "")
-  if (value.length <= limit) return value
-  const half = Math.floor(limit / 2)
-  return `${value.slice(0, half)}\n... [${value.length - half * 2} chars omitted] ...\n${value.slice(-half)}`
-}
-
-// User-visible diagnostic: both streams get their own budget, so a huge
-// stdout cannot push a short stderr (where jest writes assertions) out of
-// the report. A single non-empty stream stays label-free.
-function verificationDiagnostic(stdout, stderr) {
-  const out = String(stdout || "")
-  const err = String(stderr || "")
-  if (out && err) {
-    const share = Math.floor(VERIFY_OUTPUT_LIMIT / 2)
-    return `stdout:\n${boundedDiagnostic(out, share)}\nstderr:\n${boundedDiagnostic(err, share)}`
-  }
-  return boundedDiagnostic(out || err, VERIFY_OUTPUT_LIMIT)
-}
-
-// Outcome taxonomy:
-//   pass            the command exited 0
-//   test_failure    a real non-zero exit status: a check actually failed
-//   timeout         the configured budget expired: ETIMEDOUT, or a kill with
-//                   no exit status once the budget elapsed: no verdict
-//   execution_error spawn-level failure, or an external signal (SIGTERM/
-//                   SIGINT/SIGKILL from the user or host) before the budget:
-//                   no verdict
-// A signal alone is not a budget timeout - only expiry is. Only
-// test_failure feeds the same-check Rule-of-3 counter.
-function classifyVerificationError(error, startedAt, timeout) {
-  const code = String((error && error.code) || "")
-  const signal = String((error && error.signal) || "")
-  const exitCode = error && Number.isInteger(error.status) ? error.status : null
-  const budgetExpired =
-    code === "ETIMEDOUT" || (exitCode === null && Date.now() - startedAt >= timeout)
-  if (budgetExpired) return { outcome: "timeout", exitCode, signal, timedOut: true }
-  if (exitCode === null || ["ENOBUFS", "ENOENT", "EACCES", "EAGAIN", "ENOMEM"].includes(code)) {
-    return { outcome: "execution_error", exitCode, signal, timedOut: false }
-  }
-  return { outcome: "test_failure", exitCode, signal, timedOut: false }
-}
-
-function runVerification(cwd) {
-  const scripts = getAvailableScripts(cwd)
-  const commands = [
-    { cmd: "npm test", script: "test" },
-    { cmd: "npm run lint", script: "lint" },
-    { cmd: "npm run build", script: "build" },
-  ].filter((c) => scripts[c.script])
-
-  if (commands.length === 0) {
-    return { allPassed: true, skipped: true, results: [] }
-  }
-
-  const timeout = verifyTimeoutMs()
-  const results = []
-  for (const { cmd } of commands) {
-    const startedAt = Date.now()
-    try {
-      execSync(cmd, { cwd, stdio: "pipe", timeout, maxBuffer: VERIFY_MAX_BUFFER })
-      results.push({ command: cmd, success: true, outcome: "pass", exitCode: 0, signal: null, timedOut: false })
-    } catch (e) {
-      const stdout = (e.stdout || "").toString()
-      const stderr = (e.stderr || "").toString()
-      const output = verificationEvidence(stdout, stderr) || String((e && e.message) || "")
-      const { outcome, exitCode, signal, timedOut } = classifyVerificationError(e, startedAt, timeout)
-      let error
-      if (outcome === "timeout") {
-        error = `timed out after ${Math.round(timeout / 1000)}s (set ${VERIFY_TIMEOUT_ENV} to raise it); last output: ${output.slice(0, 160).replace(/\s+/g, " ").trim() || "(none)"}`
-      } else if (outcome === "execution_error") {
-        const reason = String((e && e.code) || (signal ? `signal ${signal}` : "no exit status"))
-        error = `could not run to completion (execution error: ${reason}); output: ${output.slice(0, 200).replace(/\s+/g, " ").trim() || "(none)"}`
-      } else {
-        error = verificationDiagnostic(stdout, stderr) || String((e && e.message) || "")
-      }
-      const result = { command: cmd, success: false, outcome, exitCode, signal, timedOut, error }
-      if (outcome === "test_failure" && output) result.evidence = output
-      results.push(result)
+// Consume every chunk without retaining an unbounded transcript. Marker
+// state is per stream, so asynchronous stdout/stderr interleaving does not
+// change identity. An overlong line keeps its prefix for marker recognition;
+// its complete contents still contribute to the digest.
+function createVerificationCapture() {
+  const hash = createHash("sha256")
+  let head = "", tail = "", length = 0, bytes = 0, line = "", context = null, consoleIndent = null
+  let marker = null, markerContext = null, pendingSpace = false, hashedText = false, lineTruncated = false, unsafeIdentity = false
+  function consumeLine(value, truncated) {
+    if (marker) return
+    const clean = value.replace(/\u001b\[[0-9;]*m/g, "")
+    const bullet = /^([ \t]*)●[ \t]+/.exec(clean)
+    if (consoleIndent !== null) {
+      if (bullet) {
+        if (bullet[1].length > consoleIndent) return
+        consoleIndent = null
+      } else if (clean.trim() === "" || /^[ \t]/.test(clean)) return
+      else consoleIndent = null
     }
+    if (bullet && /^Console\b/.test(clean.slice(bullet[0].length))) {
+      consoleIndent = bullet[1].length
+      return
+    }
+    // A clipped marker or suite name cannot identify a check safely. A long
+    // ordinary progress/banner line need not discard a later complete marker.
+    if (truncated && (clean.trim() === "" || /^\u001b\[[0-9;]*$/.test(clean)
+      || [...FAILURE_MARKER_PATTERNS, ...CONTEXT_MARKER_PATTERNS].some(pattern => pattern.test(clean)))) {
+      unsafeIdentity = true
+      return
+    }
+    if (FAILURE_MARKER_PATTERNS.some(pattern => pattern.test(clean))) {
+      marker = normalizeFailureLine(clean)
+      markerContext = context
+    } else if (CONTEXT_MARKER_PATTERNS.some(pattern => pattern.test(clean))) context = normalizeFailureLine(clean)
   }
-  return { allPassed: results.every((r) => r.success), skipped: false, results }
+  return {
+    write(chunk) {
+      const text = String(chunk)
+      bytes += Buffer.byteLength(text)
+      length += text.length
+      if (head.length < VERIFY_OUTPUT_LIMIT) head += text.slice(0, VERIFY_OUTPUT_LIMIT-head.length)
+      tail = (tail + text).slice(-VERIFY_OUTPUT_LIMIT)
+      for (const part of text.split(/(\s+)/)) {
+        if (!part) continue
+        if (/^\s+$/.test(part)) pendingSpace = hashedText
+        else {
+          if (pendingSpace) hash.update(" ")
+          hash.update(part)
+          pendingSpace = false
+          hashedText = true
+        }
+      }
+      for (const [index, part] of text.split("\n").entries()) {
+        if (index > 0) { consumeLine(line, lineTruncated); line = ""; lineTruncated = false }
+        if (line.length + part.length > VERIFY_LINE_LIMIT) lineTruncated = true
+        if (line.length < VERIFY_LINE_LIMIT) line += part.slice(0, VERIFY_LINE_LIMIT-line.length)
+      }
+    },
+    excerpt(limit) {
+      if (length <= limit) return head.slice(0, length)
+      const half = Math.floor(limit/2)
+      return `${head.slice(0, half)}\n... [${length-half*2} chars omitted] ...\n${tail.slice(-half)}`
+    },
+    get bytes() { return bytes },
+    finish() {
+      consumeLine(line, lineTruncated)
+      return { digest: hash.digest("hex"), marker, markerContext, context, unsafeIdentity }
+    },
+  }
+}
+
+// Kill the whole shell/npm/script group, including children which inherited
+// the output pipes. On POSIX the grace timer still kills the group after the
+// shell exits; otherwise a SIGTERM-ignoring grandchild could survive it.
+async function terminateVerificationChild(child) {
+  if (!child || !child.pid) return
+  if (process.platform === "win32") {
+    await new Promise(resolveKill => {
+      try {
+        const killer = spawn("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" })
+        killer.once("error", () => { try { child.kill("SIGKILL") } catch {} resolveKill() })
+        killer.once("close", resolveKill)
+      } catch { try { child.kill("SIGKILL") } catch {} resolveKill() }
+    })
+    return
+  }
+  try { process.kill(-child.pid, "SIGTERM") } catch { /* group already exited */ }
+  await new Promise(resolveKill => setTimeout(resolveKill, VERIFY_KILL_GRACE_MS))
+  try { process.kill(-child.pid, "SIGKILL") } catch { /* group already exited */ }
+}
+
+function runVerificationCommand(cwd, command, remainingMs, signal, onProgress) {
+  return new Promise(resolveCommand => {
+    const stdout = createVerificationCapture(), stderr = createVerificationCapture()
+    let child, spawnError = null, termination = null, timedOut = false, cancelled = false
+    let timer, progressTimer
+    const terminate = reason => {
+      if (termination) return
+      timedOut = reason === "timeout"
+      cancelled = reason === "cancelled"
+      termination = terminateVerificationChild(child)
+    }
+    const abort = () => terminate("cancelled")
+    const finish = async (exitCode, childSignal) => {
+      clearTimeout(timer)
+      clearInterval(progressTimer)
+      signal?.removeEventListener("abort", abort)
+      if (termination) await termination
+      const out = stdout.finish(), err = stderr.finish()
+      const both = stdout.bytes > 0 && stderr.bytes > 0
+      const errorOutput = both
+        ? `stdout:\n${stdout.excerpt(VERIFY_OUTPUT_LIMIT/2)}\nstderr:\n${stderr.excerpt(VERIFY_OUTPUT_LIMIT/2)}`
+        : (stdout.bytes ? stdout : stderr).excerpt(VERIFY_OUTPUT_LIMIT)
+      const outcome = timedOut ? "timeout"
+        : cancelled || spawnError || childSignal || !Number.isInteger(exitCode) ? "execution_error"
+          : exitCode === 0 ? "pass" : "test_failure"
+      const result = { command, success: outcome === "pass", outcome, exitCode: spawnError ? null : exitCode, signal: childSignal || null, timedOut }
+      if (outcome !== "pass") {
+        if (timedOut) result.error = `timed out after the total verification budget (set ${VERIFY_TIMEOUT_ENV} to raise it); last output: ${errorOutput}`
+        else if (outcome === "execution_error") result.error = `could not run to completion (execution error: ${cancelled ? "cancelled" : spawnError?.code || (childSignal ? `signal ${childSignal}` : "no exit status")}); output: ${errorOutput || spawnError?.message || "(none)"}`
+        else result.error = errorOutput || `command exited ${exitCode}`
+      }
+      if (outcome === "test_failure") {
+        result.failureMarker = out.unsafeIdentity || err.unsafeIdentity ? null : out.marker
+          ? (out.markerContext ? `${out.markerContext}: ${out.marker}` : out.marker)
+          : err.marker ? `${err.markerContext || out.context ? `${err.markerContext || out.context}: ` : ""}${err.marker}` : null
+        result.evidenceDigest = createHash("sha256").update(`stdout:${out.digest}\nstderr:${err.digest}`).digest("hex").slice(0, 16)
+      }
+      resolveCommand(result)
+    }
+    if (signal?.aborted) {
+      cancelled = true
+      void finish(null, null)
+      return
+    }
+    try {
+      child = spawn(command, { cwd, shell: true, detached: process.platform !== "win32", windowsHide: true, stdio: ["ignore", "pipe", "pipe"] })
+    } catch (error) {
+      spawnError = error
+      void finish(null, null)
+      return
+    }
+    child.stdout.setEncoding("utf8")
+    child.stderr.setEncoding("utf8")
+    child.stdout.on("data", chunk => stdout.write(chunk))
+    child.stderr.on("data", chunk => stderr.write(chunk))
+    for (const stream of [child.stdout, child.stderr]) stream.once("error", error => {
+      spawnError = error
+      terminate("stream-error")
+    })
+    child.once("error", error => { spawnError = error })
+    child.once("exit", (_code, signalName) => {
+      if (signalName && !termination) terminate("external")
+    })
+    child.once("close", (code, signalName) => { void finish(code, signalName) })
+    signal?.addEventListener("abort", abort, { once: true })
+    timer = setTimeout(() => terminate("timeout"), Math.max(1, remainingMs))
+    if (onProgress) progressTimer = setInterval(() => {
+      try { onProgress({ command, outputBytes: stdout.bytes + stderr.bytes }) } catch { /* logging cannot alter a verdict */ }
+    }, 15000)
+  })
+}
+
+async function runVerification(cwd, { signal, onProgress } = {}) {
+  const scripts = getAvailableScripts(cwd)
+  const commands = ["test", "lint", "build"].filter(script => scripts[script])
+    .map(script => script === "test" ? "npm test" : `npm run ${script}`)
+  if (commands.length === 0) return { allPassed: true, skipped: true, results: [] }
+  const deadline = Date.now() + verifyTimeoutMs()
+  const results = []
+  for (const command of commands) {
+    if (signal?.aborted) break
+    const remainingMs = deadline - Date.now()
+    if (remainingMs <= 0) {
+      results.push({ command, success: false, outcome: "timeout", exitCode: null, signal: null, timedOut: true,
+        error: `timed out after the total verification budget (set ${VERIFY_TIMEOUT_ENV} to raise it); command not started` })
+      break
+    }
+    const result = await runVerificationCommand(cwd, command, remainingMs, signal, onProgress)
+    results.push(result)
+    if (result.outcome === "timeout") break
+  }
+  return { allPassed: !signal?.aborted && results.every(result => result.success), skipped: false, results }
 }
 
 /**
@@ -609,14 +697,17 @@ function appendTelemetry(workspace, input) {
   }
 }
 
-export const HarnessEnforcement = async ({ client, directory }) => {
+export const HarnessEnforcement = async ({ client, directory, signal }) => {
   // State is resolved per real workspace and per opencode session. The CJS
   // hooks use the same workspaces/<key>/state/sessions/<id> contract, while
   // the old flat plugin state is intentionally left untouched because it is
   // impossible to attribute safely to one workspace or session.
   const workspace = resolve(directory || process.cwd())
   migrateLegacyFlatState(getStateDir(workspace))
-  const activeVerifications = new Set()
+  const activeVerifications = new Map()
+  signal?.addEventListener("abort", () => {
+    for (const controller of activeVerifications.values()) controller.abort()
+  }, { once: true })
   const telemetryToolStarts = new Map()
   const telemetryPendingSkills = new Map()
   const telemetryActiveSkills = new Map()
@@ -807,6 +898,9 @@ export const HarnessEnforcement = async ({ client, directory }) => {
   }
 
   function resetSession(sessionID) {
+    const activeKey = sessionID || "default"
+    activeVerifications.get(activeKey)?.abort()
+    activeVerifications.delete(activeKey)
     const { stateDir } = pathsFor(sessionID)
     const sessionsRoot = resolve(join(getStateRoot(workspace), "sessions"))
     if (!isWithin(sessionsRoot, stateDir) || resolve(stateDir) === sessionsRoot) return
@@ -864,6 +958,7 @@ export const HarnessEnforcement = async ({ client, directory }) => {
       }
 
       const state = normalizeEditState(loadJSON(editStateFile, defaultEditState()))
+      activeVerifications.get(input.sessionID || "default")?.abort()
       state.lastEditTime = Date.now()
       state.verificationPending = true
       state.followUpPending = false
@@ -871,6 +966,7 @@ export const HarnessEnforcement = async ({ client, directory }) => {
       state.followUpMessage = null
       state.lastFollowUpError = null
       state.editsSinceVerification++
+      state.editRevision = (Number.isSafeInteger(state.editRevision) ? state.editRevision : 0) + 1
       saveJSON(editStateFile, state)
       recordCompliance(complianceFile, (c) => c.totalEdits++)
     },
@@ -889,11 +985,21 @@ export const HarnessEnforcement = async ({ client, directory }) => {
         return
       }
       if (event.type !== "session.idle") return
+      if (signal?.aborted) return
       telemetryCloseSession(sessionID, "unknown", "opencode-session-idle")
-      if (activeVerifications.has(sessionID || "default")) return
-
       const activeSession = sessionID || "default"
-      activeVerifications.add(activeSession)
+      const previous = activeVerifications.get(activeSession)
+      if (previous) {
+        if (!previous.signal.aborted) return
+        // An edit has cancelled the old run, but its process group may still
+        // be closing. Keep this idle and verify the new revision once reaped.
+        await previous.finished
+        if (signal?.aborted || activeVerifications.has(activeSession)) return
+      }
+      const controller = new AbortController()
+      let finishVerification
+      controller.finished = new Promise(resolveFinished => { finishVerification = resolveFinished })
+      activeVerifications.set(activeSession, controller)
       try {
         const { editStateFile, breakerFile, complianceFile, reflectionFile } = pathsFor(activeSession)
         // This fallback makes the lifecycle complete even if the host omits
@@ -909,12 +1015,14 @@ export const HarnessEnforcement = async ({ client, directory }) => {
               path: { id: activeSession },
               body: { parts: [{ type: "text", text: state.followUpMessage }] },
             })
+            if (controller.signal.aborted) return
             state.followUpPending = true
             state.followUpDeliveryPending = false
             state.followUpMessage = null
             state.lastFollowUpError = null
             saveJSON(editStateFile, state)
           } catch (error) {
+            if (controller.signal.aborted) return
             state.lastFollowUpError = String(error && (error.message || error)).slice(0, 300)
             saveJSON(editStateFile, state)
           }
@@ -923,7 +1031,16 @@ export const HarnessEnforcement = async ({ client, directory }) => {
 
         if (!state.verificationPending || state.editsSinceVerification === 0) return
 
-        const { allPassed, skipped, results } = runVerification(workspace)
+        const revision = state.editRevision
+        const { allPassed, skipped, results } = await runVerification(workspace, {
+          signal: controller.signal,
+          onProgress: ({ command, outputBytes }) => console.info(`Harness: ${command} still running (${outputBytes} output bytes; shared verification budget).`),
+        })
+        // An edit or reset during await invalidates this snapshot. It must not
+        // clear newer edits, issue a stale follow-up, or resurrect deleted state.
+        if (controller.signal.aborted || activeVerifications.get(activeSession) !== controller) return
+        const latest = normalizeEditState(loadJSON(editStateFile, defaultEditState()))
+        if (latest.editRevision !== revision) return
 
         if (skipped || allPassed) {
           state.verificationPending = false
@@ -979,6 +1096,7 @@ export const HarnessEnforcement = async ({ client, directory }) => {
         try {
           await client.session.prompt({ path: { id: activeSession }, body: { parts: [{ type: "text", text }] } })
         } catch (error) {
+          if (controller.signal.aborted) return
           // A failed delivery is retryable on the next idle event, but the
           // saved message means retrying does not run verification again or
           // increment the circuit-breaker count.
@@ -991,9 +1109,10 @@ export const HarnessEnforcement = async ({ client, directory }) => {
         }
       } finally {
         try {
-          requireFromPlugin(STOP_GATE_FILE).decide({ session_id: activeSession, cwd: workspace, host_id: "opencode" })
+          if (!controller.signal.aborted) requireFromPlugin(STOP_GATE_FILE).decide({ session_id: activeSession, cwd: workspace, host_id: "opencode" })
         } catch { /* the optional reconciliation consumer must never block OpenCode idle */ }
-        activeVerifications.delete(activeSession)
+        if (activeVerifications.get(activeSession) === controller) activeVerifications.delete(activeSession)
+        finishVerification()
       }
     },
   }
@@ -1019,7 +1138,9 @@ export const HarnessEnforcement = async ({ client, directory }) => {
 export default {
   id: "harness.enforcement",
   async setup(ctx) {
+    const events = new AbortController()
     const hooks = await HarnessEnforcement({
+      signal: events.signal,
       client: {
         session: {
           // V1 shutdown path calls client.session.prompt({path, body}) twice;
@@ -1045,11 +1166,12 @@ export default {
         messageID: event.messageID,
       }))
 
-    const events = new AbortController()
+    const pendingIdles = new Set()
     void (async () => {
-      for await (const raw of ctx.event.subscribe({ signal: events.signal })) {
-        try {
-          await hooks.event({
+      try {
+        for await (const raw of ctx.event.subscribe({ signal: events.signal })) {
+          if (events.signal.aborted) break
+          const delivery = hooks.event({
             event: {
               type: raw.type,
               // V1 event handlers read {type, properties}; V2 events are flat
@@ -1057,11 +1179,22 @@ export default {
               properties: raw.properties ?? raw,
             },
           })
-        } catch { // fail open, same as the hooks themselves
+          if (raw.type === "session.idle") {
+            // Awaiting verification here would prevent the same event stream
+            // from delivering the reset/delete which must cancel it.
+            const pending = delivery.catch(() => {}).finally(() => pendingIdles.delete(pending))
+            pendingIdles.add(pending)
+          } else {
+            try { await delivery } catch { /* fail open */ }
+          }
         }
-      }
+      } catch { /* aborting the host subscription is normal shutdown */ }
+      finally { events.abort() }
     })()
-    return () => events.abort()
+    return async () => {
+      events.abort()
+      await Promise.allSettled([...pendingIdles])
+    }
   },
 }
 

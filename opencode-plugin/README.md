@@ -52,39 +52,37 @@ and on failure calls `client.session.prompt()` to push a synthetic follow-up
 message into the session - forcing the agent to keep working instead of
 actually stopping.
 
-The verification run has a budget, not a fixed 60s cap: a healthy self-regression
-suite takes around two minutes, so the default is 10 minutes and
-`HARNESS_VERIFY_TIMEOUT_MS` overrides it. Every run is classified as `pass`
-(exit 0), `test_failure` (a real non-zero exit), `timeout` (the budget actually
-expired: `ETIMEDOUT`, or a kill with no exit status once the budget elapsed) or
-`execution_error` (a spawn-level failure such as `ENOBUFS`/`ENOENT`, or an
-external signal such as `SIGTERM`/`SIGINT` before the budget - a signal alone
-is not a budget expiry).
-Only `test_failure` confirms a failing check and advances the Rule-of-3
-counter; `timeout` and `execution_error` are reported as uncompleted
-verifications and never impersonate repeated failures. A timeout is reported as
-`timed out after <n>s (set HARNESS_VERIFY_TIMEOUT_MS to raise it); last
-output: ...`, a spawn-level failure as `could not run to completion (execution
-error: ENOBUFS); output: ...` (an external signal names the signal).
+The async runner streams stdout/stderr and gives the **whole ordered sequence**
+(`test`, `lint`, `build`) one wall-clock budget: 10 minutes by default, overridden
+by `HARNESS_VERIFY_TIMEOUT_MS`. It reports progress every 15 seconds in the
+plugin log. No later script starts after the budget expires. Each run is
+classified as `pass` (exit 0), `test_failure` (a real nonzero exit), `timeout`
+(the sequence deadline expired), or `execution_error` (spawn failure, external
+signal, or cancellation). Only `test_failure` advances the Rule-of-3 counter.
 
-Known operational limits of the synchronous runner: `execSync` blocks the
-plugin's event loop for the duration of each script (worst case one budget per
-script), and captured output is buffered up to 16 MiB. A run whose output
-exceeds that buffer is classified as an `execution_error`, never as a failed
-check, so buffer pressure cannot flip the circuit breaker. Moving verification
-to an async `spawn` with streaming, bounded diagnostics is tracked as a
-follow-up in issue #338.
+| Resource | Bound / behavior |
+|---|---|
+| Retained output | First and last 2,000 characters per stream; the final diagnostic shares a 2,000-character budget across streams, plus labels/elision markers |
+| Failure identity | Incremental whitespace-normalized digest of both complete streams; first recognized test marker and suite context tracked separately |
+| Marker parsing | First 4,096 characters of each line; an overlong marker/context selects the complete-stream digest; ordinary long banners preserve later complete markers |
+| Timeout/cancel | Terminate the shell/npm/script process group, then force-kill after 150 ms on POSIX; Windows uses `taskkill /T /F` |
+| Concurrent lifecycle | Duplicate idle events share the active run; a code edit or session reset aborts it; an idle arriving during cancellation waits for cleanup before verifying the newer edits; the V2 event stream continues consuming cancellation events; disposal awaits active child cleanup; stale results cannot clear newer edits or recreate deleted state |
+
+The event loop remains available while scripts run. The output-retention limit
+never becomes a check verdict. Mechanism tests cover large output, shared
+budget, child cleanup and concurrent hooks; these are deterministic mechanism
+evidence, not a new live-host verification claim. Processes deliberately
+escaping the process group are outside this cleanup boundary.
 
 ### 3. Rule-of-3 zoom-out boundary (`tool.execute.before` + the verification observer above)
 
 Enforces Rule of 3 on repeated verification failures (same failing command +
 normalized failure evidence: the first test-level failing marker - TAP
 `not ok`, node:test/jest symbols, Jest test blocks, assertion lines - over the
-full captured stdout **and** stderr, with a preceding suite header such as
+streamed stdout **and** stderr, with a preceding suite header such as
 Jest's `FAIL <file>` carried as context so different tests in one file stay
 distinct; without a test-level marker the signature falls back to a digest of
-that full evidence, never to a suite header alone; the 2 KiB bound applies
-only to the user-visible diagnostic excerpt, never to signature analysis; not
+those complete streams, never to a suite header alone; the diagnostic retention bound does not limit the stream digest; not
 arbitrary tool failures, since
 `tool.execute.after` has no normalized success/failure field to key a
 signature on for tools in general):
@@ -146,17 +144,17 @@ installation surfaces and were not verified in this run.
 
 ## Manual verification CLI
 
-**File:** `hooks/verify.js` - the same "run available npm scripts" logic as
-`index.mjs`'s verification gate, kept as a standalone command:
+**File:** `hooks/verify.js` - a standalone "run available npm scripts" command:
 
 ```bash
 node opencode-plugin/hooks/verify.js
 ```
 
 Run it from the workspace under test, never from the Harness repo root - from
-there it would re-enter `npm test` from inside `npm test`. It is intentionally
-a separate copy of the logic, not a shared import, so `index.mjs` stays a
-single portable file for the installation step above.
+there it would re-enter `npm test` from inside `npm test`. The manual CLI retains its synchronous per-command budget and 16 MiB capture
+limit; the async sequence budget and streaming behavior above apply to the
+plugin only. Keeping its implementation separate preserves the single-file
+plugin installation contract.
 
 `plugin.json` records this standalone helper for repository parity checks; it
 does not configure opencode. The runtime module is `index.mjs`.
