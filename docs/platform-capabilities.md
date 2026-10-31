@@ -183,6 +183,14 @@ evidence supports project-scope `.js` loading and edit/verification state on
 OpenCode 1.18.31 (macOS): [live-host evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md). The
 retained snapshot predates #190 and remains historical evidence only. Current OpenCode removes the permanent post-reflection hard lock; only the third-failure reflection boundary pauses edits. Reflection was operator-seeded, then agent-rewritten, so do not promote this into a behavioral-effectiveness claim. `.mjs` auto-discovery is broken on this host version (issue #127). npm-package installation and behavioral V2-hook fire remain unverified.
 
+The plugin verification runner uses asynchronous child processes with a shared
+sequence budget and bounded streamed diagnostics. Deterministic mechanism
+coverage checks event-loop responsiveness, large-output verdicts, timeout/process
+cleanup, and concurrent edit/session reset handling. The standalone manual CLI
+retains its synchronous per-command runner. This change supplies no additional
+live-host evidence; the historical installation and behavior boundaries above
+remain unchanged.
+
 ## Official sources
 
 The matrix records the official documentation reviewed for each platform. Important source families include [OpenAI plugin packaging](https://developers.openai.com/plugins/build/plugins), [OpenAI public submission](https://developers.openai.com/plugins/deploy/submission), [Codex skills](https://learn.chatgpt.com/docs/build-skills), [Codex hooks](https://learn.chatgpt.com/docs/hooks), [Claude skills](https://code.claude.com/docs/en/skills), [OpenCode skills](https://opencode.ai/docs/skills), [GitHub Copilot Agent Skills](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills), [Cursor skills](https://cursor.com/docs/skills), [Continue rules](https://docs.continue.dev/customize/rules), and [Hermes skills](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills).

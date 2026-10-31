@@ -228,7 +228,7 @@ function caseD4(leg) {
   fs.writeFileSync(candidate, differing);
   const before = sha256(path.join(ws, 'docs', 'index.md'));
   const result = runCompare(leg.dir, { workspace: ws, config: CONFIG, view: 'docs/index.md', candidate, status: 'ok' });
-  same(result.status, 1, 'exit');
+  same(result.status, 1, `exit; stdout=${truncate(result.stdout)}; stderr=${truncate(result.stderr)}`);
   if (!JSON.stringify(jsonOut(result)).includes('stale')) throw new Error(`result state is not stale: ${truncate(result.stdout)}`);
   same(sha256(path.join(ws, 'docs', 'index.md')), before, 'target preserved');
 }
@@ -364,6 +364,46 @@ function caseD13(leg) {
 }
 assertPerLeg('case-d13:crlf-candidate-not-normalized', leg => caseD13(leg));
 
+// Windows file IDs can exceed Number's exact integer range. Exercise the real
+// CLI with deterministic stat identities so runner allocation cannot hide it.
+assertPerLeg('case-d13b:64-bit-file-identities-remain-distinct', leg => {
+  const { ws } = viewWorkspace();
+  writeTarget(ws);
+  const dir = candidateDir();
+  const candidate = path.join(dir, 'candidate.md');
+  const target = path.join(ws, 'docs', 'index.md');
+  fs.writeFileSync(candidate, 'different bytes\n');
+  const large = 2n ** 60n;
+  same(Number(large), Number(large + 1n), 'fixture must collide as Number');
+  for (const scenario of ['distinct-inode', 'distinct-device', 'alias']) {
+    const preload = path.join(dir, `${scenario}.cjs`);
+    fs.writeFileSync(preload, `
+      const fs = require('fs');
+      const path = require('path');
+      const original = fs.statSync;
+      fs.statSync = (file, options) => {
+        const result = original(file, options);
+        const name = path.resolve(String(file));
+        if (name === ${JSON.stringify(candidate)} || name === ${JSON.stringify(target)}) {
+          const candidate = name === ${JSON.stringify(candidate)};
+          const convert = value => options && options.bigint ? value : Number(value);
+          result.ino = convert(${large}n + (candidate && ${JSON.stringify(scenario)} === 'distinct-inode' ? 1n : 0n));
+          result.dev = convert(${large}n + (candidate && ${JSON.stringify(scenario)} === 'distinct-device' ? 1n : 0n));
+        }
+        return result;
+      };
+    `);
+    const result = runCompare(leg.dir, {
+      workspace: ws, config: CONFIG, view: 'docs/index.md', candidate, status: 'ok',
+      extra: { env: { ...process.env, NODE_OPTIONS: `--require "${preload.replace(/\\/g, '/')}"` } }
+    });
+    const alias = scenario === 'alias';
+    same(result.status, alias ? 2 : 1, `${scenario} exit`);
+    same(jsonOut(result).result, alias ? 'comparison-unavailable' : 'stale', `${scenario} verdict`);
+    if (alias) same(jsonOut(result).reason, 'candidate aliases the target', 'alias protection retained');
+  }
+});
+
 // D14: every compare-derived lane above (plus D1) printed exactly one JSON object on stdout.
 {
   const id = 'case-d14:stdout-single-json-object';
@@ -487,7 +527,7 @@ function mp3Apply() {
   const dir = scriptCopy('f3 derived mp3 ');
   // The guard's only decision line — elsewhere in the mutant the script stays intact, so the
   // aliased run proceeds to a real byte comparison (exit 0, equal) instead of crashing.
-  applyMutation(dir, 'return x.ino > 0 && x.ino === y.ino && x.dev === y.dev;', 'return false;', 'mp3 sameFile identity guard');
+  applyMutation(dir, 'return x.ino > 0n && x.ino === y.ino && x.dev === y.dev;', 'return false;', 'mp3 sameFile identity guard');
   return dir;
 }
 
