@@ -247,11 +247,12 @@ function globToRegExp(pattern) {
   return new RegExp(`^${body}$`);
 }
 
-// Same file when both paths stat to one device and inode, so symlinks and hard links are caught.
+// Keep 64-bit device/file IDs exact (Windows IDs can exceed Number's safe
+// integer range), while still rejecting symlink and hard-link aliases.
 function sameFile(a, b) {
-  const x = fs.statSync(a);
-  const y = fs.statSync(b);
-  return x.ino > 0 && x.ino === y.ino && x.dev === y.dev;
+  const x = fs.statSync(a, { bigint: true });
+  const y = fs.statSync(b, { bigint: true });
+  return x.ino > 0n && x.ino === y.ino && x.dev === y.dev;
 }
 
 // Open without blocking (O_NONBLOCK keeps a FIFO from waiting for a writer), then require a regular file before reading.
