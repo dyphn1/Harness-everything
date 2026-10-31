@@ -899,7 +899,11 @@ export const HarnessEnforcement = async ({ client, directory, signal }) => {
 
   function resetSession(sessionID) {
     const activeKey = sessionID || "default"
-    activeVerifications.get(activeKey)?.abort()
+    const controller = activeVerifications.get(activeKey)
+    if (controller) {
+      controller.reset = true
+      controller.abort()
+    }
     activeVerifications.delete(activeKey)
     const { stateDir } = pathsFor(sessionID)
     const sessionsRoot = resolve(join(getStateRoot(workspace), "sessions"))
@@ -994,7 +998,7 @@ export const HarnessEnforcement = async ({ client, directory, signal }) => {
         // An edit has cancelled the old run, but its process group may still
         // be closing. Keep this idle and verify the new revision once reaped.
         await previous.finished
-        if (signal?.aborted || activeVerifications.has(activeSession)) return
+        if (signal?.aborted || previous.reset || activeVerifications.has(activeSession)) return
       }
       const controller = new AbortController()
       let finishVerification

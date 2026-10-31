@@ -1,12 +1,14 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { execFileSync } = require('child_process');
 const { pathToFileURL } = require('url');
 const helper = require('./test-helper');
 
 (async () => {
   const workspace = helper.tempDir('.mechanism-test-338-async');
   fs.mkdirSync(workspace, { recursive: true });
+  execFileSync('git', ['init', '-q'], { cwd: workspace });
   const prompts = [];
   const client = { session: { prompt: async value => { prompts.push(value.body.parts[0].text); } } };
   const mod = await import(pathToFileURL(path.join(helper.root, 'opencode-plugin/index.mjs')).href);
@@ -189,5 +191,17 @@ const helper = require('./test-helper');
   helper.check('338. idle arriving during cancellation verifies the latest edit after cleanup',
     afterCleanup.verificationPending === false && afterCleanup.editsSinceVerification === 0 && prompts.length === beforeConcurrent,
     JSON.stringify(afterCleanup));
+
+  fs.unlinkSync(path.join(workspace, 'ready.txt'));
+  configure({ test: `${JSON.stringify(process.execPath)} ready.js` });
+  await edit('deleted-while-waiting');
+  const runningBeforeDelete = idle('deleted-while-waiting');
+  await waitFor(() => fs.existsSync(path.join(workspace, 'ready.txt')));
+  await edit('deleted-while-waiting');
+  const waitingDuringDelete = idle('deleted-while-waiting');
+  await hooks.event({ event: { type: 'session.deleted', properties: { sessionID: 'deleted-while-waiting' } } });
+  await Promise.all([runningBeforeDelete, waitingDuringDelete]);
+  helper.check('338. deletion invalidates an idle waiting for cancelled-child cleanup',
+    !fs.existsSync(path.join(sessions, 'deleted-while-waiting')) && prompts.length === beforeConcurrent);
   helper.finish();
 })().catch(error => { console.error(error); process.exit(1); });

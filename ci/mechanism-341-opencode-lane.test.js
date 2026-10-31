@@ -153,6 +153,14 @@ async function startPlugin(workspace) {
   return { registered, stream, dispose };
 }
 
+async function waitForIdleConsumer(predicate) {
+  const deadline = Date.now() + 5000;
+  while (!predicate()) {
+    assert.ok(Date.now() < deadline, 'asynchronous idle consumer did not complete');
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+}
+
 function canonicalJson(value) {
   if (Array.isArray(value)) return value.map(canonicalJson);
   if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonicalJson(value[key])]));
@@ -235,6 +243,7 @@ test('OpenCode capture → idle Stop whole path is refused without live qualific
     }
 
     await plugin.stream.dispatch({ type: 'session.idle', sessionID: sessionId });
+    await waitForIdleConsumer(() => assessmentSessions.filter(id => id === sessionId).length === 1);
     const reportPath = path.join(sessionDir, 'doc-reconciliation-pilot.json');
     const report = fs.existsSync(reportPath) ? JSON.parse(fs.readFileSync(reportPath, 'utf8')) : null;
     if (assessmentSessions.filter(id => id === sessionId).length !== 1) {
@@ -245,7 +254,7 @@ test('OpenCode capture → idle Stop whole path is refused without live qualific
     }
     assert.deepEqual(findings, []);
   } finally {
-    if (dispose) dispose();
+    if (dispose) await dispose();
     if (originalAssess) require(PILOT).assess = originalAssess;
     fixture.cleanup();
     restoreEnv();
@@ -277,6 +286,7 @@ test('session idle dispatches the real consumer once across every existing early
       const { sessionDir } = seedWorkflow(fixture, sessionId);
       writeEditState(sessionDir, state);
       await plugin.stream.dispatch({ type: 'session.idle', sessionID: sessionId });
+      await waitForIdleConsumer(() => assessmentSessions.filter(id => id === sessionId).length === 1);
       const reportPath = path.join(sessionDir, 'doc-reconciliation-pilot.json');
       const report = fs.existsSync(reportPath) ? JSON.parse(fs.readFileSync(reportPath, 'utf8')) : null;
       if (assessmentSessions.filter(id => id === sessionId).length !== 1) {
@@ -288,12 +298,13 @@ test('session idle dispatches the real consumer once across every existing early
     }
     const cleanupSession = 'idle-no-verification-pending';
     await plugin.stream.dispatch({ type: 'session.idle', sessionID: cleanupSession });
+    await waitForIdleConsumer(() => assessmentSessions.filter(id => id === cleanupSession).length === 2);
     if (assessmentSessions.filter(id => id === cleanupSession).length !== 2) {
       findings.push(`finally did not release the per-session idle guard for a second event: ${assessmentSessions.filter(id => id === cleanupSession).length} assessments`);
     }
     assert.deepEqual(findings, []);
   } finally {
-    if (dispose) dispose();
+    if (dispose) await dispose();
     pilot.assess = originalAssess;
     fixture.cleanup();
     restoreEnv();
@@ -332,7 +343,7 @@ test('V1/no-status, pilot-OFF, no-workflow, and Claude host controls stay fail-c
     assert.equal(claudeContext.status, 'unavailable', 'OpenCode must not enter through Claude provider semantics');
     assert.ok(claudeContext.diagnostics.some(item => item.code === 'unsupported-host'));
   } finally {
-    if (dispose) dispose();
+    if (dispose) await dispose();
     fixture.cleanup();
     restoreEnv();
   }
