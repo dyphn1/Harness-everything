@@ -9,7 +9,6 @@ const {
   getWorkspaceRoot,
   getSessionDir,
 } = require('./lib/harness-state');
-
 const RULES_PATH = process.env.HARNESS_ACTION_GATE_RULES_PATH || path.join(__dirname, 'action-gate-rules.json');
 const ASK_CAPABLE_HOSTS = new Set(['claude']);
 const VALID_SCOPES = new Set(['always', 'outside-scratch']);
@@ -52,10 +51,12 @@ function toolInputOf(payload) {
 function stableValue(value) {
   if (Array.isArray(value)) return value.map(stableValue);
   if (!value || typeof value !== 'object') return value;
+  // Use a null-prototype accumulator so an own `__proto__` key is stored as data
+  // instead of mutating the accumulator's prototype (which would drop it).
   return Object.keys(value).sort().reduce((acc, key) => {
     acc[key] = stableValue(value[key]);
     return acc;
-  }, {});
+  }, Object.create(null));
 }
 
 function exactPayloadText(payload) {
@@ -107,12 +108,14 @@ function safeResource(input, explicit) {
   return null;
 }
 
-function normalizeActionDescriptor(payload) {
+function normalizeActionDescriptor(payload, options = {}) {
   const tool = toolNameOf(payload);
   const input = toolInputOf(payload);
   const explicit = explicitActionDescriptor(payload);
-  const toolFamily = inferToolFamily(tool, explicit);
-  const action = inferStructuredAction(tool, explicit);
+  const codexPrUpdate = detectHost(payload, options.host) === 'codex' && isPullRequestUpdateTool(tool);
+  const toolFamily = inferToolFamily(tool, codexPrUpdate ? null : explicit);
+  const inferred = inferStructuredAction(tool, explicit);
+  const action = codexPrUpdate && !STRUCTURED_GATED_ACTIONS.has(inferred) ? 'mutate' : inferred;
   const classification = STRUCTURED_GATED_ACTIONS.has(action)
     ? 'gated'
     : (STRUCTURED_SAFE_ACTIONS.has(action) ? 'safe' : 'unknown');
@@ -132,10 +135,44 @@ function normalizeActionDescriptor(payload) {
   };
 }
 
-function structuredRule(payload) {
-  const descriptor = normalizeActionDescriptor(payload);
+function isRoutinePullRequestCreation(toolName) {
+  const name = String(toolName || '');
+  const segments = name.split('__');
+  const last = segments[segments.length - 1];
+  return (last === 'create_pull_request' || name === 'create_pull_request');
+}
+
+function isPullRequestUpdateTool(name) {
+  return name.split('__').pop() === 'update_pull_request' || name === 'mcp__codex_apps__github_update_pull_request';
+}
+
+function isPullRequestMetadataUpdate(payload) {
+  if (!isPullRequestUpdateTool(toolNameOf(payload))) return false;
+  const input = toolInputOf(payload);
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return false;
+  const keys = Object.keys(input);
+  const allowed = new Set(['repository_full_name', 'pr_number', 'owner', 'repo', 'pullNumber', 'pull_number', 'title', 'body']);
+  return keys.every(key => allowed.has(key))
+    && keys.some(key => key === 'title' || key === 'body')
+    && keys.filter(key => key === 'title' || key === 'body').every(key => typeof input[key] === 'string');
+}
+
+function structuredRule(payload, options = {}) {
+  const descriptor = normalizeActionDescriptor(payload, options);
   if (descriptor.toolFamily === 'shell') return { descriptor, rule: null };
   if (descriptor.classification === 'safe') return { descriptor, rule: null };
+  // Routine PR creation is a host-deferred mutation, not a Harness-gated one:
+  // the generic create=>mutate heuristic must not add an extra challenge. The
+  // descriptor stays a mutation (not read/safe). An explicit required
+  // actionGate hint still gates it.
+  const hint = routerActionGateHint(payload);
+  if (isRoutinePullRequestCreation(descriptor.toolName) && !(hint && hint.required)) {
+    return { descriptor, rule: null };
+  }
+  if (detectHost(payload, options.host) === 'codex' && descriptor.action === 'mutate'
+      && isPullRequestMetadataUpdate(payload) && !(hint && hint.required)) {
+    return { descriptor, rule: null, hostDeferred: true };
+  }
   if (descriptor.classification === 'gated') {
     return {
       descriptor,
@@ -145,7 +182,6 @@ function structuredRule(payload) {
       },
     };
   }
-  const hint = routerActionGateHint(payload);
   if (hint && hint.required) {
     return {
       descriptor,
@@ -352,7 +388,8 @@ function routerActionGateHint(payload) {
     payload && payload.routerContract && payload.routerContract.workflowPlan && payload.routerContract.workflowPlan.actionGate,
     payload && payload.harness && payload.harness.workflowPlan && payload.harness.workflowPlan.actionGate,
   ];
-  const gate = candidates.find(candidate => candidate && typeof candidate === 'object');
+  const gate = candidates.find(candidate => candidate && typeof candidate === 'object' && candidate.required)
+    || candidates.find(candidate => candidate && typeof candidate === 'object');
   if (!gate) return null;
   return {
     required: Boolean(gate.required),
@@ -420,7 +457,7 @@ function recordDecision(payload, rule, table, host, disposition, options = {}, e
   const exact = exactPayloadText(payload);
   const commandHash = hashExact(exact);
   const now = new Date().toISOString();
-  const descriptor = normalizeActionDescriptor(payload);
+  const descriptor = normalizeActionDescriptor(payload, { host });
   const record = {
     schemaVersion: 1,
     toolName: toolNameOf(payload),
@@ -445,12 +482,22 @@ function recordDecision(payload, rule, table, host, disposition, options = {}, e
   return record;
 }
 
+
+
+
+
 function evaluatePreToolUse(payload, options = {}) {
   const context = sessionContext(payload, options.sessionDir);
   const table = options.ruleTable || loadRuleTable(options.rulePath || RULES_PATH);
-  const structured = structuredRule(payload);
+  const structured = structuredRule(payload, options);
   const rule = structured.rule || classify(payload, table.rules, context.sessionDir);
+  const host = detectHost(payload, options.host);
+
   if (!rule) {
+    const record = structured.hostDeferred ? recordDecision(payload, {
+      id: 'routine-pr-metadata-update',
+      reason: 'Codex PR title/body metadata update defers to native task scope and permissions.',
+    }, table, host, 'deferred-to-host', { ...options, sessionDir: context.sessionDir }) : null;
     return {
       kind: 'allow',
       exitCode: 0,
@@ -459,10 +506,10 @@ function evaluatePreToolUse(payload, options = {}) {
       rule: null,
       table,
       descriptor: structured.descriptor,
+      ...(record ? { record } : {}),
     };
   }
 
-  const host = detectHost(payload, options.host);
   const reason = decisionReason(rule, table);
   if (hostSupportsAsk(host) && gatePolicy(options) === ALWAYS_ASK_POLICY) {
     const record = recordDecision(payload, rule, table, host, 'pending-approval', { ...options, sessionDir: context.sessionDir });
@@ -655,4 +702,5 @@ module.exports = {
   validateRuleTable,
   normalizeActionDescriptor,
   structuredRule,
+  isRoutinePullRequestCreation,
 };

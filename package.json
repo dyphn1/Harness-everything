@@ -1,6 +1,6 @@
 {
   "name": "harness-everything",
-  "version": "0.31.1",
+  "version": "0.47.0",
   "description": "Harness OS: An Orchestrated Agent Operating System for AI-driven Development",
   "main": "harness-everything/scripts/bootstrap.js",
   "bin": {
@@ -9,6 +9,7 @@
   "scripts": {
     "test": "node self-evolve/scripts/self-regression.js",
     "self-regression": "node self-evolve/scripts/self-regression.js",
+    "verify:all": "node scripts/verify-all.js",
     "test:mechanism": "node ci/mechanism-test.js",
     "test:opencode:loadability": "node ci/mechanism-30-opencode-plugin-loadability.test.js",
     "test:mutations": "node ci/mutation-check.js",
@@ -16,11 +17,13 @@
     "tdd:quality": "node tdd/scripts/quality-gate.js",
     "repo:contract": "node scripts/repository-contract.js",
     "docs:sync": "node scripts/sync-current-docs.js",
+    "errors:sync": "node scripts/errors-sync.js",
     "test:repo-contract": "node ci/repository-contract.test.js",
     "test:consistency": "node ci/consistency-check.js && node ci/doc-capability-consistency.test.js && node ci/repository-contract.test.js && node ci/mechanism-2ao-plugin-sync.test.js && node ci/prompt-contract-regressions.test.js",
     "test:docs:capabilities": "node ci/doc-capability-consistency.test.js",
     "test:references": "node ci/reference-check.js",
-    "test:release": "node ci/release-consistency-check.js && node ci/mechanism-2x-release-automation.test.js && node ci/mechanism-2x-release-commit-message.test.js && node ci/mechanism-2ap-sbom.test.js",
+    "test:portability": "node ci/portability-lint.js",
+    "test:release": "node ci/release-consistency-check.js && node ci/release-consistency-check.test.js && node ci/mechanism-2x-release-automation.test.js && node ci/mechanism-2x-release-commit-message.test.js && node ci/mechanism-2ap-sbom.test.js",
     "test:release:semantics": "node ci/semantic-release-analyzer.test.mjs",
     "test:install": "node scripts/verify-install.js",
     "system-one:install": "node harness-everything/scripts/system-one/install.js",
@@ -63,7 +66,7 @@
     "waza:check": "node scripts/waza-harness-check.js",
     "test:waza:compat": "node ci/mechanism-2aj-waza-reference-adapter.test.js",
     "codex:hooks": "node scripts/codex-hooks-compat.js",
-    "test:codex:hooks-compat": "node ci/mechanism-2al-codex-hooks-compat.test.js"
+    "test:codex:hooks-compat": "node ci/mechanism-2al-codex-hooks-compat.test.js && node ci/mechanism-2au-codex-runtime-safety.test.js"
   },
   "engines": {
     "node": ">=22"
@@ -82,9 +85,11 @@
     "access": "public"
   },
   "devDependencies": {
-    "js-yaml": "^5.4.1",
     "@commitlint/cli": "^19.0.0",
     "@commitlint/config-conventional": "^19.0.0",
-    "husky": "^9.0.0"
+    "acorn": "8.19.0",
+    "acorn-walk": "8.3.5",
+    "husky": "^9.0.0",
+    "js-yaml": "^5.4.1"
   }
 }

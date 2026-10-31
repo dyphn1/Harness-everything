@@ -4,23 +4,21 @@
  *
  * Mechanized gate for `to-spec` (and `to-tickets`, once installed): has this
  * repo already pinned down where reference docs live, how issues are
- * tracked, and what counts as a valid issue? Stored as a `projectDocs` entry
- * inside the SAME harness-everything/manifest.json this package already
- * owns (see scripts/lib/manifest.js and self-evolve's `generated` skill
- * registry) - not a new docs/agents/ file convention, so there's one config
- * surface, not two.
+ * tracked, and what counts as a valid issue? Read the validated project
+ * configuration first; its project-docs.json file wholly overrides host
+ * manifest values. Without it, host configuration is used only when selected
+ * unambiguously by the shared resolver.
  *
  * Deliberately repo-local only: unlike self-evolve's `generated` skills
  * (intentionally reusable across projects), doc location / tracker / issue
  * definition are PER-REPO facts. Reading or writing them through the global
  * ~/.agents or ~/.claude manifest homes would leak one project's tracker
- * into every other project sharing that global install, so this script
- * scans only the workspace-relative platform homes, never the user-home ones.
+ * into every other project sharing that global install, so the resolver reads
+ * only the workspace project file and workspace-relative platform manifests.
  *
- * Exit 0 -> at least one detected platform's manifest.json (inside this
- *           repo) has a complete projectDocs entry. Read it, skip Step 0.
- * Exit 1 -> missing or incomplete everywhere. Run the Step 0 interview in
- *           to-spec/SKILL.md for the flagged field(s), then persist with `init`.
+ * Exit 0 -> a complete effective config or allowed workspace inference exists.
+ * Exit 1 -> required fields are missing, or configuration is invalid/ambiguous.
+ *           Run the Step 0 interview in to-spec/SKILL.md, then persist with `init`.
  *
  * manifest.json is read on every single tier-router.js invocation (every
  * prompt, not just to-spec runs) to scan for self-evolve's generated
@@ -39,7 +37,7 @@ const fs = require('fs');
 const path = require('path');
 // Keep project-doc path decisions in the resolver carried by the installed
 // multi-agent-workspace skill. This script consumes the same contract.
-const { getWorkspaceRoot, getRepoManifestHomes, detectProjectDocsConventions } =
+const { getWorkspaceRoot, getRepoManifestHomes, detectProjectDocsConventions, validateDocsConfig, normalizeHostProjectDocs } =
   require('./project-docs-resolver');
 
 function loadManifestHelper() {
@@ -102,33 +100,37 @@ function detectWorkspaceConventions(workspaceRoot) {
 }
 
 function runCheck(workspaceRoot) {
-  const existingPaths = getRepoManifestHomes(workspaceRoot)
-    .map(getManifestPath)
-    .filter(p => fs.existsSync(p));
-
-  // Check explicit projectDocs entries in manifest files
-  for (const manifestPath of existingPaths) {
-    const docs = readManifest(manifestPath).projectDocs;
-    if (docs && missingFields(docs).length === 0) {
-      console.log(`[Project Docs Check] OK: ${manifestPath} defines document location, issue tracker, and issue definition.`);
-      process.exit(0);
+  // Selection and validation happen in the shared resolver. Invalid or
+  // ambiguous sources cannot authorize a destination or fall through to a
+  // different host; only `none` permits workspace convention inference.
+  const effective = detectWorkspaceConventions(workspaceRoot);
+  if (effective.status === 'invalid' || effective.status === 'ambiguous') {
+    console.log(`[Project Docs Check] ${effective.status.toUpperCase()}: no usable projectDocs selection.`);
+    for (const diagnostic of effective.diagnostics || []) {
+      console.log(`  - ${diagnostic.code}: ${diagnostic.message} (${diagnostic.path})`);
     }
+    process.exit(1);
   }
 
-  // Fallback to heuristic workspace detection
-  const inferred = detectWorkspaceConventions(workspaceRoot);
-  const missingInferred = missingFields(inferred);
-
-  if (missingInferred.length === 0) {
-    console.log(`[Project Docs Check] OK (Inferred from workspace structure):`);
-    console.log(`  - docLocation: ${inferred.docLocation}`);
-    console.log(`  - tracker: ${inferred.tracker}`);
-    console.log(`  - issueDefinition: ${inferred.issueDefinition}`);
+  // The resolver reports which required fields its selection left uncovered
+  // (configured-only for project/host selections, plus inference for none).
+  const missing = Array.isArray(effective.missing) ? effective.missing : missingFields(effective);
+  if (missing.length === 0) {
+    const source = effective.status === 'none'
+      ? 'Inferred from workspace structure'
+      : `Selected ${effective.status} projectDocs configuration`;
+    console.log(`[Project Docs Check] OK (${source}):`);
+    console.log(`  - docLocation: ${effective.docLocation}`);
+    console.log(`  - tracker: ${effective.tracker}`);
+    console.log(`  - issueDefinition: ${effective.issueDefinition}`);
     process.exit(0);
   }
 
-  console.log(`[Project Docs Check] INCOMPLETE: no manifest.json or standard folder structure covers all fields. Missing: ${missingInferred.join(', ')}`);
-  console.log('=> Run the Step 0 framework interview for missing fields, or proceed using default workspace fallbacks.');
+  const source = effective.status === 'none'
+    ? 'Inferred from workspace structure'
+    : `Selected ${effective.status} projectDocs configuration`;
+  console.log(`[Project Docs Check] INCOMPLETE (${source}): missing fields: ${missing.join(', ')}`);
+  console.log('=> Run the Step 0 framework interview for missing fields, then persist with init; selected configs are not completed from workspace inference.');
   process.exit(1);
 }
 
@@ -144,13 +146,179 @@ function parseFlags(args) {
   return values;
 }
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isPathInside(rootPath, candidatePath) {
+  const relativePath = path.relative(rootPath, candidatePath);
+  return relativePath === '' || (
+    relativePath !== '..' &&
+    !relativePath.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relativePath)
+  );
+}
+
+function inspectInitPath(workspaceRoot, targetPath) {
+  let realWorkspaceRoot;
+  try {
+    realWorkspaceRoot = fs.realpathSync(workspaceRoot);
+  } catch (error) {
+    return { error: `workspace root cannot be resolved (${error.message})` };
+  }
+
+  try {
+    fs.lstatSync(targetPath);
+  } catch (error) {
+    if (error.code !== 'ENOENT') return { error: `path cannot be inspected (${error.message})` };
+
+    let parentPath = path.dirname(targetPath);
+    while (true) {
+      try {
+        fs.lstatSync(parentPath);
+      } catch (parentError) {
+        if (parentError.code !== 'ENOENT') return { error: `parent cannot be inspected (${parentError.message})` };
+        const nextParent = path.dirname(parentPath);
+        if (nextParent === parentPath) return { error: 'no existing parent could be found' };
+        parentPath = nextParent;
+        continue;
+      }
+
+      let realParentPath;
+      try {
+        realParentPath = fs.realpathSync(parentPath);
+      } catch (parentError) {
+        return { error: `parent cannot be resolved (${parentError.message})` };
+      }
+      let parentStats;
+      try {
+        parentStats = fs.statSync(realParentPath);
+      } catch (parentError) {
+        return { error: `parent cannot be inspected (${parentError.message})` };
+      }
+      if (!parentStats.isDirectory()) return { error: 'cannot be read safely because its nearest existing parent is not a directory' };
+      if (!isPathInside(realWorkspaceRoot, realParentPath)) return { error: 'nearest existing parent resolves outside the workspace' };
+      return { exists: false };
+    }
+  }
+
+  let realTargetPath;
+  try {
+    realTargetPath = fs.realpathSync(targetPath);
+  } catch (error) {
+    return { error: `path cannot be resolved (${error.message})` };
+  }
+  let targetStats;
+  try {
+    targetStats = fs.statSync(realTargetPath);
+  } catch (error) {
+    return { error: `path cannot be inspected (${error.message})` };
+  }
+  if (!targetStats.isFile()) return { error: 'cannot be read because it is not a regular file' };
+  if (!isPathInside(realWorkspaceRoot, realTargetPath)) return { error: 'resolves outside the workspace' };
+  return { exists: true };
+}
+
+// init never overwrites a configured value: absent/empty required fields are
+// filled, matching flags are accepted as no-ops, and a differing flag is a
+// field-specific conflict that aborts before any write.
+function mergeProjectFields(existing, flags, fields) {
+  const filled = [];
+  const conflicts = [];
+  const next = { ...existing };
+  for (const [flag, field] of Object.entries(fields)) {
+    const value = flags[flag];
+    const current = existing[field];
+    if (typeof current === 'string' && current.trim()) {
+      if (current !== value) {
+        conflicts.push({ flag, field, existing: current });
+      }
+      continue;
+    }
+    next[field] = value;
+    filled.push(field);
+  }
+  return { next, filled, conflicts };
+}
+
+function printConflicts(conflicts) {
+  for (const conflict of conflicts) {
+    console.error(`[Project Docs Check] --${conflict.flag} conflicts with the configured ${conflict.field} (existing "${conflict.existing}").`);
+    console.error('=> init fills only absent/empty fields and never overwrites configured values; remove the flag or update the configuration explicitly.');
+  }
+}
+
+function readHostManifestForInit(workspaceRoot, manifestPath) {
+  const inspected = inspectInitPath(workspaceRoot, manifestPath);
+  if (inspected.error) return { error: `unsafe path: ${inspected.error}` };
+  if (!inspected.exists) return { exists: false, data: readManifest(manifestPath) };
+
+  let raw;
+  try {
+    raw = fs.readFileSync(manifestPath, 'utf8');
+  } catch (error) {
+    return { error: `cannot be read (${error.message})` };
+  }
+
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (error) {
+    return { error: `invalid JSON (${error.message})` };
+  }
+  if (!isPlainObject(data)) return { error: 'manifest root must be a JSON object' };
+
+  for (const field of ['skills', 'agents', 'generated']) {
+    if (Object.prototype.hasOwnProperty.call(data, field) && !Array.isArray(data[field])) {
+      return { error: `manifest ${field} must be an array` };
+    }
+  }
+  if (!Array.isArray(data.skills)) data.skills = [];
+  if (!Array.isArray(data.agents)) data.agents = [];
+
+  if (Object.prototype.hasOwnProperty.call(data, 'projectDocs')) {
+    const normalizedProjectDocs = normalizeHostProjectDocs(data.projectDocs).projectDocs;
+    const validation = validateDocsConfig(normalizedProjectDocs);
+    if (!validation.valid) {
+      const details = validation.diagnostics.map(item => `${item.code}: ${item.message}`).join('; ');
+      return { error: `projectDocs failed schema validation (${details})` };
+    }
+  }
+
+  return { exists: true, data };
+}
+
+function rejectHostManifestInit(workspaceRoot, manifestPath, reason) {
+  const relativePath = path.relative(workspaceRoot, manifestPath).replace(/\\/g, '/');
+  console.error(`[Project Docs Check] ${relativePath} cannot be safely updated: ${reason}; no host manifests were changed.`);
+  const guidance = reason.startsWith('cannot be read') || reason.includes('not a regular file')
+    ? `Make ${relativePath} a readable manifest file (not a directory), then rerun init.`
+    : reason.startsWith('unsafe path')
+      ? `Make ${relativePath} a regular file that resolves inside this workspace, then rerun init.`
+    : `Repair the JSON structure or projectDocs schema in ${relativePath}, then rerun init.`;
+  console.error(`=> ${guidance}`);
+  process.exit(1);
+}
+
+function rejectProjectFileInit(workspaceRoot, projectFile, reason) {
+  const relativePath = path.relative(workspaceRoot, projectFile).replace(/\\/g, '/');
+  console.error(`[Project Docs Check] ${relativePath} cannot be safely updated: unsafe path (${reason}); no files were changed.`);
+  console.error(`=> Make ${relativePath} a regular file that resolves inside this workspace, then rerun init.`);
+  process.exit(1);
+}
+
 function runInit(workspaceRoot, args) {
   const flags = parseFlags(args);
-  const missingFlags = Object.keys(FLAG_TO_FIELD).filter(f => !flags[f]);
+  // Required values must be non-empty after trimming, the same presence rule
+  // the resolver applies when reading the configuration; whitespace-only
+  // pointers are rejected before anything is read or written, and accepted
+  // values are stored trimmed.
+  const missingFlags = Object.keys(FLAG_TO_FIELD).filter(f => !flags[f] || !String(flags[f]).trim());
   if (missingFlags.length > 0) {
-    console.error(`[Project Docs Check] init requires --${missingFlags.join(', --')}`);
+    console.error(`[Project Docs Check] init requires --${missingFlags.join(', --')} (values must not be empty or whitespace-only)`);
     process.exit(1);
   }
+  for (const f of Object.keys(FLAG_TO_FIELD)) flags[f] = String(flags[f]).trim();
 
   const oversizedFlags = Object.keys(FLAG_TO_FIELD).filter(f => flags[f].length > MAX_FIELD_LENGTH);
   if (oversizedFlags.length > 0) {
@@ -161,38 +329,116 @@ function runInit(workspaceRoot, args) {
     process.exit(1);
   }
 
-  const projectDocs = {
-    docLocation: flags['doc-location'],
-    tracker: flags['tracker'],
-    issueDefinition: flags['issue-definition'],
-    updatedAt: new Date().toISOString(),
-  };
+  // The project file wholly overrides host manifests, so an existing one is
+  // the authoritative repair target: fill only its absent/empty fields,
+  // preserve every other key, validate the candidate, and write only it.
+  const projectFile = path.join(workspaceRoot, '.agents', 'harness-everything', 'project-docs.json');
+  const projectFilePath = inspectInitPath(workspaceRoot, projectFile);
+  if (projectFilePath.error) rejectProjectFileInit(workspaceRoot, projectFile, projectFilePath.error);
+  if (projectFilePath.exists) {
+    const rel = path.relative(workspaceRoot, projectFile).replace(/\\/g, '/');
+    let existing;
+    try {
+      existing = JSON.parse(fs.readFileSync(projectFile, 'utf8'));
+    } catch (error) {
+      console.error(`[Project Docs Check] ${rel} exists but is not valid JSON (${error.message}); leaving it untouched.`);
+      console.error('=> Fix the JSON syntax (or remove the file after saving its content elsewhere), then rerun init.');
+      process.exit(1);
+    }
+    if (!isPlainObject(existing)) {
+      console.error(`[Project Docs Check] ${rel} must contain a JSON object; leaving it untouched.`);
+      console.error('=> Fix the structure, then rerun init.');
+      process.exit(1);
+    }
+    const validation = validateDocsConfig(existing);
+    if (!validation.valid) {
+      console.error(`[Project Docs Check] ${rel} failed schema validation; leaving it untouched.`);
+      for (const diagnostic of validation.diagnostics) {
+        console.error(`  - ${diagnostic.code}: ${diagnostic.message}`);
+      }
+      console.error('=> Fix the reported issues, then rerun init.');
+      process.exit(1);
+    }
+    const { next, filled, conflicts } = mergeProjectFields(existing, flags, FLAG_TO_FIELD);
+    if (conflicts.length > 0) {
+      printConflicts(conflicts);
+      process.exit(1);
+    }
+    if (filled.length === 0) {
+      console.log(`[Project Docs Check] ${rel} already covers all requested fields; nothing to fill, no write.`);
+      process.exit(0);
+    }
+    fs.writeFileSync(projectFile, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
+    console.log(`[Project Docs Check] Updated ${rel}, filling: ${filled.join(', ')}; existing projectDocs keys preserved; host manifests untouched (the project file overrides them).`);
+    process.exit(0);
+  }
 
   const homes = getRepoManifestHomes(workspaceRoot);
 
   // Write to every platform home already bootstrapped with harness in THIS
   // repo (their harness-everything/ subfolder already exists), so switching
-  // editors mid-project never loses this config.
-  let wrote = 0;
+  // editors mid-project never loses this config. Existing projectDocs keys
+  // are preserved: only absent/empty required fields are filled here too.
+  const writableHomes = [];
   for (const home of homes) {
     const manifestPath = getManifestPath(home);
-    if (!fs.existsSync(path.dirname(manifestPath))) continue;
-    const data = readManifest(manifestPath);
-    data.projectDocs = projectDocs;
-    writeManifest(manifestPath, data);
-    console.log(`[Project Docs Check] Wrote projectDocs to ${manifestPath}`);
-    wrote++;
+    const result = readHostManifestForInit(workspaceRoot, manifestPath);
+    if (result.error) rejectHostManifestInit(workspaceRoot, manifestPath, result.error);
+    if (!result.exists && !fs.existsSync(path.dirname(manifestPath))) continue;
+    const data = result.data;
+    const existingProjectDocs = isPlainObject(data.projectDocs) ? data.projectDocs : null;
+    writableHomes.push({ manifestPath, data, existingProjectDocs });
   }
 
-  // No repo-local platform bootstrapped yet: create the primary one
-  // (.claude/harness-everything/manifest.json) rather than falling back to
-  // any global/user-home manifest - this data must never leave the repo.
-  if (wrote === 0) {
+  const plans = [];
+  const conflicts = [];
+  for (const home of writableHomes) {
+    // A home without projectDocs keeps the previous fresh-object behavior;
+    // an existing projectDocs object only receives absent/empty required
+    // fields, preserving governance and unknown keys.
+    const baseProjectDocs = home.existingProjectDocs || {
+      docLocation: flags['doc-location'],
+      tracker: flags['tracker'],
+      issueDefinition: flags['issue-definition'],
+      updatedAt: new Date().toISOString(),
+    };
+    const { next, filled, conflicts: homeConflicts } = mergeProjectFields(baseProjectDocs, flags, FLAG_TO_FIELD);
+    if (homeConflicts.length) {
+      conflicts.push({ manifestPath: home.manifestPath, homeConflicts });
+      continue;
+    }
+    plans.push({ write: filled.length > 0 || !home.existingProjectDocs, manifestPath: home.manifestPath, data: home.data, projectDocs: next, filled });
+  }
+
+  // Abort before the first write when ANY bootstrapped home conflicts, so a
+  // partial multi-editor update can never leave divergent manifests behind.
+  if (conflicts.length) {
+    for (const entry of conflicts) {
+      console.error(`[Project Docs Check] ${path.relative(workspaceRoot, entry.manifestPath).replace(/\\/g, '/')}:`);
+      printConflicts(entry.homeConflicts);
+    }
+    process.exit(1);
+  }
+
+  if (writableHomes.length === 0) {
     const manifestPath = getManifestPath(homes[0]);
     const data = readManifest(manifestPath);
-    data.projectDocs = projectDocs;
+    data.projectDocs = {
+      docLocation: flags['doc-location'],
+      tracker: flags['tracker'],
+      issueDefinition: flags['issue-definition'],
+      updatedAt: new Date().toISOString(),
+    };
     writeManifest(manifestPath, data);
     console.log(`[Project Docs Check] No platform bootstrapped yet in this repo - wrote projectDocs to ${manifestPath}`);
+    process.exit(0);
+  }
+
+  for (const plan of plans) {
+    if (!plan.write) continue;
+    plan.data.projectDocs = plan.projectDocs;
+    writeManifest(plan.manifestPath, plan.data);
+    console.log(`[Project Docs Check] Wrote projectDocs to ${plan.manifestPath} (filled: ${plan.filled.join(', ')}; existing projectDocs keys preserved)`);
   }
 
   process.exit(0);
@@ -202,9 +448,9 @@ if (process.argv[2] === '--help' || process.argv[2] === '-h') {
   console.log(`Gate: has this repo already pinned doc location / issue tracker / issue definition?
 
 Usage:
-  node check-project-docs.js [check]                                                Exit 0 if a complete projectDocs entry already exists in this repo's manifest.json; exit 1 with the missing field(s) otherwise.
+  node check-project-docs.js [check]                                                Exit 0 for complete effective config or allowed inference; exit 1 for missing, invalid, or ambiguous config.
   node check-project-docs.js init --doc-location "..." --tracker "..." --issue-definition "..."
-                                                                                       Persist all three fields (each <= ${MAX_FIELD_LENGTH} chars - a pointer, not the content) to every already-bootstrapped platform manifest.json in this repo.
+                                                                                       Fill only absent/empty fields (each <= ${MAX_FIELD_LENGTH} chars - a pointer, not the content). With an existing .agents/harness-everything/project-docs.json, that file is validated and written; otherwise the fields go to every already-bootstrapped platform manifest.json in this repo, preserving existing projectDocs keys. Conflicting flags fail before any write.
 
 Repo-local only: writes only to workspace-relative manifest homes (.claude/, .cursor/,
 .github/, .codex/, .continue/), never to the user-home manifests self-evolve uses.`);

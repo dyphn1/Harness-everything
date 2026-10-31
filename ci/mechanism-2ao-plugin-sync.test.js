@@ -15,6 +15,17 @@ const {
 
 const ROOT = path.resolve(__dirname, '..');
 const codexHooksCompat = require('../scripts/codex-hooks-compat');
+// A fake host runner does not mock the compatibility installer's filesystem
+// writes. Fail closed if any case forgets to pass its explicit temporary home.
+const realInstall = codexHooksCompat.install;
+codexHooksCompat.install = options => {
+  assert(options && options.codexHome, 'tests must supply an explicit temporary Codex home');
+  const relative = path.relative(os.tmpdir(), path.resolve(options.codexHome));
+  assert(relative && !relative.startsWith('..') && !path.isAbsolute(relative),
+    'test Codex home must be inside the temporary directory');
+  return realInstall(options);
+};
+
 
 function fakeHost({ claudeInstalled = false, codexInstalled = false, codexPluginSourcePath = path.join(ROOT, 'plugins', 'harness-everything'), codexPluginSourceType = 'local', codexAvailableOnly = false, claudeMarketplace = true, codexMarketplace = true, unknownClaudePluginState = false, unknownClaudeYesFlag = false, unknownClaudeJsonFlag = false, clapCodexJsonFlag = false, missingCodexPluginCommand = false, codexHooksError = null } = {}) {
   const calls = [];
@@ -283,7 +294,9 @@ for (const sourceType of ['git', 'npm', 'remote', 'unknown']) {
 {
   const codexHome = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-plugin-sync-codex-home-'));
   try {
-    const fake = fakeHost({ codexInstalled: true });
+    const source = path.join(codexHome, 'plugin-cache');
+    fs.cpSync(codexHooksCompat.SOURCE_PLUGIN_ROOT, source, { recursive: true });
+    const fake = fakeHost({ codexInstalled: true, codexPluginSourcePath: source });
     const result = sync({ host: 'codex', codexHome }, {
       runner: fake.runner,
       commandAvailable: fake.commandAvailable,
@@ -368,18 +381,22 @@ for (const sourceType of ['git', 'npm', 'remote', 'unknown']) {
   // progress notice emitted before that work starts, the terminal stays
   // silent for the whole run, which is indistinguishable from a hang.
   const events = [];
+  const codexHome = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-progress-codex-'));
   const fake = fakeHost({ claudeInstalled: true, codexInstalled: true });
   const runner = (command, args, opts) => {
     events.push(`call:${command}`);
     return fake.runner(command, args, opts);
   };
-  const result = sync({ host: 'all', repository: 'dyphn1/Harness-everything', ref: 'main' }, {
+  const result = sync({ host: 'all', codexHome, repository: 'dyphn1/Harness-everything', ref: 'main' }, {
     runner,
+    codexHooksInstall: fake.codexHooksInstall,
     commandAvailable: () => true,
     log: () => {},
     warn: message => events.push(`warn:${message}`)
   });
   assert.strictEqual(result.failed, 0);
+  fs.rmSync(codexHome, { recursive: true, force: true });
+  assert.strictEqual(fake.codexHookInstalls.length, 1, 'progress test must mock hook installation as well as host commands');
   assert.ok(events.includes('warn:[...] claude: syncing'), 'a claude progress notice must be emitted');
   assert.ok(events.includes('warn:[...] codex: syncing'), 'a codex progress notice must be emitted');
   assert.ok(events.indexOf('warn:[...] claude: syncing') < events.indexOf('call:claude'), 'the claude notice must be emitted before its first host command, not buffered until the run finishes');

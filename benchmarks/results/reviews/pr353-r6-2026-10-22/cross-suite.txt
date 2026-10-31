@@ -1,0 +1,18 @@
+'use strict';
+const fs = require('fs');
+const path = require('path');
+const Module = require('module');
+const peerRoot = path.resolve(process.argv[2]);
+const targetRoot = path.resolve(process.argv[3]);
+const suite = process.argv[4];
+const fixture = path.join(peerRoot,'ci/fixtures/doc-obligations/reconciliation-s2a/harness.js');
+const H = require(fixture);
+for (const leg of H.LEGS) {
+ leg.lib = path.join(targetRoot,path.relative(peerRoot,leg.lib));
+ leg.scripts = path.join(targetRoot,path.relative(peerRoot,leg.scripts));
+}
+const file = path.join(peerRoot,'ci',suite);
+console.log('Peer tests:',file,'implementation:',targetRoot);
+const m = new Module(file,module);
+m.filename=file;m.paths=Module._nodeModulePaths(path.dirname(file));
+m._compile(fs.readFileSync(file,'utf8'),file);

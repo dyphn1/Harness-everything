@@ -1,0 +1,8 @@
+Node v24.22.1; repo /Users/daniel.chang/Desktop/Skills/Harness-codex-pr-metadata
+{"label":"metadata","exitCode":0,"stdout":"","matchedRule":"routine-pr-metadata-update","disposition":"deferred-to-host","action":"mutate","family":"mcp","classification":"gated","required":null}
+{"label":"required","exitCode":2,"stdout":"","matchedRule":"structured-mutate","disposition":"rejected","action":"mutate","family":"mcp","classification":"gated","required":true}
+{"label":"descriptor-read-shell","exitCode":0,"stdout":"","matchedRule":"routine-pr-metadata-update","disposition":"deferred-to-host","action":"mutate","family":"mcp","classification":"gated","required":null}
+{"label":"unsafe-state-null-required","exitCode":2,"stdout":"","matchedRule":"structured-mutate","disposition":"rejected","action":"mutate","family":"mcp","classification":"gated","required":true}
+{"label":"delete-shell","exitCode":2,"stdout":"","matchedRule":"structured-delete","disposition":"rejected","action":"delete","family":"mcp","classification":"gated","required":null}
+{"label":"near-name","exitCode":2,"stdout":"","matchedRule":"structured-mutate","disposition":"rejected","action":"mutate","family":"mcp","classification":"gated","required":null}
+{"label":"conflicting-harness-required","exitCode":2,"stdout":"","matchedRule":"structured-mutate","disposition":"rejected","action":"mutate","family":"mcp","classification":"gated","required":true}

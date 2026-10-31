@@ -1,0 +1,47 @@
+FAIL source:joint-workspaceId: event acceptance must reject corrupted identity
+FAIL source:joint-sessionId: event acceptance must reject corrupted identity
+FAIL source:joint-workflowId: event acceptance must reject corrupted identity
+FAIL source:joint-workflowRevision: event acceptance must reject corrupted identity
+FAIL source:joint-taskId: event acceptance must reject corrupted identity
+FAIL source:joint-activeHost: event acceptance must reject corrupted identity
+FAIL source:png-stays-hashed-and-reconciles: [{"code":"inventory-unsupported","message":"inventory unsupported"}]
++ actual - expected
+
++ 'unavailable'
+- 'ready'
+
+FAIL source:binary-only-is-legacy: Expected values to be strictly equal:
++ actual - expected
+
++ 'unavailable'
+- 'ready'
+
+PASS source:undecodable-relevant-src/invalid.js
+PASS source:undecodable-relevant-tests/invalid.dat
+PASS source:undecodable-relevant-docs/prd/invalid.md
+PASS source:undecodable-relevant-docs/roadmap/index.md
+PASS source:undecodable-derived-source
+FAIL packaged:joint-workspaceId: event acceptance must reject corrupted identity
+FAIL packaged:joint-sessionId: event acceptance must reject corrupted identity
+FAIL packaged:joint-workflowId: event acceptance must reject corrupted identity
+FAIL packaged:joint-workflowRevision: event acceptance must reject corrupted identity
+FAIL packaged:joint-taskId: event acceptance must reject corrupted identity
+FAIL packaged:joint-activeHost: event acceptance must reject corrupted identity
+FAIL packaged:png-stays-hashed-and-reconciles: [{"code":"inventory-unsupported","message":"inventory unsupported"}]
++ actual - expected
+
++ 'unavailable'
+- 'ready'
+
+FAIL packaged:binary-only-is-legacy: Expected values to be strictly equal:
++ actual - expected
+
++ 'unavailable'
+- 'ready'
+
+PASS packaged:undecodable-relevant-src/invalid.js
+PASS packaged:undecodable-relevant-tests/invalid.dat
+PASS packaged:undecodable-relevant-docs/prd/invalid.md
+PASS packaged:undecodable-relevant-docs/roadmap/index.md
+PASS packaged:undecodable-derived-source
+{"passed":10,"failed":16}

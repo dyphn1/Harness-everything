@@ -1,5 +1,9 @@
 # To Spec — Full Process Reference
 
+Before drafting, read `<skills-repo-root>/harness-everything/references/documentation/_shared/writing-craft.md`; for governed-doc events, follow `<skills-repo-root>/harness-everything/references/documentation/_shared/maintenance.md`.
+`<skills-repo-root>` is the directory that holds the sibling skill directories: the source checkout root, or `<plugin-root>/skills` when packaged.
+If the harness-everything skill is not installed, say the shared reference is unavailable.
+
 ## Path Resolution Flow (Step 0)
 
 ```mermaid

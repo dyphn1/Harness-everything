@@ -105,19 +105,91 @@ function getAvailableScripts() {
   }
 }
 
+// Mirrors ../index.mjs's verification budget and outcome classification so
+// the manual CLI cannot drift from the plugin. A 60s cap killed healthy
+// ~2 minute self-regression runs. Only `test_failure` (a real non-zero exit)
+// is a confirmed failing check; `timeout` and `execution_error` mean the run
+// produced no verdict. A signal alone is not a budget timeout - only expiry
+// (ETIMEDOUT, or a kill with no exit status once the budget elapsed) is.
+const VERIFY_TIMEOUT_ENV = 'HARNESS_VERIFY_TIMEOUT_MS';
+const DEFAULT_VERIFY_TIMEOUT_MS = 600000;
+const VERIFY_MAX_BUFFER = 16 * 1024 * 1024;
+const VERIFY_OUTPUT_LIMIT = 2000;
+
+function verifyTimeoutMs() {
+  const raw = Number(process.env[VERIFY_TIMEOUT_ENV]);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_VERIFY_TIMEOUT_MS;
+}
+
+// Full failure evidence for signature analysis (stdout and stderr both, in
+// full) - kept identical to ../index.mjs's inlined copy.
+function verificationEvidence(stdout, stderr) {
+  const out = String(stdout || '');
+  const err = String(stderr || '');
+  if (out && err) return `${out}\nstderr:\n${err}`;
+  return out || err;
+}
+
+// Bounded excerpt that keeps both ends (npm banner plus failure tail).
+function boundedDiagnostic(text, limit) {
+  const value = String(text || '');
+  if (value.length <= limit) return value;
+  const half = Math.floor(limit / 2);
+  return `${value.slice(0, half)}\n... [${value.length - half * 2} chars omitted] ...\n${value.slice(-half)}`;
+}
+
+// User-visible diagnostic: both streams get their own budget; a single
+// non-empty stream stays label-free.
+function verificationDiagnostic(stdout, stderr) {
+  const out = String(stdout || '');
+  const err = String(stderr || '');
+  if (out && err) {
+    const share = Math.floor(VERIFY_OUTPUT_LIMIT / 2);
+    return `stdout:\n${boundedDiagnostic(out, share)}\nstderr:\n${boundedDiagnostic(err, share)}`;
+  }
+  return boundedDiagnostic(out || err, VERIFY_OUTPUT_LIMIT);
+}
+
+function classifyVerificationError(error, startedAt, timeout) {
+  const code = String((error && error.code) || '');
+  const signal = String((error && error.signal) || '');
+  const exitCode = error && Number.isInteger(error.status) ? error.status : null;
+  const budgetExpired =
+    code === 'ETIMEDOUT' || (exitCode === null && Date.now() - startedAt >= timeout);
+  if (budgetExpired) return { outcome: 'timeout', exitCode, signal, timedOut: true };
+  if (exitCode === null || ['ENOBUFS', 'ENOENT', 'EACCES', 'EAGAIN', 'ENOMEM'].includes(code)) {
+    return { outcome: 'execution_error', exitCode, signal, timedOut: false };
+  }
+  return { outcome: 'test_failure', exitCode, signal, timedOut: false };
+}
+
 function runVerification(command) {
+  const timeout = verifyTimeoutMs();
+  const startedAt = Date.now();
   try {
-    execSync(command, { 
+    execSync(command, {
       stdio: 'pipe',
-      timeout: 60000 // 60 second timeout
+      timeout,
+      maxBuffer: VERIFY_MAX_BUFFER
     });
-    return { success: true, command };
+    return { success: true, command, outcome: 'pass', exitCode: 0, signal: null, timedOut: false };
   } catch (e) {
-    return { 
-      success: false, 
-      command,
-      error: e.message.slice(0, 200)
-    };
+    const stdout = (e.stdout || '').toString();
+    const stderr = (e.stderr || '').toString();
+    const output = verificationEvidence(stdout, stderr) || String((e && e.message) || '');
+    const { outcome, exitCode, signal, timedOut } = classifyVerificationError(e, startedAt, timeout);
+    let error;
+    if (outcome === 'timeout') {
+      error = `timed out after ${Math.round(timeout / 1000)}s (set ${VERIFY_TIMEOUT_ENV} to raise it)`;
+    } else if (outcome === 'execution_error') {
+      const reason = String((e && e.code) || (signal ? `signal ${signal}` : 'no exit status'));
+      error = `could not run to completion (execution error: ${reason}); output: ${output.slice(0, 200).replace(/\s+/g, ' ').trim() || '(none)'}`;
+    } else {
+      error = verificationDiagnostic(stdout, stderr) || String((e && e.message) || '');
+    }
+    const result = { success: false, command, outcome, exitCode, signal, timedOut, error };
+    if (outcome === 'test_failure' && output) result.evidence = output;
+    return result;
   }
 }
 
@@ -164,11 +236,13 @@ function main() {
     }
   }
   
-  // Update state
+  // Update state. The full `evidence` strings are analysis-only (they can
+  // approach VERIFY_MAX_BUFFER); persist just the bounded diagnostic so
+  // edit-state.json stays small.
   state.verificationPending = !allPassed;
   state.editsSinceVerification = allPassed ? 0 : state.editsSinceVerification;
   state.lastVerificationTime = Date.now();
-  state.verificationResults = results;
+  state.verificationResults = results.map(({ evidence, ...rest }) => rest);
   
   saveState(state);
   
@@ -179,7 +253,9 @@ function main() {
     allPassed,
     results: results.map(r => ({
       command: r.command,
-      success: r.success
+      success: r.success,
+      outcome: r.outcome,
+      timedOut: r.timedOut === true
     })),
     message: allPassed 
       ? 'All available verification passed. You can now complete.'

@@ -5,12 +5,14 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { spawnSync } = require('child_process');
 
 const PACKAGE_ROOT = path.resolve(__dirname, '..');
 const SOURCE_PLUGIN_ROOT = path.join(PACKAGE_ROOT, 'plugins', 'harness-everything');
 const PACKAGE_VERSION = require(path.join(PACKAGE_ROOT, 'package.json')).version;
 const MANIFEST_SCHEMA = 1;
 const MANIFEST_MODE = 'codex-user-hooks-compat';
+const RUNTIME_NAME_RE = /^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?-([0-9a-f]{12})$/;
 
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
@@ -26,7 +28,8 @@ function sha256(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
-function treeHash(root) {
+// `include` (relative paths) limits a Git-tracked source to its released file set.
+function treeHash(root, include = null) {
   if (fs.lstatSync(root).isSymbolicLink()) {
     throw new Error('refusing linked compatibility runtime: ' + root);
   }
@@ -36,7 +39,9 @@ function treeHash(root) {
       const full = path.join(dir, entry.name);
       const rel = path.relative(root, full).replace(/\\/g, '/');
       if (entry.isDirectory()) walk(full);
-      else if (entry.isFile()) rows.push(rel + ':' + sha256(fs.readFileSync(full)));
+      else if (entry.isFile()) {
+        if (!include || include.has(rel)) rows.push(rel + ':' + sha256(fs.readFileSync(full)));
+      }
       else if (entry.isSymbolicLink()) throw new Error('refusing linked compatibility runtime entry: ' + full);
     }
   }
@@ -182,6 +187,19 @@ function readManifest(file, expectedPaths = null) {
     throw new Error('refusing unknown/corrupt Harness compatibility manifest: ' + file);
   }
 
+  if (data.previousRuntimeDir != null) {
+    const previous = data.previousRuntimeDir;
+    const previousHash = data.previousSourcePluginSha256;
+    const match = typeof previous === 'string' && RUNTIME_NAME_RE.exec(path.basename(previous));
+    if (!match ||
+        !samePath(path.dirname(previous), expectedPaths.runtimeRoot) ||
+        (previousHash != null && (typeof previousHash !== 'string' ||
+          !/^[0-9a-f]{64}$/.test(previousHash) || previousHash.slice(0, 12) !== match[1]))) {
+      throw new Error('refusing corrupt previous compatibility runtime: ' + file);
+    }
+    assertOwnedPath(expectedPaths.codexHome, previous, 'previous runtime');
+  }
+
   const allowed = new Map();
   for (const record of hookEntriesFrom(path.resolve(data.runtimeDir), path.resolve(data.runtimeDir))) {
     const key = record.event + '\0' + record.hash;
@@ -307,7 +325,21 @@ function sourceHookEntries(runtimeDir, sourcePluginRoot = SOURCE_PLUGIN_ROOT) {
   return hookEntriesFrom(sourcePluginRoot, runtimeDir);
 }
 
-function ensureRuntime(runtimeDir, sourceHash, sourcePluginRoot = SOURCE_PLUGIN_ROOT) {
+// Filesystem integrity only: Codex hook trust and dispatch are not observable here.
+function previousRuntimeHealth(manifest) {
+  const runtimeDir = manifest.previousRuntimeDir;
+  if (!runtimeDir) return { status: 'none', runtimeDir: null, healthy: true };
+  if (!fs.existsSync(runtimeDir)) return { status: 'missing', runtimeDir, healthy: false };
+  const actual = treeHash(runtimeDir);
+  const intact = manifest.previousSourcePluginSha256
+    ? actual === manifest.previousSourcePluginSha256
+    : actual.slice(0, 12) === RUNTIME_NAME_RE.exec(path.basename(runtimeDir))[1];
+  return intact
+    ? { status: 'present', runtimeDir, healthy: true }
+    : { status: 'modified', runtimeDir, healthy: false };
+}
+
+function ensureRuntime(runtimeDir, sourceHash, sourcePluginRoot = SOURCE_PLUGIN_ROOT, include = null) {
   if (fs.existsSync(runtimeDir)) {
     if (treeHash(runtimeDir) === sourceHash) return;
     fs.rmSync(runtimeDir, { recursive: true, force: true });
@@ -316,7 +348,11 @@ function ensureRuntime(runtimeDir, sourceHash, sourcePluginRoot = SOURCE_PLUGIN_
   const temp = runtimeDir + '.tmp-' + process.pid;
   try {
     fs.rmSync(temp, { recursive: true, force: true });
-    fs.cpSync(sourcePluginRoot, temp, { recursive: true });
+    fs.cpSync(sourcePluginRoot, temp, {
+      recursive: true,
+      filter: src => !include || fs.lstatSync(src).isDirectory() ||
+        include.has(path.relative(sourcePluginRoot, src).replace(/\\/g, '/')),
+    });
     if (treeHash(temp) !== sourceHash) throw new Error('copied compatibility runtime hash mismatch');
     fs.renameSync(temp, runtimeDir);
   } finally {
@@ -324,13 +360,194 @@ function ensureRuntime(runtimeDir, sourceHash, sourcePluginRoot = SOURCE_PLUGIN_
   }
 }
 
+// Inspect the actual source rather than the installer checkout or caller CWD.
+// An enclosing repository only owns this source if it tracks a plugin manifest.
+// Returns the tracked file set for a Git-owned source, or null to copy the whole tree.
+// Ignored files (.DS_Store, __pycache__) are excluded from the runtime instead of refusing.
+function releasedSourceFiles(sourcePluginRoot, allowUnreleasedSource) {
+  if (allowUnreleasedSource) return null;
+  let root = fs.realpathSync(sourcePluginRoot);
+  while (!fs.existsSync(path.join(root, '.git'))) {
+    const parent = path.dirname(root);
+    if (parent === root) return null;
+    root = parent;
+  }
+  const sourceRelative = path.relative(root, fs.realpathSync(sourcePluginRoot)).replace(/\\/g, '/');
+  let tracked = false;
+  for (const manifest of ['.codex-plugin/plugin.json', 'plugin.json']) {
+    const relative = path.posix.join(sourceRelative, manifest);
+    const result = spawnSync('git', ['-C', root, 'ls-files', '--error-unmatch', '--', ':(literal)' + relative], {
+      encoding: 'utf8',
+    });
+    if (result.error || ![0, 1].includes(result.status)) {
+      throw new Error('refusing unverifiable Git source; use --allow-unreleased-source explicitly');
+    }
+    if (result.status === 0) { tracked = true; break; }
+  }
+  if (!tracked) return null;
+  if (fs.statSync(path.join(root, '.git')).isFile()) {
+    throw new Error('refusing unreleased linked Git worktree source; use --allow-unreleased-source explicitly');
+  }
+  const pathspec = ':(literal)' + (sourceRelative || '.');
+  const result = spawnSync('git', ['-C', root, 'status', '--porcelain', '--untracked-files=all',
+    '--', pathspec], { encoding: 'utf8' });
+  if (result.error || result.status !== 0 || result.stdout.trim()) {
+    throw new Error('refusing dirty or unverifiable Git source; use --allow-unreleased-source explicitly');
+  }
+  const listed = spawnSync('git', ['-C', root, 'ls-files', '-z', '--', pathspec], { encoding: 'utf8' });
+  if (listed.error || listed.status !== 0) {
+    throw new Error('refusing unverifiable Git source; use --allow-unreleased-source explicitly');
+  }
+  const prefix = sourceRelative ? sourceRelative + '/' : '';
+  return new Set(listed.stdout.split('\0').filter(Boolean)
+    .filter(file => file.startsWith(prefix)).map(file => file.slice(prefix.length)));
+}
+
+const LOCK_STALE_MS = 10 * 60 * 1000;
+const GUARD_STALE_MS = 30 * 1000;
+const LOCK_TIMEOUT_MS = 60 * 1000;
+
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function readLockOwner(dir) {
+  try { return JSON.parse(fs.readFileSync(path.join(dir, 'owner.json'), 'utf8')); }
+  catch (_) { return null; }
+}
+
+// Returns the stale owner's token (or '' for an ownerless/corrupt dir), or null when not stale.
+function staleLockToken(dir, staleMs) {
+  const owner = readLockOwner(dir);
+  if (owner && owner.hostname === os.hostname() && Number.isInteger(owner.pid) && owner.pid > 0) {
+    try { process.kill(owner.pid, 0); return null; }
+    catch (error) { return error.code === 'ESRCH' ? String(owner.token || '') : null; }
+  }
+  // Foreign-host or unreadable owner: only age proves abandonment.
+  try { return Date.now() - fs.statSync(dir).mtimeMs > staleMs ? String((owner && owner.token) || '') : null; }
+  catch (_) { return null; }
+}
+
+// Creates `dir` together with its owner record: rename never replaces a non-empty
+// directory, so a lock is never observable without its owner token.
+function tryCreateLockDir(dir, token) {
+  const pending = dir + '.pending-' + token;
+  fs.mkdirSync(pending);
+  try {
+    fs.writeFileSync(path.join(pending, 'owner.json'), JSON.stringify({
+      pid: process.pid,
+      hostname: os.hostname(),
+      token,
+      createdAt: new Date().toISOString(),
+    }));
+    fs.renameSync(pending, dir);
+    return true;
+  } catch (error) {
+    if (!['EEXIST', 'ENOTEMPTY', 'EPERM', 'EACCES', 'EBUSY'].includes(error.code)) throw error;
+    return false;
+  } finally {
+    try { fs.rmSync(pending, { recursive: true, force: true }); } catch (_) {}
+  }
+}
+
+// Removes `dir` only if it still carries `expectedToken`. The rename isolates one exact
+// directory; a mismatched (live) owner is put back instead of being deleted.
+function removeLockDirIfOwned(dir, expectedToken, onRenamed) {
+  const tomb = dir + '.tomb-' + crypto.randomBytes(6).toString('hex');
+  try { fs.renameSync(dir, tomb); } catch (_) { return false; }
+  if (onRenamed) onRenamed();
+  const owner = readLockOwner(tomb);
+  if (String((owner && owner.token) || '') === expectedToken) {
+    fs.rmSync(tomb, { recursive: true, force: true });
+    return true;
+  }
+  try { fs.renameSync(tomb, dir); } catch (_) {}
+  return false;
+}
+
+function waitOrTimeout(deadline, lockDir) {
+  if (Date.now() >= deadline) {
+    throw new Error('timed out waiting for Harness compatibility lock ' + lockDir +
+      '; remove it only if no Harness codex-hooks install/uninstall is running');
+  }
+  sleepSync(25 + Math.floor(Math.random() * 50));
+}
+
+// The guard serializes every non-holder mutation of the main lock path (acquire and
+// stale reclaim), so a stale observation is always revalidated before it is acted on.
+// It is held for milliseconds; a guard left by a crash is reclaimed by token after
+// its owner dies or GUARD_STALE_MS passes.
+function withGuard(guardDir, deadline, fn) {
+  const token = crypto.randomBytes(12).toString('hex');
+  while (!tryCreateLockDir(guardDir, token)) {
+    const stale = staleLockToken(guardDir, GUARD_STALE_MS);
+    if (stale === null || !removeLockDirIfOwned(guardDir, stale)) waitOrTimeout(deadline, guardDir);
+  }
+  try { return fn(); }
+  finally { removeLockDirIfOwned(guardDir, token); }
+}
+
+// Serializes read-manifest → prepare runtime → commit hooks/manifest → collect runtimes
+// across processes, so one installer's GC cannot delete another installer's runtime.
+function withOwnerLock(paths, options, fn) {
+  const lockDir = paths.ownerRoot + '.lock';
+  const guardDir = lockDir + '.guard';
+  assertOwnedPath(paths.codexHome, lockDir, 'compatibility lock');
+  assertOwnedPath(paths.codexHome, guardDir, 'compatibility lock guard');
+  fs.mkdirSync(path.dirname(lockDir), { recursive: true });
+  const timeoutMs = Number.isFinite(options.lockTimeoutMs) ? options.lockTimeoutMs : LOCK_TIMEOUT_MS;
+  const deadline = Date.now() + timeoutMs;
+  const emit = event => { if (typeof options.onLockEvent === 'function') options.onLockEvent(event); };
+  const token = crypto.randomBytes(12).toString('hex');
+  for (;;) {
+    const acquired = withGuard(guardDir, deadline, () => {
+      if (tryCreateLockDir(lockDir, token)) return true;
+      const stale = staleLockToken(lockDir, LOCK_STALE_MS);
+      if (stale === null) return false;
+      emit('stale-observed');
+      // Revalidated under the guard; still token-checked in case a crashed guard was reclaimed.
+      return removeLockDirIfOwned(lockDir, stale, () => emit('reclaim-renamed')) &&
+        tryCreateLockDir(lockDir, token);
+    });
+    if (acquired) break;
+    waitOrTimeout(deadline, lockDir);
+  }
+  try {
+    return fn();
+  } finally {
+    // Only this holder's own token is released; a live same-host holder is never stale.
+    removeLockDirIfOwned(lockDir, token);
+  }
+}
+
+function collectRuntimes(paths, keep) {
+  if (!fs.existsSync(paths.runtimeRoot)) return;
+  for (const name of fs.readdirSync(paths.runtimeRoot)) {
+    // Only fingerprinted runtime directories belong to this installer.
+    if (!RUNTIME_NAME_RE.test(name)) continue;
+    const runtime = path.join(paths.runtimeRoot, name);
+    if (keep.some(retained => retained && samePath(runtime, retained))) continue;
+    assertOwnedPath(paths.codexHome, runtime, 'retired runtime');
+    fs.rmSync(runtime, { recursive: true, force: true });
+  }
+}
+
 function install(options = {}) {
   const codexHome = path.resolve(options.codexHome || defaultCodexHome(options.env));
   const sourcePluginRoot = path.resolve(options.sourcePluginRoot || SOURCE_PLUGIN_ROOT);
+  const include = releasedSourceFiles(sourcePluginRoot, options.allowUnreleasedSource);
   const packageVersion = sourcePluginVersion(sourcePluginRoot);
-  const sourceHash = treeHash(sourcePluginRoot);
+  const sourceHash = treeHash(sourcePluginRoot, include);
   const p = pathsFor(codexHome, sourceHash, packageVersion);
   assertCompatibilityPaths(p);
+  return withOwnerLock(p, options, () => installLocked(p, {
+    codexHome, sourcePluginRoot, include, packageVersion, sourceHash,
+    onRuntimeReady: options.onRuntimeReady,
+  }));
+}
+
+// Every manifest read and runtime/hooks write happens inside the owner lock.
+function installLocked(p, { codexHome, sourcePluginRoot, include, packageVersion, sourceHash, onRuntimeReady }) {
   const existedBefore = fs.existsSync(p.hooksFile);
   const hooksBefore = existedBefore ? fs.readFileSync(p.hooksFile) : null;
   const runtimeExistedBefore = fs.existsSync(p.runtimeDir);
@@ -346,7 +563,9 @@ function install(options = {}) {
     base = removal.config;
   }
 
-  ensureRuntime(p.runtimeDir, sourceHash, sourcePluginRoot);
+  ensureRuntime(p.runtimeDir, sourceHash, sourcePluginRoot, include);
+  // Test seam: lets regressions force two installers to overlap before commit.
+  if (typeof onRuntimeReady === 'function') onRuntimeReady(p.runtimeDir);
   assertCompatibilityPaths(p);
   const generated = sourceHookEntries(p.runtimeDir, sourcePluginRoot);
   const ownedEntries = [];
@@ -360,6 +579,13 @@ function install(options = {}) {
     next.hooks[record.event] = list;
   }
 
+  // A lost or modified previous runtime cannot be restored; drop it so status recovers.
+  let previous = null;
+  if (prior && !samePath(prior.runtimeDir, p.runtimeDir)) {
+    previous = { runtimeDir: prior.runtimeDir, sourcePluginSha256: prior.sourcePluginSha256 };
+  } else if (prior && previousRuntimeHealth(prior).status === 'present') {
+    previous = { runtimeDir: prior.previousRuntimeDir, sourcePluginSha256: prior.previousSourcePluginSha256 || null };
+  }
   const manifest = {
     schemaVersion: MANIFEST_SCHEMA,
     package: 'harness-everything',
@@ -367,6 +593,8 @@ function install(options = {}) {
     packageVersion,
     sourcePluginSha256: sourceHash,
     runtimeDir: p.runtimeDir,
+    previousRuntimeDir: previous ? previous.runtimeDir : null,
+    previousSourcePluginSha256: previous ? previous.sourcePluginSha256 : null,
     hooksFile: p.hooksFile,
     createdHooksFile: prior ? Boolean(prior.createdHooksFile) : !existedBefore,
     installedAt: new Date().toISOString(),
@@ -389,11 +617,7 @@ function install(options = {}) {
     throw error;
   }
 
-  if (prior && prior.runtimeDir && path.resolve(prior.runtimeDir) !== path.resolve(p.runtimeDir)) {
-    const ownedRoot = path.resolve(p.runtimeRoot) + path.sep;
-    const oldRuntime = path.resolve(prior.runtimeDir);
-    if (oldRuntime.startsWith(ownedRoot)) fs.rmSync(oldRuntime, { recursive: true, force: true });
-  }
+  collectRuntimes(p, [manifest.runtimeDir, manifest.previousRuntimeDir]);
 
   return {
     status: prior ? 'updated' : 'installed',
@@ -411,8 +635,17 @@ function uninstall(options = {}) {
   const codexHome = path.resolve(options.codexHome || defaultCodexHome(options.env));
   const p = pathsFor(codexHome);
   assertCompatibilityPaths(p);
+  const notInstalled = { status: 'not-installed', codexHome, removed: 0, trustChanged: false };
+  // Avoid creating lock directories in a Codex home that was never installed.
+  if (!fs.existsSync(p.manifestFile)) return notInstalled;
+  const result = withOwnerLock(p, options, () => uninstallLocked(p, codexHome) || notInstalled);
+  try { fs.rmdirSync(path.dirname(p.ownerRoot)); } catch (_) {}
+  return result;
+}
+
+function uninstallLocked(p, codexHome) {
   const prior = readManifest(p.manifestFile, p);
-  if (!prior) return { status: 'not-installed', codexHome, removed: 0, trustChanged: false };
+  if (!prior) return null;
 
   const hooksFileExists = fs.existsSync(p.hooksFile);
   const config = readHooksFile(p.hooksFile);
@@ -437,15 +670,10 @@ function uninstall(options = {}) {
     atomicWriteJson(p.hooksFile, next);
   }
 
-  if (prior.runtimeDir) {
-    const ownedRoot = path.resolve(p.runtimeRoot) + path.sep;
-    const runtime = path.resolve(prior.runtimeDir);
-    if (runtime.startsWith(ownedRoot)) fs.rmSync(runtime, { recursive: true, force: true });
-  }
+  collectRuntimes(p, []);
   fs.rmSync(p.manifestFile, { force: true });
   try { fs.rmdirSync(p.runtimeRoot); } catch (_) {}
   try { fs.rmdirSync(p.ownerRoot); } catch (_) {}
-  try { fs.rmdirSync(path.dirname(p.ownerRoot)); } catch (_) {}
 
   return {
     status: 'uninstalled',
@@ -465,13 +693,22 @@ function status(options = {}) {
   const config = readHooksFile(p.hooksFile);
   const removal = removePriorEntries(config, prior);
   const expected = prior.entries.length;
-  const healthy = removal.removed.length === expected && removal.drift.length === 0 &&
-    fs.existsSync(prior.runtimeDir) && treeHash(prior.runtimeDir) === prior.sourcePluginSha256;
+  const currentHealthy = fs.existsSync(prior.runtimeDir) && treeHash(prior.runtimeDir) === prior.sourcePluginSha256;
+  const previousRuntime = previousRuntimeHealth(prior);
+  const entriesHealthy = removal.removed.length === expected && removal.drift.length === 0;
+  const healthy = entriesHealthy && currentHealthy && previousRuntime.healthy;
+  const reason = healthy ? 'codex-hook-trust-state-is-not-readable-here'
+    : !entriesHealthy || !currentHealthy ? 'compatibility-hooks-unhealthy'
+      : 'previous-runtime-' + previousRuntime.status;
   return {
     installed: true,
     codexHome,
     hooksFile: p.hooksFile,
     runtimeDir: prior.runtimeDir,
+    runtimes: {
+      current: { status: currentHealthy ? 'present' : 'missing-or-modified', runtimeDir: prior.runtimeDir, healthy: currentHealthy },
+      previous: previousRuntime,
+    },
     packageVersion: prior.packageVersion,
     sourcePluginSha256: prior.sourcePluginSha256,
     expectedEntries: expected,
@@ -479,8 +716,9 @@ function status(options = {}) {
     drift: removal.drift,
     healthy,
     observationCapture: {
-      status: healthy ? 'configured-unverified' : 'inactive',
-      reason: healthy ? 'codex-hook-trust-state-is-not-readable-here' : 'compatibility-hooks-unhealthy',
+      // A lost previous runtime breaks older sessions, not new-session capture.
+      status: entriesHealthy && currentHealthy ? 'configured-unverified' : 'inactive',
+      reason,
       trustRequired: true,
     },
     trustChanged: false,
@@ -490,14 +728,16 @@ function status(options = {}) {
 function parseArgs(argv) {
   const action = argv[0] || 'status';
   if (!['install', 'uninstall', 'status'].includes(action)) {
-    throw new Error('Usage: harness codex-hooks <install|uninstall|status> [--codex-home <path>]');
+    throw new Error('Usage: harness codex-hooks <install|uninstall|status> [--codex-home <path>] [--allow-unreleased-source]');
   }
   let codexHome;
+  let allowUnreleasedSource = false;
   for (let i = 1; i < argv.length; i++) {
     if (argv[i] === '--codex-home') codexHome = path.resolve(argv[++i]);
+    else if (argv[i] === '--allow-unreleased-source') allowUnreleasedSource = true;
     else throw new Error('unknown argument: ' + argv[i]);
   }
-  return { action, codexHome };
+  return { action, codexHome, allowUnreleasedSource };
 }
 
 function main(argv = process.argv.slice(2)) {
@@ -510,7 +750,7 @@ function main(argv = process.argv.slice(2)) {
 
   try {
     const result = args.action === 'install'
-      ? install({ codexHome: args.codexHome })
+      ? install({ codexHome: args.codexHome, allowUnreleasedSource: args.allowUnreleasedSource })
       : args.action === 'uninstall'
         ? uninstall({ codexHome: args.codexHome })
         : status({ codexHome: args.codexHome });

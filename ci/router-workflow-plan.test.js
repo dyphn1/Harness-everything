@@ -27,6 +27,12 @@ function check(condition, message) {
   }
 }
 
+function reviewBindingIds(run) {
+  const text = `${run.result.stdout || ''}\n${run.result.stderr || ''}`;
+  const line = text.match(/Candidate step binding ids: ([^\r\n]+)/);
+  return line ? line[1].split(',').map(id => id.trim()).filter(Boolean) : [];
+}
+
 function runTier(prompt, options = {}) {
   const contractPath = path.join(os.tmpdir(), `harness-router-test-${process.pid}-${Math.random().toString(16).slice(2)}.json`);
   const context = options.context || null;
@@ -89,6 +95,36 @@ if (validContract(iterative, 'iterative-single')) {
   check(!plan.knowledgeSignals.some(signal => signal.includes('/') || signal.endsWith('.md')), 'knowledge signals do not directly select documents');
   check(plan.memory.write === 'none', 'ordinary iterative work cannot write durable memory');
   check(!plan.requiredInvariants.includes('tdd'), 'binding ids remain step-local rather than workflow invariants');
+}
+
+const reviewPositives = [
+  'Review PR #412 before we merge it',
+  'Review pull request #412',
+  'Review this PR before merge',
+  'Review the diff',
+  'Review the implementation',
+  'Re-review the fix at the new HEAD',
+];
+const reviewNegatives = [
+  'review project plan',
+  'review proposal',
+  'review process',
+  'preview pr environment',
+  'Review this proposal',
+  'Review the project plan',
+  'Review my process',
+  'Re-review the problem statement',
+  'Review my implementation plan, ask one question at a time',
+  'Preview the diff rendering',
+  'Preview PR #412 environment',
+];
+for (const prompt of reviewPositives) {
+  const run = runTier(prompt);
+  check(reviewBindingIds(run).includes('code-review'), `review signal: ${JSON.stringify(prompt)} yields the code-review candidate`);
+}
+for (const prompt of reviewNegatives) {
+  const run = runTier(prompt);
+  check(!reviewBindingIds(run).includes('code-review'), `review signal: ${JSON.stringify(prompt)} stays code-review-free`);
 }
 
 const memoryPersist = runTier('Persist this lesson as memory after resolving the checkout regression.');

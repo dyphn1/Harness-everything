@@ -7,15 +7,20 @@ const { loadWorkflow, saveWorkflow, matchingRun, OPEN_STATES, WORKFLOW_CONTROLLE
 const { getWorkspaceRoot, readCurrentSession } = require('./lib/harness-state');
 const { atomicWriteJson, readJson } = require('./lib/fable-contracts');
 const { resolveBinding } = require('./lib/binding-resolver');
-const {
-  planningUnresolved,
-  recordPlanning,
-  materializeExecutionObligations,
-  updateObligation,
-  updateBinding,
-  updateStep,
-  activeStepSnapshot,
-} = require('./lib/workflow-obligations');
+
+let obligationApi;
+function workflowObligations() {
+  if (!obligationApi) obligationApi = require('./lib/workflow-obligations');
+  return obligationApi;
+}
+
+const planningUnresolved = (...args) => workflowObligations().planningUnresolved(...args);
+const recordPlanning = (...args) => workflowObligations().recordPlanning(...args);
+const materializeExecutionObligations = (...args) => workflowObligations().materializeExecutionObligations(...args);
+const updateObligation = (...args) => workflowObligations().updateObligation(...args);
+const updateBinding = (...args) => workflowObligations().updateBinding(...args);
+const updateStep = (...args) => workflowObligations().updateStep(...args);
+const activeStepSnapshot = (...args) => workflowObligations().activeStepSnapshot(...args);
 
 const ALLOWED_ESCAPE_REASONS = new Set(['workflow-uncovered-scope', 'host-capability-unavailable']);
 
@@ -149,6 +154,12 @@ function activatePlan(workflow, plan) {
 }
 
 function main() {
+  // The step-type registry loads lazily through the wrappers above, only for commands that
+  // consume typed obligations; the top-level handler turns a load failure into one semantic line.
+  if (process.argv[2] === '--help' || process.argv[2] === '-h') {
+    process.stdout.write(usage() + '\n');
+    return;
+  }
   const args = parseArgs(process.argv.slice(2));
   if (!WORKFLOW_CONTROLLER_COMMANDS.has(args.command)) throw new Error(usage());
   const sessionId = args.sessionId || readCurrentSession(getWorkspaceRoot());
@@ -162,6 +173,7 @@ function main() {
     if (!['pending', 'active'].includes(workflow.state)) throw new Error('requirements/workflow composition belongs before execution starts');
     const selectedPlan = recomposePlan(workflow, args.strategy);
     const result = recordPlanning(context, args.requirementsJson, selectedPlan, args.strategy, args.evidence);
+    require('./lib/doc-reconciliation-pilot').captureBaseline(context);
     saveWorkflow(context);
     process.stdout.write(JSON.stringify({
       state: workflow.state,
@@ -181,6 +193,7 @@ function main() {
     const unresolvedPlanning = planningUnresolved(context, plan);
     if (unresolvedPlanning.length) throw new Error('resolve requirement decomposition/workflow selection first: ' + unresolvedPlanning.join(', '));
 
+    require('./lib/doc-reconciliation-pilot').captureBaseline(context);
     if (!String(plan.strategy || '').startsWith('fable-')) {
       activatePlan(workflow, plan);
       workflow.revision++;

@@ -1,0 +1,617 @@
+{
+  "schemaVersion": 1,
+  "phase": "325-3b-S2a",
+  "description": "S2a RED vectors. Expected MUST sets are validated against the existing unchanged derive API (doc-obligations.js) at suite time and by the R2a run; regression pins are the current outputs of the unchanged deriveDocFacts, deriveDocObligations and checkDocObligations on the fixed inputs named here. Flips apply to one property of the eligible positive vector (event mutators) or re-capture the producer from a changed input while keeping the old accepted events (recapture mutators). Expected codes are the S2a reason codes from docs/doc-workflow-reconciliation.md; where the spec table admits two codes for one flip, both are listed and the choice is recorded in the report.",
+  "deriveConfig": "ci/fixtures/doc-obligations/derive/config.json",
+  "identityFields": [
+    "workspaceId",
+    "sessionId",
+    "workflowId",
+    "workflowRevision",
+    "taskId",
+    "taskScopeDigest",
+    "baselineDigest",
+    "candidateDigest",
+    "configDigest",
+    "prdRoot"
+  ],
+  "vectors": {
+    "normative": {
+      "description": "Normative PRD change with approval missing. quality-review is supplied by an approving review; the other three applicable MUSTs (doc-lint, link-check, conflict-check) are supplied by complete execution records, because the unchanged checker satisfies only quality-review through the review lane.",
+      "deriveCase": "missing-approval",
+      "expectedMustIds": [
+        "doc-change:conflict-check",
+        "doc-change:doc-lint",
+        "doc-change:link-check",
+        "doc-change:quality-review"
+      ],
+      "eventKindByMust": {
+        "doc-change:doc-lint": "execution",
+        "doc-change:link-check": "execution",
+        "doc-change:quality-review": "review",
+        "doc-change:conflict-check": "execution"
+      }
+    },
+    "nonnormative": {
+      "description": "Non-normative governed reference prose: quality-review and conflict-check are not applicable, so review is not forced.",
+      "deriveCase": "docs-only",
+      "expectedMustIds": [
+        "doc-change:doc-lint",
+        "doc-change:link-check"
+      ],
+      "eventKindByMust": {
+        "doc-change:doc-lint": "execution",
+        "doc-change:link-check": "execution"
+      }
+    },
+    "code-only": {
+      "description": "Code change with no REQ-citing test: requirement-sync is unknown (a MUST) and must stay unresolved.",
+      "deriveCase": "code-only",
+      "expectedMustIds": [
+        "doc-change:requirement-sync"
+      ],
+      "unknownMustIds": [
+        "doc-change:requirement-sync"
+      ]
+    },
+    "nondocument": {
+      "description": "Non-code, non-governed asset change: no applicable or unknown document MUST, so legacy and never verified.",
+      "files": {
+        "base": {
+          "assets/notes.txt": "Release notes draft.\n"
+        },
+        "candidate": {
+          "assets/notes.txt": "Release notes draft, revised.\n"
+        }
+      },
+      "expectedMustIds": []
+    },
+    "a08": {
+      "description": "A08 maps: non-document baseline (assets/notes.txt) and a candidate that revises the asset and adds the normative PRD. The expected set is the five MUSTs derived from these maps by unchanged deriveDocObligations; outline-confirmation is applicable because the PRD is new.",
+      "files": {
+        "base": {
+          "assets/notes.txt": "Release notes draft.\n"
+        },
+        "candidate": {
+          "assets/notes.txt": "Release notes draft, revised.\n",
+          "docs/prd/graph.md": "---\nid: \"PRD-GRPH-001\"\nrevision: 1\nstatus: \"effective\"\ndrafted_by: \"Alice Example\"\neffective_at: \"2026-10-17T00:01:00Z\"\napproval:\n  by: \"Bob Independent\"\n  at: \"2026-10-17T00:00:00Z\"\n  ref: \"https://approvals.example.invalid/PRD-GRPH-001\"\n  role: \"human\"\n  content_digest: \"sha256:c5bc6c8aa29b39198eec91b7af210a946896d9b7975b9c72540ddd4a4bfb37ea\"\n---\n# Graph\n\n### REQ-GRPH-001\n\nThe router records one or more topologies per task.\n\nAcceptance: one or more topologies are recorded.\n"
+        }
+      },
+      "expectedMustIds": [
+        "doc-change:conflict-check",
+        "doc-change:doc-lint",
+        "doc-change:link-check",
+        "doc-change:outline-confirmation",
+        "doc-change:quality-review"
+      ],
+      "eventKindByMust": {
+        "doc-change:doc-lint": "execution",
+        "doc-change:link-check": "execution",
+        "doc-change:conflict-check": "execution",
+        "doc-change:outline-confirmation": "execution",
+        "doc-change:quality-review": "review"
+      }
+    }
+  },
+  "fixedTask": {
+    "taskId": "task-s2a-001",
+    "requirements": [
+      {
+        "id": "req-docs",
+        "stepType": "doc-change",
+        "summary": "Update the PRD REQ text",
+        "acceptance": "normative PRD text is reviewed",
+        "bindings": []
+      },
+      {
+        "id": "req-verify",
+        "stepType": "verification",
+        "summary": "Verify the PRD change",
+        "acceptance": "objective doc checks are recorded",
+        "bindings": [
+          {
+            "id": "verification-loop"
+          }
+        ]
+      }
+    ]
+  },
+  "fixedWorkflow": {
+    "workflowId": "wf-s2a-001",
+    "workflowRevision": 2,
+    "sessionId": "session-s2a-001"
+  },
+  "principals": {
+    "author": "author-principal",
+    "executor": "executor-principal",
+    "reviewer": "reviewer-principal"
+  },
+  "flips": [
+    {
+      "id": "tuple-workspaceId",
+      "kind": "event",
+      "mutator": "identityField:workspaceId",
+      "expect": [
+        "identity-mismatch"
+      ]
+    },
+    {
+      "id": "tuple-sessionId",
+      "kind": "event",
+      "mutator": "identityField:sessionId",
+      "expect": [
+        "identity-mismatch"
+      ]
+    },
+    {
+      "id": "tuple-workflowId",
+      "kind": "event",
+      "mutator": "identityField:workflowId",
+      "expect": [
+        "identity-mismatch"
+      ]
+    },
+    {
+      "id": "tuple-workflowRevision",
+      "kind": "event",
+      "mutator": "identityField:workflowRevision",
+      "expect": [
+        "identity-mismatch"
+      ]
+    },
+    {
+      "id": "tuple-taskId",
+      "kind": "event",
+      "mutator": "identityField:taskId",
+      "expect": [
+        "identity-mismatch"
+      ]
+    },
+    {
+      "id": "tuple-taskScopeDigest",
+      "kind": "event",
+      "mutator": "identityField:taskScopeDigest",
+      "expect": [
+        "identity-mismatch"
+      ]
+    },
+    {
+      "id": "tuple-baselineDigest",
+      "kind": "event",
+      "mutator": "identityField:baselineDigest",
+      "expect": [
+        "identity-mismatch"
+      ]
+    },
+    {
+      "id": "tuple-candidateDigest",
+      "kind": "event",
+      "mutator": "identityField:candidateDigest",
+      "expect": [
+        "identity-mismatch"
+      ]
+    },
+    {
+      "id": "tuple-configDigest",
+      "kind": "event",
+      "mutator": "identityField:configDigest",
+      "expect": [
+        "identity-mismatch",
+        "config-capture-mismatch"
+      ]
+    },
+    {
+      "id": "tuple-prdRoot",
+      "kind": "event",
+      "mutator": "identityField:prdRoot",
+      "expect": [
+        "unsupported-prd-root",
+        "identity-mismatch"
+      ]
+    },
+    {
+      "id": "tuple-prdSetDigestSubstituted",
+      "kind": "event",
+      "mutator": "prdSetDigestAsCandidate",
+      "expect": [
+        "identity-mismatch"
+      ]
+    },
+    {
+      "id": "recapture-task-requirements-narrowed",
+      "kind": "recapture",
+      "mutator": "recapture:requirementsNarrowed",
+      "expect": [
+        "identity-mismatch"
+      ]
+    },
+    {
+      "id": "recapture-task-acceptance-changed",
+      "kind": "recapture",
+      "mutator": "recapture:acceptanceChanged",
+      "expect": [
+        "identity-mismatch"
+      ]
+    },
+    {
+      "id": "recapture-task-binding-changed",
+      "kind": "recapture",
+      "mutator": "recapture:bindingChanged",
+      "expect": [
+        "identity-mismatch"
+      ]
+    },
+    {
+      "id": "recapture-task-id-changed",
+      "kind": "recapture",
+      "mutator": "recapture:taskId",
+      "expect": [
+        "identity-mismatch"
+      ]
+    },
+    {
+      "id": "recapture-workflow-revision",
+      "kind": "recapture",
+      "mutator": "recapture:workflowRevision",
+      "expect": [
+        "identity-mismatch"
+      ]
+    },
+    {
+      "id": "source-config-bytes",
+      "kind": "recapture",
+      "mutator": "recapture:configBytesReformatted",
+      "expect": [
+        "config-capture-mismatch",
+        "identity-mismatch"
+      ]
+    },
+    {
+      "id": "active-host-selection",
+      "kind": "recapture",
+      "mutator": "recapture:activeHostChanged",
+      "expect": [
+        "config-capture-mismatch",
+        "identity-mismatch"
+      ]
+    },
+    {
+      "id": "author-is-reviewer",
+      "kind": "event",
+      "mutator": "reviewerIsAuthor",
+      "expect": [
+        "review-not-independent"
+      ]
+    },
+    {
+      "id": "executor-is-reviewer",
+      "kind": "event",
+      "mutator": "reviewerIsExecutor",
+      "expect": [
+        "review-not-independent"
+      ]
+    },
+    {
+      "id": "independence-unknown",
+      "kind": "event",
+      "mutator": "independentOfMissing",
+      "expect": [
+        "review-not-independent"
+      ]
+    },
+    {
+      "id": "exit-null",
+      "kind": "event",
+      "mutator": "exitNull",
+      "expect": [
+        "event-invalid"
+      ]
+    },
+    {
+      "id": "exit-noninteger",
+      "kind": "event",
+      "mutator": "exitString",
+      "expect": [
+        "event-invalid"
+      ]
+    },
+    {
+      "id": "exit-nonzero",
+      "kind": "event",
+      "mutator": "exitNonzero",
+      "expect": [
+        "result-not-pass",
+        "event-invalid"
+      ]
+    },
+    {
+      "id": "exit-signal",
+      "kind": "event",
+      "mutator": "signalSet",
+      "expect": [
+        "result-not-pass",
+        "event-invalid"
+      ]
+    },
+    {
+      "id": "capability-unrelated-command",
+      "kind": "event",
+      "mutator": "capabilityUnrelated",
+      "expect": [
+        "capability-mismatch"
+      ]
+    },
+    {
+      "id": "path-coverage-narrowed",
+      "kind": "event",
+      "mutator": "pathsNarrowed",
+      "expect": [
+        "scope-mismatch"
+      ]
+    },
+    {
+      "id": "baseline-artifact-digest",
+      "kind": "event",
+      "mutator": "artifactDigestWrong",
+      "expect": [
+        "artifact-mismatch"
+      ]
+    },
+    {
+      "id": "destination-digest-wrong",
+      "kind": "event",
+      "mutator": "artifactDigestWrong",
+      "expect": [
+        "artifact-mismatch"
+      ]
+    },
+    {
+      "id": "rename-other-tree-bytes",
+      "kind": "recapture",
+      "mutator": "recapture:otherTreeBytes",
+      "expect": [
+        "identity-mismatch",
+        "artifact-mismatch"
+      ]
+    },
+    {
+      "id": "deleted-path-as-empty-file",
+      "kind": "recapture",
+      "mutator": "recapture:emptyFileDeleted",
+      "expect": [
+        "identity-mismatch",
+        "artifact-mismatch"
+      ],
+      "setup": "emptyExtra",
+      "description": "Base holds assets/extra.txt with content and the candidate keeps it as an empty file, so the base is eligible for the normative MUSTs. The re-capture deletes the path; a deleted tombstone and an empty file must produce different identities. A deleted governed file is not used because deleting it derives unknown MUSTs."
+    },
+    {
+      "id": "mode-drift",
+      "kind": "recapture",
+      "mutator": "recapture:modeDrift",
+      "expect": [
+        "identity-mismatch"
+      ]
+    },
+    {
+      "id": "approve-verdict-rejected",
+      "kind": "event",
+      "mutator": "verdictReject",
+      "expect": [
+        "event-invalid",
+        "result-not-pass"
+      ]
+    },
+    {
+      "id": "approve-summary-empty",
+      "kind": "event",
+      "mutator": "summaryEmpty",
+      "expect": [
+        "event-invalid"
+      ]
+    },
+    {
+      "id": "duplicate-event",
+      "kind": "event",
+      "mutator": "eventDuplicated",
+      "expect": [
+        "event-duplicate"
+      ]
+    },
+    {
+      "id": "conflicting-event",
+      "kind": "event",
+      "mutator": "eventConflicting",
+      "expect": [
+        "event-conflict"
+      ]
+    },
+    {
+      "id": "duplicate-result",
+      "kind": "core",
+      "mutator": "resultDuplicated",
+      "expect": [
+        "result-duplicate"
+      ]
+    },
+    {
+      "id": "stale-review",
+      "kind": "event",
+      "mutator": "providerStale",
+      "expect": [
+        "event-stale"
+      ]
+    },
+    {
+      "id": "origin-expired",
+      "kind": "origin",
+      "mutator": "originExpired",
+      "expect": [
+        "origin-unavailable"
+      ]
+    },
+    {
+      "id": "origin-missing",
+      "kind": "origin",
+      "mutator": "originMissing",
+      "expect": [
+        "origin-unavailable"
+      ]
+    },
+    {
+      "id": "forged-copied-journal",
+      "kind": "event",
+      "mutator": "journalCopied",
+      "expect": [
+        "origin-untrusted"
+      ]
+    },
+    {
+      "id": "omitted-must",
+      "kind": "event",
+      "mutator": "omitOneMust",
+      "expect": [
+        "result-missing"
+      ]
+    }
+  ],
+  "a14": {
+    "contextAdvancesDuringCapture": {
+      "taskIdAfter": "task-s2a-002",
+      "expect": [
+        "snapshot-changed"
+      ]
+    },
+    "statusOnlyProgressIgnored": {
+      "requirementStatusChanged": "pass",
+      "expectTaskScopeDigestUnchanged": true
+    }
+  },
+  "pins": {
+    "normative": {
+      "deriveFactsSha256": "c78d208ccba00c5e47bd5d72abc595b05f7f340a005da0a14b598cd5c4743437",
+      "deriveObligationsSha256": "5ff5fcfe1edaf939a2b8b526b2bff131de1253319f3cbe97b3c4c60f75480deb",
+      "checkerResultsSha256": "3a55b457ee4f8eb918fcfeda1f12236e57817d0fd4db185799ffb73b9c162b9a",
+      "mustApplicability": [
+        [
+          "doc-change:doc-lint",
+          "applicable"
+        ],
+        [
+          "doc-change:link-check",
+          "applicable"
+        ],
+        [
+          "doc-change:derived-regenerate",
+          "N/A"
+        ],
+        [
+          "doc-change:quality-review",
+          "applicable"
+        ],
+        [
+          "doc-change:conflict-check",
+          "applicable"
+        ],
+        [
+          "doc-change:requirement-sync",
+          "N/A"
+        ]
+      ]
+    },
+    "nonnormative": {
+      "deriveFactsSha256": "72659ade94266aa542198aed0ada2dfa243297520f70e40b86b5896592d8a457",
+      "deriveObligationsSha256": "ece5929fd7bec6d836312dbc2b90c4c8eabc7f82fc1b49605f7f342b9eb7071d",
+      "checkerResultsSha256": "74a20d2e250c40c7dfad7025bfcad080345667e7d558a33f615452c40597854d",
+      "mustApplicability": [
+        [
+          "doc-change:doc-lint",
+          "applicable"
+        ],
+        [
+          "doc-change:link-check",
+          "applicable"
+        ],
+        [
+          "doc-change:derived-regenerate",
+          "N/A"
+        ],
+        [
+          "doc-change:quality-review",
+          "N/A"
+        ],
+        [
+          "doc-change:conflict-check",
+          "N/A"
+        ],
+        [
+          "doc-change:requirement-sync",
+          "N/A"
+        ]
+      ]
+    },
+    "code-only": {
+      "deriveFactsSha256": "1134fae14ea8f888f12f5dff1bd32b8a2788ba09e91299e7ce3d2a9dc81d0d1f",
+      "deriveObligationsSha256": "b8ece9008764bad6e015d99252dd73570164684b768449d89d4ff0de98def44e",
+      "checkerResultsSha256": "3080bfcaafb7f330f4d26f4087a60a9a76c7a5154b7581209fc26e365333edcb",
+      "mustApplicability": [
+        [
+          "doc-change:doc-lint",
+          "N/A"
+        ],
+        [
+          "doc-change:link-check",
+          "N/A"
+        ],
+        [
+          "doc-change:derived-regenerate",
+          "N/A"
+        ],
+        [
+          "doc-change:quality-review",
+          "N/A"
+        ],
+        [
+          "doc-change:conflict-check",
+          "N/A"
+        ],
+        [
+          "doc-change:requirement-sync",
+          "unknown"
+        ]
+      ]
+    },
+    "nondocument": {
+      "deriveFactsSha256": "5ba5a35c74165a94deff0e935799f93b7d5efa1eb554e4fad9717560e0828d43",
+      "deriveObligationsSha256": "0cfb1cbd5ebb220a3c174d716dcba67c46b0d58e87bfebf0a930e8e0be9f843b",
+      "checkerResultsSha256": "25026cdafe353e58bdc3a74e8b1db6feb1a2f180f9cce04f81527e96d57c251a",
+      "mustApplicability": [
+        [
+          "doc-change:doc-lint",
+          "N/A"
+        ],
+        [
+          "doc-change:link-check",
+          "N/A"
+        ],
+        [
+          "doc-change:derived-regenerate",
+          "N/A"
+        ],
+        [
+          "doc-change:quality-review",
+          "N/A"
+        ],
+        [
+          "doc-change:conflict-check",
+          "N/A"
+        ],
+        [
+          "doc-change:requirement-sync",
+          "N/A"
+        ]
+      ]
+    }
+  },
+  "pinNote": "sha256 of stable JSON (sorted keys) of the current unchanged outputs; recorded at R2a RED."
+}

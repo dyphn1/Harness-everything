@@ -17,6 +17,10 @@ Statuses are intentionally explicit:
 
 Codex and OpenCode are `Partial` in `liveHostVerification`. The Codex artifact verifies user-hook compatibility capture for two consecutive turns on one Windows Codex CLI host; native plugin-hook mounting and other host/version combinations remain unverified. OpenCode's retained evidence supports project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS), not durable hard enforcement. No fresh artifacts exist yet for the other surfaces, managed-workspace import, or public OpenAI approval.
 
+### Codex PR metadata action-gate boundary
+
+Exact title/body-only `update_pull_request` calls are Codex-only host-deferred mutations after an argument allowlist check; explicit required Gate hints and all additional fields retain the existing Gate. Native task scope, permissions and GitHub authorization remain authoritative. Canonical/package mechanism tests cover hashes, audit provenance, outcomes and negative controls; this does not establish candidate live-host coverage. See [Codex policy](codex-action-gate.md#codex-pr-titlebody-updates-host-deferred).
+
 ### Routing contract vs. host evidence
 
 The workflow plan controller rejects present non-array required/optional binding declarations before recording a requirement plan. This input-validation contract is covered by deterministic mechanism tests and does not change live-host evidence status.
@@ -25,6 +29,24 @@ The repository routing contract uses **step-scoped workflow selection**. Normali
 
 This is a **repository/agent contract**, not an automatic upgrade to any platform row below. A hook can prove that the contract was injected and record an agent's binding disposition; neither proves that a live host actually loaded or followed the referenced content. Instruction-only surfaces can carry the same rule without mechanically enforcing it. Promoting behavior to live-host compliance requires retained host/session evidence under the #82 compatibility program. Claude and local OpenAI packages carry workflow entry/completion **reminders** plus separate Rule-of-3/permission boundaries, but this package/mechanism change does not upgrade `platform-compatibility.json` live-host status values. See [workflow runtime](workflow-runtime.md) for scope, worktree isolation, and failure behavior. OpenCode and instruction-only/public Skills-only surfaces do not acquire equivalent runtime gating. Shell inspection is not a filesystem sandbox; absent hooks, agent-writable state, and indirect script effects remain limits.
 
+### Action-gate mechanism vs. host semantic boundary
+
+Routine exact `create_pull_request` operations and Codex title/body-only
+`update_pull_request` operations are host-deferred at the mechanism level:
+their descriptor remains a mutation (not read/safe), and no Harness consent or
+`permissionDecision` is emitted. Native agent task-scope authorization and native
+permissions stay authoritative; an explicit required `actionGate` hint still gates.
+This is a deterministic mechanism change, not live-host proof, and does not
+upgrade any platform row's live-host status.
+
+### Full-corpus conflict-check (mechanism only)
+
+The registered `doc-check check --conflict-assessment` mode runs document lifecycle lint across the full governed and legacy corpus and requires `--base` as an exact commit SHA. It emits `conflict-check` only when collection is complete and there are no lifecycle errors. Its event preserves the exact obligation scope separately from full-corpus paths and digests, config bytes and base commit, then checks those bindings against the workflow snapshot. The acceptance is limited to recorded and structural conflicts; prose contradictions remain with independent `quality-review`. Plain `check` never earns this credit, and OpenCode still refuses the capability. Deterministic mechanism coverage does not establish live-host behavior or change the platform matrix's live-verification status.
+
+### Self-evolve workspace resolution (mechanism only)
+
+Source and packaged plugin self-evolve entrypoints use installation-relative canonical workspace helpers and the same workspace/session state path. Missing helpers, unresolved identities, and unusable state paths fail explicitly; only absent candidate directories yield an empty list. The [resolver contract](../self-evolve/references/memory-resolution.md#workspace-helper-and-diagnostics) and source/package subprocess regressions establish deterministic mechanism coverage, not a live-host upgrade. Existing memory authorization remains required.
+
 ## Current capability summary
 
 | Platform surface | Standalone skills | Plugin support | Hooks/lifecycle | Project scope | Global scope | Current evidence boundary |
@@ -32,7 +54,7 @@ This is a **repository/agent contract**, not an automatic upgrade to any platfor
 | Codex | `Supported` | `Mechanism verified` | `Partial`: user-hook compatibility capture is live-verified for `UserPromptSubmit` and `Stop` on one Windows Codex CLI host; native plugin hooks remain mechanism-verified | `.agents/skills/`, `AGENTS.md` | `~/.agents/skills/` | [Live evidence](../benchmarks/results/live-host/codex-2026-10-13/README.md) verifies two consecutive turns on Codex CLI 0.162.1; native plugin mounting, other lifecycle events, and other versions remain unverified. |
 | ChatGPT / OpenAI Plugin | `Unknown` for a repository-local standalone path | `Mechanism verified` | `Partial`: local Work/Codex hooks are separate from ordinary Chat | Managed workspace marketplace | Not established | The public Skills-only bundle is mechanically reproducible; import, approval, and live behavior remain `Unknown`. |
 | Claude Code | `Supported` | `Supported` | `Mechanism verified` for Harness configuration | `.claude/skills/` | `~/.claude/skills/` | Native Claude surfaces and the state-specific plugin sync command are mechanically checked; fresh-host execution is not preserved here. |
-| OpenCode | `Supported` | `Partial` live-host loading for the project-scope, `.js`-filename install path on OpenCode 1.18.31 (macOS); other install paths remain `Mechanism verified` | `Partial` live-host evidence for project-scope `.js` loading and edit/verification state; hard lock reported only, with no retained blocked-tool trace and a post-reset final snapshot | `.opencode/skills/`, `.agents/skills/`, `.opencode/plugins/` | `~/.config/opencode/skills/`, `~/.agents/skills/`, `~/.config/opencode/plugins/` | [Retained evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md): loading and state effects verified in one host session; final snapshot post-reset; hard lock only an interactive observation; reflection operator-seeded, then agent-rewritten; no raw transcript or behavioral-effectiveness claim. `.mjs` auto-discovery broken (issue #127); global scope, npm-package installation, and other host versions remain unverified. |
+| OpenCode | `Supported` | `Partial` live-host loading for the project-scope, `.js`-filename install path on OpenCode 1.18.31 (macOS); other install paths remain `Mechanism verified` | `Partial` live-host evidence for project-scope `.js` loading and edit/verification state; hard lock reported only, with no retained blocked-tool trace and a post-reset final snapshot | `.opencode/skills/`, `.agents/skills/`, `.opencode/plugins/` | `~/.config/opencode/skills/`, `~/.agents/skills/`, `~/.config/opencode/plugins/` | [Retained evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md): loading and state effects verified in one host session; final snapshot post-reset; hard lock only an interactive observation; reflection operator-seeded, then agent-rewritten; no raw transcript or behavioral-effectiveness claim. `.mjs` auto-discovery broken (issue #127); global scope, npm-package installation, and other host versions remain unverified; V2 default-export load verified live on OpenCode 2.1.3 (macOS, 2026-10-23, server-log evidence only). |
 | GitHub Copilot agent surfaces | `Supported` | `Unknown` for a Harness-specific plugin install | `Unknown` | `.github/skills/`, `.agents/skills/`, repository instructions | `~/.copilot/skills/`, `~/.agents/skills/` | GitHub Agent Skills paths and installer behavior are checked; no live Copilot session or plugin install is preserved. |
 | Cursor | `Supported` | `Mechanism verified` for the portable package shape | `Unknown` for Harness | `.cursor/skills/`, `.agents/skills/` | `~/.cursor/skills/`, `~/.agents/skills/` | Official paths and package shape are checked; Cursor plugin loading and hooks remain unverified. |
 | Continue.dev | `Unknown` for standalone `SKILL.md` discovery | `Unknown` | `Unknown` | `.continue/rules/` is documented; `.continue/skills/` is only an installer candidate | `~/.continue/skills/` is only an installer candidate | The reviewed official docs establish rules, not an Agent Skills host contract. |
@@ -116,11 +138,28 @@ harness codex-hooks uninstall
 
 The installer copies the current packaged runtime into `$CODEX_HOME/harness-everything/compat-hooks/` and merges absolute-path entries into `$CODEX_HOME/hooks.json`. harness codex-hooks status reports `inactive` when the compatibility hooks are absent, or `configured-unverified` when their files are healthy; it cannot read Codex trust state. A successful Codex run of plugin-sync.js installs or refreshes this copy automatically. The installer does **not** modify `config.toml`, trust hashes, approval policy, or hook enablement. Codex must still show/review/trust the resulting non-managed hooks through its normal `/hooks` flow.
 
+Updates retain at most two fingerprinted runtimes: the current runtime and the immediately previous distinct runtime. A third distinct install collects the oldest; sessions older than one update must restart. Reinstalling the same fingerprint preserves an intact previous runtime and drops a missing or modified one. `status` reports current and previous runtime file integrity separately and is unhealthy while a recorded previous runtime is missing or modified; this is filesystem health, not Codex hook trust or dispatch. Install, update, and uninstall hold an exclusive `compat-hooks.lock` directory for the whole manifest-read → runtime → hooks/manifest commit → collection transaction, so concurrent installers serialize instead of collecting each other's runtime. Each lock directory is created atomically together with its owner token. Acquisition and stale reclaim run under a short-lived `compat-hooks.lock.guard`, stale ownership is revalidated inside it, and a lock is removed only when it still carries the exact token judged stale; release likewise removes only the releasing holder's token. A lock or guard left by a dead local process is reclaimed, and a live lock times out (60 s) before any write. Uninstall removes all retained Harness-owned runtimes. Command paths remain fingerprinted: updates may require normal Codex hook review again; Harness does not bypass that security decision.
+
+Installs of a plugin source tracked by a linked Git worktree refuse before writing. For an ordinary checkout, only modified or untracked files inside the plugin source subtree cause refusal. The runtime is built from the subtree's Git-tracked files, so `.gitignore`-excluded files (for example `.DS_Store` or `__pycache__`) are neither copied nor fingerprinted and do not block installation. The operator can explicitly pass `--allow-unreleased-source`. Packaged copies whose plugin manifest is not tracked by an enclosing repository remain supported, including copies inside an unrelated dirty repository. The mechanism and self-regression runners give child processes temporary HOME/USERPROFILE and CODEX_HOME directories. Tests must pass temporary Codex homes or mock the hook installer; mocking host commands alone does not isolate filesystem writes.
+
 Ownership is deliberately strict: update/uninstall removes only exact entries recorded in the Harness compatibility manifest. If an installed Harness entry was edited after installation, the operation fails closed rather than overwriting or deleting that user-modified entry. Unrelated pre-existing and later-added user hooks are preserved.
 
 The compatibility path registers hook commands in Codex user configuration and covers the missing plugin-mount route where user hooks dispatch. It does not repair a Codex carrier that fails to dispatch `PreToolUse` at all; those host-level execution-path limitations remain a live compatibility boundary.
 
 The public OpenAI Skills-only plugin is narrower again. Its ZIP contains the packaged `skills/` tree and referenced files, but not the local `.codex-plugin` lifecycle hooks. Public submission readiness is therefore a package/form contract, not evidence of public-directory approval or live hook execution.
+
+### Codex prompt pass-through and authorization (mechanism only)
+
+Codex `UserPromptSubmit` prompts pass through to the normal router unchanged;
+Harness does not parse or intercept a fixed approval syntax. Native agent
+task-scope authorization and native permissions remain authoritative. Routine
+exact `create_pull_request` operations and Codex title/body-only
+`update_pull_request` operations are host-deferred at the mechanism level:
+their descriptor remains a mutation (not read/safe), and no Harness consent or
+`permissionDecision` is emitted. All other risky actions remain hard PreToolUse
+blocks; an explicitly required `actionGate` hint still gates. These are
+deterministic mechanism changes, not live-host proof. Codex ask-style decisions
+are not supported.
 
 ## Install/uninstall ownership boundary
 
@@ -128,7 +167,21 @@ The general installer merges shared files only through Harness-owned markers and
 
 ## OpenCode boundary
 
-The OpenCode adapter uses the documented plugin API and has deterministic mechanism coverage. Retained evidence supports project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS): [live-host evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md). The retained snapshot predates #190 and remains historical evidence only. Current OpenCode removes the permanent post-reflection hard lock; only the third-failure reflection boundary pauses edits. Reflection was operator-seeded, then agent-rewritten, so do not promote this into a behavioral-effectiveness claim. `.mjs` auto-discovery is broken on this host version (issue #127). Global scope, npm-package installation, and other host versions remain unverified.
+The OpenCode adapter targets the V2 plugin contract: it default-exports
+`{ id: "harness.enforcement", setup(ctx) }` that registers
+`ctx.tool.hook("execute.before|after")` and `ctx.event.subscribe()` through the
+OpenCode 2 plugin context, and keeps the V1-shaped `HarnessEnforcement` factory
+for OpenCode 1.x hosts. OpenCode 2 rejects named-export-only plugins with
+`Plugin must export a default definition with an id and an effect or setup
+function`; that failure (observed on OpenCode 2.1.3, macOS) and the recovery
+after the V2 entrypoint were verified live on one host, with retained evidence
+in the OpenCode server log only (loading succeeded after a plugin-file
+reload; no hook-fire artifact). The adapter itself has deterministic mechanism
+coverage (`ci/mechanism-2n-opencode-plugin.test.js`, V1 shapes;
+`ci/mechanism-2p-opencode-v2-entrypoint.test.js`, V2 shapes). Retained
+evidence supports project-scope `.js` loading and edit/verification state on
+OpenCode 1.18.31 (macOS): [live-host evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md). The
+retained snapshot predates #190 and remains historical evidence only. Current OpenCode removes the permanent post-reflection hard lock; only the third-failure reflection boundary pauses edits. Reflection was operator-seeded, then agent-rewritten, so do not promote this into a behavioral-effectiveness claim. `.mjs` auto-discovery is broken on this host version (issue #127). npm-package installation and behavioral V2-hook fire remain unverified.
 
 ## Official sources
 
@@ -154,3 +207,19 @@ ordinary terminal sees it only when set at user/OS level. Keep the mode `off`
 until a Harness-trained checkpoint passes the rollout gates.
 Public Skills-only artifacts do not acquire lifecycle hooks from this feature.
 See [System One routing](system-one-routing.md) for limits, rollback and evidence.
+
+The editorial doc check (`harness-everything/scripts/doc-check.js`, F1) is reached by instruction only: the `SKILL.md` deep-dive line leads to `references/triage-and-tiers.md`, whose governed-doc section names `references/doc-check.md`, which holds the command. No `doc-change` step binding exists. Evidence is package and mechanism only. It adds no host enforcement, no Stop lock and no trusted document credit, and a non-empty `coverage.unsupported` marks the check as partial.
+
+`compare-derived` (`harness-everything/scripts/doc-check.js`, F3) compares a caller-captured generator output with a declared derived view, byte for byte. It runs no generator and writes no files. Its evidence is package and mechanism only: the generation status is caller-reported, and the output is ordinary command evidence. It is not trusted credit, and it makes no live-host claim.
+
+Credited reconciliation for F4 (Claude Code only, pilot ON) is **implemented, with mechanism and package evidence and one live field-availability capture**. Credit works for `doc-lint` and `link-check` through a registered `doc-check` run, and for an independent `quality-review` with bound path digests. The capture under `benchmarks/results/live-host/claude-325-3b-s2b/` proves field availability on Claude Code 2.1.308 for one session. It is not live-host credit, and no live-host credit run exists yet. Deterministic mechanism tests (replay through the real hook entry points, with a CI-only qualification preloader) prove the chain.
+
+PR-B adds a dedicated `outline-confirmation` evidence lane for Claude captures with separate B/O/D checks, a coordinator-sealed pre-dispatch handoff, pinned-inventory row binding, and an independent exact-O review. A separate sanitized capture now qualifies the **observed Claude Code 2.1.312 run8 profile**, recorded at main baseline `1bd0f805031c5577a6e7f72a9bc5b41618b71fc1`. This is retained field-mapping evidence, not runtime version enforcement or an E1 qualifying cycle. OpenCode, Codex and other Claude Code versions receive no outline qualification. Missing or ambiguous capture stays unresolved and host tools remain fail-open. The outline result does not replace the aggregate B→D MUST result or the existing exact-D `quality-review` contract.
+
+### Own-repository governance guard (PR #376)
+
+On `pull_request`, a standalone `doc-governance` job extracts `scripts/doc-governance-guard.js` from the event base commit and runs those bytes against the exact event base/head SHAs. Its nonzero result fails that job; `self-regression` and the other CI jobs run independently. The ordinary test suite may still run on GitHub's PR checkout SHA, which can be a synthetic merge commit; it is reported separately. The guard never falls back to the candidate copy. PR #376's reviewed base lacked the verifier; that historical bootstrap reported BOOTSTRAP_UNCHECKED without executing candidate bytes. Bases containing the guard (including main at 0ef0541c) execute the base-owned verifier. If a selected PR base lacks the guard, the wrapper retains the warning/step-summary-only bootstrap path with exit 0; this is unverified governance, not PASS. Every nonzero exit from an extracted verifier, including FAIL and BOOTSTRAP_UNCHECKED, fails the governance job. Other CI jobs run independently.
+
+The guard's trust surface includes every Git entry under `ci/fixtures/doc-lifecycle/scenarios/`, compared by raw Git identity (`mode`, `type`, `oid`). A regular governed-content revision with the same mode returns `PASS` as an informational `revised` entry with both Git identities; the guard does not semantically validate revised content. Deletion/rename, mode/type, policy/config or new-member registration, trust-surface/fixture, and derived-output changes still return `REVIEW_REQUIRED`. Derived changes retain their regeneration/parity evidence requirement. Ordinary ungoverned edits and new unknown documents remain allowed as `PASS`, with unknown content validation visible.
+
+This integration lives in candidate-controlled `.github/workflows/ci.yml` and can be removed by a candidate change. The independent review found the prior fixture-oracle gap; re-review of the fixed guard at final exact SHAs is pending. No external required-status check is enabled, and no live-host evidence is established. This is package and mechanism evidence only; it does not qualify E1. E1 remains at zero qualifying cycles and owner GO is not issued.

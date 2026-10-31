@@ -52,11 +52,42 @@ and on failure calls `client.session.prompt()` to push a synthetic follow-up
 message into the session - forcing the agent to keep working instead of
 actually stopping.
 
+The verification run has a budget, not a fixed 60s cap: a healthy self-regression
+suite takes around two minutes, so the default is 10 minutes and
+`HARNESS_VERIFY_TIMEOUT_MS` overrides it. Every run is classified as `pass`
+(exit 0), `test_failure` (a real non-zero exit), `timeout` (the budget actually
+expired: `ETIMEDOUT`, or a kill with no exit status once the budget elapsed) or
+`execution_error` (a spawn-level failure such as `ENOBUFS`/`ENOENT`, or an
+external signal such as `SIGTERM`/`SIGINT` before the budget - a signal alone
+is not a budget expiry).
+Only `test_failure` confirms a failing check and advances the Rule-of-3
+counter; `timeout` and `execution_error` are reported as uncompleted
+verifications and never impersonate repeated failures. A timeout is reported as
+`timed out after <n>s (set HARNESS_VERIFY_TIMEOUT_MS to raise it); last
+output: ...`, a spawn-level failure as `could not run to completion (execution
+error: ENOBUFS); output: ...` (an external signal names the signal).
+
+Known operational limits of the synchronous runner: `execSync` blocks the
+plugin's event loop for the duration of each script (worst case one budget per
+script), and captured output is buffered up to 16 MiB. A run whose output
+exceeds that buffer is classified as an `execution_error`, never as a failed
+check, so buffer pressure cannot flip the circuit breaker. Moving verification
+to an async `spawn` with streaming, bounded diagnostics is tracked as a
+follow-up in issue #338.
+
 ### 3. Rule-of-3 zoom-out boundary (`tool.execute.before` + the verification observer above)
 
 Enforces Rule of 3 on repeated verification failures (same failing command +
-truncated error, not arbitrary tool failures - `tool.execute.after` has no
-normalized success/failure field to key a signature on for tools in general):
+normalized failure evidence: the first test-level failing marker - TAP
+`not ok`, node:test/jest symbols, Jest test blocks, assertion lines - over the
+full captured stdout **and** stderr, with a preceding suite header such as
+Jest's `FAIL <file>` carried as context so different tests in one file stay
+distinct; without a test-level marker the signature falls back to a digest of
+that full evidence, never to a suite header alone; the 2 KiB bound applies
+only to the user-visible diagnostic excerpt, never to signature analysis; not
+arbitrary tool failures, since
+`tool.execute.after` has no normalized success/failure field to key a
+signature on for tools in general):
 - 3rd failure on the same signature forces a reflection message instead of a
   retry nudge
 - the follow-up asks for a tokenized `zoom-out-report.md` artifact with the
@@ -72,6 +103,21 @@ and retried on the next idle event without re-running verification or adding a
 new breaker failure. A reflection artifact itself does not count as a code edit.
 
 ## Installation
+
+**OpenCode 2.x (and newer 1.18.29+):** the module default-exports
+`{ id: "harness.enforcement", setup(ctx) }` and registers `ctx.tool.hook("execute.before|after")`
+plus `ctx.event.subscribe()` through the OpenCode 2 plugin context. OpenCode 2
+never loads a named-export-only plugin: it fails with `Plugin must export a
+default definition with an id and an effect or setup function`
+(SchemaError at `["default"]`). The named `HarnessEnforcement` export stays
+available for OpenCode 1.x hosts: it receives the V1 context
+(`{client, directory}`) and returns a V1 hooks object
+(`tool.execute.before`, `tool.execute.after`, `event`); the V2 `setup`
+adapter wraps that factory and maps the V2 hook events onto it, so the
+enforcement logic is shared, not duplicated.
+
+Direction:
+named factory (V1 hosts/tests) → default-export setup adapter → V2 domains.
 
 Copy `index.mjs` into opencode's plugin directory **under a `.js` filename** -
 it is self-contained, no sibling files required:

@@ -1,5 +1,6 @@
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const { atomicWriteJson, readJson } = require('./fable-contracts');
 const { resolveBinding, PACKAGED_BINDING_PATHS: BINDING_PATHS } = require('./binding-resolver');
@@ -8,13 +9,102 @@ const OBLIGATION_SCHEMA_VERSION = 1;
 const OBLIGATION_FILE = 'workflow-obligations.json';
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const ALLOWED_ESCAPE_REASONS = new Set(['workflow-uncovered-scope', 'host-capability-unavailable']);
-const STEP_TYPES = new Set(['review', 'behavior-change', 'verification', 'commit']);
-const REQUIRED_BINDINGS_BY_STEP = {
-  review: [],
-  'behavior-change': ['tdd'],
-  verification: ['verification-loop'],
-  commit: ['git-commit'],
-};
+const STEP_TYPE_REGISTRY_FILE = path.join(__dirname, 'step-types.json');
+
+function validateStepTypeRegistry(registry) {
+  const errors = [];
+  if (!Array.isArray(registry) || registry.length === 0) {
+    throw new Error('invalid step-type registry: expected a non-empty array');
+  }
+  const idCounts = new Map();
+  const bindingFields = ['requiredBindings', 'optionalBindings', 'forbiddenBindings'];
+  for (const entry of registry) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      errors.push('entry must be an object');
+      continue;
+    }
+    const id = typeof entry.id === 'string' ? entry.id : '';
+    const validId = SAFE_ID.test(id) && id === id.trim();
+    const label = validId ? `step type ${id}` : 'step type with invalid id';
+    if (!validId) errors.push(`${label} must declare a stable id`);
+    else idCounts.set(id, (idCounts.get(id) || 0) + 1);
+    if (typeof entry.evidenceHint !== 'string' || !entry.evidenceHint.trim()) {
+      errors.push(`${label} evidenceHint must be a non-empty string`);
+    }
+    const valuesByField = new Map();
+    for (const field of bindingFields) {
+      if (!Array.isArray(entry[field])) {
+        errors.push(`${label} ${field} must be an array`);
+        valuesByField.set(field, []);
+        continue;
+      }
+      const values = [];
+      for (const binding of entry[field]) {
+        if (typeof binding !== 'string' || !SAFE_ID.test(binding) || binding !== binding.trim()) {
+          errors.push(`${label} ${field} entries must be stable binding ids`);
+          continue;
+        }
+        values.push(binding);
+      }
+      const unique = [...new Set(values)].sort();
+      if (unique.length !== values.length) errors.push(`${label} ${field} contains duplicate binding ids`);
+      valuesByField.set(field, unique);
+    }
+    for (const [left, right] of [
+      ['requiredBindings', 'optionalBindings'],
+      ['requiredBindings', 'forbiddenBindings'],
+      ['optionalBindings', 'forbiddenBindings'],
+    ]) {
+      const rightValues = new Set(valuesByField.get(right) || []);
+      for (const binding of valuesByField.get(left) || []) {
+        if (rightValues.has(binding)) errors.push(`${label} has conflicting ${left} and ${right} default for ${binding}`);
+      }
+    }
+  }
+  for (const id of [...idCounts.keys()].sort()) {
+    if (idCounts.get(id) > 1) errors.push(`duplicate step type id ${id}`);
+  }
+  if (errors.length) throw new Error('invalid step-type registry: ' + [...new Set(errors)].sort().join('; '));
+  return registry.map(entry => ({
+    id: entry.id,
+    requiredBindings: [...entry.requiredBindings],
+    optionalBindings: [...entry.optionalBindings],
+    forbiddenBindings: [...entry.forbiddenBindings],
+    evidenceHint: entry.evidenceHint.trim(),
+  })).sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
+}
+
+const STEP_TYPE_REGISTRY_UNAVAILABLE = 'STEP_TYPE_REGISTRY_UNAVAILABLE';
+
+function readStepTypeRegistry(registryFile = STEP_TYPE_REGISTRY_FILE) {
+  const resolvedRegistryFile = path.resolve(registryFile);
+  try {
+    const parsed = JSON.parse(fs.readFileSync(resolvedRegistryFile, 'utf8'));
+    return validateStepTypeRegistry(parsed);
+  } catch (error) {
+    const unavailable = new Error(
+      `cannot load step-type registry ${resolvedRegistryFile}: ${error.message}. ` +
+      `Repair action: reinstall or update the Harness plugin so this file is restored; in a Harness source checkout, restore it and run npm run plugin:sync.`,
+    );
+    unavailable.code = STEP_TYPE_REGISTRY_UNAVAILABLE;
+    throw unavailable;
+  }
+}
+
+// Loaded on first typed use only, so registry-independent planning and execution never read it.
+let stepTypeRegistry = null;
+function loadStepTypeRegistry() {
+  if (!stepTypeRegistry) stepTypeRegistry = readStepTypeRegistry();
+  return stepTypeRegistry;
+}
+
+function stepTypeIds() {
+  return loadStepTypeRegistry().map(entry => entry.id).sort();
+}
+
+function stepTypeIndex() {
+  return new Map(loadStepTypeRegistry().map(entry => [entry.id, entry]));
+}
 
 function obligationPath(sessionDir) {
   return path.join(sessionDir, OBLIGATION_FILE);
@@ -125,6 +215,14 @@ function initializePlanningContract(context, plan) {
   return set;
 }
 
+function typedStepType(rawStepType) {
+  const registered = stepTypeIndex();
+  if (!registered.has(rawStepType)) {
+    throw new Error(`unsupported requirement stepType: ${rawStepType}; registered step types: ${stepTypeIds().join(', ')}`);
+  }
+  return registered.get(rawStepType);
+}
+
 function parseRequirements(requirementsJson, workspaceRoot) {
   let parsed;
   try { parsed = JSON.parse(String(requirementsJson || '')); }
@@ -145,7 +243,7 @@ function parseRequirements(requirementsJson, workspaceRoot) {
       ? [...new Set(item.suggestedSkills.filter(value => typeof value === 'string' && value.trim()).map(value => value.trim()))]
       : [];
     const rawStepType = item.stepType === undefined ? '' : String(item.stepType).trim();
-    if (rawStepType && !STEP_TYPES.has(rawStepType)) throw new Error(`unsupported requirement stepType: ${rawStepType}`);
+    const stepType = rawStepType ? typedStepType(rawStepType) : null;
     for (const field of ['requiredBindings', 'optionalBindings']) {
       if (Object.prototype.hasOwnProperty.call(item, field) && !Array.isArray(item[field])) {
         throw new Error(`${id}.${field} must be an array`);
@@ -155,17 +253,18 @@ function parseRequirements(requirementsJson, workspaceRoot) {
     if (!rawStepType) return requirement;
 
     const requiredBindings = normalizeBindingDeclarations([
-      ...(REQUIRED_BINDINGS_BY_STEP[rawStepType] || []),
+      ...(stepType.requiredBindings || []),
       ...(item.requiredBindings || []),
     ]);
     const requiredIds = new Set(requiredBindings.map(binding => binding.id));
     const optionalBindings = normalizeBindingDeclarations([
+      ...(stepType.optionalBindings || []),
       ...(item.optionalBindings || []),
       ...suggestedSkills,
     ]).filter(binding => !requiredIds.has(binding.id));
-    if (rawStepType === 'review' && [...requiredBindings, ...optionalBindings].some(binding => binding.id === 'tdd')) {
-      throw new Error('review steps cannot bind tdd');
-    }
+    const forbiddenBinding = [...requiredBindings, ...optionalBindings]
+      .find(binding => stepType.forbiddenBindings.includes(binding.id));
+    if (forbiddenBinding) throw new Error(`${rawStepType} steps cannot bind ${forbiddenBinding.id}`);
     requirement.stepType = rawStepType;
     requirement.status = 'pending';
     requirement.evidence = null;
@@ -268,7 +367,7 @@ function recordPlanning(context, requirementsJson, selectedPlan, requestedStrate
   }
   const isFable = String(selectedPlan.strategy || '').startsWith('fable-');
   if (!isFable && !hasTypedSteps) {
-    throw new Error('selected single-agent workflows require ordered stepType values: review, behavior-change, verification, or commit');
+    throw new Error(`selected single-agent workflows require ordered stepType values: ${stepTypeIds().join(', ')}`);
   }
   if (!isFable && !requirements.some(item => item.stepType === 'verification')) {
     throw new Error('step-bound workflows require an explicit verification step');
@@ -360,7 +459,8 @@ function validateObligationSet(context, set, plan = context.workflow?.pendingPla
     if (!['pending', 'pass', 'escaped', 'blocked'].includes(obligation.status)) return 'obligation-status-invalid';
   }
   if (set.stepBindingsEnabled === true) {
-    if (set.requirements.some(item => !item || !STEP_TYPES.has(item.stepType) ||
+    const registered = stepTypeIndex();
+    if (set.requirements.some(item => !item || !registered.has(item.stepType) ||
         !['pending', 'pass', 'blocked'].includes(item.status) || !Array.isArray(item.requiredBindings) ||
         !Array.isArray(item.optionalBindings))) return 'steps-invalid';
     for (const step of set.requirements) {
@@ -410,6 +510,33 @@ function planningUnresolved(context, plan = context.workflow?.pendingPlan || con
   return [...new Set(unresolved)];
 }
 
+function withholdPilotVerification(context, set) {
+  // PR #351 review P2 (persistence failure): the credit decision is applied in memory first —
+  // aggregate verify becomes pending and a satisfied workflow becomes running — and only then is
+  // that state persisted best-effort. A failed obligations-file write records the
+  // withhold-persist-failed diagnostic and a reminder; it never escapes, never leaves the decision
+  // unapplied, and never changes the callers' refusal contract (exit 2 / step:<verify>:pending).
+  // PR #351 re-review P2a (scope of the recovery): this run made an actual ON, supported,
+  // withheld pilot decision. The marker is transient and per-run — it lives on the in-memory
+  // context object itself (saveWorkflow persists only context.workflow) and is never written
+  // to disk; Stop's pending-path persistence recovery is scoped by it.
+  context.docReconciliationWithheldRun = true;
+  const verify = set.obligations.find(item => item.id === 'verify');
+  if (verify) verify.status = 'pending';
+  if (context.workflow.state === 'satisfied') context.workflow.state = 'running';
+  try {
+    atomicWriteJson(obligationPath(context.sessionDir), set);
+  } catch {
+    if (!Array.isArray(context.workflow.docReconciliationDiagnostics)) {
+      context.workflow.docReconciliationDiagnostics = [];
+    }
+    if (!context.workflow.docReconciliationDiagnostics.includes('withhold-persist-failed')) {
+      context.workflow.docReconciliationDiagnostics.push('withhold-persist-failed');
+    }
+    console.error('[Workflow Reminder] Document verification withheld in memory; persisting the obligations state failed (withhold-persist-failed). No document verification credit.');
+  }
+}
+
 function updateObligation(context, obligationId, disposition, options = {}) {
   if (!SAFE_ID.test(obligationId || '')) throw new Error('--obligation-id must be a stable obligation id');
   if (!['pass', 'escaped', 'blocked'].includes(disposition)) throw new Error('--disposition must be pass, escaped, or blocked');
@@ -429,6 +556,12 @@ function updateObligation(context, obligationId, disposition, options = {}) {
     if (!scope) throw new Error('--scope is required when escaping an obligation');
   }
   if (disposition === 'blocked' && !reasonCode) throw new Error('--reason-code is required when blocking an obligation');
+  if (disposition === 'pass' && ['execute', 'verify'].includes(obligationId)
+      && require('./doc-reconciliation-pilot').assess(context, loaded.set).withhold) {
+    obligation.status = 'pending';
+    withholdPilotVerification(context, loaded.set);
+    throw new Error('document verification pending: S1 grants no document credit');
+  }
   obligation.status = disposition;
   obligation.evidence = evidence;
   obligation.reasonCode = reasonCode;
@@ -535,6 +668,18 @@ function updateStep(context, stepId, disposition, options = {}) {
       throw new Error('resolve active-step bindings before passing the step: ' + ids.join(', '));
     }
   }
+  if (disposition === 'pass' && step.stepType === 'verification'
+      && require('./doc-reconciliation-pilot').assess(context, loaded.set).withhold) {
+    withholdPilotVerification(context, loaded.set);
+    throw new Error('document verification pending: S1 grants no document credit');
+  }
+  // Review-mode refusal (pilot ON only): a self-authored or non-independent review PASS stays pending.
+  if (disposition === 'pass' && step.stepType === 'review') {
+    const pilot = require('./doc-reconciliation-pilot');
+    if (pilot.reviewRequired(loaded.set) && !pilot.independentReviewAccepted(context)) {
+      throw new Error('review pending: a self-authored or non-independent review cannot pass this step; an independent host quality review is required');
+    }
+  }
   step.status = disposition;
   step.evidence = evidence;
   step.reasonCode = reasonCode;
@@ -551,6 +696,12 @@ function unresolvedObligations(context) {
   const unresolved = planningUnresolved(context, plan);
   const loaded = loadObligationSet(context, plan);
   if (!loaded.set) return unresolved;
+  if (!unresolved.length && require('./doc-reconciliation-pilot').assess(context, loaded.set).withhold) {
+    withholdPilotVerification(context, loaded.set);
+    for (const step of loaded.set.requirements.filter(item => item.stepType === 'verification')) {
+      unresolved.push('step:' + step.id + ':pending');
+    }
+  }
   if (!['running', 'satisfied', 'blocked', 'failed'].includes(context.workflow.state)) {
     unresolved.push('execution:not-started');
   }
@@ -585,6 +736,9 @@ function unresolvedObligations(context) {
 module.exports = {
   OBLIGATION_FILE,
   ALLOWED_ESCAPE_REASONS,
+  loadStepTypeRegistry,
+  stepTypeIds,
+  validateStepTypeRegistry,
   obligationPath,
   needsPlanningContract,
   needsGenericExecutionObligations,

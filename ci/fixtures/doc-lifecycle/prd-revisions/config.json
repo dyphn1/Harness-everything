@@ -1,0 +1,9 @@
+{
+  "governed": [
+    { "path": "docs/prd/**", "role": "prd" },
+    { "path": "docs/adr/**", "role": "adr" },
+    { "path": "docs/approvals/**", "role": "report" }
+  ],
+  "domains": ["GRPH", "IFCE"],
+  "legacy": ["docs/adr/legacy/**", "docs/prd/legacy/**"]
+}

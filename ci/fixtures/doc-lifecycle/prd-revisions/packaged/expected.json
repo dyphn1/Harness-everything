@@ -1,0 +1,12 @@
+{
+  "valid": {
+    "r001ArtifactDigest": "sha256:305358d3ff29f45969b99562eec9bca2da12f35020decee5a3a667a16fd412f6",
+    "r001ApprovalDigest": "sha256:f0715961ec620f963304941851b86493f1c58c009329aaff485ef796011dd4b3",
+    "r002ArtifactDigest": "sha256:d54cb5153daa0336ec919d100eb6c98bf1962cae9d9a248e9101187f155c6e0f",
+    "r002ApprovalDigest": "sha256:f0ad5b331c847bd91a3dffd3bfb653ec631c201c592fb599c5c4777e3cb01606"
+  },
+  "invalidFork": {
+    "r003ArtifactDigest": "sha256:7d3b98b1c0984f868136f875febee399864d7273cef958564da63052cd7f825c",
+    "r003ApprovalDigest": "sha256:aee28699550b78cf0e0ea43aba4aa938886b759f229b5a50a117dca26d5168cf"
+  }
+}

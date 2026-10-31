@@ -1,0 +1,16 @@
+id: negative-code-review-002
+name: Plan stress-testing must route to grill-me, not code-review
+description: Stress-testing a design or plan one question at a time is in code-review's DO NOT USE FOR scope and belongs to grill-me; code-review must stay dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Re-review my plan, asking one question at a time: stress-test the new billing service plan until we agree on where retries live."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "source-anchored"
+        - "source-traced"

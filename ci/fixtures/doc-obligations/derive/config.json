@@ -1,0 +1,11 @@
+{
+  "governed": [
+    { "path": "docs/prd/**", "role": "prd" },
+    { "path": "docs/adr/**", "role": "adr" },
+    { "path": "docs/reference/**", "role": "reference" }
+  ],
+  "domains": ["GRPH"],
+  "legacy": ["docs/adr/legacy/**"],
+  "derived": [{ "path": "docs/roadmap/index.md", "generator": "npm run docs:index" }],
+  "tickets": "tracker"
+}

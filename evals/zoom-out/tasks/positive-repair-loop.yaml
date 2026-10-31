@@ -1,0 +1,15 @@
+id: positive-repair-loop-001
+name: Successful review commands still expose a repair loop
+description: "Reflect-first circuit breaker - after 3 failures, stop edits, rebuild the full picture with read-only tools, write a fact-check report, then resume or escalate. USE FOR: \"you are stuck in a loop\", \"the same error keeps failing\", \"rethink your assumptions\". DO NOT USE FOR: \"routine single-failure debugging\", \"greenfield planning without failures\"."
+tags:
+  - positive-trigger
+inputs:
+  prompt: "Every review round finds a new edge case. In two consecutive review/fix rounds for the same feature, each review found a new defect in the same acceptance decision: whether the checker is trusted. The first fix covered invocation; the next review found an unchanged state reader making that decision differently. All commands succeeded. Review both findings and the affected consumers before choosing the next correction."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "zoom-out"

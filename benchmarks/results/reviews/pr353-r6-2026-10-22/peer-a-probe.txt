@@ -1,0 +1,313 @@
+#!/usr/bin/env node
+'use strict';
+
+// Independent cross-review probe (scratch, outside every repository).
+// Usage: node cross-review-probe.js <worktree-root> [case]
+// Cases: p1 | p2 | all
+// It builds one normative Git repository per case, then exercises the S2a producer/events/core of the
+// worktree under review. It prints a machine-readable verdict per case; it never writes into a repository.
+
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const crypto = require('crypto');
+const { spawnSync } = require('child_process');
+
+const ROOT = path.resolve(process.argv[2] || '.');
+const ONLY = process.argv[3] || 'all';
+const TMP = process.env.PROBE_TMPDIR || os.tmpdir();
+const DERIVE_CONFIG = JSON.parse(fs.readFileSync(path.join(ROOT, 'ci/fixtures/doc-obligations/derive/config.json'), 'utf8'));
+const FIXTURE = path.join(ROOT, 'ci/fixtures/doc-obligations/derive/missing-approval');
+
+const sha256 = value => crypto.createHash('sha256').update(value).digest('hex');
+const clone = value => JSON.parse(JSON.stringify(value));
+const stable = value => JSON.stringify(value, (key, item) =>
+  (item && typeof item === 'object' && !Array.isArray(item)
+    ? Object.fromEntries(Object.keys(item).sort().map(k => [k, item[k]])) : item));
+
+function git(cwd, args) {
+  const env = { ...process.env };
+  for (const key of Object.keys(env)) if (key.startsWith('GIT_')) delete env[key];
+  env.GIT_AUTHOR_DATE = '2026-01-01T00:00:00Z';
+  env.GIT_COMMITTER_DATE = '2026-01-01T00:00:00Z';
+  const out = spawnSync('git', args, { cwd, encoding: 'utf8', env, timeout: 20000 });
+  if (out.status !== 0) throw new Error(`git ${args[0]} failed: ${out.stderr}`);
+  return out.stdout;
+}
+function writeFiles(root, files) {
+  for (const [rel, content] of Object.entries(files)) {
+    const target = path.join(root, rel);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, Buffer.from(content));
+  }
+}
+function makeRepo(baseFiles, binaryFiles = {}) {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(TMP, 'probe-')));
+  git(root, ['init', '-q']);
+  writeFiles(root, { '.agents/harness-everything/project-docs.json': JSON.stringify(DERIVE_CONFIG, null, 2) + '\n', ...baseFiles });
+  writeFiles(root, binaryFiles);
+  git(root, ['add', '-A']);
+  git(root, ['-c', 'user.name=probe', '-c', 'user.email=probe@invalid', '-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '-m', 'baseline']);
+  return { root, commit: git(root, ['rev-parse', 'HEAD']).trim() };
+}
+function readTree(dir) {
+  const files = {};
+  const walk = current => {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else files[path.relative(dir, full).split(path.sep).join('/')] = fs.readFileSync(full);
+    }
+  };
+  if (fs.existsSync(dir)) walk(dir);
+  return files;
+}
+
+class FakeOrigin {
+  constructor(context) { this.context = clone(context); this.refs = new Map(); }
+  issueEvent(reference, event) { this.refs.set(reference, clone(event)); }
+  resolveContext() { return { status: 'accepted', context: clone(this.context), originRef: 'fake-origin:context' }; }
+  resolveEvent({ reference }) {
+    if (!this.refs.has(reference)) return { status: 'rejected', diagnostics: [{ code: 'origin-untrusted', message: 'not issued' }] };
+    const event = clone(this.refs.get(reference));
+    return { status: 'accepted', event, originRef: event.originRef, correlation: { toolCorrelationId: event.toolCorrelationId || null } };
+  }
+}
+const CONTEXT = repo => ({
+  baseline: { root: repo.root, commit: repo.commit },
+  workspaceId: 'fake-workspace', sessionId: 'session-s2a-001', workflowId: 'wf-s2a-001', workflowRevision: 2,
+  taskId: 'task-s2a-001', principals: { author: 'author-principal', executors: ['executor-principal'] },
+  activeHost: { hostId: 'fake-host' }, baselineReference: 'fake-origin:workflow-start-baseline'
+});
+const TASK = {
+  taskId: 'task-s2a-001',
+  requirements: [
+    { id: 'req-docs', stepType: 'doc-change', summary: 'Update the PRD REQ text', acceptance: 'normative PRD text is reviewed', bindings: [] },
+    { id: 'req-verify', stepType: 'verification', summary: 'Verify the PRD change', acceptance: 'objective doc checks are recorded', bindings: [{ id: 'verification-loop' }] }
+  ]
+};
+function producerInput(repo) {
+  return {
+    workspaceRoot: repo.root, baseline: { root: repo.root, commit: repo.commit },
+    workflow: { workflowId: 'wf-s2a-001', workflowRevision: 2, sessionId: 'session-s2a-001' },
+    task: clone(TASK), scope: { prdRoot: 'docs/prd/' }, activeHost: { hostId: 'fake-host' }, prdRoot: 'docs/prd/'
+  };
+}
+function buildEvents(snapshot, repo) {
+  const events = {};
+  const digests = {};
+  for (const obligation of snapshot.obligations || []) {
+    for (const rel of (obligation.scope && obligation.scope.paths) || []) {
+      const abs = path.join(repo.root, rel);
+      digests[rel] = fs.existsSync(abs) ? sha256(fs.readFileSync(abs)) : null;
+    }
+  }
+  for (const obligation of snapshot.obligations || []) {
+    if (obligation.strength !== 'MUST' || obligation.applicability === 'N/A') continue;
+    const capability = obligation.capability;
+    const ref = `ref-${capability}`;
+    const common = {
+      eventId: `evt-${capability}`, producerId: 'fake-producer', identity: clone(snapshot.identity),
+      paths: [...(obligation.scope.paths || [])], provenance: 'fake-origin:fixture', capability,
+      originRef: `fake-origin:event:${ref}`
+    };
+    if (capability === 'quality-review') {
+      events[ref] = { ...common, kind: 'review', principalId: 'reviewer-principal', verdict: 'approve',
+        summary: `fixture review for ${capability}: approve`, reviewedArtifactDigests: clone(digests),
+        independentOf: ['author-principal', 'executor-principal'] };
+    } else {
+      events[ref] = { ...common, kind: 'execution', principalId: 'executor-principal', command: `fixture-check ${capability}`,
+        argv: ['fixture-check', capability], cwd: '.', exitCode: 0, signal: null, toolCorrelationId: `tool-${capability}`,
+        startIdentity: clone(snapshot.identity), endIdentity: clone(snapshot.identity), resultRef: `result-${capability}`,
+        artifactDigests: clone(digests) };
+    }
+  }
+  return events;
+}
+function codesOf(...results) {
+  const codes = new Set();
+  for (const result of results) {
+    for (const item of [...(result && result.diagnostics || []), ...(result && result.rejected || []), ...(result && result.unsatisfied || [])]) {
+      if (item && typeof item.code === 'string') codes.add(item.code);
+      if (item && typeof item.reasonCode === 'string') codes.add(item.reasonCode);
+    }
+  }
+  return [...codes].sort();
+}
+
+const CORE = path.join(ROOT, 'hooks/scripts/lib/doc-reconciliation-core.js');
+const PRODUCER = path.join(ROOT, 'hooks/scripts/lib/doc-reconciliation-producer.js');
+const EVENTS = path.join(ROOT, 'hooks/scripts/lib/doc-reconciliation-events.js');
+function load() {
+  for (const file of [CORE, PRODUCER, EVENTS]) delete require.cache[require.resolve(file)];
+  return { core: require(CORE), producer: require(PRODUCER), events: require(EVENTS) };
+}
+
+const results = [];
+function record(id, expected, actual, detail) {
+  results.push({ id, expected, actual, pass: expected === actual, detail });
+  console.log(`${expected === actual ? 'PASS' : 'DIFF'} ${id} — expected ${expected}, got ${actual}${detail ? ` (${detail})` : ''}`);
+}
+
+// ---- P1 probes -----------------------------------------------------------------------------------------------
+
+function flow(mods, repo) {
+  const origin = new FakeOrigin(CONTEXT(repo));
+  const produced = mods.producer.produceDocSnapshot(producerInput(repo), { originProvider: origin });
+  if (produced.state !== 'ready' || !produced.snapshot) return { produced, codes: codesOf(produced) };
+  const snapshot = produced.snapshot;
+  const events = buildEvents(snapshot, repo);
+  for (const [ref, event] of Object.entries(events)) origin.issueEvent(ref, event);
+  const accepted = mods.events.acceptDocEvents({ snapshot, eventRefs: Object.keys(events) }, { originProvider: origin });
+  const decision = mods.core.checkAcceptedDocEvidence({ snapshot, accepted, mode: 'verification' });
+  return { produced, snapshot, events, accepted, decision, origin, codes: codesOf(produced, accepted, decision) };
+}
+function rewriteCached(accepted, snapshot) {
+  const out = clone(accepted);
+  out.identity = clone(snapshot.identity);
+  out.originContext = clone(snapshot.originContext);
+  for (const key of Object.keys(out.acceptedIndex || {})) out.acceptedIndex[key].identity = clone(snapshot.identity);
+  return out;
+}
+
+function p1Probes(mods) {
+  const files = { base: readTree(path.join(FIXTURE, 'base')), candidate: readTree(path.join(FIXTURE, 'candidate')) };
+  const repo = makeRepo(files.base);
+  try {
+    writeFiles(repo.root, files.candidate);
+    const base = flow(mods, repo);
+    if (!base.snapshot) { record('p1-control-eligible', 'eligible', 'no-snapshot', base.codes.join(',')); return; }
+    record('p1-control-eligible', 'eligible', base.decision.eligible ? 'eligible' : 'not-eligible', base.codes.join(','));
+
+    // (1) Joint captured-origin + provider task substitution (the packet's named attack).
+    {
+      const snapshot = clone(base.snapshot);
+      snapshot.originContext.taskId = 'task-s2a-002';
+      base.origin.context.taskId = 'task-s2a-002';
+      const accepted = mods.events.acceptDocEvents({ snapshot, eventRefs: Object.keys(base.events) }, { originProvider: base.origin });
+      const decision = mods.core.checkAcceptedDocEvidence({ snapshot, accepted, mode: 'verification' });
+      const cached = clone(base.accepted); cached.originContext = clone(snapshot.originContext);
+      const replay = mods.core.checkAcceptedDocEvidence({ snapshot, accepted: cached, mode: 'verification' });
+      record('p1-joint-origin-task-substitution', 'rejected', (decision.eligible || replay.eligible) ? 'accepted' : 'rejected',
+        `decision ${decision.decision}, codes ${codesOf(accepted, decision).join(',')} / cached ${replay.decision}`);
+    }
+    // (2) Plan-only substitution: the captured plan names another workflow, the plan digest is recomputed,
+    //     the identity and the origin context keep the original tuple.
+    {
+      const snapshot = clone(base.snapshot);
+      snapshot.taskSemantics.workflow.workflowId = 'wf-substituted';
+      snapshot.identity.taskScopeDigest = mods.core._internals.structuredDigest('doc-task-scope-v1', snapshot.taskSemantics);
+      const cached = rewriteCached(base.accepted, snapshot);
+      const decision = mods.core.checkAcceptedDocEvidence({ snapshot, accepted: cached, mode: 'verification' });
+      record('p1-plan-only-substitution', 'rejected', decision.eligible ? 'accepted' : 'rejected',
+        `decision ${decision.decision}, codes ${codesOf(decision).join(',')}`);
+    }
+    // (3) Config-bytes substitution: the captured config bytes are replaced, every digest that names them is
+    //     recomputed, and the cached acceptance is restated to match.
+    {
+      const snapshot = clone(base.snapshot);
+      const source = snapshot.config.capture.sources.find(item => item.presence === 'present');
+      source.bytes = Buffer.from('{"governed":[]}\n');
+      source.digest = sha256(source.bytes);
+      snapshot.config.digest = mods.core._internals.configDigest(snapshot.config);
+      snapshot.identity.configDigest = snapshot.config.digest;
+      snapshot.taskSemantics.configDigest = snapshot.config.digest;
+      snapshot.identity.taskScopeDigest = mods.core._internals.structuredDigest('doc-task-scope-v1', snapshot.taskSemantics);
+      const cached = rewriteCached(base.accepted, snapshot);
+      const decision = mods.core.checkAcceptedDocEvidence({ snapshot, accepted: cached, mode: 'verification' });
+      record('p1-config-bytes-substitution', 'rejected', decision.eligible ? 'accepted' : 'rejected',
+        `decision ${decision.decision}, codes ${codesOf(decision).join(',')}`);
+    }
+    // (4) Fully joint, self-consistent substitution: captured origin context, provider context, identity,
+    //     captured plan and every digest that names them, plus the cached acceptance, all restated together.
+    {
+      const snapshot = clone(base.snapshot);
+      snapshot.originContext.taskId = 'task-s2a-002';
+      base.origin.context.taskId = 'task-s2a-002';
+      snapshot.identity.taskId = 'task-s2a-002';
+      snapshot.taskSemantics.task.taskId = 'task-s2a-002';
+      snapshot.identity.taskScopeDigest = mods.core._internals.structuredDigest('doc-task-scope-v1', snapshot.taskSemantics);
+      const cached = rewriteCached(base.accepted, snapshot);
+      const decision = mods.core.checkAcceptedDocEvidence({ snapshot, accepted: cached, mode: 'verification' });
+      record('p1-fully-joint-self-consistent-substitution', 'rejected', decision.eligible ? 'accepted' : 'rejected',
+        `decision ${decision.decision}, codes ${codesOf(decision).join(',')}`);
+    }
+  } finally { fs.rmSync(repo.root, { recursive: true, force: true }); }
+}
+
+// ---- P2 probes -----------------------------------------------------------------------------------------------
+
+const BINARY = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0a, 0x1a, 0x0a, 0x00, 0xff, 0xfe, 0x80, 0x81]);
+const ROLE_FRONT = Buffer.from('---\nrole: prd\nid: PRD-GRPH-999\nrevision: 1\nstatus: draft\n---\n### REQ-GRPH-999\n\nbinary requirement\n\nAcceptance: evaluate it.\n');
+const MASKED_FRONT = Buffer.concat([Buffer.from('---\nrole: prd\nid: PRD-GRPH-999\n'), Buffer.from([0xff]), Buffer.from('\n---\nbody\n')]);
+
+function p2Probes(mods) {
+  const files = { base: readTree(path.join(FIXTURE, 'base')), candidate: readTree(path.join(FIXTURE, 'candidate')) };
+  const cases = [
+    ['p2-asset-irrelevant', 'assets/logo.png', BINARY, 'ready'],
+    ['p2-governed-path-unchanged', 'docs/prd/diagram.png', BINARY, 'unavailable'],
+    ['p2-role-frontmatter-asset', 'assets/role.dat', Buffer.concat([ROLE_FRONT, BINARY]), 'unavailable'],
+    ['p2-masked-frontmatter-asset', 'assets/masked.dat', MASKED_FRONT, 'unavailable']
+  ];
+  for (const [id, rel, bytes, expected] of cases) {
+    const repo = makeRepo(files.base, { [rel]: bytes });
+    try {
+      writeFiles(repo.root, { ...files.candidate, [rel]: bytes });
+      const origin = new FakeOrigin(CONTEXT(repo));
+      const produced = mods.producer.produceDocSnapshot(producerInput(repo), { originProvider: origin });
+      const actual = produced.state === 'ready' ? 'ready' : 'unavailable';
+      record(id, expected, actual, codesOf(produced).join(',') || produced.state);
+    } finally { fs.rmSync(repo.root, { recursive: true, force: true }); }
+  }
+
+  // New and deleted record identity: a binary record that only exists on one side of the capture.
+  for (const [id, rel, mode, expected] of [
+    ['p2-new-binary-governed-record', 'docs/prd/new.bin', 'new', 'unavailable'],
+    ['p2-deleted-binary-governed-record', 'docs/prd/old.bin', 'deleted', 'unavailable']
+  ]) {
+    const repo = makeRepo(mode === 'new' ? files.base : { ...files.base, [rel]: BINARY });
+    try {
+      if (mode === 'new') writeFiles(repo.root, { ...files.candidate, [rel]: BINARY });
+      else writeFiles(repo.root, files.candidate);
+      const origin = new FakeOrigin(CONTEXT(repo));
+      const produced = mods.producer.produceDocSnapshot(producerInput(repo), { originProvider: origin });
+      const actual = produced.state === 'ready' ? 'ready' : 'unavailable';
+      record(id, expected, actual, codesOf(produced).join(',') || produced.state);
+    } finally { fs.rmSync(repo.root, { recursive: true, force: true }); }
+  }
+
+  // Binary bytes stay in the whole-project hash, and producer/core re-derivation agree on the same snapshot.
+  {
+    const plain = makeRepo(files.base);
+    const withAsset = makeRepo(files.base, { 'assets/logo.png': BINARY });
+    try {
+      writeFiles(plain.root, files.candidate);
+      writeFiles(withAsset.root, { ...files.candidate, 'assets/logo.png': BINARY });
+      const plainOrigin = new FakeOrigin(CONTEXT(plain));
+      const assetOrigin = new FakeOrigin(CONTEXT(withAsset));
+      const plainSnapshot = mods.producer.produceDocSnapshot(producerInput(plain), { originProvider: plainOrigin });
+      const assetSnapshot = mods.producer.produceDocSnapshot(producerInput(withAsset), { originProvider: assetOrigin });
+      const digestsDiffer = plainSnapshot.snapshot.identity.candidateDigest !== assetSnapshot.snapshot.identity.candidateDigest
+        && plainSnapshot.snapshot.identity.baselineDigest !== assetSnapshot.snapshot.identity.baselineDigest;
+      record('p2-binary-bytes-covered-by-both-digests', 'differ', digestsDiffer ? 'differ' : 'same');
+      const errors = mods.core._internals.validateSnapshot(assetSnapshot.snapshot);
+      record('p2-producer-core-parity', 'no-errors', errors.length ? JSON.stringify(errors) : 'no-errors');
+      // A record whose stored bytes do not match its digest must not verify.
+      const tampered = clone(assetSnapshot.snapshot);
+      const record0 = tampered.candidate.records.find(item => item.path === 'assets/logo.png');
+      record0.digest = '0'.repeat(64);
+      const tamperedErrors = mods.core._internals.validateSnapshot(tampered);
+      record('p2-malformed-record-rejected', 'invalid-input',
+        tamperedErrors.some(item => item.code === 'invalid-input') ? 'invalid-input' : JSON.stringify(tamperedErrors));
+    } finally {
+      fs.rmSync(plain.root, { recursive: true, force: true });
+      fs.rmSync(withAsset.root, { recursive: true, force: true });
+    }
+  }
+}
+
+const mods = load();
+console.log(`# worktree ${ROOT}`);
+if (ONLY === 'p1' || ONLY === 'all') p1Probes(mods);
+if (ONLY === 'p2' || ONLY === 'all') p2Probes(mods);
+console.log(`# summary: ${results.filter(r => r.pass).length} match, ${results.filter(r => !r.pass).length} diverge of ${results.length}`);

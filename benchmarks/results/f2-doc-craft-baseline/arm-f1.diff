@@ -1,0 +1,19 @@
+--- <base>/docs/doc-workflow-reconciliation.md	2026-10-22 07:43:24
++++ <arm-f1>/docs/doc-workflow-reconciliation.md	2026-10-22 10:46:58
+@@ -5,10 +5,12 @@
+ 
+ # Document workflow reconciliation — Phase 3b S1 runtime
+ 
+-**Status: S1 runtime ships default OFF; opt in with `HARNESS_DOC_RECONCILIATION_PILOT=1`.
+-S1 grants no positive document verification credit. S2/S3 are pending; E1 has not started.**
+-This document refines the [document lifecycle contract](document-lifecycle.md#phase-3b--narrow-integration-contract-s1-shipped-default-off-positive-reconciliation-not-shipped).
+-The [accepted E0](https://github.com/dyphn1/Harness-everything/issues/341#issuecomment-6308604128)
++This document describes **S1**, a limited, reversible pilot slice that refines the
++[document lifecycle contract](document-lifecycle.md#phase-3b--narrow-integration-contract-s1-shipped-default-off-positive-reconciliation-not-shipped).
++**Status: the S1 runtime ships default OFF — it does nothing until you opt in with
++`HARNESS_DOC_RECONCILIATION_PILOT=1` — and it grants no positive document verification credit.
++S2/S3 are pending, and E1 has not started.** The
++[accepted E0](https://github.com/dyphn1/Harness-everything/issues/341#issuecomment-6308604128)
+ permits this limited, reversible consumer under the
+ [owner's E0/E1 decision](https://github.com/dyphn1/Harness-everything/issues/325#issuecomment-6283237637).
+ Current evidence establishes deterministic mechanism/package behavior, not live-host loading or E1 GO.

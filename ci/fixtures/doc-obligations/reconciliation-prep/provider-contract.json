@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "kind": "doc-provider-preparation-contract",
+  "status": "design-only",
+  "runtimeImplemented": false,
+  "fixtureAlignment": {
+    "caseInventory": "ci/fixtures/doc-obligations/reconciliation-prep/cases.json",
+    "caseFamilies": ["P01", "P02", "P03", "P04", "P05", "P06", "P07", "P08"],
+    "caseIds": [
+      "P01", "P04", "P06", "P02a", "P02b", "P02c", "P02g", "P02d",
+      "P02e", "P02f", "P03", "P05", "P07-fable-staged", "P07-fable-parallel",
+      "P07-fable-multi-agent-workspace", "P07u"
+    ],
+    "providerExamplesAreReplayCases": false,
+    "note": "Provider metadata examples describe the advisory interface only; the H2 replay cases do not invoke a production provider implementation. runtimeImplemented refers to workflow integration: S3 ships the pure suggestDocProviders() function (harness-everything/scripts/doc-providers.js), which is not wired into any workflow. P08 is suite-level source/package parity, not a cases.json record."
+  },
+  "interface": "suggestDocProviders",
+  "input": {
+    "required": ["activeStep", "neededCapabilities", "availableProviderMetadata", "hostCapabilities"],
+    "fields": {
+      "activeStep": "object with nonempty id and stepType; the current authorized active step",
+      "neededCapabilities": "array of distinct capability strings applicable to this active step",
+      "availableProviderMetadata": "array of provider metadata objects; no skill content",
+      "hostCapabilities": "array of distinct supported host capability strings"
+    }
+  },
+  "providerMetadata": {
+    "required": ["providerId", "capabilities", "stepTypes", "requiresHostCapabilities", "locator"],
+    "fields": {
+      "providerId": "nonempty stable string",
+      "capabilities": "array of distinct declared document capability strings",
+      "stepTypes": "array of step types for which this metadata is relevant",
+      "requiresHostCapabilities": "array of host capability strings; empty means none",
+      "locator": "object with kind binding or tool and nonempty id; lookup only, never an executable command"
+    }
+  },
+  "output": {
+    "required": ["suggestions", "unavailable"],
+    "suggestionRequired": ["capability", "providerId", "availability", "reason"],
+    "unavailableRequired": ["capability", "reason"],
+    "availabilityValues": ["available", "unavailable", "unknown"],
+    "fieldTypes": {
+      "capability": "nonempty string",
+      "providerId": "nonempty string",
+      "availability": "one of availabilityValues",
+      "reason": "nonempty string"
+    }
+  },
+  "invariants": [
+    "Suggestions are optional candidates, never required bindings or authorization.",
+    "Expose only needed capabilities and provider metadata relevant to activeStep.",
+    "Do not read SKILL.md content, execute tools or generators, or expose future-step candidates.",
+    "Swapping or omitting candidates leaves expected obligations unchanged.",
+    "No suitable available provider retains an unavailable capability and reason; its MUST is not removed.",
+    "A chosen binding uses existing binding resolution and host authorization.",
+    "Independent qualifying evidence can satisfy a MUST without a suggested provider.",
+    "Examples specify planned behavior only; no production provider implementation is shipped."
+  ],
+  "examples": [
+    {
+      "id": "active-verification-alternative-providers",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [
+          { "providerId": "fixture-lint-a", "capabilities": ["doc-lint"], "stepTypes": ["verification"], "requiresHostCapabilities": ["execution-events"], "locator": { "kind": "tool", "id": "fixture-lint-a" } },
+          { "providerId": "fixture-lint-b", "capabilities": ["doc-lint"], "stepTypes": ["verification"], "requiresHostCapabilities": ["execution-events"], "locator": { "kind": "tool", "id": "fixture-lint-b" } },
+          { "providerId": "fixture-future-outline", "capabilities": ["outline-confirmation"], "stepTypes": ["doc-change"], "requiresHostCapabilities": [], "locator": { "kind": "binding", "id": "to-spec" } }
+        ],
+        "hostCapabilities": ["execution-events"]
+      },
+      "expected": {
+        "suggestions": [
+          { "capability": "doc-lint", "providerId": "fixture-lint-a", "availability": "available", "reason": "active-step capability and host requirements match" },
+          { "capability": "doc-lint", "providerId": "fixture-lint-b", "availability": "available", "reason": "active-step capability and host requirements match" }
+        ],
+        "unavailable": []
+      },
+      "comparison": "Compare candidate sets; this contract does not impose provider ranking. Reasons are explanatory, not authorization tokens."
+    },
+    {
+      "id": "provider-omitted",
+      "input": { "activeStep": { "id": "verify-docs", "stepType": "verification" }, "neededCapabilities": ["doc-lint"], "availableProviderMetadata": [], "hostCapabilities": [] },
+      "expected": { "suggestions": [], "unavailable": [{ "capability": "doc-lint", "reason": "no available provider metadata for the active-step capability" }] }
+    },
+    {
+      "id": "host-capability-unavailable",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["quality-review"],
+        "availableProviderMetadata": [{ "providerId": "fixture-review", "capabilities": ["quality-review"], "stepTypes": ["verification"], "requiresHostCapabilities": ["independent-review-events"], "locator": { "kind": "tool", "id": "fixture-review" } }],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "suggestions": [{ "capability": "quality-review", "providerId": "fixture-review", "availability": "unavailable", "reason": "host lacks independent-review-events" }],
+        "unavailable": [{ "capability": "quality-review", "reason": "host lacks independent-review-events" }]
+      }
+    }
+  ]
+}

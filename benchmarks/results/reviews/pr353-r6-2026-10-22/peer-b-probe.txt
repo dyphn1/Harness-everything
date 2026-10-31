@@ -1,0 +1,94 @@
+'use strict';
+// Independent cross-review probe (leg B as reviewer). Read-only against both implementation worktrees.
+// Uses only the harness API common to both legs (makeRepo/writeFiles with Buffer content).
+const path = require('path');
+const fs = require('fs');
+
+const BINARY = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0a, 0x1a, 0x0a, 0x00, 0xff, 0xfe, 0x80, 0x81]);
+const PRD = '---\nid: PRD-GRPH-001\nrevision: 1\nstatus: draft\n---\n### REQ-GRPH-001\n\nThe rule.\n\nAcceptance: it holds.\n';
+
+function load(root) {
+  const H = require(path.join(root, 'ci/fixtures/doc-obligations/reconciliation-s2a/harness.js'));
+  const P = require(path.join(root, 'hooks/scripts/lib/doc-reconciliation-producer.js'));
+  return { H, P };
+}
+
+function describe(snapshot) {
+  if (!snapshot) return null;
+  const req = (snapshot.obligations || []).find(o => o.capability === 'requirement-sync');
+  const musts = (snapshot.obligations || []).filter(o => o.strength === 'MUST' && o.applicability !== 'N/A').map(o => o.id).sort();
+  return {
+    musts,
+    requirementSync: req ? { applicability: req.applicability, scope: (req.scope.paths || []).slice(), citedReqs: req.citedReqs || [] } : null
+  };
+}
+
+function runCase(root, name, build) {
+  const { H, P } = load(root);
+  const files = build();
+  const repo = H.makeRepo(files.base);
+  try {
+    H.writeFiles(repo.root, files.candidate);
+    const origin = new H.FakeOrigin({ context: H.fakeContext({}, repo) });
+    const produced = P.produceDocSnapshot(H.producerInput(repo), { originProvider: origin });
+    if (produced.state !== 'ready') {
+      return { name, state: produced.state, codes: H.codesOf(produced) };
+    }
+    return { name, state: 'ready', ...describe(produced.snapshot) };
+  } finally { H.removeRepo(repo.root); }
+}
+
+const CASES = {
+  // A candidate record whose bytes carry a role: prd frontmatter, at a path no config glob classifies.
+  'frontmatter-role-nonclassified': () => ({
+    base: { 'docs/prd/graph.md': PRD, 'assets/role.dat': BINARY },
+    candidate: { 'docs/prd/graph.md': PRD, 'assets/role.dat': Buffer.concat([Buffer.from('---\nrole: prd\nid: PRD-GRPH-999\nrevision: 1\nstatus: draft\n---\n### REQ-GRPH-999\n\nBinary requirement.\n'), BINARY]) }
+  }),
+  // A candidate record whose bytes are a REQ-citing test, at a test path.
+  'req-citing-test': () => ({
+    base: { 'docs/prd/graph.md': PRD, 'tests/fixture.dat': BINARY },
+    candidate: { 'docs/prd/graph.md': PRD, 'tests/fixture.dat': Buffer.concat([Buffer.from('// REQ-GRPH-001\nit("requires the rule", () => { expect(true).toBe(true); });\n'), BINARY]) }
+  }),
+  // A candidate record whose bytes declare a REQ block at a path no config glob classifies, with a changed
+  // test that cites that REQ id.
+  'req-block-nonclassified': () => ({
+    base: { 'docs/prd/graph.md': PRD, 'tests/req.test.js': '// REQ-GRPH-001\nit("a", () => {});\n', 'assets/req.md': BINARY },
+    candidate: { 'docs/prd/graph.md': PRD, 'tests/req.test.js': '// REQ-GRPH-001\nit("b", () => {});\n', 'assets/req.md': Buffer.concat([Buffer.from('### REQ-GRPH-001\n\nThe binary declares the requirement.\n'), BINARY]) }
+  }),
+  // The same, with the record deleted in the candidate (new/deleted record identity).
+  'deleted-req-block': () => ({
+    base: { 'docs/prd/graph.md': PRD, 'tests/req.test.js': '// REQ-GRPH-001\nit("a", () => {});\n', 'assets/req.md': Buffer.concat([Buffer.from('### REQ-GRPH-001\n\nThe binary declares the requirement.\n'), BINARY]) },
+    candidate: { 'docs/prd/graph.md': PRD, 'tests/req.test.js': '// REQ-GRPH-001\nit("b", () => {});\n', 'assets/req.md': null }
+  }),
+  // A live requirement-sync surface (changed code + changed REQ-citing test) plus a candidate record whose
+  // bytes declare the cited REQ at a path no config glob classifies.
+  'req-citation-scope': () => ({
+    base: { 'src/lint.js': 'exports.run = () => 1;\n', 'tests/req.test.js': '// REQ-GRPH-001\nit("a", () => {});\n', 'assets/req.md': BINARY },
+    candidate: { 'src/lint.js': 'exports.run = () => 2;\n', 'tests/req.test.js': '// REQ-GRPH-001\nit("b", () => {});\n', 'assets/req.md': Buffer.concat([Buffer.from('### REQ-GRPH-001\n\nThe binary declares the requirement.\n'), BINARY]) }
+  }),
+  // Control: an ordinary irrelevant binary asset must not change the document obligations.
+  'irrelevant-asset-control': () => ({
+    base: { 'docs/prd/graph.md': PRD, 'assets/logo.png': BINARY },
+    candidate: { 'docs/prd/graph.md': PRD, 'assets/logo.png': Buffer.concat([BINARY, Buffer.from([1])]) }
+  }),
+  // An undecodable record at a REQ-test path with no REQ id: the packet forbids silently dropping a test
+  // input, so this case separates "fails closed" from "omitted".
+  'undecodable-test-path-no-req': () => ({
+    base: { 'docs/prd/graph.md': PRD, 'tests/plain.dat': BINARY },
+    candidate: { 'docs/prd/graph.md': PRD, 'tests/plain.dat': Buffer.concat([BINARY, Buffer.from([1])]) }
+  }),
+  // An undecodable record at a code path with no REQ id.
+  'undecodable-code-path-no-req': () => ({
+    base: { 'docs/prd/graph.md': PRD, 'src/plain.js': BINARY },
+    candidate: { 'docs/prd/graph.md': PRD, 'src/plain.js': Buffer.concat([BINARY, Buffer.from([1])]) }
+  })
+};
+
+const root = path.resolve(process.argv[2]);
+console.log(`== ${path.basename(root)} (${root}) ==`);
+for (const [name, build] of Object.entries(CASES)) {
+  let outcome;
+  try { outcome = runCase(root, name, build); }
+  catch (error) { outcome = { name, state: 'ERROR', detail: error.message.split('\n')[0] }; }
+  console.log(JSON.stringify(outcome));
+}

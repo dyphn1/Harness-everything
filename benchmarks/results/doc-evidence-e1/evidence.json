@@ -1,0 +1,360 @@
+{
+  "schemaVersion": 1,
+  "clientDate": "2026-10-25",
+  "classification": "retained-nonqualifying-live-observations",
+  "publicReproduction": "LOCAL_ONLY: raw Claude transcripts, hook payloads, and state journals remain private under /tmp/harness-e1-2026-10-25; hashes are recorded below",
+  "productBaseline": "25c4a8478d5617d1e803940951876bb3ae1ecb37",
+  "package": {
+    "hostPluginVersion": "0.42.0",
+    "stagedTrackedFiles": 1754,
+    "hooksJsonSha256": "e3c711dce8d8cebaad1ea433febf4d2de2d4a3a03e514024657544d3e0c1304e",
+    "docCheckJsSha256": "da5e51a763eda6680afb63ee781b566253df9d358eec1e65436786c9ecebbbdb"
+  },
+  "host": {
+    "engine": "Claude Code 2.1.310",
+    "model": "claude-sonnet-5-5",
+    "provider": "firstParty",
+    "platform": "macOS 26.6.2 arm64",
+    "node": "v26.12.1",
+    "npm": "11.20.0",
+    "pilotSwitch": "HARNESS_DOC_RECONCILIATION_PILOT=1",
+    "stateHome": "process-local /tmp/harness-e1-2026-10-25/state-run1 and state-run2; no user-global config or credentials changed"
+  },
+  "providerFallbackContext": {
+    "classification": "operational readiness context only; all observations are non-qualifying for E1",
+    "openCodeFreePrimary": {
+      "requestedModel": "glm-5.3-flash-free",
+      "observed": "free usage limit reached",
+      "e1Qualifying": false
+    },
+    "openCodeOpenAIFallback": {
+      "requestedModel": "openai/gpt-6-luna#xhigh",
+      "observed": "configured credential rejected; no model response",
+      "causeBeyondRejection": "UNKNOWN",
+      "credentialTextRetained": false,
+      "credentialChanged": false,
+      "e1Qualifying": false
+    },
+    "nvidiaProbe": {
+      "requestedModel": "nvidia/z-ai/glm-5.3",
+      "observed": "no output within 58 seconds while another NVIDIA call was active",
+      "cause": "UNKNOWN; contention, network/backend delay, and provider/model configuration were not isolated",
+      "e1Qualifying": false
+    },
+    "codexLunaWorkerProbe": {
+      "model": "gpt-5.6-luna",
+      "effort": "xhigh",
+      "mode": "read-only, ephemeral",
+      "observed": "READY; 12,665 reported tokens",
+      "interpretation": "worker-path availability only; not the Claude subject or E1 evidence",
+      "e1Qualifying": false
+    },
+    "claudeSubject": {
+      "version": "2.1.310",
+      "auth": "first-party login present",
+      "usedFor": ["O1", "O2"]
+    },
+    "diagnosticSha256": "b918e70720a2d2d3ec77ddc343fa411e332e328202da2ff3bd1d145c235d320d",
+    "diagnosticPath": "LOCAL_ONLY:/tmp/harness-provider-diagnostic.md"
+  },
+  "invocations": {
+    "stagePlugin": "node scripts/stage-claude-plugin.js /tmp/harness-e1-2026-10-25/plugin",
+    "O1DocCheck": "node \"/tmp/harness-e1-2026-10-25/plugin/harness-everything/scripts/doc-check.js\" check --workspace \"/Users/daniel.chang/Desktop/Skills/Harness-everything/.worktrees/341-e1-decision-evidence\" --config .agents/harness-everything/project-docs.json --changed-path docs/doc-workflow-reconciliation.md",
+    "O2DocCheck": "node \"/tmp/harness-e1-2026-10-25/plugin/harness-everything/scripts/doc-check.js\" check --workspace \"/Users/daniel.chang/Desktop/Skills/Harness-everything/.worktrees/341-e1-decision-evidence\" --config .agents/harness-everything/project-docs.json --changed-path docs/doc-workflow-reconciliation.md --changed-path docs/document-lifecycle.md",
+    "pilotLaunchProfile": "HARNESS_DOC_RECONCILIATION_PILOT=1 HARNESS_STATE_HOME=<isolated /tmp state> claude -p <captured prompt> --plugin-dir /tmp/harness-e1-2026-10-25/plugin --settings /tmp/harness-e1-2026-10-25/capture-settings.json --agents <doc-reviewer tools Read,Grep> --allowedTools <scoped workflow step/binding, doc-check and shasum commands> --session-id <fresh UUID> --setting-sources project,local --output-format stream-json --verbose --include-hook-events",
+    "privatePromptFiles": [
+      { "path": "LOCAL_ONLY:/tmp/harness-e1-2026-10-25/run2-prompt.txt", "sha256": "c39e402eeec2780e2c058f9e9db28b6e1b3be0df2a3343dff2f07c32db760256" },
+      { "path": "LOCAL_ONLY:/tmp/harness-e1-2026-10-25/run2-resume-prompt.txt", "sha256": "6bc61c5ad87b8e0e2e310357917eac4a01f04262bfc3e30fd4e4cd0ae144efb0" },
+      { "path": "LOCAL_ONLY:/tmp/harness-e1-2026-10-25/run2-final-review-prompt.txt", "sha256": "77343d6f2f41168325ce2c7ff0804b66548df20510eaef6f22ea748f17ed6fe0" },
+      { "path": "LOCAL_ONLY:/tmp/harness-e1-2026-10-25/run2-current-review-prompt.txt", "sha256": "ab5e488f438c44ce553674e1f44e5a794f143cd000b3c50ebb9bcc940795e3a7" }
+    ]
+  },
+  "task": {
+    "summary": "Clarify whether E1 observation attempts have started and align current E1 status wording across the governed reconciliation reference and lifecycle contract.",
+    "baselineFileSha256": {
+      "docs/doc-workflow-reconciliation.md": "9db9d74ad32d1ddbce87dd9377c2e4f0af3db817c0528b053a4d3f25fa7eecac",
+      "docs/document-lifecycle.md": "5abb45d8c95322e41bc074548d6f0cee736079fb79e608ad50130311c6afb745"
+    },
+    "hostObservedCandidateSha256": {
+      "docs/doc-workflow-reconciliation.md": "9c293ae530b96f7618be7363c148565fd4efd32df9aea462b7122d3586817c6f",
+      "docs/document-lifecycle.md": "503ef6d29fd1859d94659affe3b8bca2e3f61cda077640d7afe26a0ececf2a85"
+    },
+    "finalPublicationSha256": {
+      "docs/doc-workflow-reconciliation.md": "9c293ae530b96f7618be7363c148565fd4efd32df9aea462b7122d3586817c6f",
+      "docs/document-lifecycle.md": "d66f5731b7ef3f261eb052824e64d24c7b946d743f96d92f7349770468f2713c"
+    },
+    "baselineCommit": "25c4a8478d5617d1e803940951876bb3ae1ecb37",
+    "candidateCommitStatus": "uncommitted worktree candidate; HEAD remains the pinned baseline; worker made no git writes",
+    "finalChangedPaths": [
+      "docs/doc-workflow-reconciliation.md",
+      "docs/document-lifecycle.md"
+    ]
+  },
+  "preRegistration": {
+    "initialExpectation": {
+      "doc-lint": "pass",
+      "link-check": "pass",
+      "note": "This initial prediction was wrong for doc-lint; the config declares no domains. Later expectations were corrected before the typed workflow run."
+    },
+    "typedWorkflowExpectation": {
+      "doc-lint": "partial",
+      "link-check": "partial when document-lifecycle.md is included because it is not governed",
+      "verification": "withhold PASS; any MUST PASS is a hard blocker"
+    }
+  },
+  "observations": [
+    {
+      "id": "O1",
+      "kind": "live documentation edit and direct registered check",
+      "classification": "NON-QUALIFYING",
+      "expected": {
+        "doc-lint": "pass",
+        "link-check": "pass"
+      },
+      "actual": {
+        "doc-lint": "partial",
+        "doc-lintSkipped": "no domains declared; bare <DOMAIN>-NNN references are not checked",
+        "link-check": "pass",
+        "linksChecked": 11,
+        "brokenLinks": 0
+      },
+      "decision": "Claude judged the opening 'E1 has not started' wording ambiguous and changed one status sentence to distinguish OPEN/insufficient exposure from the non-qualifying D1/D2 attempts.",
+      "workflow": {
+        "route": "Tier 1",
+        "typedWorkflow": false,
+        "pilotReportPresent": false,
+        "completionObserved": false
+      },
+      "reasonNonQualifying": "The session did not enter a typed workflow or produce a runtime reconciliation report; the direct checker run is exposure only."
+    },
+    {
+      "id": "O2",
+      "kind": "live typed review and verification attempt",
+      "classification": "NON-QUALIFYING",
+      "workflow": {
+        "tier": 2,
+        "strategy": "iterative-single",
+        "state": "running",
+        "baselineCommit": "25c4a8478d5617d1e803940951876bb3ae1ecb37",
+        "reviewStep": "pass recorded with a stale artifact hash before the S2 gate wording was restored",
+        "verificationStep": "pending"
+      },
+      "reviewSequence": [
+        {
+          "verdict": "reject",
+          "reason": "The line 9 correction conflicted with three remaining current-status sentences.",
+          "reviewerTools": "Read plus Bash; the host principal later appears in the runtime reviewer-not-independent diagnostic.",
+          "artifactSha256": "f83ccf60458e264e96c0aed5210d38409824ecbd9aa687766ac38ca5a92f65a2"
+        },
+        {
+          "verdict": "approve",
+          "reason": "The status copies agreed, but the review occurred before the S2 entry-gate wording was restored.",
+          "reviewerTools": "Read/Grep",
+          "artifactSha256": "337eb62cc4963980253d98a3d8f2f3a8e3b9610f940a7375d65b88f37baef00b"
+        },
+        {
+          "verdict": "approve",
+          "reason": "Current E1 statuses agree; D1/D2 remain non-qualifying; S2 entry gate remains; no GO/benefit claim; link resolves.",
+          "reviewerTools": "Read/Grep only",
+          "artifactSha256": {
+            "docs/doc-workflow-reconciliation.md": "9c293ae530b96f7618be7363c148565fd4efd32df9aea462b7122d3586817c6f",
+            "docs/document-lifecycle.md": "503ef6d29fd1859d94659affe3b8bca2e3f61cda077640d7afe26a0ececf2a85"
+          }
+        }
+      ],
+      "actual": {
+        "doc-lint": "partial",
+        "doc-lintSkipped": "no domains declared; bare <DOMAIN>-NNN references are not checked",
+        "link-check": "partial",
+        "linksChecked": 11,
+        "brokenLinks": 0,
+        "linkCheckSkipped": "docs/document-lifecycle.md is not governed",
+        "verificationStepPass": "withheld; exit 2; document verification pending: S1 grants no document credit",
+        "pilotCredit": false,
+        "pilotStatus": "unresolved",
+        "creditedCapabilities": [],
+        "acceptedRefs": []
+      },
+      "runtimeDiagnostics": [
+        "partial-coverage: doc-lint earns no credit",
+        "partial-coverage: link-check earns no credit",
+        "reviewer-not-independent",
+        "scope-mismatch",
+        "artifact-mismatch",
+        "event-conflict",
+        "result-missing",
+        "missing-path-coverage"
+      ],
+      "reasonNonQualifying": "The active workflow did not complete and the runtime withheld doc verification. Its report retained earlier reviewer identity and artifact/scope conflicts; this record does not infer a root cause beyond those diagnostics."
+    }
+  ],
+  "caseCoverage": [
+    {
+      "case": "doc-lint with no configured domains",
+      "expected": "initially predicted pass; corrected expectation partial",
+      "actual": "partial",
+      "interpretation": "Coverage limitation; no false rejection claim."
+    },
+    {
+      "case": "link-check for the governed reconciliation reference",
+      "expected": "pass",
+      "actual": "pass for the single-path O1 run; 11 checked, 0 broken"
+    },
+    {
+      "case": "link-check when the ungoverned lifecycle contract is included",
+      "expected": "partial",
+      "actual": "partial; 11 checked, 0 broken; document-lifecycle.md skipped as not governed"
+    },
+    {
+      "case": "verification PASS with partial coverage",
+      "expected": "withhold PASS",
+      "actual": "withheld, exit 2; runtime pilotCredit=false",
+      "falseMustPass": false
+    },
+    {
+      "case": "review independence and freshness after correction",
+      "expected": "current digest-bound review must be distinct from author/executors",
+      "actual": "current reviewer approved the final hashes, while the runtime report still records reviewer-not-independent, scope-mismatch, artifact-mismatch and event-conflict; no quality-review reference was accepted"
+    }
+  ],
+  "retainedArtifacts": {
+    "pilotReport": "pilot-report.json",
+    "privateLocalFiles": [
+      {
+        "path": "LOCAL_ONLY:/tmp/harness-e1-2026-10-25/session.stream.jsonl",
+        "sha256": "fb5502f2389aa14ef3a3c8a520bd337342515eff7026b7047ee10a68dbc512b7"
+      },
+      {
+        "path": "LOCAL_ONLY:/tmp/harness-e1-2026-10-25/session-run2.stream.jsonl",
+        "sha256": "17960620b3f487ab57526e91eb0ada3c619b24a82f6d29ac86398df24bc7542d"
+      },
+      {
+        "path": "LOCAL_ONLY:/tmp/harness-e1-2026-10-25/session-run2-continuation.stream.jsonl",
+        "sha256": "981e7d3dad70e30ef371696f15da5364a81d66b7b6723ea76f4c7b32d1a9d7cc"
+      },
+      {
+        "path": "LOCAL_ONLY:/tmp/harness-e1-2026-10-25/session-run2-finalreview.stream.jsonl",
+        "sha256": "b092cf19237c4a5402f96b570b049d240186869937cd4b6dbffb5be602ce6186"
+      },
+      {
+        "path": "LOCAL_ONLY:/tmp/harness-e1-2026-10-25/session-run2-current-review.stream.jsonl",
+        "sha256": "d9b97ab2f3d1e5ed433a369724fd7737507d48bf06a90c25506298e9ddc3724f"
+      },
+      {
+        "path": "LOCAL_ONLY:/tmp/harness-e1-2026-10-25/hooks.raw.jsonl",
+        "sha256": "774bf7a009c4f5f5e1b29bf965364c0015fb408091cdefdc40f21a1955120383"
+      },
+      {
+        "path": "LOCAL_ONLY:/tmp/harness-e1-2026-10-25/capture-wrapper.js",
+        "sha256": "e50832909aad985e954472a3fd93e3121863eef3a16f234919282c25f3889aa4"
+      },
+      {
+        "path": "LOCAL_ONLY:/tmp/harness-e1-2026-10-25/capture-settings.json",
+        "sha256": "6b4f83d6a946a5461d1af4b7cae0e1c680ff88043e51d2bb8805c6a3d3ad9669"
+      },
+      {
+        "path": "LOCAL_ONLY:/tmp/harness-e1-2026-10-25/state-run1/workspaces/.../doc-reconciliation-capture.json",
+        "sha256": "fb36e1e341a91eb3ae74d5572708da39effc3788ab3a676565e77cccec1a83cc"
+      },
+      {
+        "path": "LOCAL_ONLY:/tmp/harness-e1-2026-10-25/state-run2/workspaces/.../doc-reconciliation-capture.json",
+        "sha256": "923b4df9d0081ea2106b78343b7dc6eccb441e3de7e019e82f53a3a7158e0d07"
+      },
+      {
+        "path": "LOCAL_ONLY:/tmp/harness-e1-2026-10-25/state-run2/workspaces/.../doc-reconciliation-pilot.json",
+        "sha256": "ec18e0f5b2ddee298127de9b740f30af63ccb5700d77de1285a15ad6d4bfd3c1"
+      }
+    ],
+    "sanitizedWrapperEventCounts": {
+      "sessionRun1": 8,
+      "sessionRun2": 53,
+      "duplicateEventToolKeys": 0
+    }
+  },
+  "publicationCorrection": {
+    "path": "docs/document-lifecycle.md",
+    "coldReviewedPublicationSha256": "0807eab467eb7c9f8d9592cb6c0426d82d76c6187a655529334c529e30db183a",
+    "change": "The Phase 3c row now says H1 preparation only (#373); full H1-H4 and paired-task evaluation remain pending. The table heading clarifies that 2026-10-20 is the original checkpoint and only Phase 3b/3c status was updated on 2026-10-25.",
+    "source": "https://github.com/dyphn1/Harness-everything/pull/373 and benchmarks/results/h1-provider-independence-qualification/README.md; cold Luna xhigh review",
+    "relationToE1Observation": "Source-traced documentation update after the host observations; not a host-run E1 cycle and does not change any E1 gate."
+  },
+  "verification": {
+    "gitDiffCheck": "PASS",
+    "verifyAllFastInitial": "INTERRUPTED (exit 143) after mechanism-2i setup failed: node_modules was absent; incomplete failure inventory",
+    "npmCi": "PASS: npm ci --ignore-scripts added 106 packages and audited 107; npm reported 1 moderate vulnerability; no lockfile change",
+    "verifyAllFastRerun": "NOT RUN BY WORKER per coordinator; full verification supersedes it",
+    "fullVerifyAll": {
+      "status": "PASS",
+      "passed": 13,
+      "failed": 0,
+      "unchecked": 3,
+      "runtime": "Node v24.22.1 on darwin",
+      "optionalWaza": "PASS",
+      "log": "LOCAL_ONLY:/tmp/harness-e1-final-verification-node24.log",
+      "logSha256": "cb2c783c0913a72a39c7b03aa179dc6317d90439ad49bdfa15a143ee96e9a530"
+    },
+    "uncheckedDetails": [
+      "Node 22 self-regression execution smoke test not requested; CI runtime-floor job covers it",
+      "Node 22 installer roundtrip execution smoke test not requested",
+      "Node 22 dependency install (npm ci) is covered by the CI runtime-floor job and was not replicated locally"
+    ],
+    "windowsAndCI": "UNCHECKED; no remote CI matrix result in this local gate log"
+  },
+  "executionCost": {
+    "O1": {
+      "hostResultDurationMs": 18139,
+      "hostResultTurns": 6,
+      "reportedOutputTokens": 1815,
+      "reportedCostUsd": 0.1259958,
+      "journalUniqueToolUseIds": 5,
+      "editToolCalls": 1
+    },
+    "O2": {
+      "latestHostResultDurationMs": 37486,
+      "reportedSessionOutputTokens": 21297,
+      "reportedSessionCostUsd": 1.0581192,
+      "journalUniqueToolUseIds": 26,
+      "journalPostToolUseFailures": 4,
+      "note": "Host-reported cost/token values are cumulative for the resumed session, not isolated per-resume increments."
+    },
+    "rawHookPayloads": {
+      "O1": 8,
+      "O2": 53,
+      "duplicateSessionEventToolKeys": 0
+    },
+    "documentationCorrections": {
+      "E1StatusRows": 4,
+      "separatePhase3cStatusRow": 1,
+      "historicalCheckpointHeadingClarification": 1,
+      "sourceCodeFiles": 0,
+      "testsAdded": 0
+    },
+    "hostReviewerRuns": 3,
+    "coordinatorInterventionCount": "UNKNOWN; not instrumented as a metric",
+    "endToEndWallClock": "UNKNOWN; not measured across preparation, review, and final reporting"
+  },
+  "nextMinimalItem": "No product-code fix is justified by this exposure. A future qualifying cycle needs an owner-approved truthful project domain configuration so doc-lint can reach complete coverage, all changed paths to be governed for link-check, and a fresh Read/Grep-only reviewer principal. Do not infer domains or add governance paths without an explicit owner decision.",
+  "qualification": {
+    "qualifyingE1Cycles": 0,
+    "qualifyingE1CyclesStatus": "COLD_REVIEW: O1/O2 non-qualifying; E1 OPEN/UNCHECKED; no formal GO/REVISE/NO-GO",
+    "nonQualifyingObservations": 2,
+    "e1Go": false,
+    "behaviorBenefit": false,
+    "consumerExpansion": false,
+    "pairedH1H4Evidence": false,
+    "independentColdReview": {
+      "reviewer": "Luna xhigh",
+      "status": "DONE; the review findings were applied to the publication bytes and hashes separated from the O2 observed candidate",
+      "evidenceLayer": "source-traced correspondence against raw host records",
+      "checks": [
+        "raw/public artifact hashes matched",
+        "O1/O2 wrapper event counts matched at 8 and 53",
+        "zero duplicate event/tool keys",
+        "credential scan clean"
+      ],
+      "publicationReview": "Cold review found the Phase 3c row/date-heading inconsistencies at lifecycle SHA 0807eab4; the requested heading clarification was applied afterward. Final publication SHA d66f5731 is recorded separately and was not the hash checked during that cold review.",
+      "adjudication": "qualifying E1 cycles=0; O1/O2 non-qualifying; verification withholding correct; no false MUST PASS or false rejection; E1 remains OPEN/UNCHECKED; no formal GO/REVISE/NO-GO; no gate closure"
+    },
+    "disposition": "Observation record only; no E1 GO/REVISE/NO-GO decision claimed"
+  }
+}

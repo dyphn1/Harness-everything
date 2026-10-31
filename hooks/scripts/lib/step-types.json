@@ -1,0 +1,37 @@
+[
+  {
+    "id": "behavior-change",
+    "requiredBindings": ["tdd"],
+    "optionalBindings": [],
+    "forbiddenBindings": [],
+    "evidenceHint": "Evidence should show the requested behavior changed."
+  },
+  {
+    "id": "commit",
+    "requiredBindings": ["git-commit"],
+    "optionalBindings": [],
+    "forbiddenBindings": [],
+    "evidenceHint": "Evidence should identify the authorized commit."
+  },
+  {
+    "id": "doc-change",
+    "requiredBindings": [],
+    "optionalBindings": [],
+    "forbiddenBindings": [],
+    "evidenceHint": "Evidence should show the requested document update."
+  },
+  {
+    "id": "review",
+    "requiredBindings": [],
+    "optionalBindings": [],
+    "forbiddenBindings": ["tdd"],
+    "evidenceHint": "Evidence should identify the reviewed scope and findings."
+  },
+  {
+    "id": "verification",
+    "requiredBindings": ["verification-loop"],
+    "optionalBindings": [],
+    "forbiddenBindings": [],
+    "evidenceHint": "Evidence should record objective checks appropriate to the change."
+  }
+]

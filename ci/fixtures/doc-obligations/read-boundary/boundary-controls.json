@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 1,
+  "phase": "C1",
+  "description": "Weakened-boundary transform inventory for N01-N09. Applied in memory to the exact selected source pair; the checker and policy are never edited by these transforms.",
+  "distributions": {
+    "canonical": {
+      "evaluator": "harness-everything/scripts/doc-evidence.js",
+      "capture": "harness-everything/scripts/doc-evidence-capture.js"
+    },
+    "packaged": {
+      "evaluator": "plugins/harness-everything/skills/harness-everything/scripts/doc-evidence.js",
+      "capture": "plugins/harness-everything/skills/harness-everything/scripts/doc-evidence-capture.js"
+    }
+  },
+  "expectedRuleIdsPending": false,
+  "controls": [
+    {
+      "id": "N01d",
+      "intendedRuleId": "EVALUATOR_CONTEXT_EXACT",
+      "expectedC1Status": "REJECTED",
+      "name": "context alias, dormant",
+      "description": "As N01, but the alias read sits behind a guard the corpus never takes (the wrapper always provides artifacts, so artifactMap is never undefined).",
+      "transforms": [
+        {
+          "file": "evaluator",
+          "from": "      capture, baselineDigest, executionList, reviewList, diagnostics\n    }));",
+          "to": "      capture, baselineDigest, executionList, reviewList, diagnostics, artifactMap: artifacts\n    }));"
+        },
+        {
+          "file": "evaluator",
+          "from": "  const { capture, baselineDigest, executionList, reviewList, diagnostics } = context;",
+          "to": "  const { capture, baselineDigest, executionList, reviewList, diagnostics } = context;\n  if (context.artifactMap === undefined) { const a = context.artifactMap; void a?.['docs/adr/OLD.md']?.digest; }"
+        }
+      ]
+    },
+    {
+      "id": "N02d",
+      "intendedRuleId": "EVALUATOR_CONTEXT_EXACT",
+      "expectedC1Status": "REJECTED",
+      "name": "destructure, dormant",
+      "description": "As N02, behind the same never-taken guard.",
+      "transforms": [
+        {
+          "file": "evaluator",
+          "from": "      capture, baselineDigest, executionList, reviewList, diagnostics\n    }));",
+          "to": "      capture, baselineDigest, executionList, reviewList, diagnostics, artifactMap: artifacts\n    }));"
+        },
+        {
+          "file": "evaluator",
+          "from": "  const { capture, baselineDigest, executionList, reviewList, diagnostics } = context;",
+          "to": "  const { capture, baselineDigest, executionList, reviewList, diagnostics } = context;\n  if (context.artifactMap === undefined) { const a = context.artifactMap; const { digest } = a?.['docs/adr/OLD.md'] ?? {}; void digest; }"
+        }
+      ]
+    },
+    {
+      "id": "N01",
+      "intendedRuleId": "EVALUATOR_CONTEXT_EXACT",
+      "expectedC1Status": "REJECTED",
+      "name": "context alias",
+      "description": "Wrapper adds a raw artifact handoff to the evaluator context; the evaluator reads one path through a local alias.",
+      "transforms": [
+        {
+          "file": "evaluator",
+          "from": "      capture, baselineDigest, executionList, reviewList, diagnostics\n    }));",
+          "to": "      capture, baselineDigest, executionList, reviewList, diagnostics, artifactMap: artifacts\n    }));"
+        },
+        {
+          "file": "evaluator",
+          "from": "  const { capture, baselineDigest, executionList, reviewList, diagnostics } = context;",
+          "to": "  const { capture, baselineDigest, executionList, reviewList, diagnostics } = context;\n  const a = context.artifactMap; void a?.['docs/adr/OLD.md']?.digest;"
+        }
+      ]
+    },
+    {
+      "id": "N02",
+      "intendedRuleId": "EVALUATOR_CONTEXT_EXACT",
+      "expectedC1Status": "REJECTED",
+      "name": "destructure",
+      "description": "Same ingress as N01; the evaluator destructures a raw entry through the alias.",
+      "transforms": [
+        {
+          "file": "evaluator",
+          "from": "      capture, baselineDigest, executionList, reviewList, diagnostics\n    }));",
+          "to": "      capture, baselineDigest, executionList, reviewList, diagnostics, artifactMap: artifacts\n    }));"
+        },
+        {
+          "file": "evaluator",
+          "from": "  const { capture, baselineDigest, executionList, reviewList, diagnostics } = context;",
+          "to": "  const { capture, baselineDigest, executionList, reviewList, diagnostics } = context;\n  const a = context.artifactMap; const { digest } = a?.['docs/adr/OLD.md'] ?? {}; void digest;"
+        }
+      ]
+    },
+    {
+      "id": "N03",
+      "intendedRuleId": "RETURNED_VIEW_OWNERSHIP",
+      "expectedC1Status": "REJECTED",
+      "name": "direct snapshot escape",
+      "description": "captureEntry returns the raw entry inside its frozen record.",
+      "transforms": [
+        {
+          "file": "capture",
+          "from": "            hasOwnRenameTo: snapshot.hasOwnRenameTo,",
+          "to": "            hasOwnRenameTo: snapshot.hasOwnRenameTo,\n            rawEntry,"
+        }
+      ]
+    },
+    {
+      "id": "N04",
+      "intendedRuleId": "RETURNED_VIEW_OWNERSHIP",
+      "expectedC1Status": "REJECTED",
+      "name": "nested and helper escape",
+      "description": "The raw entry escapes through a nested object, a helper return and a returned closure.",
+      "transforms": [
+        {
+          "file": "capture",
+          "from": "function isPlainObject(value) {",
+          "to": "function passthrough(value) {\n  return value;\n}\n\nfunction isPlainObject(value) {"
+        },
+        {
+          "file": "capture",
+          "from": "            hasOwnRenameTo: snapshot.hasOwnRenameTo,",
+          "to": "            hasOwnRenameTo: snapshot.hasOwnRenameTo,\n            meta: { entry: rawEntry },\n            helperAlias: passthrough(rawEntry),\n            leak: () => rawEntry,"
+        }
+      ]
+    },
+    {
+      "id": "N05",
+      "intendedRuleId": "COMP-C2-BOUND",
+      "expectedC1Status": "SURVIVED",
+      "name": "new read in C2 exception",
+      "description": "compatibilityCandidateBound reads an extra artifactDigests field through a fresh alias.",
+      "transforms": [
+        {
+          "file": "capture",
+          "from": "          if (!isPlainObject(record.artifactDigests)) return false;",
+          "to": "          if (!isPlainObject(record.artifactDigests)) return false;\n          const alias = record.artifactDigests; void alias[path];"
+        }
+      ]
+    },
+    {
+      "id": "N06",
+      "intendedRuleId": "COMP-C2-BOUND",
+      "expectedC1Status": "SURVIVED",
+      "name": "unvisited exception branch",
+      "description": "The extra read sits in a branch no corpus fixture takes (a path string longer than 999 characters). The guard reads only the string path, so the branch is inert in the corpus.",
+      "transforms": [
+        {
+          "file": "capture",
+          "from": "          if (candidateDigestCache.has(path)) {\n            const digest = candidateDigestCache.get(path);",
+          "to": "          if (typeof path === 'string' && path.length > 999) void record.artifactDigests[path];\n          if (candidateDigestCache.has(path)) {\n            const digest = candidateDigestCache.get(path);"
+        }
+      ]
+    },
+    {
+      "id": "N07",
+      "intendedRuleId": "CAPTURE_CALL_SITES",
+      "expectedC1Status": "REJECTED",
+      "name": "broaden C5",
+      "description": "The PRD enumeration runs before the envelope short-circuit.",
+      "transforms": [
+        {
+          "file": "evaluator",
+          "from": "    const envelopeAttested = Boolean(envelope)",
+          "to": "    capture.compatibilityPrdSetDigest();\n    const envelopeAttested = Boolean(envelope)"
+        }
+      ]
+    },
+    {
+      "id": "N08",
+      "intendedRuleId": "OBLIGATION_CAPABILITIES_EXACT",
+      "expectedC1Status": "REJECTED",
+      "name": "lexical closure bypass",
+      "description": "An obligation-scope object exposes a closure over the raw wrapper artifacts.",
+      "transforms": [
+        {
+          "file": "capture",
+          "from": "      const obligationCapture = {",
+          "to": "      const obligationCapture = {\n        rawView: () => artifacts,"
+        }
+      ]
+    },
+    {
+      "id": "N09",
+      "intendedRuleId": "MODULE_EXPORTS_EXACT",
+      "expectedC1Status": "REJECTED",
+      "name": "API raw helper escape",
+      "description": "The module export carries a computed-name raw getter.",
+      "transforms": [
+        {
+          "file": "capture",
+          "from": "module.exports = { createInvocationCapture };",
+          "to": "module.exports = { createInvocationCapture, ['get' + 'Raw']: () => artifacts };"
+        }
+      ]
+    },
+    {
+      "id": "N02c",
+      "name": "consumer destructure widened",
+      "intendedRuleId": "EVALUATOR_CONTEXT_EXACT",
+      "expectedC1Status": "REJECTED",
+      "description": "C3 checker-target control (haiku). The evaluator consumer destructures one extra context key. AST route restored after luna c2-fix (pinned @evaluateObligation-context-destructure target); the AST assertion pins that target.",
+      "transforms": [
+        {
+          "file": "evaluator",
+          "from": "  const { capture, baselineDigest, executionList, reviewList, diagnostics } = context;",
+          "to": "  const { capture, baselineDigest, executionList, reviewList, diagnostics, artifactMap } = context;"
+        }
+      ]
+    }
+  ]
+}

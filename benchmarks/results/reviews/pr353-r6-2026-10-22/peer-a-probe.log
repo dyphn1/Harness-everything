@@ -1,0 +1,62 @@
+# worktree /Users/daniel.chang/Desktop/Skills/Harness-everything/.worktrees/353-r6-b
+PASS p1-control-eligible — expected eligible, got eligible
+PASS p1-joint-origin-task-substitution — expected rejected, got rejected (decision unresolved, codes identity-mismatch / cached unresolved)
+DIFF p1-plan-only-substitution — expected rejected, got accepted (decision eligible, codes )
+DIFF p1-config-bytes-substitution — expected rejected, got accepted (decision eligible, codes )
+PASS p2-asset-irrelevant — expected ready, got ready (ready)
+PASS p2-governed-path-unchanged — expected unavailable, got unavailable (inventory-unsupported)
+PASS p2-role-frontmatter-asset — expected unavailable, got unavailable (inventory-unsupported)
+DIFF p2-masked-frontmatter-asset — expected unavailable, got ready (ready)
+# summary: 5 match, 3 diverge of 8
+
+
+# worktree /Users/daniel.chang/Desktop/Skills/Harness-everything/.worktrees/353-r6-a
+PASS p1-control-eligible — expected eligible, got eligible
+PASS p1-joint-origin-task-substitution — expected rejected, got rejected (decision unresolved, codes identity-mismatch / cached unresolved)
+PASS p1-plan-only-substitution — expected rejected, got rejected (decision unresolved, codes identity-mismatch)
+PASS p1-config-bytes-substitution — expected rejected, got rejected (decision unresolved, codes config-capture-mismatch)
+PASS p2-asset-irrelevant — expected ready, got ready (ready)
+PASS p2-governed-path-unchanged — expected unavailable, got unavailable (inventory-unsupported)
+PASS p2-role-frontmatter-asset — expected unavailable, got unavailable (inventory-unsupported)
+PASS p2-masked-frontmatter-asset — expected unavailable, got unavailable (inventory-unsupported)
+# summary: 8 match, 0 diverge of 8
+
+
+# worktree /Users/daniel.chang/Desktop/Skills/Harness-everything/.worktrees/353-r6-a
+PASS p2-asset-irrelevant — expected ready, got ready (ready)
+PASS p2-governed-path-unchanged — expected unavailable, got unavailable (inventory-unsupported)
+PASS p2-role-frontmatter-asset — expected unavailable, got unavailable (inventory-unsupported)
+PASS p2-masked-frontmatter-asset — expected unavailable, got unavailable (inventory-unsupported)
+PASS p2-new-binary-governed-record — expected unavailable, got unavailable (inventory-unsupported)
+PASS p2-deleted-binary-governed-record — expected unavailable, got unavailable (inventory-unsupported)
+PASS p2-binary-bytes-covered-by-both-digests — expected differ, got differ
+PASS p2-producer-core-parity — expected no-errors, got no-errors
+PASS p2-malformed-record-rejected — expected invalid-input, got invalid-input
+# summary: 9 match, 0 diverge of 9
+# worktree /Users/daniel.chang/Desktop/Skills/Harness-everything/.worktrees/353-r6-b
+PASS p2-asset-irrelevant — expected ready, got ready (ready)
+PASS p2-governed-path-unchanged — expected unavailable, got unavailable (inventory-unsupported)
+PASS p2-role-frontmatter-asset — expected unavailable, got unavailable (inventory-unsupported)
+DIFF p2-masked-frontmatter-asset — expected unavailable, got ready (ready)
+PASS p2-new-binary-governed-record — expected unavailable, got unavailable (inventory-unsupported)
+PASS p2-deleted-binary-governed-record — expected unavailable, got unavailable (inventory-unsupported)
+PASS p2-binary-bytes-covered-by-both-digests — expected differ, got differ
+PASS p2-producer-core-parity — expected no-errors, got no-errors
+PASS p2-malformed-record-rejected — expected invalid-input, got invalid-input
+# summary: 8 match, 1 diverge of 9
+
+
+# worktree /Users/daniel.chang/Desktop/Skills/Harness-everything/.worktrees/353-r6-a
+PASS p1-control-eligible — expected eligible, got eligible
+PASS p1-joint-origin-task-substitution — expected rejected, got rejected (decision unresolved, codes identity-mismatch / cached unresolved)
+PASS p1-plan-only-substitution — expected rejected, got rejected (decision unresolved, codes identity-mismatch)
+PASS p1-config-bytes-substitution — expected rejected, got rejected (decision unresolved, codes config-capture-mismatch)
+DIFF p1-fully-joint-self-consistent-substitution — expected rejected, got accepted (decision eligible, codes )
+# summary: 4 match, 1 diverge of 5
+# worktree /Users/daniel.chang/Desktop/Skills/Harness-everything/.worktrees/353-r6-b
+PASS p1-control-eligible — expected eligible, got eligible
+PASS p1-joint-origin-task-substitution — expected rejected, got rejected (decision unresolved, codes identity-mismatch / cached unresolved)
+DIFF p1-plan-only-substitution — expected rejected, got accepted (decision eligible, codes )
+DIFF p1-config-bytes-substitution — expected rejected, got accepted (decision eligible, codes )
+DIFF p1-fully-joint-self-consistent-substitution — expected rejected, got accepted (decision eligible, codes )
+# summary: 2 match, 3 diverge of 5

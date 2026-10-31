@@ -1,0 +1,248 @@
+[
+  {
+    "doc": "architecture.md",
+    "exit": 0,
+    "total": 0,
+    "counts": {}
+  },
+  {
+    "doc": "audit.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "claude-plugin-certification.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "codex-action-gate.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "contract-integrity.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "doc-evidence-baseline-binding.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "doc-evidence-boundary.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "doc-workflow-reconciliation.md",
+    "exit": 0,
+    "total": 0,
+    "counts": {}
+  },
+  {
+    "doc": "document-lifecycle.md",
+    "exit": 1,
+    "total": 14,
+    "counts": {
+      "missing-req": 6,
+      "missing-status": 1,
+      "unresolved-ref": 7
+    }
+  },
+  {
+    "doc": "enforcement-locks.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "mechanism-first-skill-mesh.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "openai-plugin.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "philosophy.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "platform-capabilities.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "reflection.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "release-evidence.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "repository-contract.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "routing.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "security-audit.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "system-one-corpus.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "system-one-intent-gates.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "system-one-intent.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "system-one-laya-training.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "system-one-observations.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "system-one-routing.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "system-one-suggestion-gates.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "system-one-training.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "telemetry.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "troubleshooting.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "verifier-boundaries.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  },
+  {
+    "doc": "workflow-runtime.md",
+    "exit": 1,
+    "total": 1,
+    "counts": {
+      "missing-status": 1
+    }
+  }
+]

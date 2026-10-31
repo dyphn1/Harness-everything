@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 1,
+  "evaluatorCommit": "0f475ab",
+  "cases": [
+    {
+      "caseId": "RB107",
+      "family": "RB03",
+      "title": "two applicable obligations share a rename destination: the first poisons it with an unusable read, the second reads it again and passes",
+      "recipe": {
+        "nodes": {
+          "destNew": {
+            "kind": "object",
+            "props": {
+              "digest": {
+                "$accessor": {
+                  "sequence": [
+                    "",
+                    "3333333333333333333333333333333333333333333333333333333333333333",
+                    "3333333333333333333333333333333333333333333333333333333333333333"
+                  ]
+                }
+              }
+            }
+          },
+          "baselineArtifacts": {
+            "kind": "object",
+            "props": {
+              "docs/adr/OLD.md": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }
+          },
+          "baseline": {
+            "kind": "object",
+            "props": {
+              "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "artifacts": {
+                "$ref": "baselineArtifacts"
+              }
+            }
+          },
+          "entryR1": {
+            "kind": "object",
+            "props": {
+              "path": "docs/adr/OLD.md",
+              "reason": "rename-from",
+              "renameTo": "docs/adr/NEW.md"
+            }
+          }
+        },
+        "input": {
+          "obligations": {
+            "kind": "array",
+            "items": [
+              {
+                "kind": "object",
+                "props": {
+                  "id": "doc.adr.one",
+                  "capability": "adr",
+                  "applicability": "applicable",
+                  "scope": {
+                    "kind": "object",
+                    "props": {
+                      "paths": {
+                        "kind": "array",
+                        "items": [
+                          "docs/adr/OLD.md",
+                          "docs/adr/NEW.md"
+                        ]
+                      },
+                      "baselinePaths": {
+                        "kind": "array",
+                        "items": [
+                          {
+                            "$ref": "entryR1"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "object",
+                "props": {
+                  "id": "doc.adr.two",
+                  "capability": "adr",
+                  "applicability": "applicable",
+                  "scope": {
+                    "kind": "object",
+                    "props": {
+                      "paths": {
+                        "kind": "array",
+                        "items": [
+                          "docs/adr/OLD.md",
+                          "docs/adr/NEW.md"
+                        ]
+                      },
+                      "baselinePaths": {
+                        "kind": "array",
+                        "items": [
+                          {
+                            "$ref": "entryR1"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "artifacts": {
+            "kind": "object",
+            "props": {
+              "docs/adr/NEW.md": {
+                "$ref": "destNew"
+              }
+            }
+          },
+          "baseline": {
+            "$ref": "baseline"
+          },
+          "executionRecords": {
+            "kind": "array",
+            "items": [
+              {
+                "kind": "object",
+                "props": {
+                  "id": "e1",
+                  "obligationId": "doc.adr.one",
+                  "command": "npm test",
+                  "provenance": "ci run 1",
+                  "exitCode": 0,
+                  "paths": {
+                    "kind": "array",
+                    "items": [
+                      "docs/adr/OLD.md",
+                      "docs/adr/NEW.md"
+                    ]
+                  },
+                  "baseDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "artifactDigests": {
+                    "kind": "object",
+                    "props": {
+                      "docs/adr/NEW.md": "3333333333333333333333333333333333333333333333333333333333333333"
+                    }
+                  },
+                  "baselineArtifacts": {
+                    "kind": "object",
+                    "props": {
+                      "docs/adr/OLD.md": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "object",
+                "props": {
+                  "id": "e2",
+                  "obligationId": "doc.adr.two",
+                  "command": "npm test",
+                  "provenance": "ci run 1",
+                  "exitCode": 0,
+                  "paths": {
+                    "kind": "array",
+                    "items": [
+                      "docs/adr/OLD.md",
+                      "docs/adr/NEW.md"
+                    ]
+                  },
+                  "baseDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "artifactDigests": {
+                    "kind": "object",
+                    "props": {
+                      "docs/adr/NEW.md": "3333333333333333333333333333333333333333333333333333333333333333"
+                    }
+                  },
+                  "baselineArtifacts": {
+                    "kind": "object",
+                    "props": {
+                      "docs/adr/OLD.md": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "results": [
+          [
+            "unresolved",
+            "none"
+          ],
+          [
+            "observed",
+            "pass"
+          ]
+        ],
+        "codes": [
+          "baseline-path-invalid"
+        ]
+      },
+      "budgets": [],
+      "mutants": []
+    }
+  ]
+}

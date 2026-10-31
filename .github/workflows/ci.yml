@@ -21,6 +21,88 @@ jobs:
       - name: Verify pilot instrumentation, sanitizer and offline replay
         run: python3 benchmarks/issue290-pilot/check.py
 
+  doc-governance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Run base-owned document governance guard
+        env:
+          HARNESS_GUARD_EVENT: ${{ github.event_name }}
+          HARNESS_GUARD_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HARNESS_GUARD_CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          node -e 'const crypto = require("node:crypto");
+          const fs = require("node:fs");
+          const os = require("node:os");
+          const path = require("node:path");
+          const { spawnSync } = require("node:child_process");
+          (function main() {
+          const guardPath = "scripts/doc-governance-guard.js";
+          const event = process.env.HARNESS_GUARD_EVENT || "unknown";
+          const baseInput = process.env.HARNESS_GUARD_BASE_SHA || "";
+          const candidateInput = process.env.HARNESS_GUARD_CANDIDATE_SHA || "";
+          function warn(state, message) {
+            console.log("::warning title=" + state + "::" + message);
+            if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, "## Document governance guard\n\n**" + state + "**: " + message + "\n\n", "utf8");
+          }
+          function git(args) {
+            const result = spawnSync("git", args, { encoding: "buffer", maxBuffer: 16 * 1024 * 1024, env: { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_NO_REPLACE_OBJECTS: "1", GIT_PAGER: "cat", GIT_TERMINAL_PROMPT: "0" } });
+            if (result.error) throw result.error;
+            if (result.status !== 0) throw new Error("git " + args[0] + " failed: " + Buffer.from(result.stderr || result.stdout || "").toString("utf8").trim());
+            return Buffer.from(result.stdout || "");
+          }
+          function resolveCommit(input, label) {
+            if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(input)) throw new Error(label + " is not a full commit SHA");
+            const resolved = git(["rev-parse", "--verify", "--quiet", "--end-of-options", input + "^{commit}"]).toString("ascii").trim().toLowerCase();
+            if (resolved !== input.toLowerCase()) throw new Error(label + " did not resolve to the supplied commit SHA");
+            return resolved;
+          }
+          if (event !== "pull_request") {
+            warn("UNCHECKED", "No externally selected PR base/head is available for event " + event + "; the base-owned guard was not executed.");
+            return;
+          }
+          try {
+            const base = resolveCommit(baseInput, "PR base SHA");
+            const candidate = resolveCommit(candidateInput, "PR head SHA");
+            const checkout = process.env.GITHUB_SHA || "unavailable";
+            console.log("PR head SHA used by the guard: " + candidate);
+            console.log("GITHUB_SHA used by checkout and the ordinary suite: " + checkout + " (the pull_request checkout may be a synthetic merge commit).");
+            const entries = git(["ls-tree", "-z", "--full-tree", base, "--", guardPath]);
+            if (entries.length === 0) {
+              warn("BOOTSTRAP_UNCHECKED", "Trusted base " + base + " has no " + guardPath + "; candidate guard was not executed. Independent review of the frozen candidate guard is required.");
+              return;
+            }
+            if (entries[entries.length - 1] !== 0) throw new Error("base guard tree entry is not NUL terminated");
+            const entry = entries.subarray(0, entries.length - 1);
+            const tab = entry.indexOf(9);
+            if (tab < 0 || entry.subarray(tab + 1).toString("utf8") !== guardPath) throw new Error("base guard tree entry is malformed");
+            const [mode, type, oid] = entry.subarray(0, tab).toString("ascii").split(" ");
+            if (!(["100644", "100755"].includes(mode)) || type !== "blob" || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(oid || "")) throw new Error("base guard is not a regular Git blob");
+            const guardBytes = git(["cat-file", "blob", oid]);
+            const digest = crypto.createHash("sha256").update(guardBytes).digest("hex");
+            console.log("Base guard blob: " + oid + "; SHA-256: " + digest);
+            const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-doc-governance-"));
+            const tempGuard = path.join(tempDir, "doc-governance-guard.js");
+            try {
+              fs.writeFileSync(tempGuard, guardBytes, { mode: 0o600 });
+              const result = spawnSync(process.execPath, [tempGuard, "--repo", process.cwd(), "--base", base, "--candidate", candidate], { encoding: "buffer", maxBuffer: 64 * 1024 * 1024, env: { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_NO_REPLACE_OBJECTS: "1", GIT_PAGER: "cat", GIT_TERMINAL_PROMPT: "0" } });
+              if (result.error) throw result.error;
+              if (result.stdout) process.stdout.write(result.stdout);
+              if (result.stderr) process.stderr.write(result.stderr);
+              process.exitCode = result.status === null ? 1 : result.status;
+            } finally {
+              fs.rmSync(tempDir, { recursive: true, force: true });
+            }
+          } catch (error) {
+            console.error("Document governance guard setup failed: " + (error.message || String(error)));
+            process.exitCode = 1;
+          }
+          })();'
   self-regression:
     strategy:
       fail-fast: false
@@ -48,9 +130,9 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: '24.20.0'
+          node-version: '24.22.1'
       - name: Verify exact patched runtime
-        run: node -e "if (process.versions.node !== '24.20.0') process.exit(1)"
+        run: node -e "if (process.versions.node !== '24.22.1') process.exit(1)"
       - name: Exercise real evaluator subprocess and repeated resident teardown
         run: node --test ci/mechanism-system-one-resident.test.js
 
@@ -192,6 +274,8 @@ jobs:
         run: npm run test:plugin:submission
       - name: Platform compatibility matrix matches official-source and installer contracts
         run: npm run test:platform:compatibility
+      - name: Test sources stay portable across the OS matrix
+        run: npm run test:portability
 
   installer-e2e:
     strategy:

@@ -1,0 +1,54 @@
+{
+  "schema": "harness.doc-reconciliation.qualification.v1",
+  "host": "claude-code",
+  "hostVersion": "2.1.308",
+  "captureRecordVersion": "claude-capture-record/1",
+  "run": "Run 2b",
+  "payloadKinds": {
+    "PostToolUse": [
+      "agent_id",
+      "interrupted",
+      "tool_use_id"
+    ],
+    "PreToolUse": [
+      "agent_id",
+      "tool_use_id"
+    ],
+    "SubagentStart": [
+      "agent_id"
+    ],
+    "SubagentStop": [
+      "agent_id"
+    ]
+  },
+  "correlation": {
+    "preToPostByToolUseId": true,
+    "interruptedExplicit": true,
+    "subagentStartStopSameAgent": true,
+    "agentResultAliasCorrelated": true
+  },
+  "sanitizedCapture": {
+    "file": "doc-reconciliation-capture.sanitized.jsonl",
+    "sha256": "db4d8c85d2ba0fd06f53f455f31b125dd194e9a22cb337687bc0e295a16f02e5"
+  },
+  "outlineDispatchCapture": {
+    "mapping": {
+      "version": "claude-outline-dispatch-mapping/2",
+      "promptField": "tool_input.prompt",
+      "dispatchKey": "session_id+tool_use_id",
+      "runInBackgroundField": "tool_input.run_in_background",
+      "isolationPresenceField": "tool_input.isolation",
+      "resultAgentIdField": "tool_response.agentId",
+      "resultStatusField": "tool_response.status",
+      "workerStartEvent": "SubagentStart",
+      "workerStopEvent": "SubagentStop",
+      "workerIdentity": "session_id+agent_id",
+      "workerRootField": "cwd"
+    },
+    "file": "doc-reconciliation-outline-capture.sanitized.jsonl",
+    "sha256": "6feb440af12aaf878a0bed5cb750f29e27d271a9add93001e151746980230b7f",
+    "hostVersion": "2.1.312",
+    "run": "run8",
+    "baseline": "1bd0f805031c5577a6e7f72a9bc5b41618b71fc1"
+  }
+}

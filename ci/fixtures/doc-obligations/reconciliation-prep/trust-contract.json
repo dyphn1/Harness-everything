@@ -1,0 +1,188 @@
+{
+  "schemaVersion": 1,
+  "kind": "doc-trust-preparation-contract",
+  "status": "design-only",
+  "runtimeImplemented": false,
+  "provenance": "simulated-fixture-only",
+  "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
+  "pilotSwitch": { "name": "HARNESS_DOC_RECONCILIATION_PILOT", "enabledValue": "1", "default": "off", "otherValues": "off", "productionReaderShipped": false },
+  "identityContract": {
+    "required": ["workspaceId", "sessionId", "workflowId", "workflowRevision", "taskId", "taskScopeDigest", "baselineDigest", "candidateDigest", "configDigest", "prdRoot"],
+    "fieldTypes": {
+      "workspaceId": "nonempty string established from host workspace identity",
+      "sessionId": "nonempty string correlated to host session",
+      "workflowId": "nonempty string from persisted workflow",
+      "workflowRevision": "nonnegative integer from persisted workflow",
+      "taskId": "nonempty string identifying active task",
+      "taskScopeDigest": "nonempty digest of effective task scope and relevant plan/diff coverage",
+      "baselineDigest": "nonempty whole-baseline identity from recorded baseline tree",
+      "candidateDigest": "nonempty whole-candidate identity including complete changed/new/deleted path inventory",
+      "configDigest": "nonempty digest bound to exact selected config bytes parsed and validated",
+      "prdRoot": "repo-relative PRD root; docs/prd/ is the current supported envelope root"
+    },
+    "comparison": "Every field must match current independently established context at verification and completion. A fixture-provided value is not production attestation."
+  },
+  "producerContract": {
+    "required": ["producerId", "originRef", "identity", "inventoryComplete", "baselineTreeRef", "candidateTreeRef", "configSources", "authorPrincipalId"],
+    "origin": "Host/VCS-derived or independently verified export; no trusted boolean or JSON field can establish this origin.",
+    "storedBytes": "Whole-baseline and baseline path SHA256 values originate from the same recorded tree. Candidate export includes untracked/new, modified, deleted and rename paths using repository-stored byte semantics.",
+    "configSources": "Nonempty array of selected source path/byte-digest pairs and active-host selection where relevant, correlated to validated parsed config.",
+    "unsupported": "Missing/ambiguous origin, incomplete inventory or unsupported custom PRD root yields unknown/unavailable, never PASS."
+  },
+  "eventContract": {
+    "commonRequired": ["eventId", "kind", "producerId", "originRef", "identity", "principalId", "paths", "provenance"],
+    "kindValues": ["execution", "verification", "review"],
+    "executionRequired": ["command", "exitCode"],
+    "reviewRequired": ["verdict", "summary", "reviewedArtifactDigests", "independentOf"],
+    "rules": [
+      "originRef must resolve through host correlation or independently verified external evidence; prose alone is not origin.",
+      "identity has every identityContract field; paths cover the claimed obligation scope.",
+      "command and provenance are nonempty strings; exitCode is an integer.",
+      "Review approval needs approve verdict, nonempty summary and artifact binding.",
+      "Reviewer independence is established by the host, distinct from author and relevant executors; independentOf strings alone are not proof.",
+      "Replayed, contradictory, failed, stale or self-reviewed evidence cannot produce credit."
+    ]
+  },
+  "pilotReportContract": {
+    "status": "planned-after-E0",
+    "required": ["schemaVersion", "pilotStatus", "pilotCredit", "identity", "expectedMustIds", "results", "unsatisfied", "diagnostics"],
+    "pilotStatusValues": ["disabled", "unavailable", "unresolved", "verified"],
+    "unsatisfiedItemRequired": ["obligationId", "state", "reasonCode"],
+    "unsatisfiedStateValues": ["pending", "unknown", "unavailable", "failed"],
+    "observationValues": ["observed", "not-observed", "unavailable", "unresolved"],
+    "outcomeValues": ["pass", "fail", "none"],
+    "creditRule": "Only current producer-bound observed+pass evidence for every expected applicable MUST can earn pilotCredit after E0 integration. Unknown applicability stays unresolved. N/A needs a derivation reason. SHOULD reminders never become gates.",
+    "checkerCompatibility": "results contain unchanged checker result objects. This report does not extend or replace checkDocObligations output. identity is null when unavailable; unsupported/disabled state never earns credit."
+  },
+  "caseContract": {
+    "required": ["id", "family", "description", "topology", "requirements", "input", "actions", "expectations"],
+    "familyValues": ["P01", "P02", "P03", "P04", "P05", "P06", "P07", "P08"],
+    "caseIds": [
+      "P01", "P04", "P06", "P02a", "P02b", "P02c", "P02g", "P02d",
+      "P02e", "P02f", "P03", "P05", "P07-fable-staged", "P07-fable-parallel",
+      "P07-fable-multi-agent-workspace", "P07u"
+    ],
+    "caseIdNote": "P08 is the suite-level source/package parity check across replay cases, not a standalone cases.json record.",
+    "topologyValues": ["direct-single", "iterative-single", "fable-staged", "fable-parallel", "fable-multi-agent-workspace", "untyped"],
+    "fieldTypes": {
+      "id": "unique nonempty stable case string; expanded variants have distinct IDs",
+      "family": "one familyValues item",
+      "description": "nonempty string",
+      "topology": "one topologyValues item; untyped is a fixture classification, not a new runtime strategy",
+      "requirements": "array of existing plan requirement objects; empty only for declared untyped/empty-plan compatibility cases",
+      "input": "object with baseFiles, candidateFiles, config, task and hostEvents",
+      "actions": "ordered action objects with unique id, op and payload",
+      "expectations": "object with on and off assertion arrays"
+    },
+    "inputFields": {
+      "baseFiles": "map of repo-relative paths to stored UTF-8 fixture text",
+      "candidateFiles": "map of repo-relative paths to stored UTF-8 fixture text; omission represents deletion",
+      "config": "project-docs config value; declared negative variants may be invalid",
+      "task": "object containing identity and producer fixture data; declared negatives may omit/substitute fields",
+      "hostEvents": "array of eventContract recipes; simulated only, including declared malformed/untrusted variants"
+    },
+    "actionOpValues": ["route", "plan", "start", "binding", "step", "obligation", "stop", "provideEvidence", "mutateIdentity", "timestampHints"],
+    "actionRules": "CLI actions use existing argument/payload shapes; provideEvidence and mutateIdentity are test-only fixture operations. No new runtime command or strategy is added."
+  },
+  "replayReportContract": {
+    "required": ["actions", "state", "pilot", "pilotReportOrigin"],
+    "fields": {
+      "actions": "object keyed by action.id; values contain exitCode, signal, stdout, stderr, json and state",
+      "state": "final snapshot object with workflow, obligations and handoff keys; each is the parsed persisted file or null if absent",
+      "pilot": "captured actual runtime pilot report, or null when no runtime report exists; never substitute desired output",
+      "pilotReportOrigin": "runtime when pilot was actually emitted; harness when null/missing-feature status was synthesized by the test"
+    },
+    "actionResultFields": {
+      "exitCode": "integer process exit code, or null for signal/failure to launch; fixture-only actions use 0 after successful execution",
+      "signal": "process signal string or null",
+      "stdout": "complete captured string",
+      "stderr": "complete captured string",
+      "json": "parsed command JSON output when present and valid, otherwise null; expected JSON parse failure is infrastructure failure",
+      "state": "snapshot immediately after this action, using the same workflow/obligations/handoff keys as final state"
+    },
+    "exampleAssertionPath": ["actions", "try-aggregate-verify", "exitCode"],
+    "rules": "Absent files are null; a missing property remains absent. Do not normalize away command failures or turn caught exceptions into successful fixture actions. Runtime state is observed evidence of legacy behavior, not trusted document provenance."
+  },
+  "assertionContract": {
+    "required": ["id", "path", "operator", "expected"],
+    "operatorValues": ["equals", "notEquals", "includes", "absent"],
+    "operatorsUsedByCurrentCases": ["equals", "notEquals", "includes"],
+    "fieldTypes": {
+      "id": "stable nonempty assertion ID unique within case/mode",
+      "path": "array of string keys or nonnegative integer indices into the captured replay report, avoiding ambiguous dotted paths",
+      "operator": "equals/notEquals compare complete values; includes checks an expected array item/string segment; absent checks own-key absence",
+      "expected": "explicit JSON value; null is required as the unused expected placeholder for absent"
+    },
+    "rules": "Replay captures actions by ID, complete persisted state, output/diagnostics and reportOrigin. Missing required report data is an explicit assertion gap, never a fabricated runtime report."
+  },
+  "pendingRedContract": {
+    "registryRootRecorded": ["schemaVersion", "phase", "baselineSha", "runtimeFingerprint", "entries"],
+    "registryRootValidated": ["schemaVersion", "baselineSha", "runtimeFingerprint", "entries"],
+    "baselineShaSemantics": "40-hex capture commit copied to every entry for provenance and internal consistency; it is not compared with the current checkout and does not qualify a gap.",
+    "runtimeFingerprintContract": {
+      "format": "64 lowercase hexadecimal SHA-256",
+      "scope": "Exact bytes of the ordered FINGERPRINT_FILES list in ci/archive/325-prep/doc-reconciliation-red.js (historical T2 evidence, not a GREEN gate).",
+      "currentFiles": [
+        "hooks/scripts/lib/workflow-obligations.js",
+        "hooks/scripts/workflow-disposition.js",
+        "hooks/scripts/workflow-stop-gate.js"
+      ],
+      "algorithm": "For each listed relative path in order, hash the path, a NUL byte, the exact file bytes, and a NUL byte.",
+      "qualification": "The registry runtimeFingerprint must equal the runner's current fingerprint. A mismatch fails qualification; no registry values are accepted automatically."
+    },
+    "entryRequired": ["caseId", "assertionId", "distribution", "baselineSha", "actual", "desired", "blocker", "reasonCode"],
+    "entryExactKeys": true,
+    "assertionIdFormat": "<caseId>.on.<expectation-id> and must name an ON assertion in the corresponding case",
+    "recapture": {
+      "command": "node ci/archive/325-prep/doc-reconciliation-red.js --recapture-candidate ci/fixtures/doc-obligations/reconciliation-prep/pending-red.candidate.json --baseline-sha <40-hex-commit>",
+      "review": "The runner writes a separate candidate. Review entries and reason codes before replacing pending-red.json, then delete the candidate; there is no auto-accept."
+    },
+    "distributionValues": ["source", "packaged"],
+    "blocker": "#341 E0",
+    "qualification": "Only an executed assertion mismatch at the exact case/assertion/distribution and pinned baseline, with matching actual and desired values, qualifies. Missing actual values use an explicit absent marker, not JSON undefined.",
+    "absentMarker": { "kind": "absent" },
+    "reject": ["unexpected pass", "unrelated assertion", "uncaught process error", "signal or timeout", "import or syntax error", "missing fixture", "wrong distribution", "unreviewed baseline drift"],
+    "rule": "A registry entry is test-only expected RED, never workflow state, evidence credit or a mutation kill."
+  },
+  "preparationReportContract": {
+    "required": ["schemaVersion", "mode", "baselineSha", "runtimeFingerprintMatches", "pilotCredit", "cases"],
+    "modeValues": ["strict", "expect-red"],
+    "caseRequired": ["caseId", "status", "qualifiedGaps", "parity", "assertions"],
+    "caseOptional": ["reason"],
+    "statusValues": ["EXPECTED_RED", "CONTROL_PASS", "FAIL"],
+    "assertionRequired": ["leg", "mode", "id", "status", "actual"],
+    "legValues": ["source", "packaged"],
+    "assertionModeValues": ["off", "on"],
+    "assertionStatusValues": ["pass", "control-fail", "unexpected-pass", "gap-unqualified", "gap-qualified", "gap-mismatch"],
+    "assertionOptional": ["desired", "registered"],
+    "pilotCredit": false,
+    "rules": [
+      "Preparation pilotCredit is always false, even when a future expected value requests true.",
+      "runtimeFingerprintMatches reports whether the registry fingerprint equals the current ordered shared-runtime fingerprint.",
+      "strict exits nonzero on any unsatisfied desired-contract assertion; known mismatches are FAIL without exemption.",
+      "expect-red qualifies only exact registry gaps and requires every control to pass; no blanket nonzero-exit acceptance.",
+      "Unexpected PASS, infrastructure failure or missing coverage fails qualification.",
+      "Infrastructure or registry errors exit 2 and do not become case or assertion report statuses.",
+      "Each mode and source/package leg receives fresh fixture workspace/session data."
+    ]
+  },
+  "examples": [
+    {
+      "id": "simulated-identity-only",
+      "provenance": "simulated-fixture-only",
+      "identity": {
+        "workspaceId": "fixture-workspace-a",
+        "sessionId": "fixture-session-a",
+        "workflowId": "fixture-workflow-a",
+        "workflowRevision": 1,
+        "taskId": "fixture-task-a",
+        "taskScopeDigest": "fixture-scope-a",
+        "baselineDigest": "fixture-baseline-a",
+        "candidateDigest": "fixture-candidate-a",
+        "configDigest": "fixture-config-a",
+        "prdRoot": "docs/prd/"
+      },
+      "note": "Opaque fixture tokens demonstrate field equality only. Real producers must derive identities and bare per-path SHA256 values from the prescribed origins."
+    }
+  ]
+}
