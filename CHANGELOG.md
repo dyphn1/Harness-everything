@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.47.2](https://github.com/dyphn1/Harness-everything/compare/v0.47.1...v0.47.2) (2026-10-31)
+
+### Bug Fixes
+
+* **benchmarks:** close offline pilot evidence review gaps ([fa3bee6](https://github.com/dyphn1/Harness-everything/commit/fa3bee6b948265a7203a1414a1a05dab9d6d6a58))
+* **benchmarks:** detect explicit TDD quality gate invocations ([53c0181](https://github.com/dyphn1/Harness-everything/commit/53c018112c01ebb5b270aeb14fdce5528e195e1a)), closes [#318](https://github.com/dyphn1/Harness-everything/issues/318)
+* **benchmarks:** make offline attribution independent of filesystem order ([998ff4b](https://github.com/dyphn1/Harness-everything/commit/998ff4b2ad31c0e7abef1dda7c74db53faec76c8))
+* **benchmarks:** restore pinned ESM replay fixture ([664da1e](https://github.com/dyphn1/Harness-everything/commit/664da1e4f32251bd9e4c79d78fef5152cd9b86cd))
+
 ## [0.47.1](https://github.com/dyphn1/Harness-everything/compare/v0.47.0...v0.47.1) (2026-10-31)
 
 ### Bug Fixes
