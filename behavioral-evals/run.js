@@ -683,17 +683,24 @@ function checkJsonOnlyOutput(text, requiredKeys = []) {
 }
 
 // The final assistant message is every assistant text part after the last tool
-// event, joined in order: a final turn may stream prose and JSON as separate
-// parts, and grading only the last part would let prose + JSON pass (#308).
-// Claude's terminal `result` repeats that message, so it is used only when the
-// transcript has no content parts for the final turn.
-function finalAssistantText(events) {
+// event. A final turn may stream prose and JSON as separate parts, so all parts
+// count (#308). Parts can be transport chunks of one message (exact
+// concatenation) or separate complete blocks (newline-separated). Candidates
+// are returned exact-concatenation first. Claude's terminal `result` repeats
+// that message, so it is used only when the transcript has no content parts.
+function finalAssistantTextCandidates(events) {
   let lastToolIndex = -1;
   events.forEach((event, index) => { if (event.kind === 'tool') lastToolIndex = index; });
   const texts = events.slice(lastToolIndex + 1).filter(event => event.kind === 'text');
   const parts = texts.filter(event => event.source !== 'result');
-  if (parts.length) return parts.map(event => event.text).join('\n');
-  return texts.length ? texts[texts.length - 1].text : '';
+  if (!parts.length) return [texts.length ? texts[texts.length - 1].text : ''];
+  const candidates = [parts.map(event => event.text).join(''), parts.map(event => event.text).join('\n')];
+  return [...new Set(candidates)];
+}
+
+// Exact text of the final message (first candidate).
+function finalAssistantText(events) {
+  return finalAssistantTextCandidates(events)[0];
 }
 
 function grade(c, ws, transcriptPath, engine = 'auto') {
@@ -732,7 +739,14 @@ function grade(c, ws, transcriptPath, engine = 'auto') {
           status = 'inconclusive';
           reason = parsed.parseError || 'transcript parser did not produce a complete structured trace';
         } else {
-          const verdict = checkJsonOnlyOutput(finalAssistantText(ordered.events), e.required_keys || []);
+          // Neither join can hide prose: prose stays outside the JSON either way.
+          // Exact concatenation covers transport chunks of one JSON message;
+          // newline join covers separate complete blocks such as a fenced JSON
+          // block followed by a separate `<!-- harness-label ... -->` part.
+          // PASS if any candidate passes; otherwise report the exact-text reason.
+          const verdicts = finalAssistantTextCandidates(ordered.events)
+            .map(candidate => checkJsonOnlyOutput(candidate, e.required_keys || []));
+          const verdict = verdicts.find(v => v.pass) || verdicts[0];
           pass = verdict.pass;
           status = pass ? 'pass' : 'fail';
           reason = verdict.reason;
@@ -1062,6 +1076,7 @@ module.exports = {
   extractSessionMetadata,
   checkJsonOnlyOutput,
   finalAssistantText,
+  finalAssistantTextCandidates,
   grade,
   parseTranscriptEvents,
   pairVerdict,

@@ -176,8 +176,10 @@ Use `final_output_json_only` when the final message must be only a JSON object
 `<!-- harness-label -->` lines are ignored. Optional `required_keys` lists keys
 that must be present. Extracting the selection fields from prose does not pass.
 The final message is every assistant text part after the last tool call, joined
-in order (Claude's repeated `result` is used only when no parts exist), so prose
-streamed in a separate part still fails.
+by exact concatenation (so JSON streamed in chunks reassembles exactly), with
+newline-separated blocks as an alternative; the case passes if either reading is
+a single JSON output. Claude's repeated `result` is used only when no parts exist.
+Prose streamed in a separate part still fails under both readings.
 
 Grading is best-effort mechanical (trace keyword/state assertions), not a
 substitute for reading the transcript — every result JSON records the full

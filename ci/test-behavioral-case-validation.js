@@ -5,7 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { parseSimpleYaml } = require('../behavioral-evals/run');
-const { grade, parseTranscriptEvents, checkJsonOnlyOutput } = require('../behavioral-evals/run');
+const { grade, parseTranscriptEvents, checkJsonOnlyOutput, finalAssistantText } = require('../behavioral-evals/run');
 const { validateCase, validateDirectory, validateExpectation, negativeControls } = require('../behavioral-evals/case-validator');
 const { canonicalRubric, extractTrace } = require('./ab-test-harness');
 
@@ -182,6 +182,34 @@ try {
   const cut = splitBody.indexOf('"assignedRole"');
   const splitJson = grade(jsonOnlyExpectation, jsonOnlyDir, writeParts('split-json.jsonl', ['```json\n' + splitBody.slice(0, cut), splitBody.slice(cut) + '\n```']));
   assert.strictEqual(splitJson.passed, true, `JSON split across text parts should pass: ${splitJson.results[0].reason}`);
+
+  // Transport chunks cut inside a JSON string value, a key, and the fence opener.
+  // Exact concatenation must rebuild the message; a '\n' join would break it.
+  const valueCut = RAW.indexOf('fable') + 2;
+  const keyCut = RAW.indexOf('requestedProfile') + 5;
+  const splitValueParts = [RAW.slice(0, valueCut), RAW.slice(valueCut)];
+  const splitValuePath = writeParts('split-inside-value.jsonl', splitValueParts);
+  assert.strictEqual(finalAssistantText(parseTranscriptEvents(splitValuePath).events), RAW, 'split-inside-value parts must concatenate to the exact raw JSON');
+  assert.throws(() => JSON.parse(RAW.slice(0, valueCut) + '\n' + RAW.slice(valueCut)), 'a newline join inside a JSON string must not parse (the #308 reviewer case)');
+  const POSITIVE_SPLITS = [
+    ['split inside a JSON string value', splitValueParts],
+    ['split inside a JSON key', [RAW.slice(0, keyCut), RAW.slice(keyCut)]],
+    ['split inside the fence opener', ['```js', 'on\n' + JSON.stringify(SELECTION, null, 2) + '\n```']],
+    ['fenced JSON block followed by a harness-label part', [FENCED, LABEL]],
+  ];
+  POSITIVE_SPLITS.forEach(([name, parts], index) => {
+    const result = grade(jsonOnlyExpectation, jsonOnlyDir, writeParts(`positive-split-${index}.jsonl`, parts));
+    assert.strictEqual(result.passed, true, `${name} should pass end to end: ${result.results[0].reason}`);
+  });
+  const NEGATIVE_SPLITS = [
+    ['prose chunk glued to JSON start', ['Here:', RAW], /prose before/],
+    ['prose after a split JSON', [RAW.slice(0, 10), RAW.slice(10), ' done'], /not a single valid JSON value/],
+  ];
+  NEGATIVE_SPLITS.forEach(([name, parts, expected], index) => {
+    const result = grade(jsonOnlyExpectation, jsonOnlyDir, writeParts(`negative-split-${index}.jsonl`, parts));
+    assert.strictEqual(result.passed, false, `${name} must fail end to end`);
+    assert.match(result.results[0].reason, expected, `${name} should give a clear reason`);
+  });
 
   // Claude stream-json: assistant content parts plus a terminal `result` that
   // repeats them. The repeat must not be double-counted, and must not mask prose.
