@@ -3,7 +3,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const helper = require('./test-helper');
-const { evaluateEvidence } = require('../tdd/scripts/quality-gate');
+const { evaluateEvidence, quotedExpectedValue } = require('../tdd/scripts/quality-gate');
 
 console.log('\n[2s] TDD quality evidence gate (issue #58)...');
 
@@ -15,7 +15,7 @@ const classes = {
 };
 
 const scenarioCatalog = JSON.parse(fs.readFileSync(path.join(helper.root, 'tdd', 'fixtures', 'quality-scenarios.json'), 'utf8'));
-const requiredScenarios = ['PASS', 'unit profile', 'integration profile', 'weighted integration failure', 'weighted unit failure', 'NON_CONFORMANT', 'SOURCE_DEFECT', 'SOURCE_CONFLICT', 'SOURCE_DEFECT without sourceEvidence', 'SOURCE_CONFLICT without sourceEvidence', 'SOURCE_CONFLICT node-versus-value', 'SOURCE_CONFLICT agreeing expectations', 'SOURCE_CONFLICT two-source evidence', 'SOURCE_CONFLICT unrelated assertions', 'malformed input', 'unexpected input', 'error handling', 'nondeterministic output', 'auditable N/A', 'skipped test'];
+const requiredScenarios = ['PASS', 'unit profile', 'integration profile', 'weighted integration failure', 'weighted unit failure', 'NON_CONFORMANT', 'SOURCE_DEFECT', 'SOURCE_CONFLICT', 'SOURCE_DEFECT without sourceEvidence', 'SOURCE_CONFLICT without sourceEvidence', 'SOURCE_CONFLICT node-versus-value', 'SOURCE_CONFLICT agreeing expectations', 'SOURCE_CONFLICT two-source evidence', 'SOURCE_CONFLICT relabelled expected', 'SOURCE_CONFLICT verified literal disagreement', 'SOURCE_CONFLICT unrelated assertions', 'malformed input', 'unexpected input', 'error handling', 'nondeterministic output', 'auditable N/A', 'skipped test'];
 helper.check('2s. fixture catalog covers every required outcome', requiredScenarios.every(name => scenarioCatalog.scenarios.some(scenario => scenario.name === name)));
 
 function checks(prefix, names) {
@@ -157,9 +157,51 @@ const sourceConflict = evaluate(req => conflictFrom(req, [
 ]));
 helper.check('2s. unresolved authoritative source conflicts fail', sourceConflict.result === 'FAIL' && sourceConflict.mandatoryGates.noSourceConflict === false && sourceConflict.dimensions.sourceTraceability.traced === 2);
 helper.check(
-  '2s. properly evidenced two-source conflict is accepted as evidence; only the conflict gate stays closed',
+  '2s. two-source conflict with an unreadable quote is REVIEWER_REQUIRED, not an error; only the conflict gate stays closed',
   !sourceConflict.errors.some(e => /sourceEvidence/.test(e)) &&
+    sourceConflict.requirements[0].sourceEvidenceStatus === 'REVIEWER_REQUIRED' &&
     Object.entries(sourceConflict.requirements[0].mandatoryGates).filter(([, passed]) => !passed).map(([name]) => name).join() === 'noSourceConflict'
+);
+
+// expected must match the literal in its quote; a relabelled expectation cannot manufacture a conflict.
+const relabelledExpected = evaluate(req => conflictFrom(req, [
+  { source: 'docs/example.md', subject: 'list.head', assertion: 'expect(list.head).toEqual(1)', expected: 1, observed: 2 },
+  { source: 'docs/adr/001.md', subject: 'list.head', assertion: 'expect(list.head).toEqual(1)', expected: 3, observed: 2 }
+]));
+helper.check('2s. an expected value that contradicts its quoted literal is rejected, not a conflict', relabelledExpected.result === 'FAIL' && relabelledExpected.errors.some(e => /expected does not match the value in the quoted assertion/.test(e)));
+
+const relabelledDefect = evaluate(req => {
+  req.sourceValidity = 'SOURCE_DEFECT';
+  req.sourceNotes = 'Appears wrong.';
+  req.sourceEvidence = [{ source: 'docs/example.md', assertion: 'expect(output.value).toEqual(3)', expected: 4, observed: 2 }];
+});
+helper.check('2s. a source defect whose expected value contradicts its quoted literal is rejected', relabelledDefect.result === 'FAIL' && relabelledDefect.errors.some(e => /expected does not match the value in the quoted assertion/.test(e)));
+
+const verifiedConflict = evaluate(req => conflictFrom(req, [
+  { source: 'docs/example.md', subject: 'list.head.value', assertion: 'expect(list.head.value).toBe(1)', expected: 1, observed: 2 },
+  { source: 'docs/adr/001.md', subject: 'list.head.value', assertion: "expect(list.head.value).toBe('1')", expected: '1', observed: 2 }
+]));
+helper.check(
+  '2s. a literal disagreement across two sources is VERIFIED; only the conflict gate stays closed',
+  !verifiedConflict.errors.some(e => /sourceEvidence/.test(e)) &&
+    verifiedConflict.requirements[0].sourceEvidenceStatus === 'VERIFIED' &&
+    Object.entries(verifiedConflict.requirements[0].mandatoryGates).filter(([, passed]) => !passed).map(([name]) => name).join() === 'noSourceConflict'
+);
+
+const checkableCases = [
+  ['expect(list.head).toEqual(1)', { checkable: true, value: 1 }],
+  ["expect(output.name).toBe('a')", { checkable: true, value: 'a' }],
+  ['assert.strictEqual(x, null)', { checkable: true, value: null }],
+  ['expect(list.items).toEqual([1,2])', { checkable: true, value: [1, 2] }],
+  ['assert.deepEqual(x, [1, 2])', { checkable: true, value: [1, 2] }],
+  ['expect(list.head).toEqual({a:1})', { checkable: false }],
+  ['expect(list.head).toBeInstanceOf(Element)', { checkable: false }],
+  ['expect(list.head).toEqual(new Element())', { checkable: false }],
+  ['the head is 1', { checkable: false }]
+];
+helper.check(
+  '2s. quotedExpectedValue reads only the recognised shapes with literal values',
+  checkableCases.every(([assertion, expected]) => JSON.stringify(quotedExpectedValue(assertion)) === JSON.stringify(expected))
 );
 
 const conflictWithoutEvidence = evaluate(req => conflictFrom(req));
