@@ -182,6 +182,17 @@ try {
   assert.strictEqual(unobservable.results[0].status, 'inconclusive', 'a gate run with no observable output or exit code must be inconclusive');
   assert.strictEqual(unobservable.passed, false, 'an inconclusive gate run must not pass');
   assert.match(unobservable.results[0].reason, /not observable in the transcript/, 'inconclusive reason should say the outcome is not observable');
+  // Definitive workspace failures win over an unobservable outcome.
+  const missingNoOutput = gradeCommands('missing-evidence-no-output', [{ command: 'npm run tdd:quality -- nope.json', output: '' }]);
+  assert.strictEqual(missingNoOutput.results[0].status, 'fail', 'missing evidence must be a definitive fail even with no observable output');
+  assert.match(missingNoOutput.results[0].reason, /not retained/, 'missing evidence should be named');
+  // Only the error signal is line-anchored: prose mentioning npm errors passes,
+  // while a real npm error line still fails.
+  assert.strictEqual(gradeCommands('prose-npm-error', [{ command: observedGate, output: 'TDD Quality Gate: PASS\n- note: avoid npm error handling', exit: 0 }]).passed, true, 'prose mentioning npm error must not fail a passing gate');
+  const npmErrorLine = gradeCommands('npm-error-line', [{ command: observedGate, output: 'npm error Missing script: "tdd:quality"' }]);
+  assert.strictEqual(npmErrorLine.results[0].status, 'fail', 'an npm error line must be a definitive fail');
+  assert.match(npmErrorLine.results[0].reason, /npm error/, 'npm error line should be named');
+
   // Claude stream-json: is_error on the tool_result is the host's failure
   // signal; the call is recorded as failed, so it never counts as executed.
   const claudeGate = (name, toolResult) => {
@@ -214,6 +225,17 @@ try {
   const staleScore = gradeCommands('stale-output-report', ['npm run tdd:quality -- evidence.json --output reports/quality.json']);
   assert.strictEqual(staleScore.passed, false, 'a retained report with a stale score must fail');
   assert.match(staleScore.results[0].reason, /differs from re-evaluation at "score"/, 'a stale retained report should name the differing key');
+  // Without --output the gate prints its report to stdout; that printed report
+  // must equal the fresh re-evaluation of the evidence the command names.
+  const printedText = report => `TDD Quality Gate: PASS\n${JSON.stringify(report, null, 2)}`;
+  assert.strictEqual(gradeCommands('stdout-report-equal', [{ command: observedGate, output: printedText(realReport) }]).passed, true, 'a printed report equal to the re-evaluation should pass');
+  const otherEvidence = JSON.parse(PASS_EVIDENCE);
+  otherEvidence.requirements[0].requirementId = 'REQ-OTHER';
+  fs.writeFileSync(path.join(gateDir, 'other-evidence.json'), JSON.stringify(otherEvidence));
+  const otherReport = evaluateEvidence(otherEvidence);
+  const stdoutMismatch = gradeCommands('stdout-report-other', [{ command: observedGate, output: printedText(otherReport) }]);
+  assert.strictEqual(stdoutMismatch.passed, false, 'a printed report from different evidence must fail');
+  assert.match(stdoutMismatch.results[0].reason, /gate output report differs from re-evaluation at "[a-zA-Z]+"/, 'a mismatched printed report should name the differing key');
 } finally {
   fs.rmSync(gateDir, { recursive: true, force: true });
 }

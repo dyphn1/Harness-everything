@@ -172,18 +172,19 @@ When one completion must accept several explicit command shapes, use
 `value: {command_pattern: "<regex>"}`; the regex is matched against the whole
 command, so shell control operators must be excluded explicitly.
 `tdd_quality_gate` takes the same `command_pattern` but does not trust the tool
-call's completed status. For the last matching run the grader first reads the
-observed command outcome: the call fails when it reports an error, exits
-non-zero, prints an npm error (`npm ERR!`, `npm error`, `Missing script`) or
-prints `TDD Quality Gate: FAIL`. It passes only when the output contains the
+call's completed status. For the last matching run the grader first runs the
+workspace checks: the evidence file must be retained, valid JSON and re-evaluate
+to `PASS` with this repository's `tdd/scripts/quality-gate.js`; a `--output`
+report must be present and deep-equal the fresh re-evaluation over every
+top-level key (key order ignored); and a full report printed to stdout must do
+the same. Missing, invalid or disagreeing artifacts are definitive `fail`s, and
+a missing required key or a differing key is named in the reason. Then it reads
+the observed command outcome: the call fails when it reports an error, exits
+non-zero, prints an npm error line (`npm ERR!`, `npm error`, or `Missing script:`)
+or prints `TDD Quality Gate: FAIL`. It passes only when the output contains the
 gate's own `TDD Quality Gate: PASS` line and none of those signals. When the
 transcript shows neither output nor an exit code, the result is `inconclusive`
-rather than a pass. Only then does the grader re-evaluate the evidence file
-with this repository's `tdd/scripts/quality-gate.js`, and it fails when that
-file is missing, invalid or outside the workspace, or not `PASS`. A `--output`
-report must be present and must deep-equal the fresh re-evaluation over every
-top-level key (key order ignored); a missing required key or a differing key
-fails and is named in the reason.
+rather than a pass.
 Legacy one-object Claude JSON and incomplete streams are graded inconclusive
 for execution evidence.
 

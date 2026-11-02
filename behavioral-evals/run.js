@@ -685,7 +685,8 @@ function resolveInWorkspace(ws, file) {
 // Judges what the transcript shows the gate command did. A completed status
 // alone is not enough: OpenCode reports "completed" for a gate that exited 1.
 // Returns { status: 'pass' | 'fail' | 'inconclusive', reason }.
-const GATE_COMMAND_ERROR_RE = /npm err!|npm error|missing script/i;
+// Line-anchored so prose such as "avoid npm error handling" is not an error.
+const GATE_COMMAND_ERROR_RE = /^(?:npm (?:ERR!|error)\b|.*Missing script:)/m;
 
 function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -711,16 +712,33 @@ function stableStringify(value) {
   return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`;
 }
 
-function verifyQualityGateRun(call, ws) {
+// Key-sorted comparison of two reports. Returns the first top-level key that
+// differs, or undefined when they are equal. Shared by the --output file and
+// the report the gate prints to stdout.
+function firstDifferingKey(actual, expected) {
+  return [...new Set([...Object.keys(actual), ...Object.keys(expected)])].sort()
+    .find(key => stableStringify(actual[key]) !== stableStringify(expected[key]));
+}
+
+// The gate CLI prints a summary, then (without --output) the full report JSON.
+// Returns that object when the output carries a parseable one, else null.
+function embeddedReport(output) {
+  const lines = String(output || '').split(/\r?\n/);
+  const start = lines.findIndex(line => line.startsWith('{'));
+  if (start < 0) return null;
+  try {
+    const value = JSON.parse(lines.slice(start).join('\n'));
+    return isObject(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+// Workspace checks: the evidence the command names must be retained, valid and
+// re-evaluate to PASS, and any report the gate wrote or printed must equal the
+// fresh re-evaluation. Definitive failures here win over the observed outcome.
+function checkRetainedGateArtifacts(call, args, ws) {
   const fail = reason => ({ pass: false, status: 'fail', reason });
-  const command = call && call.input && typeof call.input === 'object' ? call.input.command : undefined;
-  const args = qualityGateArgs(command);
-  if (!args) return fail('matched command is not a TDD quality-gate invocation');
-  if (args.script === 'test:tdd-quality') return fail('test:tdd-quality runs the repository self-test, not the gate on task evidence');
-  if (!args.evidence) return fail('quality gate was run without an evidence file, so no auditable report exists');
-  const outcome = observedGateOutcome(call);
-  if (outcome.status === 'fail') return fail(`quality gate command failed: ${outcome.reason}`);
-  if (outcome.status === 'inconclusive') return { pass: false, status: 'inconclusive', reason: outcome.reason };
   const evidencePath = resolveInWorkspace(ws, args.evidence);
   if (!evidencePath) return fail(`evidence file ${args.evidence} is outside the workspace`);
   if (!fs.existsSync(evidencePath)) return fail(`evidence file ${args.evidence} was not retained in the workspace`);
@@ -733,6 +751,8 @@ function verifyQualityGateRun(call, ws) {
     const failed = Object.entries(report.mandatoryGates || {}).filter(([, ok]) => !ok).map(([name]) => name);
     return fail(`independent re-evaluation of ${args.evidence} is ${report.result} (gate would exit 1)${failed.length ? `; failed gates: ${failed.join(', ')}` : ''}`);
   }
+  // Compare through JSON so the fresh report has the same shape as a retained one.
+  const expected = JSON.parse(JSON.stringify(report));
   if (args.output) {
     const outputPath = resolveInWorkspace(ws, args.output);
     if (!outputPath || !fs.existsSync(outputPath)) return fail(`quality report ${args.output} was not retained in the workspace`);
@@ -743,14 +763,31 @@ function verifyQualityGateRun(call, ws) {
     const { required } = require(path.join(ROOT, 'tdd', 'schemas', 'quality-report.schema.json'));
     const missing = required.filter(key => !Object.prototype.hasOwnProperty.call(retained, key));
     if (missing.length) return fail(`retained report ${args.output} is missing required keys: ${missing.join(', ')}`);
-    // The retained file must be the full report the gate would print, not a
-    // marker: compare every top-level key against the fresh re-evaluation.
-    const expected = JSON.parse(JSON.stringify(report));
-    const differing = [...new Set([...Object.keys(retained), ...Object.keys(expected)])].sort()
-      .find(key => stableStringify(retained[key]) !== stableStringify(expected[key]));
+    // The retained file must be the full report, not a marker.
+    const differing = firstDifferingKey(retained, expected);
     if (differing !== undefined) return fail(`retained report ${args.output} differs from re-evaluation at "${differing}"`);
   }
+  const printed = embeddedReport(call.output);
+  if (printed) {
+    const differing = firstDifferingKey(printed, expected);
+    if (differing !== undefined) return fail(`gate output report differs from re-evaluation at "${differing}"`);
+  }
   return { pass: true, status: 'pass', reason: `quality gate re-evaluated ${args.evidence}: PASS` };
+}
+
+function verifyQualityGateRun(call, ws) {
+  const fail = reason => ({ pass: false, status: 'fail', reason });
+  const command = call && call.input && typeof call.input === 'object' ? call.input.command : undefined;
+  const args = qualityGateArgs(command);
+  if (!args) return fail('matched command is not a TDD quality-gate invocation');
+  if (args.script === 'test:tdd-quality') return fail('test:tdd-quality runs the repository self-test, not the gate on task evidence');
+  if (!args.evidence) return fail('quality gate was run without an evidence file, so no auditable report exists');
+  const artifacts = checkRetainedGateArtifacts(call, args, ws);
+  if (!artifacts.pass) return artifacts;
+  const outcome = observedGateOutcome(call);
+  if (outcome.status === 'fail') return fail(`quality gate command failed: ${outcome.reason}`);
+  if (outcome.status === 'inconclusive') return { pass: false, status: 'inconclusive', reason: outcome.reason };
+  return artifacts;
 }
 
 function gradeQualityGate(expectation, parsed, ws) {
