@@ -55,9 +55,9 @@ class ReadMetricTest(unittest.TestCase):
 
 
 class AccountingTest(unittest.TestCase):
-    def episode(self, root, engine='claude', workload='profile-lookup', events=None):
+    def episode(self, root, engine='claude', workload='profile-lookup', events=None, usage=None):
         row = {'model': {'engine': engine, 'model': 'fixture'}, 'workload': workload,
-               'grader': {'pass': False}, 'usage': None, 'router_attributed': True}
+               'grader': {'pass': False}, 'usage': usage, 'router_attributed': True}
         (root/'analysis.json').write_text(json.dumps(row))
         (root/'manifest.json').write_text('{}')
         (root/'transcript.jsonl').write_text('\n'.join(json.dumps(e) for e in (events or [])))
@@ -80,6 +80,64 @@ class AccountingTest(unittest.TestCase):
                 row = analyze.inspect_episode(root, documents={})
             self.assertIsNone(row['api_equivalent_cost_usd'])
             self.assertIn('unknown', row['child_usage_observability'])
+
+    def codex_episode(self, root, spawn):
+        usage = {'input_tokens': 3000, 'cached_input_tokens': 700, 'output_tokens': 130,
+                 'cache_write_input_tokens': 0}
+        self.episode(root, engine='codex', usage=usage,
+                     events=[{'type': 'thread.started', 'thread_id': 'T1'}])
+        rollout = root/'.codex'/'sessions'/'2026'/'10'/'14'/'rollout-T1.jsonl'
+        rollout.parent.mkdir(parents=True)
+        lines = []
+        if spawn:
+            lines.append({'type': 'response_item', 'payload': {'type': 'function_call', 'name': 'spawn_agent',
+                'call_id': 'c1', 'arguments': json.dumps({'task_name': 'cold_verifier',
+                'fork_turns': 'none', 'reasoning_effort': 'high'})}})
+            lines.append({'type': 'response_item', 'payload': {'type': 'function_call_output',
+                'call_id': 'c1', 'output': '{"agent_id": "w1"}'}})
+        counters = [
+            ({'input_tokens': 1000, 'cached_input_tokens': 200, 'output_tokens': 50, 'cache_write_input_tokens': 0},
+             {'input_tokens': 1000, 'cached_input_tokens': 200, 'output_tokens': 50, 'cache_write_input_tokens': 0}),
+            ({'input_tokens': 3000, 'cached_input_tokens': 700, 'output_tokens': 130, 'cache_write_input_tokens': 0},
+             {'input_tokens': 2000, 'cached_input_tokens': 500, 'output_tokens': 80, 'cache_write_input_tokens': 0}),
+        ]
+        for total, last in counters:
+            lines.append({'type': 'event_msg', 'payload': {'type': 'token_count',
+                'info': {'total_token_usage': total, 'last_token_usage': last}}})
+        rollout.write_text('\n'.join(json.dumps(x) for x in lines))
+
+    def test_codex_spawn_agent_child_cost_is_unknown_not_zero(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.codex_episode(root, spawn=True)
+            with patch.object(Path, 'home', return_value=root):
+                row = analyze.inspect_episode(root, documents={})
+            self.assertIsNone(row['api_equivalent_cost_usd'])
+            self.assertIsNone(row['api_equivalent_input_cost_usd'])
+            self.assertIsNone(row['reconstructed_total_cost_usd'])
+            self.assertIn('unknown', row['child_usage_observability'])
+            self.assertEqual(len(row['private_collaboration_dispatch']), 1)
+            dispatch = row['private_collaboration_dispatch'][0]
+            self.assertEqual(dispatch['tool'], 'spawn_agent')
+            self.assertEqual(dispatch['arguments']['task_name'], 'cold_verifier')
+            self.assertEqual(len(dispatch['outputs']), 1)
+            # Parent cost is measured and retained; worker cost is never zero-filled.
+            self.assertIsInstance(row['parent_api_equivalent_input_cost_usd'], float)
+            self.assertAlmostEqual(row['parent_api_equivalent_input_cost_usd'], 0.000237)
+            self.assertIsInstance(row['parent_api_equivalent_cost_usd'], float)
+            self.assertAlmostEqual(row['parent_api_equivalent_cost_usd'], 0.000302)
+
+    def test_codex_without_spawn_keeps_measured_cost_and_no_unknown_child(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.codex_episode(root, spawn=False)
+            with patch.object(Path, 'home', return_value=root):
+                row = analyze.inspect_episode(root, documents={})
+            self.assertEqual(row['private_collaboration_dispatch'], [])
+            self.assertEqual(row['child_usage_observability'], 'no attributable native spawn in inspected parent rollout')
+            self.assertAlmostEqual(row['api_equivalent_input_cost_usd'], 0.000237)
+            self.assertAlmostEqual(row['api_equivalent_cost_usd'], 0.000302)
+            self.assertAlmostEqual(row['reconstructed_total_cost_usd'], 0.000302)
 
     def test_polyglot_grader_timeout_is_retained_failure(self):
         with tempfile.TemporaryDirectory() as directory:
