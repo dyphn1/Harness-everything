@@ -5,8 +5,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { parseSimpleYaml } = require('../behavioral-evals/run');
-const { grade, parseTranscriptEvents } = require('../behavioral-evals/run');
-const { validateCase, validateDirectory, negativeControls } = require('../behavioral-evals/case-validator');
+const { grade, parseTranscriptEvents, checkJsonOnlyOutput } = require('../behavioral-evals/run');
+const { validateCase, validateDirectory, validateExpectation, negativeControls } = require('../behavioral-evals/case-validator');
 const { canonicalRubric, extractTrace } = require('./ab-test-harness');
 
 const casesDir = path.join(__dirname, '..', 'behavioral-evals', 'cases');
@@ -85,4 +85,85 @@ try {
   fs.rmSync(transcriptDir, { recursive: true, force: true });
 }
 
-console.log(`Behavioral case validation passed (${fs.readdirSync(casesDir).filter(name => name.endsWith('.yaml')).length} cases + negative controls + ordered execution evidence).`);
+// final_output_json_only: pure checker, validator schema, shipped #308 case, and
+// end-to-end grading over the final assistant message.
+const SELECTION_KEYS = ['requestedProfile', 'effectiveProfile', 'profileAlias', 'assignedRole', 'runtimeModel', 'runtimeEffort'];
+const SELECTION = { requestedProfile: 'fable', effectiveProfile: 'sonnet', profileAlias: 'fable-on-sonnet', assignedRole: 'worker', runtimeModel: 'claude-haiku-5-5', runtimeEffort: 'low' };
+const LABEL = '<!-- harness-label {"judgement":"done","routing":"direct"} -->';
+const RAW = JSON.stringify(SELECTION);
+const FENCED = '```json\n' + JSON.stringify(SELECTION, null, 2) + '\n```';
+const PASS_CASES = [
+  ['raw JSON object', RAW],
+  ['fenced json block', FENCED],
+  ['untagged fence', '```\n' + RAW + '\n```'],
+  ['raw JSON followed by harness-label line', RAW + '\n' + LABEL],
+  ['fenced JSON followed by harness-label line', FENCED + '\n' + LABEL],
+];
+for (const [name, text] of PASS_CASES) {
+  const verdict = checkJsonOnlyOutput(text, SELECTION_KEYS);
+  assert.strictEqual(verdict.pass, true, `${name} should pass: ${verdict.reason}`);
+}
+const FAIL_CASES = [
+  // The #308 pilot: correct fields, explanatory prose outside the JSON.
+  ['prose before JSON (#308)', `"Fable on sonnect" means the fable profile runs on sonnet.\n\n${FENCED}`, /prose before/],
+  ['prose after fence', `${FENCED}\nThat is the selection record.`, /outside the single JSON code fence/],
+  ['prose after raw JSON', `${RAW}\nThat is the selection record.`, /not a single valid JSON value/],
+  ['two fenced blocks', `${FENCED}\n${FENCED}`, /more than one code fence/],
+  ['missing required key', JSON.stringify({ ...SELECTION, runtimeEffort: undefined }), /missing required JSON keys: runtimeEffort/],
+  ['non-object JSON (array)', JSON.stringify([SELECTION]), /must be an object/],
+  ['non-object JSON (scalar)', '"fable"', /must be an object/],
+  ['empty final text', '', /empty/],
+  ['label-only final text', LABEL, /empty/],
+  ['missing final text', undefined, /missing/],
+];
+for (const [name, text, expected] of FAIL_CASES) {
+  const verdict = checkJsonOnlyOutput(text, SELECTION_KEYS);
+  assert.strictEqual(verdict.pass, false, `${name} should fail`);
+  assert.match(verdict.reason, expected, `${name} should give a clear reason`);
+}
+assert.strictEqual(checkJsonOnlyOutput(RAW).pass, true, 'required_keys defaults to no key requirement');
+
+for (const requiredKeys of ['requestedProfile', [''], ['  '], [1], ['ok', null]]) {
+  const errors = validateExpectation({ type: 'final_output_json_only', required_keys: requiredKeys }, 0);
+  assert.ok(errors.some(error => /required_keys must be an array of non-empty strings/.test(error)), `required_keys ${JSON.stringify(requiredKeys)} should be rejected`);
+}
+assert.deepStrictEqual(validateExpectation({ type: 'final_output_json_only' }, 0), [], 'final_output_json_only without required_keys is valid');
+assert.deepStrictEqual(validateExpectation({ type: 'final_output_json_only', required_keys: SELECTION_KEYS }, 0), [], 'final_output_json_only with string keys is valid');
+
+const profileCasePath = path.join(casesDir, 'baseline-profile-lookup-json-only.yaml');
+const profileCase = parseSimpleYaml(fs.readFileSync(profileCasePath, 'utf8'));
+assert.deepStrictEqual(validateCase(profileCase, { fileName: 'baseline-profile-lookup-json-only.yaml' }), [], 'profile-lookup JSON-only case should validate');
+assert.deepStrictEqual(profileCase.expectations.map(expectation => expectation.type), ['final_output_json_only'], 'profile-lookup case should assert JSON-only output');
+assert.deepStrictEqual(profileCase.expectations[0].required_keys, SELECTION_KEYS, 'profile-lookup case should require the six selection keys');
+assert.match(profileCase.prompt, /return only a small JSON selection record with requestedProfile, effectiveProfile, profileAlias, assignedRole, runtimeModel, runtimeEffort\. No orchestration or delegation\./, 'profile-lookup prompt should match the #308 wording');
+
+const jsonOnlyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'behavioral-json-only-'));
+try {
+  const writeTranscript = (name, finalText) => {
+    const transcriptPath = path.join(jsonOnlyDir, name);
+    const events = [
+      { type: 'tool_use', part: { type: 'tool', tool: 'Read', callID: 'read-1', state: { status: 'completed', input: { file_path: 'README.md' } } } },
+      { type: 'text', part: { type: 'text', text: 'Checking the profile table first.' } },
+      { type: 'tool_use', part: { type: 'tool', tool: 'Read', callID: 'read-2', state: { status: 'completed', input: { file_path: 'profiles.md' } } } },
+      { type: 'text', part: { type: 'text', text: finalText } },
+    ];
+    fs.writeFileSync(transcriptPath, events.map(event => JSON.stringify(event)).join('\n'));
+    return transcriptPath;
+  };
+  const jsonOnlyExpectation = { expectations: [{ type: 'final_output_json_only', required_keys: SELECTION_KEYS }] };
+  let transcriptCount = 0;
+  const gradeFinal = finalText => grade(jsonOnlyExpectation, jsonOnlyDir, writeTranscript(`final-${transcriptCount++}.jsonl`, finalText));
+  assert.strictEqual(gradeFinal(RAW).passed, true, 'raw JSON final message should pass end to end');
+  assert.strictEqual(gradeFinal(`${FENCED}\n${LABEL}`).passed, true, 'fenced JSON with harness-label should pass end to end');
+  const prose = gradeFinal(`Fable on sonnect means a profile.\n${FENCED}`);
+  assert.strictEqual(prose.passed, false, 'prose before JSON must fail end to end');
+  assert.strictEqual(prose.results[0].status, 'fail');
+  assert.match(prose.results[0].reason, /prose before/);
+  // Prose from an earlier turn (before the last tool call) is not the final message.
+  const earlierProse = writeTranscript('earlier-prose.jsonl', RAW);
+  assert.strictEqual(grade(jsonOnlyExpectation, jsonOnlyDir, earlierProse).passed, true, 'only the final assistant message is graded');
+} finally {
+  fs.rmSync(jsonOnlyDir, { recursive: true, force: true });
+}
+
+console.log(`Behavioral case validation passed (${fs.readdirSync(casesDir).filter(name => name.endsWith('.yaml')).length} cases + negative controls + ordered execution evidence + json-only final output).`);

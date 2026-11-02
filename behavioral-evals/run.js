@@ -28,7 +28,7 @@ const {
   parseTranscriptFile,
 } = require('./transcript-parser');
 const { commandMatches, normalizeRepoPath } = require('../scripts/lib/execution-contract');
-const { resolveFixtureSetup, validateFixture } = require('./case-validator');
+const { resolveFixtureSetup, validateFixture, validateExpectation } = require('./case-validator');
 
 const ROOT = path.resolve(__dirname, '..');
 const CASES_DIR = path.join(__dirname, 'cases');
@@ -150,6 +150,7 @@ function validate(cases) {
   const EXPECT_TYPES = new Set([
     'trace_contains', 'trace_not_contains', 'file_contains', 'file_not_exists', 'command_exit_0',
     'tool_call', 'tool_attempted', 'tool_completed', 'tool_executed', 'tool_denied', 'execution_evidence',
+    'final_output_json_only',
   ]);
   for (const c of cases) {
     const problems = [];
@@ -165,7 +166,9 @@ function validate(cases) {
     if (!resolveTreatmentSkills(c).length) problems.push('treatment must load at least one named Harness skill');
     for (const e of c.expectations || []) {
       if (!EXPECT_TYPES.has(e.type)) problems.push(`unknown expectation type "${e.type}"`);
-      if (e.value === undefined && e.command === undefined && e.tool === undefined && e.name === undefined && e.count === undefined) {
+      if (e.type === 'final_output_json_only') {
+        problems.push(...validateExpectation(e, c.expectations.indexOf(e)));
+      } else if (e.value === undefined && e.command === undefined && e.tool === undefined && e.name === undefined && e.count === undefined) {
         problems.push(`expectation ${e.type} needs value, tool, name, count, or command`);
       }
     }
@@ -644,6 +647,48 @@ function isExecutionLikeTraceValue(value) {
     || /(?:^|[/\\])[\w.-]+\.(?:c?js|mjs|py|sh|ps1|bat|cmd)\b/i.test(text);
 }
 
+// Harness turn-label lines are hidden bookkeeping (AGENTS.md rule 14) and are
+// ignored when judging whether the final message is JSON-only.
+const HARNESS_LABEL_LINE_RE = /^[ \t]*<!--\s*harness-label\b.*?-->[ \t\r]*$/gm;
+
+// Pure check for `final_output_json_only`: the final assistant text must be
+// exactly one JSON object, raw or inside a single fenced block, with no prose.
+function checkJsonOnlyOutput(text, requiredKeys = []) {
+  const fail = reason => ({ pass: false, reason });
+  if (typeof text !== 'string') return fail('final assistant text is missing');
+  const body = text.replace(HARNESS_LABEL_LINE_RE, '').trim();
+  if (!body) return fail('final assistant text is empty');
+  let json;
+  if (body.startsWith('```')) {
+    const fence = /^```(?:json)?[ \t]*\r?\n([\s\S]*)\r?\n```$/i.exec(body);
+    if (!fence) return fail('final output has text outside the single JSON code fence');
+    if (fence[1].includes('```')) return fail('final output contains more than one code fence');
+    json = fence[1];
+  } else if (body.startsWith('{') || body.startsWith('[')) {
+    json = body;
+  } else {
+    try { JSON.parse(body); }
+    catch { return fail('final output has prose before the JSON object'); }
+    return fail('final JSON value must be an object');
+  }
+  let value;
+  try { value = JSON.parse(json); }
+  catch (error) { return fail(`final output is not a single valid JSON value (${error.message}); prose after the JSON also fails`); }
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return fail('final JSON value must be an object');
+  const missing = requiredKeys.filter(key => !Object.prototype.hasOwnProperty.call(value, key));
+  if (missing.length) return fail(`missing required JSON keys: ${missing.join(', ')}`);
+  return { pass: true, reason: null };
+}
+
+// The final assistant message is the last text event after the last tool event.
+// Claude's result event repeats that text, so only the last text event is used.
+function finalAssistantText(events) {
+  let lastToolIndex = -1;
+  events.forEach((event, index) => { if (event.kind === 'tool') lastToolIndex = index; });
+  const texts = events.slice(lastToolIndex + 1).filter(event => event.kind === 'text');
+  return texts.length ? texts[texts.length - 1].text : '';
+}
+
 function grade(c, ws, transcriptPath, engine = 'auto') {
   const parsed = parseTranscriptFile(transcriptPath, engine);
   const ordered = parseTranscriptEvents(transcriptPath);
@@ -674,6 +719,16 @@ function grade(c, ws, transcriptPath, engine = 'auto') {
         } else {
           pass = e.type === 'trace_contains' ? trace.includes(e.value) : !trace.includes(e.value);
           status = pass ? 'pass' : 'fail';
+        }
+      } else if (e.type === 'final_output_json_only') {
+        if (parsed.parseStatus !== 'parsed') {
+          status = 'inconclusive';
+          reason = parsed.parseError || 'transcript parser did not produce a complete structured trace';
+        } else {
+          const verdict = checkJsonOnlyOutput(finalAssistantText(ordered.events), e.required_keys || []);
+          pass = verdict.pass;
+          status = pass ? 'pass' : 'fail';
+          reason = verdict.reason;
         }
       } else if (e.type === 'file_contains') {
         pass = fs.readFileSync(path.join(ws, e.path), 'utf8').includes(e.value);
@@ -998,6 +1053,7 @@ module.exports = {
   extractAgentEvents,
   extractAgentTrace,
   extractSessionMetadata,
+  checkJsonOnlyOutput,
   grade,
   parseTranscriptEvents,
   pairVerdict,
