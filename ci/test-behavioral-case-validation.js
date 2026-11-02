@@ -107,6 +107,8 @@ try {
   assert.strictEqual(testsOnly.results[0].status, 'fail', 'missing quality gate must be a definitive fail, not inconclusive evidence');
   assert.strictEqual(gradeCommands('npm-gate', ['npm test', 'npm run tdd:quality -- evidence.json']).passed, true, 'npm run tdd:quality with evidence must satisfy the gate');
   assert.strictEqual(gradeCommands('node-gate', ['npm test', 'node tdd/scripts/quality-gate.js evidence.json']).passed, true, 'node quality-gate.js with evidence must satisfy the gate');
+  assert.strictEqual(gradeCommands('installed-skill-gate', ['npm test', 'node .claude/skills/tdd/scripts/quality-gate.js evidence.json']).passed, true, 'quality gate under the installed skill dir must satisfy the gate');
+  assert.strictEqual(gradeCommands('absolute-gate', ['npm test', 'node /tmp/ws/.harness/tdd/scripts/quality-gate.js evidence.json']).passed, true, 'absolute quality-gate path must satisfy the gate');
   for (const [name, commands] of [
     ['echo-mention', ['echo npm run tdd:quality']],
     ['compound-gate', ['npm run tdd:quality -- evidence.json && rm -rf build']],
