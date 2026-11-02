@@ -171,6 +171,11 @@ additional arguments) or `tool_denied` when denial is the behavior under test.
 When one completion must accept several explicit command shapes, use
 `value: {command_pattern: "<regex>"}`; the regex is matched against the whole
 command, so shell control operators must be excluded explicitly.
+`tdd_quality_gate` takes the same `command_pattern` but does not trust the tool
+call's completed status: the grader re-evaluates the evidence file named by the
+last matching run with this repository's `tdd/scripts/quality-gate.js`, and
+fails when that file is missing, invalid, outside the workspace or not `PASS`,
+or when a `--output` report is missing or disagrees with the re-evaluation.
 Legacy one-object Claude JSON and incomplete streams are graded inconclusive
 for execution evidence.
 

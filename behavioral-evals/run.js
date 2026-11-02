@@ -150,6 +150,7 @@ function validate(cases) {
   const EXPECT_TYPES = new Set([
     'trace_contains', 'trace_not_contains', 'file_contains', 'file_not_exists', 'command_exit_0',
     'tool_call', 'tool_attempted', 'tool_completed', 'tool_executed', 'tool_denied', 'execution_evidence',
+    'tdd_quality_gate',
   ]);
   for (const c of cases) {
     const problems = [];
@@ -644,6 +645,82 @@ function isExecutionLikeTraceValue(value) {
     || /(?:^|[/\\])[\w.-]+\.(?:c?js|mjs|py|sh|ps1|bat|cmd)\b/i.test(text);
 }
 
+// --- tdd_quality_gate -------------------------------------------------------
+// A completed tool call only proves the shell returned; it does not prove the
+// gate passed (exit 1 still "completes") or that auditable evidence exists.
+// The grader therefore re-evaluates the evidence the agent pointed the gate at,
+// independently and after the run, with this repository's own evaluator.
+
+function splitCommandArgs(command) {
+  const args = [];
+  const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+  let match;
+  while ((match = re.exec(command))) args.push(match[1] ?? match[2] ?? match[3]);
+  return args;
+}
+
+// Returns { evidence, output } paths named by a quality-gate command, or null
+// when the command names no evidence file.
+function qualityGateArgs(command) {
+  const args = splitCommandArgs(String(command || ''));
+  const scriptIndex = args.findIndex(arg => /(?:^|[/\\])quality-gate\.js$/.test(arg) || arg === 'tdd:quality' || arg === 'test:tdd-quality');
+  if (scriptIndex < 0) return null;
+  const rest = args.slice(scriptIndex + 1).filter(arg => arg !== '--');
+  let evidence = null;
+  let output = null;
+  for (let index = 0; index < rest.length; index++) {
+    if (rest[index] === '--output') { output = rest[index + 1] || null; index++; continue; }
+    if (rest[index].startsWith('-')) continue;
+    if (evidence === null) evidence = rest[index];
+  }
+  return { script: args[scriptIndex], evidence, output };
+}
+
+function resolveInWorkspace(ws, file) {
+  const root = path.resolve(ws);
+  const resolved = path.resolve(root, file);
+  return resolved === root || resolved.startsWith(root + path.sep) ? resolved : null;
+}
+
+function verifyQualityGateRun(call, ws) {
+  const fail = reason => ({ pass: false, reason });
+  const command = call && call.input && typeof call.input === 'object' ? call.input.command : undefined;
+  const args = qualityGateArgs(command);
+  if (!args) return fail('matched command is not a TDD quality-gate invocation');
+  if (args.script === 'test:tdd-quality') return fail('test:tdd-quality runs the repository self-test, not the gate on task evidence');
+  if (!args.evidence) return fail('quality gate was run without an evidence file, so no auditable report exists');
+  const evidencePath = resolveInWorkspace(ws, args.evidence);
+  if (!evidencePath) return fail(`evidence file ${args.evidence} is outside the workspace`);
+  if (!fs.existsSync(evidencePath)) return fail(`evidence file ${args.evidence} was not retained in the workspace`);
+  let evidence;
+  try { evidence = JSON.parse(fs.readFileSync(evidencePath, 'utf8')); }
+  catch (error) { return fail(`evidence file ${args.evidence} is not valid JSON (${error.message})`); }
+  const { evaluateEvidence } = require(path.join(ROOT, 'tdd', 'scripts', 'quality-gate.js'));
+  const report = evaluateEvidence(evidence);
+  if (report.result !== 'PASS') {
+    const failed = Object.entries(report.mandatoryGates || {}).filter(([, ok]) => !ok).map(([name]) => name);
+    return fail(`independent re-evaluation of ${args.evidence} is ${report.result} (gate would exit 1)${failed.length ? `; failed gates: ${failed.join(', ')}` : ''}`);
+  }
+  if (args.output) {
+    const outputPath = resolveInWorkspace(ws, args.output);
+    if (!outputPath || !fs.existsSync(outputPath)) return fail(`quality report ${args.output} was not retained in the workspace`);
+    let retained;
+    try { retained = JSON.parse(fs.readFileSync(outputPath, 'utf8')); }
+    catch (error) { return fail(`quality report ${args.output} is not valid JSON (${error.message})`); }
+    if (retained.result !== report.result) return fail(`retained report ${args.output} says ${retained.result}, re-evaluation says ${report.result}`);
+  }
+  return { pass: true, reason: `quality gate re-evaluated ${args.evidence}: PASS` };
+}
+
+function gradeQualityGate(expectation, parsed, ws) {
+  const executed = gradeExecutionEvidence({ ...expectation, type: 'tool_executed' }, parsed);
+  if (executed.status === 'inconclusive') return executed;
+  if (!executed.pass) return { pass: false, status: 'fail', reason: `quality gate not executed: ${executed.reason}` };
+  // The last completed run is the one that counts: an agent may fix evidence and re-run.
+  const verdict = verifyQualityGateRun(executed.observed[executed.observed.length - 1], ws);
+  return { pass: verdict.pass, status: verdict.pass ? 'pass' : 'fail', reason: verdict.reason };
+}
+
 function grade(c, ws, transcriptPath, engine = 'auto') {
   const parsed = parseTranscriptFile(transcriptPath, engine);
   const ordered = parseTranscriptEvents(transcriptPath);
@@ -664,6 +741,8 @@ function grade(c, ws, transcriptPath, engine = 'auto') {
           status = 'fail';
           reason = 'expected a completed edit before the matching tool execution';
         }
+      } else if (e.type === 'tdd_quality_gate') {
+        ({ pass, status, reason } = gradeQualityGate(e, parsed, ws));
       } else if (e.type === 'trace_contains' || e.type === 'trace_not_contains') {
         if (e.type === 'trace_contains' && isExecutionLikeTraceValue(e.value)) {
           status = 'inconclusive';
@@ -999,6 +1078,7 @@ module.exports = {
   extractAgentTrace,
   extractSessionMetadata,
   grade,
+  qualityGateArgs,
   parseTranscriptEvents,
   pairVerdict,
   parseSimpleYaml,

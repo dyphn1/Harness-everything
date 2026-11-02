@@ -25,6 +25,7 @@ const EXPECTATION_TYPES = new Set([
   'tool_completed',
   'tool_denied',
   'execution_evidence',
+  'tdd_quality_gate',
 ]);
 
 const PRESSURE_CATEGORIES = new Set([
@@ -118,7 +119,10 @@ function validateExpectation(expectation, index) {
     errors.push(`expectations[${index}] ${type} requires a string value`);
   }
   if (type === 'command_exit_0' && (typeof expectation.command !== 'string' || !expectation.command.trim())) errors.push(`expectations[${index}] command_exit_0 requires a non-empty command`);
-  if (['tool_attempted', 'tool_executed', 'tool_completed', 'tool_denied', 'execution_evidence'].includes(type)) {
+  if (type === 'tdd_quality_gate' && !(isPlainObject(expectation.value) && expectation.value.command_pattern !== undefined)) {
+    errors.push(`expectations[${index}] tdd_quality_gate requires value.command_pattern`);
+  }
+  if (['tool_attempted', 'tool_executed', 'tool_completed', 'tool_denied', 'execution_evidence', 'tdd_quality_gate'].includes(type)) {
     if (expectation.value === undefined && expectation.tool === undefined && expectation.name === undefined && expectation.command === undefined) {
       errors.push(`expectations[${index}] ${type} requires a tool/value target`);
     }
@@ -211,6 +215,7 @@ function negativeControls() {
     { id: 'bad-path', prompt: 'x', max_turns: 1, fixture: { files: [{ path: '../escape.js', content: 'x' }] }, expectations: [{ type: 'trace_contains', value: 'x' }] },
     { id: 'duplicate-path', prompt: 'x', max_turns: 1, fixture: { files: [{ path: 'x.js', content: '' }, { path: 'x.js', content: '' }] }, expectations: [{ type: 'trace_contains', value: 'x' }] },
     { id: 'bad-execution', prompt: 'x', max_turns: 1, fixture: { files: [{ path: 'x.js', content: '' }] }, expectations: [{ type: 'tool_executed' }] },
+    { id: 'quality-gate-no-pattern', prompt: 'x', max_turns: 1, fixture: { files: [{ path: 'x.js', content: '' }] }, expectations: [{ type: 'tdd_quality_gate', value: { name: 'Bash' } }] },
     { id: 'bad-command-pattern', prompt: 'x', max_turns: 1, fixture: { files: [{ path: 'x.js', content: '' }] }, expectations: [{ type: 'tool_executed', value: { command_pattern: '(' } }] },
   ];
   return controls.map(control => ({ control, errors: validateCase(control) })).filter(result => result.errors.length === 0);
