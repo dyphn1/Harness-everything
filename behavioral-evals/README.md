@@ -175,6 +175,9 @@ Use `final_output_json_only` when the final message must be only a JSON object
 (raw, or inside one fenced block) with no prose outside it. Hidden
 `<!-- harness-label -->` lines are ignored. Optional `required_keys` lists keys
 that must be present. Extracting the selection fields from prose does not pass.
+The final message is every assistant text part after the last tool call, joined
+in order (Claude's repeated `result` is used only when no parts exist), so prose
+streamed in a separate part still fails.
 
 Grading is best-effort mechanical (trace keyword/state assertions), not a
 substitute for reading the transcript — every result JSON records the full

@@ -162,6 +162,42 @@ try {
   // Prose from an earlier turn (before the last tool call) is not the final message.
   const earlierProse = writeTranscript('earlier-prose.jsonl', RAW);
   assert.strictEqual(grade(jsonOnlyExpectation, jsonOnlyDir, earlierProse).passed, true, 'only the final assistant message is graded');
+
+  // Multi-part final messages: the final turn may stream several text parts.
+  const writeParts = (name, finalParts) => {
+    const transcriptPath = path.join(jsonOnlyDir, name);
+    const events = [
+      { type: 'tool_use', part: { type: 'tool', tool: 'Read', callID: 'read-1', state: { status: 'completed', input: { file_path: 'profiles.md' } } } },
+      ...finalParts.map(text => ({ type: 'text', part: { type: 'text', text } })),
+    ];
+    fs.writeFileSync(transcriptPath, events.map(event => JSON.stringify(event)).join('\n'));
+    return transcriptPath;
+  };
+  const proseThenJson = grade(jsonOnlyExpectation, jsonOnlyDir, writeParts('prose-part-json-part.jsonl', ['"Fable on sonnect" means the fable profile on sonnet.', FENCED]));
+  assert.strictEqual(proseThenJson.passed, false, 'prose part + JSON part must fail (#308 false pass)');
+  assert.match(proseThenJson.results[0].reason, /prose before/);
+  const jsonThenProse = grade(jsonOnlyExpectation, jsonOnlyDir, writeParts('json-part-prose-part.jsonl', [FENCED, 'That is the selection record.']));
+  assert.strictEqual(jsonThenProse.passed, false, 'JSON part + prose part must fail');
+  const splitBody = JSON.stringify(SELECTION, null, 2);
+  const cut = splitBody.indexOf('"assignedRole"');
+  const splitJson = grade(jsonOnlyExpectation, jsonOnlyDir, writeParts('split-json.jsonl', ['```json\n' + splitBody.slice(0, cut), splitBody.slice(cut) + '\n```']));
+  assert.strictEqual(splitJson.passed, true, `JSON split across text parts should pass: ${splitJson.results[0].reason}`);
+
+  // Claude stream-json: assistant content parts plus a terminal `result` that
+  // repeats them. The repeat must not be double-counted, and must not mask prose.
+  const writeClaude = (name, contentTexts, resultText) => {
+    const transcriptPath = path.join(jsonOnlyDir, name);
+    const lines = [
+      { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu-1', name: 'Read', input: { file_path: 'profiles.md' } }] } },
+      { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tu-1', content: 'ok' }] } },
+      { type: 'assistant', message: { content: contentTexts.map(text => ({ type: 'text', text })) } },
+      { type: 'result', subtype: 'success', result: resultText },
+    ];
+    fs.writeFileSync(transcriptPath, lines.map(line => JSON.stringify(line)).join('\n'));
+    return transcriptPath;
+  };
+  assert.strictEqual(grade(jsonOnlyExpectation, jsonOnlyDir, writeClaude('claude-result-repeat.jsonl', [FENCED], FENCED)).passed, true, 'Claude result repeat must not double the JSON');
+  assert.strictEqual(grade(jsonOnlyExpectation, jsonOnlyDir, writeClaude('claude-prose-parts.jsonl', ['Here is the record.', FENCED], FENCED)).passed, false, 'Claude prose content part must fail even when result holds only JSON');
 } finally {
   fs.rmSync(jsonOnlyDir, { recursive: true, force: true });
 }

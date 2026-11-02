@@ -495,8 +495,10 @@ function parseTranscriptEvents(transcriptPath) {
   const events = [];
   const pendingById = new Map();
   let sequence = 0;
-  const addText = text => {
-    if (typeof text === 'string' && text) events.push({ kind: 'text', text, sequence: sequence++ });
+  // `source` separates assistant content parts from Claude's terminal `result`
+  // field, which repeats the final message and must not be joined with it.
+  const addText = (text, source = 'content') => {
+    if (typeof text === 'string' && text) events.push({ kind: 'text', text, source, sequence: sequence++ });
   };
   const addTool = (event, part) => {
     const type = eventType(event);
@@ -536,7 +538,7 @@ function parseTranscriptEvents(transcriptPath) {
     }
     if (value.message && value.message.content) visit(value.message.content, value.type !== 'user');
     if (value.content && value.content !== value.message) visit(value.content, includeText);
-    if (!value.part && typeof value.result === 'string' && includeText) addText(value.result);
+    if (!value.part && typeof value.result === 'string' && includeText) addText(value.result, 'result');
   };
   let structured = false;
   for (const line of raw.split('\n')) {
@@ -551,7 +553,7 @@ function parseTranscriptEvents(transcriptPath) {
   if (!structured) {
     try {
       const value = JSON.parse(raw);
-      if (value && typeof value.result === 'string') addText(value.result);
+      if (value && typeof value.result === 'string') addText(value.result, 'result');
       else visit(value);
     } catch { /* raw fallback handled by renderAgentTrace */ }
   }
@@ -680,12 +682,17 @@ function checkJsonOnlyOutput(text, requiredKeys = []) {
   return { pass: true, reason: null };
 }
 
-// The final assistant message is the last text event after the last tool event.
-// Claude's result event repeats that text, so only the last text event is used.
+// The final assistant message is every assistant text part after the last tool
+// event, joined in order: a final turn may stream prose and JSON as separate
+// parts, and grading only the last part would let prose + JSON pass (#308).
+// Claude's terminal `result` repeats that message, so it is used only when the
+// transcript has no content parts for the final turn.
 function finalAssistantText(events) {
   let lastToolIndex = -1;
   events.forEach((event, index) => { if (event.kind === 'tool') lastToolIndex = index; });
   const texts = events.slice(lastToolIndex + 1).filter(event => event.kind === 'text');
+  const parts = texts.filter(event => event.source !== 'result');
+  if (parts.length) return parts.map(event => event.text).join('\n');
   return texts.length ? texts[texts.length - 1].text : '';
 }
 
@@ -1054,6 +1061,7 @@ module.exports = {
   extractAgentTrace,
   extractSessionMetadata,
   checkJsonOnlyOutput,
+  finalAssistantText,
   grade,
   parseTranscriptEvents,
   pairVerdict,
