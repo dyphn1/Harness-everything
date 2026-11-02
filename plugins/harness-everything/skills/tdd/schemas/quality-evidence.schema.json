@@ -155,6 +155,7 @@
       "required": ["source", "assertion", "expected", "observed"],
       "properties": {
         "source": { "type": "string", "minLength": 1 },
+        "subject": { "type": "string", "minLength": 1 },
         "assertion": { "type": "string", "minLength": 1 },
         "expected": {},
         "observed": {}
@@ -201,6 +202,10 @@
         {
           "if": { "required": ["sourceValidity"], "properties": { "sourceValidity": { "enum": ["SOURCE_DEFECT", "SOURCE_CONFLICT"] } } },
           "then": { "required": ["sourceEvidence"], "properties": { "sourceEvidence": { "minItems": 1 } } }
+        },
+        {
+          "if": { "required": ["sourceValidity"], "properties": { "sourceValidity": { "const": "SOURCE_CONFLICT" } } },
+          "then": { "properties": { "sourceEvidence": { "items": { "required": ["subject"] } } } }
         },
         {
           "if": {

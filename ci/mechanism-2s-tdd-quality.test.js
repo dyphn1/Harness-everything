@@ -15,7 +15,7 @@ const classes = {
 };
 
 const scenarioCatalog = JSON.parse(fs.readFileSync(path.join(helper.root, 'tdd', 'fixtures', 'quality-scenarios.json'), 'utf8'));
-const requiredScenarios = ['PASS', 'unit profile', 'integration profile', 'weighted integration failure', 'weighted unit failure', 'NON_CONFORMANT', 'SOURCE_DEFECT', 'SOURCE_CONFLICT', 'SOURCE_DEFECT without sourceEvidence', 'SOURCE_CONFLICT without sourceEvidence', 'SOURCE_CONFLICT node-versus-value', 'SOURCE_CONFLICT agreeing expectations', 'SOURCE_CONFLICT two-source evidence', 'malformed input', 'unexpected input', 'error handling', 'nondeterministic output', 'auditable N/A', 'skipped test'];
+const requiredScenarios = ['PASS', 'unit profile', 'integration profile', 'weighted integration failure', 'weighted unit failure', 'NON_CONFORMANT', 'SOURCE_DEFECT', 'SOURCE_CONFLICT', 'SOURCE_DEFECT without sourceEvidence', 'SOURCE_CONFLICT without sourceEvidence', 'SOURCE_CONFLICT node-versus-value', 'SOURCE_CONFLICT agreeing expectations', 'SOURCE_CONFLICT two-source evidence', 'SOURCE_CONFLICT unrelated assertions', 'malformed input', 'unexpected input', 'error handling', 'nondeterministic output', 'auditable N/A', 'skipped test'];
 helper.check('2s. fixture catalog covers every required outcome', requiredScenarios.every(name => scenarioCatalog.scenarios.some(scenario => scenario.name === name)));
 
 function checks(prefix, names) {
@@ -152,8 +152,8 @@ const conflictFrom = (req, sourceEvidence) => {
 };
 
 const sourceConflict = evaluate(req => conflictFrom(req, [
-  { source: 'docs/example.md', assertion: 'expect(list.head.value).toEqual(1)', expected: 1, observed: { value: 1, next: null } },
-  { source: 'docs/adr/001.md', assertion: 'expect(list.head).toBeInstanceOf(Element)', expected: 'Element', observed: { value: 1, next: null } }
+  { source: 'docs/example.md', subject: 'list.head', assertion: 'expect(list.head).toEqual(1)', expected: 1, observed: { value: 1, next: null } },
+  { source: 'docs/adr/001.md', subject: 'list.head', assertion: 'expect(list.head).toBeInstanceOf(Element)', expected: 'Element', observed: { value: 1, next: null } }
 ]));
 helper.check('2s. unresolved authoritative source conflicts fail', sourceConflict.result === 'FAIL' && sourceConflict.mandatoryGates.noSourceConflict === false && sourceConflict.dimensions.sourceTraceability.traced === 2);
 helper.check(
@@ -166,16 +166,40 @@ const conflictWithoutEvidence = evaluate(req => conflictFrom(req));
 helper.check('2s. source conflicts without quoted sourceEvidence are rejected', conflictWithoutEvidence.result === 'FAIL' && conflictWithoutEvidence.errors.some(e => /sourceEvidence/.test(e)));
 
 const nodeVersusValue = evaluate(req => conflictFrom(req, [
-  { source: 'docs/example.md', assertion: 'expect(list.head.value).toEqual(1)', expected: 1, observed: { value: 1, next: null } },
-  { source: 'docs/example.md', assertion: 'expect(list.head.next.value).toEqual(2)', expected: 2, observed: { value: 2, next: null } }
+  { source: 'docs/example.md', subject: 'list.head.value', assertion: 'expect(list.head.value).toEqual(1)', expected: 1, observed: { value: 1, next: null } },
+  { source: 'docs/example.md', subject: 'list.head.next.value', assertion: 'expect(list.head.next.value).toEqual(2)', expected: 2, observed: { value: 2, next: null } }
 ]));
 helper.check('2s. node-versus-value conflict citing one spec is rejected as a source conflict', nodeVersusValue.result === 'FAIL' && nodeVersusValue.errors.some(e => /two distinct authoritative sources/.test(e)));
 
 const agreeingExpectations = evaluate(req => conflictFrom(req, [
-  { source: 'docs/example.md', assertion: 'expect(output.value).toEqual(1)', expected: 1, observed: 2 },
-  { source: 'docs/adr/001.md', assertion: 'expect(output.value).toEqual(1)', expected: 1, observed: 2 }
+  { source: 'docs/example.md', subject: 'output.value', assertion: 'expect(output.value).toEqual(1)', expected: 1, observed: 2 },
+  { source: 'docs/adr/001.md', subject: 'output.value', assertion: 'expect(output.value).toEqual(1)', expected: 1, observed: 2 }
 ]));
 helper.check('2s. mismatch with agreeing expectations is not a source conflict', agreeingExpectations.result === 'FAIL' && agreeingExpectations.errors.some(e => /disagree across sources/.test(e)));
+
+// Unequal expectations about unrelated targets in two sources are not a conflict.
+const unrelatedAssertions = evaluate(req => conflictFrom(req, [
+  { source: 'docs/example.md', subject: 'foo', assertion: 'expect(foo).toEqual(1)', expected: 1, observed: 2 },
+  { source: 'docs/adr/001.md', subject: 'bar', assertion: 'expect(bar).toEqual(3)', expected: 3, observed: 4 }
+]));
+helper.check('2s. unrelated assertions from two sources are rejected as a source conflict', unrelatedAssertions.result === 'FAIL' && unrelatedAssertions.errors.some(e => /same subject/.test(e)));
+
+// The subject must be claimed explicitly and be the target the quote constrains.
+const subjectMissing = evaluate(req => conflictFrom(req, [
+  { source: 'docs/example.md', assertion: 'expect(foo).toEqual(1)', expected: 1, observed: 2 },
+  { source: 'docs/adr/001.md', assertion: 'expect(bar).toEqual(3)', expected: 3, observed: 2 }
+]));
+helper.check('2s. source conflict evidence without a subject is rejected', subjectMissing.result === 'FAIL' && subjectMissing.errors.some(e => /subject must name the contract target/.test(e)));
+const subjectRelabelled = evaluate(req => conflictFrom(req, [
+  { source: 'docs/example.md', subject: 'foo', assertion: 'expect(foo).toEqual(1)', expected: 1, observed: 2 },
+  { source: 'docs/adr/001.md', subject: 'foo', assertion: 'expect(bar).toEqual(3)', expected: 3, observed: 2 }
+]));
+helper.check('2s. a subject absent from the quoted assertion cannot manufacture a conflict', subjectRelabelled.result === 'FAIL' && subjectRelabelled.errors.some(e => /subject must appear as a whole target/.test(e)));
+const nestedTarget = evaluate(req => conflictFrom(req, [
+  { source: 'docs/example.md', subject: 'list.head', assertion: 'expect(list.head.value).toEqual(1)', expected: 1, observed: 2 },
+  { source: 'docs/adr/001.md', subject: 'list.head', assertion: 'expect(list.head).toBeInstanceOf(Element)', expected: 'Element', observed: 2 }
+]));
+helper.check('2s. a nested property is not the same subject as its parent', nestedTarget.result === 'FAIL' && nestedTarget.errors.some(e => /subject must appear as a whole target/.test(e)));
 
 const inferred = evaluate(req => { req.source = { type: 'INFERENCE', status: 'INFERRED', inferenceBasis: 'Observed public API and user-approved acceptance criteria.' }; });
 helper.check('2s. inferred expectations remain explicit and traceable', inferred.result === 'PASS' && inferred.dimensions.sourceTraceability.percentage === 100);

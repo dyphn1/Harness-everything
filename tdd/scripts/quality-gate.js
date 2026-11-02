@@ -270,11 +270,39 @@ function evaluateSourceEvidence(requirement, declaredSources, errors, prefix) {
     if (new Set(entries.map(entry => entry.source)).size < 2) {
       errors.push(`${prefix}.sourceEvidence must quote assertions from at least two distinct authoritative sources`);
     }
-    const expectationsDisagree = entries.some(a => entries.some(b => a.source !== b.source && !equal(a.expected, b.expected)));
-    if (!expectationsDisagree) {
+    // A conflict needs two sources constraining the same contract subject;
+    // unequal expectations about unrelated targets are not a conflict.
+    const subjects = new Map();
+    evidence.forEach((entry, index) => {
+      if (!entries.includes(entry)) return;
+      const entryPrefix = `${prefix}.sourceEvidence[${index}]`;
+      if (!nonEmpty(entry.subject)) {
+        errors.push(`${entryPrefix}.subject must name the contract target the assertion constrains`);
+      } else if (!assertionNamesSubject(entry.assertion, entry.subject.trim())) {
+        errors.push(`${entryPrefix}.subject must appear as a whole target in the quoted assertion`);
+      } else {
+        subjects.set(entry, entry.subject.trim());
+      }
+    });
+    const sameSubjectPairs = [];
+    for (const a of subjects.keys()) {
+      for (const b of subjects.keys()) {
+        if (a !== b && a.source !== b.source && subjects.get(a) === subjects.get(b)) sameSubjectPairs.push([a, b]);
+      }
+    }
+    if (subjects.size >= 2 && sameSubjectPairs.length === 0) {
+      errors.push(`${prefix}.sourceEvidence must quote assertions from two sources about the same subject; unequal expectations about unrelated targets are not a SOURCE_CONFLICT`);
+    } else if (sameSubjectPairs.length && !sameSubjectPairs.some(([a, b]) => !equal(a.expected, b.expected))) {
       errors.push(`${prefix}.sourceEvidence expected values must disagree across sources; agreeing expectations with a failing observed value are NON_CONFORMANT`);
     }
   }
+}
+
+// True when `subject` appears in `assertion` as a whole target: `list.head`
+// matches `expect(list.head)` but not `expect(list.head.value)`.
+function assertionNamesSubject(assertion, subject) {
+  const escaped = subject.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?<![\\w$.])${escaped}(?![\\w$.\\[])`).test(assertion);
 }
 
 function scoreDimensions(dimensions) {
