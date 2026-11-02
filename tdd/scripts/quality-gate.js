@@ -239,6 +239,44 @@ function evaluateSource(source, errors, prefix) {
   return { source: clone(source), traced: valid ? 1 : 0, total: 1, percentage: valid ? 100 : 0 };
 }
 
+// SOURCE_DEFECT and SOURCE_CONFLICT must quote the assertions they blame and
+// compare each with the observed value from the run. Sources are identified by
+// their declared authoritative path.
+function evaluateSourceEvidence(requirement, declaredSources, errors, prefix) {
+  const label = requirement.sourceValidity;
+  const evidence = requirement.sourceEvidence;
+  if (!Array.isArray(evidence) || evidence.length === 0) {
+    errors.push(`${prefix}.sourceEvidence must quote the assertions for ${label}`);
+    return;
+  }
+  const declaredPaths = declaredSources.filter(isObject).map(source => source.path);
+  const entries = [];
+  evidence.forEach((entry, index) => {
+    const entryPrefix = `${prefix}.sourceEvidence[${index}]`;
+    if (!isObject(entry)) {
+      errors.push(`${entryPrefix} must be an object`);
+      return;
+    }
+    if (!declaredPaths.includes(entry.source)) errors.push(`${entryPrefix}.source must name a declared authoritative source path`);
+    if (!nonEmpty(entry.assertion)) errors.push(`${entryPrefix}.assertion must quote the exact assertion text`);
+    if (!('expected' in entry)) errors.push(`${entryPrefix}.expected is required`);
+    if (!('observed' in entry)) errors.push(`${entryPrefix}.observed is required`);
+    if (declaredPaths.includes(entry.source) && nonEmpty(entry.assertion) && 'expected' in entry && 'observed' in entry) entries.push(entry);
+  });
+  if (!entries.some(entry => !equal(entry.expected, entry.observed))) {
+    errors.push(`${prefix}.sourceEvidence must compare a quoted assertion with a failing observed value before blaming the source`);
+  }
+  if (label === 'SOURCE_CONFLICT') {
+    if (new Set(entries.map(entry => entry.source)).size < 2) {
+      errors.push(`${prefix}.sourceEvidence must quote assertions from at least two distinct authoritative sources`);
+    }
+    const expectationsDisagree = entries.some(a => entries.some(b => a.source !== b.source && !equal(a.expected, b.expected)));
+    if (!expectationsDisagree) {
+      errors.push(`${prefix}.sourceEvidence expected values must disagree across sources; agreeing expectations with a failing observed value are NON_CONFORMANT`);
+    }
+  }
+}
+
 function scoreDimensions(dimensions) {
   let weighted = 0;
   let appliedWeight = 0;
@@ -323,6 +361,9 @@ function evaluateRequirement(requirement, index, errors) {
   if (requirement.sourceValidity === 'SOURCE_CONFLICT' && declaredSources.some(source => !isObject(source) || source.status !== 'AUTHORITATIVE')) {
     errors.push(`${prefix}.SOURCE_CONFLICT may only identify authoritative sources`);
   }
+  if (['SOURCE_DEFECT', 'SOURCE_CONFLICT'].includes(requirement.sourceValidity)) {
+    evaluateSourceEvidence(requirement, declaredSources, errors, prefix);
+  }
 
   const scoring = scoringDetails(dimensions);
   const score = scoreDimensions(dimensions);
@@ -347,6 +388,7 @@ function evaluateRequirement(requirement, index, errors) {
     sourceConformance: requirement.sourceConformance || null,
     sourceValidity: requirement.sourceValidity || null,
     ...(requirement.sourceNotes ? { sourceNotes: requirement.sourceNotes } : {}),
+    ...(requirement.sourceEvidence ? { sourceEvidence: clone(requirement.sourceEvidence) } : {}),
     dimensions,
     skippedTests,
     flakyTests: Array.isArray(requirement.flakyTests) ? clone(requirement.flakyTests) : [],

@@ -15,7 +15,7 @@ const classes = {
 };
 
 const scenarioCatalog = JSON.parse(fs.readFileSync(path.join(helper.root, 'tdd', 'fixtures', 'quality-scenarios.json'), 'utf8'));
-const requiredScenarios = ['PASS', 'unit profile', 'integration profile', 'weighted integration failure', 'weighted unit failure', 'NON_CONFORMANT', 'SOURCE_DEFECT', 'SOURCE_CONFLICT', 'malformed input', 'unexpected input', 'error handling', 'nondeterministic output', 'auditable N/A', 'skipped test'];
+const requiredScenarios = ['PASS', 'unit profile', 'integration profile', 'weighted integration failure', 'weighted unit failure', 'NON_CONFORMANT', 'SOURCE_DEFECT', 'SOURCE_CONFLICT', 'SOURCE_DEFECT without sourceEvidence', 'SOURCE_CONFLICT without sourceEvidence', 'SOURCE_CONFLICT node-versus-value', 'SOURCE_CONFLICT agreeing expectations', 'SOURCE_CONFLICT two-source evidence', 'malformed input', 'unexpected input', 'error handling', 'nondeterministic output', 'auditable N/A', 'skipped test'];
 helper.check('2s. fixture catalog covers every required outcome', requiredScenarios.every(name => scenarioCatalog.scenarios.some(scenario => scenario.name === name)));
 
 function checks(prefix, names) {
@@ -134,15 +134,48 @@ helper.check('2s. unequal repeated integration output is rejected', nondetermini
 const nonConformant = evaluate(req => { req.sourceConformance = 'NON_CONFORMANT'; });
 helper.check('2s. implementation/source mismatches fail', nonConformant.result === 'FAIL' && nonConformant.mandatoryGates.noSourceMismatch === false);
 
-const sourceDefect = evaluate(req => { req.sourceValidity = 'SOURCE_DEFECT'; req.sourceNotes = 'The approved example appears internally wrong.'; });
+const sourceDefect = evaluate(req => {
+  req.sourceValidity = 'SOURCE_DEFECT';
+  req.sourceNotes = 'The approved example appears internally wrong.';
+  req.sourceEvidence = [{ source: 'docs/example.md', assertion: 'expect(output.value).toEqual(3)', expected: 3, observed: 2 }];
+});
 helper.check('2s. source defects are reported separately without inventing a mismatch', sourceDefect.result === 'PASS' && sourceDefect.requirements[0].sourceValidity === 'SOURCE_DEFECT');
+const sourceDefectNoEvidence = evaluate(req => { req.sourceValidity = 'SOURCE_DEFECT'; req.sourceNotes = 'Appears wrong.'; });
+helper.check('2s. source defects without quoted sourceEvidence are rejected', sourceDefectNoEvidence.result === 'FAIL' && sourceDefectNoEvidence.errors.some(e => /sourceEvidence/.test(e)));
 
-const sourceConflict = evaluate(req => {
+const sourceConflictAdr = { type: 'ADR', path: 'docs/adr/001.md', section: 'Contract', status: 'AUTHORITATIVE' };
+const conflictFrom = (req, sourceEvidence) => {
   req.sourceValidity = 'SOURCE_CONFLICT';
   req.sourceNotes = 'ADR-1 and SPEC-2 disagree.';
-  req.additionalSources = [{ type: 'ADR', path: 'docs/adr/001.md', section: 'Contract', status: 'AUTHORITATIVE' }];
-});
+  req.additionalSources = [clone(sourceConflictAdr)];
+  if (sourceEvidence !== undefined) req.sourceEvidence = sourceEvidence;
+};
+
+const sourceConflict = evaluate(req => conflictFrom(req, [
+  { source: 'docs/example.md', assertion: 'expect(list.head.value).toEqual(1)', expected: 1, observed: { value: 1, next: null } },
+  { source: 'docs/adr/001.md', assertion: 'expect(list.head).toBeInstanceOf(Element)', expected: 'Element', observed: { value: 1, next: null } }
+]));
 helper.check('2s. unresolved authoritative source conflicts fail', sourceConflict.result === 'FAIL' && sourceConflict.mandatoryGates.noSourceConflict === false && sourceConflict.dimensions.sourceTraceability.traced === 2);
+helper.check(
+  '2s. properly evidenced two-source conflict is accepted as evidence; only the conflict gate stays closed',
+  !sourceConflict.errors.some(e => /sourceEvidence/.test(e)) &&
+    Object.entries(sourceConflict.requirements[0].mandatoryGates).filter(([, passed]) => !passed).map(([name]) => name).join() === 'noSourceConflict'
+);
+
+const conflictWithoutEvidence = evaluate(req => conflictFrom(req));
+helper.check('2s. source conflicts without quoted sourceEvidence are rejected', conflictWithoutEvidence.result === 'FAIL' && conflictWithoutEvidence.errors.some(e => /sourceEvidence/.test(e)));
+
+const nodeVersusValue = evaluate(req => conflictFrom(req, [
+  { source: 'docs/example.md', assertion: 'expect(list.head.value).toEqual(1)', expected: 1, observed: { value: 1, next: null } },
+  { source: 'docs/example.md', assertion: 'expect(list.head.next.value).toEqual(2)', expected: 2, observed: { value: 2, next: null } }
+]));
+helper.check('2s. node-versus-value conflict citing one spec is rejected as a source conflict', nodeVersusValue.result === 'FAIL' && nodeVersusValue.errors.some(e => /two distinct authoritative sources/.test(e)));
+
+const agreeingExpectations = evaluate(req => conflictFrom(req, [
+  { source: 'docs/example.md', assertion: 'expect(output.value).toEqual(1)', expected: 1, observed: 2 },
+  { source: 'docs/adr/001.md', assertion: 'expect(output.value).toEqual(1)', expected: 1, observed: 2 }
+]));
+helper.check('2s. mismatch with agreeing expectations is not a source conflict', agreeingExpectations.result === 'FAIL' && agreeingExpectations.errors.some(e => /disagree across sources/.test(e)));
 
 const inferred = evaluate(req => { req.source = { type: 'INFERENCE', status: 'INFERRED', inferenceBasis: 'Observed public API and user-approved acceptance criteria.' }; });
 helper.check('2s. inferred expectations remain explicit and traceable', inferred.result === 'PASS' && inferred.dimensions.sourceTraceability.percentage === 100);

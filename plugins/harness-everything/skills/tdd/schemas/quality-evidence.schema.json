@@ -149,6 +149,17 @@
         }
       ]
     },
+    "sourceEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "assertion", "expected", "observed"],
+      "properties": {
+        "source": { "type": "string", "minLength": 1 },
+        "assertion": { "type": "string", "minLength": 1 },
+        "expected": {},
+        "observed": {}
+      }
+    },
     "requirement": {
       "type": "object",
       "additionalProperties": false,
@@ -161,6 +172,7 @@
         "sourceConformance": { "enum": ["PASS", "NON_CONFORMANT"] },
         "sourceValidity": { "enum": ["VALID", "SOURCE_DEFECT", "SOURCE_CONFLICT"] },
         "sourceNotes": { "type": "string", "minLength": 1 },
+        "sourceEvidence": { "type": "array", "items": { "$ref": "#/$defs/sourceEvidence" } },
         "skippedTests": { "type": "array" },
         "flakyTests": { "type": "array" },
         "naDeclarations": { "type": "array" },
@@ -186,6 +198,10 @@
         }
       },
       "allOf": [
+        {
+          "if": { "required": ["sourceValidity"], "properties": { "sourceValidity": { "enum": ["SOURCE_DEFECT", "SOURCE_CONFLICT"] } } },
+          "then": { "required": ["sourceEvidence"], "properties": { "sourceEvidence": { "minItems": 1 } } }
+        },
         {
           "if": {
             "required": ["testProfile"],

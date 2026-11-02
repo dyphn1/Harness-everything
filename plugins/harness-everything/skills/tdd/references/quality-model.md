@@ -2,6 +2,8 @@
 
 This model turns each source requirement into auditable evidence. The authoritative source remains the contract even when it appears wrong. Record a suspected documentation problem as `SOURCE_DEFECT`; record disagreement between traced sources as `SOURCE_CONFLICT`. Never reinterpret either into a passing implementation. If no authoritative source exists, use `INFERRED` and state the inference basis.
 
+Before declaring either outcome, `sourceEvidence` quotes the exact conflicting assertions, names each declared source by path, and compares each `expected` value with the `observed` value from the run. A `SOURCE_CONFLICT` needs at least two distinct sources whose expected values disagree. If the quoted expectations agree and the run still fails, the mismatch is in the implementation: record `NON_CONFORMANT`, not `SOURCE_CONFLICT`.
+
 ## Profile contract
 
 Every requirement declares exactly one `testProfile`: `unit` or `integration`. The selected profile defines which case classes are applicable; the common scoring and source rules do not make every test use identical evidence.
