@@ -168,6 +168,9 @@ command ran: final prose and attempted tool inputs can mention an action that
 never completed. Use structured execution expectations instead, for example
 `tool_completed` with `command: "npm test"` (command prefixes may include
 additional arguments) or `tool_denied` when denial is the behavior under test.
+When one completion must accept several explicit command shapes, use
+`value: {command_pattern: "<regex>"}`; the regex is matched against the whole
+command, so shell control operators must be excluded explicitly.
 Legacy one-object Claude JSON and incomplete streams are graded inconclusive
 for execution evidence.
 

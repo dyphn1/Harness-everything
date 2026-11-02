@@ -26,3 +26,7 @@ expectations:
     path: "calculator.js"
     value: "divide"
     description: divide function exists
+  - type: tool_executed
+    value:
+      command_pattern: '^(?:npm (?:run|run-script) (?:(?:--silent|-s|--quiet) )*(?:tdd:quality|test:tdd-quality)|node (?:--no-warnings )?(?:\./)?(?:\.harness/)?tdd/scripts/quality-gate\.js)(?: [^;&|<>`$()\n\r]*)?$'
+    description: TDD quality gate executed (skill-core completion, not artifact pass)

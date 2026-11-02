@@ -125,6 +125,14 @@ function validateExpectation(expectation, index) {
     if (expectation.value !== undefined && !['string', 'number'].includes(typeof expectation.value) && !isPlainObject(expectation.value)) {
       errors.push(`expectations[${index}] execution target must be scalar or mapping`);
     }
+    if (isPlainObject(expectation.value) && expectation.value.command_pattern !== undefined) {
+      if (typeof expectation.value.command_pattern !== 'string' || !expectation.value.command_pattern) {
+        errors.push(`expectations[${index}] command_pattern must be a non-empty string`);
+      } else {
+        try { new RegExp(expectation.value.command_pattern); }
+        catch { errors.push(`expectations[${index}] command_pattern must be a valid regular expression`); }
+      }
+    }
   }
   return errors;
 }
@@ -203,6 +211,7 @@ function negativeControls() {
     { id: 'bad-path', prompt: 'x', max_turns: 1, fixture: { files: [{ path: '../escape.js', content: 'x' }] }, expectations: [{ type: 'trace_contains', value: 'x' }] },
     { id: 'duplicate-path', prompt: 'x', max_turns: 1, fixture: { files: [{ path: 'x.js', content: '' }, { path: 'x.js', content: '' }] }, expectations: [{ type: 'trace_contains', value: 'x' }] },
     { id: 'bad-execution', prompt: 'x', max_turns: 1, fixture: { files: [{ path: 'x.js', content: '' }] }, expectations: [{ type: 'tool_executed' }] },
+    { id: 'bad-command-pattern', prompt: 'x', max_turns: 1, fixture: { files: [{ path: 'x.js', content: '' }] }, expectations: [{ type: 'tool_executed', value: { command_pattern: '(' } }] },
   ];
   return controls.map(control => ({ control, errors: validateCase(control) })).filter(result => result.errors.length === 0);
 }

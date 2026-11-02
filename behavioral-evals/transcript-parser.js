@@ -540,6 +540,10 @@ function targetMatches(call, target) {
     if (target.id !== undefined && call.id !== target.id) return false;
     if (target.name !== undefined && call.name !== target.name) return false;
     if (target.command !== undefined && (!isObject(call.input) || !commandMatches(call.input.command, target.command))) return false;
+    // command_pattern lets one expectation accept several explicit command shapes
+    // (for example npm run tdd:quality or node tdd/scripts/quality-gate.js) with
+    // arbitrary evidence arguments; shell control operators are rejected.
+    if (target.command_pattern !== undefined && (!isObject(call.input) || typeof call.input.command !== 'string' || !new RegExp(target.command_pattern).test(call.input.command))) return false;
     if (target.input_contains !== undefined && !stableJson(call.input).includes(String(target.input_contains))) return false;
     return true;
   }

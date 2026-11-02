@@ -85,4 +85,37 @@ try {
   fs.rmSync(transcriptDir, { recursive: true, force: true });
 }
 
+// Skill-core completion: passing project tests is artifact evidence only; the
+// TDD case also requires an executed quality gate command.
+const tddCase = parseSimpleYaml(fs.readFileSync(path.join(casesDir, 'baseline-tdd-workflow.yaml'), 'utf8'));
+const qualityGate = tddCase.expectations.find(expectation => /TDD quality gate executed/.test(expectation.description || ''));
+assert.ok(qualityGate, 'baseline TDD case must require an executed TDD quality gate');
+const gateDir = fs.mkdtempSync(path.join(os.tmpdir(), 'behavioral-tdd-quality-gate-'));
+try {
+  const gradeCommands = (name, commands) => {
+    const transcriptPath = path.join(gateDir, `${name}.jsonl`);
+    const events = commands.map((command, index) => ({
+      type: 'tool_use',
+      part: { type: 'tool', tool: 'Bash', callID: `${name}-${index}`, state: { status: 'completed', input: { command } } },
+    }));
+    events.push({ type: 'text', part: { type: 'text', text: 'done' } });
+    fs.writeFileSync(transcriptPath, events.map(event => JSON.stringify(event)).join('\n'));
+    return grade({ expectations: [qualityGate] }, gateDir, transcriptPath);
+  };
+  const testsOnly = gradeCommands('tests-only', ['npm test']);
+  assert.strictEqual(testsOnly.passed, false, 'passing project tests without the quality gate must fail the TDD case');
+  assert.strictEqual(testsOnly.results[0].status, 'fail', 'missing quality gate must be a definitive fail, not inconclusive evidence');
+  assert.strictEqual(gradeCommands('npm-gate', ['npm test', 'npm run tdd:quality -- evidence.json']).passed, true, 'npm run tdd:quality with evidence must satisfy the gate');
+  assert.strictEqual(gradeCommands('node-gate', ['npm test', 'node tdd/scripts/quality-gate.js evidence.json']).passed, true, 'node quality-gate.js with evidence must satisfy the gate');
+  for (const [name, commands] of [
+    ['echo-mention', ['echo npm run tdd:quality']],
+    ['compound-gate', ['npm run tdd:quality -- evidence.json && rm -rf build']],
+    ['similar-name', ['npm run tdd:quality-notes']],
+  ]) {
+    assert.strictEqual(gradeCommands(name, commands).passed, false, `${name} must not count as an executed quality gate`);
+  }
+} finally {
+  fs.rmSync(gateDir, { recursive: true, force: true });
+}
+
 console.log(`Behavioral case validation passed (${fs.readdirSync(casesDir).filter(name => name.endsWith('.yaml')).length} cases + negative controls + ordered execution evidence).`);
