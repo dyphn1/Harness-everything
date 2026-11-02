@@ -255,24 +255,58 @@ function jsonLiteral(text) {
   }
 }
 
+// Splits an argument list on commas at depth 0, outside string literals.
+// Returns null when brackets or strings are unbalanced. Not a general parser.
+function splitTopLevelArguments(text) {
+  const parts = [];
+  let depth = 0;
+  let quote = null;
+  let current = '';
+  for (let index = 0; index < text.length; index += 1) {
+    const ch = text[index];
+    if (quote) {
+      current += ch;
+      if (ch === '\\') {
+        current += text[index + 1] ?? '';
+        index += 1;
+      } else if (ch === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === '`') {
+      quote = ch;
+    } else if ('([{'.includes(ch)) {
+      depth += 1;
+    } else if (')]}'.includes(ch)) {
+      depth -= 1;
+      if (depth < 0) return null;
+    } else if (ch === ',' && depth === 0) {
+      parts.push(current);
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  if (quote !== null || depth !== 0) return null;
+  parts.push(current);
+  return parts;
+}
+
 // The literal expected value pinned by a quoted assertion, for the recognised
-// shapes only. Anything else (identifiers, constructors, prose) is not checkable.
+// shapes only. Anything else (identifiers, constructors, prose, negated or
+// resolved modifiers) is not checkable. One trailing ';' is tolerated.
 function quotedExpectedValue(assertion) {
   if (typeof assertion !== 'string') return { checkable: false };
-  const text = assertion.trim();
+  const text = assertion.trim().replace(/;$/, '').trim();
   const expectCall = EXPECT_ASSERTION.exec(text);
   if (expectCall) return jsonLiteral(expectCall[2]);
   const assertCall = ASSERT_ASSERTION.exec(text);
   if (!assertCall) return { checkable: false };
-  // The expected literal is the last argument. Scanning commas from the right
-  // keeps array and object literals intact.
-  const args = assertCall[1];
-  for (let index = args.lastIndexOf(','); index > 0; index = args.lastIndexOf(',', index - 1)) {
-    if (args.slice(0, index).trim() === '') break;
-    const candidate = jsonLiteral(args.slice(index + 1));
-    if (candidate.checkable) return candidate;
-  }
-  return { checkable: false };
+  // assert.equal(actual, expected[, message]): the expected value is the second argument.
+  const args = splitTopLevelArguments(assertCall[1]);
+  if (!args || (args.length !== 2 && args.length !== 3)) return { checkable: false };
+  return jsonLiteral(args[1]);
 }
 
 // Returns the sourceEvidence status: VERIFIED when the disagreement is backed by
@@ -558,6 +592,7 @@ function printSummary(report) {
   console.log('Requirements:');
   for (const requirement of report.requirements) {
     console.log(`- ${requirement.requirementId} [${requirement.testProfile}]: ${requirement.result} ${requirement.score}%`);
+    if (requirement.sourceEvidenceStatus) console.log(`- ${requirement.requirementId} sourceEvidence: ${requirement.sourceEvidenceStatus}`);
   }
   console.log('Dimensions:');
   for (const name of DIMENSIONS) {

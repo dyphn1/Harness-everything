@@ -197,11 +197,39 @@ const checkableCases = [
   ['expect(list.head).toEqual({a:1})', { checkable: false }],
   ['expect(list.head).toBeInstanceOf(Element)', { checkable: false }],
   ['expect(list.head).toEqual(new Element())', { checkable: false }],
-  ['the head is 1', { checkable: false }]
+  ['the head is 1', { checkable: false }],
+  // assert.* expected value is the second argument; an optional third argument is the message.
+  ['assert.equal(x, 1, "head")', { checkable: true, value: 1 }],
+  ['assert.strictEqual(f(a, b), "z")', { checkable: true, value: 'z' }],
+  ["assert.deepStrictEqual(x, [1, 2], 'm')", { checkable: true, value: [1, 2] }],
+  ['assert.equal(x, "a,b")', { checkable: true, value: 'a,b' }],
+  ['assert.equal(x)', { checkable: false }],
+  ['assert.equal(x, 1, 2, 3)', { checkable: false }],
+  // Negated and resolved modifiers are not expected values and must stay non-checkable.
+  ['expect(x).not.toEqual(1)', { checkable: false }],
+  ['expect(x).resolves.toBe(1)', { checkable: false }],
+  // One trailing semicolon is tolerated.
+  ['expect(list.head).toEqual(1);', { checkable: true, value: 1 }]
 ];
 helper.check(
   '2s. quotedExpectedValue reads only the recognised shapes with literal values',
   checkableCases.every(([assertion, expected]) => JSON.stringify(quotedExpectedValue(assertion)) === JSON.stringify(expected))
+);
+
+const relabelledWithSemicolon = evaluate(req => conflictFrom(req, [
+  { source: 'docs/example.md', subject: 'list.head', assertion: 'expect(list.head).toEqual(1);', expected: 1, observed: 2 },
+  { source: 'docs/adr/001.md', subject: 'list.head', assertion: 'expect(list.head).toEqual(1);', expected: 3, observed: 2 }
+]));
+helper.check('2s. a relabelled expectation with a trailing semicolon is rejected, not a conflict', relabelledWithSemicolon.result === 'FAIL' && relabelledWithSemicolon.errors.some(e => /expected does not match the value in the quoted assertion/.test(e)));
+
+const assertMessageEntry = evaluate(req => conflictFrom(req, [
+  { source: 'docs/example.md', subject: 'list.head', assertion: 'assert.equal(list.head, 1, "head")', expected: 1, observed: 2 },
+  { source: 'docs/adr/001.md', subject: 'list.head', assertion: 'assert.equal(list.head, 1, "head")', expected: 3, observed: 2 }
+]));
+helper.check(
+  '2s. an assert.* message argument is not read as the expected value; only the relabelled entry errors',
+  !assertMessageEntry.errors.some(e => /sourceEvidence\[0\]\.expected does not match/.test(e)) &&
+    assertMessageEntry.errors.some(e => /sourceEvidence\[1\]\.expected does not match the value in the quoted assertion/.test(e))
 );
 
 const conflictWithoutEvidence = evaluate(req => conflictFrom(req));
