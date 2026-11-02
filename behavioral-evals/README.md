@@ -172,10 +172,18 @@ When one completion must accept several explicit command shapes, use
 `value: {command_pattern: "<regex>"}`; the regex is matched against the whole
 command, so shell control operators must be excluded explicitly.
 `tdd_quality_gate` takes the same `command_pattern` but does not trust the tool
-call's completed status: the grader re-evaluates the evidence file named by the
-last matching run with this repository's `tdd/scripts/quality-gate.js`, and
-fails when that file is missing, invalid, outside the workspace or not `PASS`,
-or when a `--output` report is missing or disagrees with the re-evaluation.
+call's completed status. For the last matching run the grader first reads the
+observed command outcome: the call fails when it reports an error, exits
+non-zero, prints an npm error (`npm ERR!`, `npm error`, `Missing script`) or
+prints `TDD Quality Gate: FAIL`. It passes only when the output contains the
+gate's own `TDD Quality Gate: PASS` line and none of those signals. When the
+transcript shows neither output nor an exit code, the result is `inconclusive`
+rather than a pass. Only then does the grader re-evaluate the evidence file
+with this repository's `tdd/scripts/quality-gate.js`, and it fails when that
+file is missing, invalid or outside the workspace, or not `PASS`. A `--output`
+report must be present and must deep-equal the fresh re-evaluation over every
+top-level key (key order ignored); a missing required key or a differing key
+fails and is named in the reason.
 Legacy one-object Claude JSON and incomplete streams are graded inconclusive
 for execution evidence.
 

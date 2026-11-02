@@ -103,12 +103,21 @@ try {
   fs.writeFileSync(path.join(gateDir, 'evidence.json'), PASS_EVIDENCE);
   fs.writeFileSync(path.join(gateDir, 'failing-evidence.json'), FAIL_EVIDENCE);
   fs.writeFileSync(path.join(gateDir, 'broken-evidence.json'), '{ not json');
+  // A string command defaults to the gate's own success line when it is a
+  // quality-gate invocation, so existing positives stay meaningful. An object
+  // command states the observed output and exit code explicitly.
+  const QUALITY_GATE_COMMAND_RE = /quality-gate\.js|tdd:quality|test:tdd-quality/;
   const gradeCommands = (name, commands) => {
     const transcriptPath = path.join(gateDir, `${name}.jsonl`);
-    const events = commands.map((command, index) => ({
-      type: 'tool_use',
-      part: { type: 'tool', tool: 'Bash', callID: `${name}-${index}`, state: { status: 'completed', input: { command } } },
-    }));
+    const events = commands.map((entry, index) => {
+      const { command, output, exit } = typeof entry === 'string'
+        ? { command: entry, output: QUALITY_GATE_COMMAND_RE.test(entry) ? 'TDD Quality Gate: PASS' : '', exit: undefined }
+        : entry;
+      const state = { status: 'completed', input: { command } };
+      if (output !== undefined) state.output = output;
+      if (exit !== undefined) state.metadata = { exit };
+      return { type: 'tool_use', part: { type: 'tool', tool: 'Bash', callID: `${name}-${index}`, state } };
+    });
     events.push({ type: 'text', part: { type: 'text', text: 'done' } });
     fs.writeFileSync(transcriptPath, events.map(event => JSON.stringify(event)).join('\n'));
     return grade({ expectations: [qualityGate] }, gateDir, transcriptPath);
@@ -154,11 +163,57 @@ try {
   assert.strictEqual(grade({ expectations: [qualityGate] }, gateDir, opencodeExit1).passed, false, 'completed OpenCode event with exit 1 must fail');
   // Fixing evidence and re-running is allowed: the last completed run counts.
   assert.strictEqual(gradeCommands('rerun-after-fix', ['npm run tdd:quality -- failing-evidence.json', 'npm run tdd:quality -- evidence.json']).passed, true, 'a passing re-run after a failing run should satisfy the gate');
+  // Observed command outcome: the transcript must show the gate's own success
+  // line and no error or non-zero exit before the evidence is trusted.
+  const { evaluateEvidence } = require('../tdd/scripts/quality-gate.js');
+  const observedGate = 'npm run tdd:quality -- evidence.json';
+  const observedFailures = [
+    ['failed-command-pass-evidence', { command: observedGate, output: 'npm ERR! Missing script: "tdd:quality"', exit: 1 }, /quality gate command failed/],
+    ['nonzero-exit-no-error-text', { command: observedGate, output: 'TDD Quality Gate: PASS', exit: 1 }, /exited with code 1/],
+    ['gate-printed-fail-evidence-now-pass', { command: observedGate, output: 'TDD Quality Gate: FAIL' }, /printed TDD Quality Gate: FAIL/],
+  ];
+  for (const [name, command, reason] of observedFailures) {
+    const graded = gradeCommands(name, [command]);
+    assert.strictEqual(graded.passed, false, `${name} must not satisfy the quality gate`);
+    assert.strictEqual(graded.results[0].status, 'fail', `${name} must be a definitive fail`);
+    assert.match(graded.results[0].reason, reason, `${name} should explain why`);
+  }
+  const unobservable = gradeCommands('unobservable-outcome', [{ command: observedGate, output: '' }]);
+  assert.strictEqual(unobservable.results[0].status, 'inconclusive', 'a gate run with no observable output or exit code must be inconclusive');
+  assert.strictEqual(unobservable.passed, false, 'an inconclusive gate run must not pass');
+  assert.match(unobservable.results[0].reason, /not observable in the transcript/, 'inconclusive reason should say the outcome is not observable');
+  // Claude stream-json: is_error on the tool_result is the host's failure
+  // signal; the call is recorded as failed, so it never counts as executed.
+  const claudeGate = (name, toolResult) => {
+    const transcriptPath = path.join(gateDir, `${name}.jsonl`);
+    fs.writeFileSync(transcriptPath, [
+      { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'bash-1', name: 'Bash', input: { command: observedGate } }] } },
+      { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'bash-1', ...toolResult }] } },
+      { type: 'result', subtype: 'success', result: 'done' },
+    ].map(event => JSON.stringify(event)).join('\n'));
+    return grade({ expectations: [qualityGate] }, gateDir, transcriptPath);
+  };
+  const claudeError = claudeGate('claude-error', { is_error: true, content: 'npm ERR! Missing script' });
+  assert.strictEqual(claudeError.passed, false, 'Claude tool_result with is_error must not satisfy the gate');
+  assert.strictEqual(claudeError.results[0].status, 'fail', 'Claude tool_result error must be a definitive fail');
+  assert.match(claudeError.results[0].reason, /not executed/, 'Claude errored gate call should not count as executed');
+  assert.strictEqual(claudeGate('claude-success', { is_error: false, content: [{ type: 'text', text: 'TDD Quality Gate: PASS' }] }).passed, true, 'Claude tool_result carrying the gate success line should pass');
+  // Retained --output report: a full report must be present and must equal the
+  // fresh re-evaluation over every top-level key.
+  const realReport = evaluateEvidence(JSON.parse(PASS_EVIDENCE));
+  assert.strictEqual(realReport.result, 'PASS', 'the pass fixture must re-evaluate to PASS');
   fs.mkdirSync(path.join(gateDir, 'reports'), { recursive: true });
-  fs.writeFileSync(path.join(gateDir, 'reports', 'quality.json'), JSON.stringify({ result: 'PASS' }));
-  assert.strictEqual(gradeCommands('retained-output-report', ['npm run tdd:quality -- evidence.json --output reports/quality.json']).passed, true, 'retained --output report matching the re-evaluation should pass');
-  fs.writeFileSync(path.join(gateDir, 'reports', 'quality.json'), JSON.stringify({ result: 'FAIL' }));
-  assert.match(gradeCommands('stale-output-report', ['npm run tdd:quality -- evidence.json --output reports/quality.json']).results[0].reason, /retained report .* says FAIL/, 'a retained report disagreeing with re-evaluation must fail');
+  const reportPath = path.join(gateDir, 'reports', 'quality.json');
+  fs.writeFileSync(reportPath, JSON.stringify({ result: 'PASS' }));
+  const markerOnly = gradeCommands('marker-output-report', ['npm run tdd:quality -- evidence.json --output reports/quality.json']);
+  assert.strictEqual(markerOnly.passed, false, 'a {"result":"PASS"} marker must not satisfy a retained report');
+  assert.match(markerOnly.results[0].reason, /missing required keys: .*requirements/, 'a marker-only retained report should name the missing keys');
+  fs.writeFileSync(reportPath, JSON.stringify(realReport, null, 2));
+  assert.strictEqual(gradeCommands('retained-output-report', ['npm run tdd:quality -- evidence.json --output reports/quality.json']).passed, true, 'retained --output report equal to the re-evaluation should pass');
+  fs.writeFileSync(reportPath, JSON.stringify({ ...realReport, score: realReport.score - 1 }, null, 2));
+  const staleScore = gradeCommands('stale-output-report', ['npm run tdd:quality -- evidence.json --output reports/quality.json']);
+  assert.strictEqual(staleScore.passed, false, 'a retained report with a stale score must fail');
+  assert.match(staleScore.results[0].reason, /differs from re-evaluation at "score"/, 'a stale retained report should name the differing key');
 } finally {
   fs.rmSync(gateDir, { recursive: true, force: true });
 }
