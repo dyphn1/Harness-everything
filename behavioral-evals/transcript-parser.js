@@ -28,6 +28,32 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+// Observable outcome of a tool result: the text the tool printed, whether the
+// host flagged it as an error, and an exit code when the engine reports one.
+// Claude tool_result blocks carry content and is_error; OpenCode carries
+// state.output and state.metadata (merged into the result as `metadata`).
+function normalizeOutput(content) {
+  if (content === null || content === undefined) return null;
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    const texts = content
+      .map(block => {
+        if (typeof block === 'string') return block;
+        return isObject(block) && typeof block.text === 'string' ? block.text : null;
+      })
+      .filter(text => text !== null);
+    return texts.length ? texts.join('\n') : null;
+  }
+  if (isObject(content)) return JSON.stringify(content);
+  return String(content);
+}
+
+function exitCodeOf(result) {
+  const metadata = isObject(result.metadata) ? result.metadata : {};
+  const value = [result.exit_code, result.exitCode, metadata.exit].find(item => typeof item === 'number');
+  return value;
+}
+
 function makeMetadata() {
   return {
     cost: null,
@@ -144,6 +170,9 @@ function ensureCall(context, details = {}) {
     denied: false,
     status: 'attempted',
     result_count: 0,
+    output: null,
+    is_error: null,
+    exit_code: null,
     explicitId: Boolean(suppliedId),
     anonymousKey: suppliedId ? null : anonymousKey,
   };
@@ -194,6 +223,13 @@ function addToolResult(context, details = {}, result = {}, forcedStatus) {
     call.result_count += 1;
   }
   applyStatus(call, status);
+  // Keep the latest observable outcome. A result that does not report a field
+  // leaves the earlier value alone rather than erasing it.
+  const output = normalizeOutput(content);
+  if (output !== null) call.output = output;
+  if (typeof result.is_error === 'boolean') call.is_error = result.is_error;
+  const exitCode = exitCodeOf(result);
+  if (exitCode !== undefined) call.exit_code = exitCode;
   return call;
 }
 
@@ -417,6 +453,9 @@ function publicCall(call) {
     completed: call.completed,
     denied: call.denied,
     status: call.status,
+    output: call.output ?? null,
+    is_error: call.is_error ?? null,
+    exit_code: call.exit_code ?? null,
   };
 }
 
@@ -540,6 +579,10 @@ function targetMatches(call, target) {
     if (target.id !== undefined && call.id !== target.id) return false;
     if (target.name !== undefined && call.name !== target.name) return false;
     if (target.command !== undefined && (!isObject(call.input) || !commandMatches(call.input.command, target.command))) return false;
+    // command_pattern lets one expectation accept several explicit command shapes
+    // (for example npm run tdd:quality or node tdd/scripts/quality-gate.js) with
+    // arbitrary evidence arguments; shell control operators are rejected.
+    if (target.command_pattern !== undefined && (!isObject(call.input) || typeof call.input.command !== 'string' || !new RegExp(target.command_pattern).test(call.input.command))) return false;
     if (target.input_contains !== undefined && !stableJson(call.input).includes(String(target.input_contains))) return false;
     return true;
   }

@@ -25,6 +25,7 @@ const EXPECTATION_TYPES = new Set([
   'tool_completed',
   'tool_denied',
   'execution_evidence',
+  'tdd_quality_gate',
   'final_output_json_only',
 ]);
 
@@ -119,18 +120,29 @@ function validateExpectation(expectation, index) {
     errors.push(`expectations[${index}] ${type} requires a string value`);
   }
   if (type === 'command_exit_0' && (typeof expectation.command !== 'string' || !expectation.command.trim())) errors.push(`expectations[${index}] command_exit_0 requires a non-empty command`);
+  if (type === 'tdd_quality_gate' && !(isPlainObject(expectation.value) && expectation.value.command_pattern !== undefined)) {
+    errors.push(`expectations[${index}] tdd_quality_gate requires value.command_pattern`);
+  }
   if (type === 'final_output_json_only' && expectation.required_keys !== undefined) {
     const keys = expectation.required_keys;
     if (!Array.isArray(keys) || keys.some(key => typeof key !== 'string' || !key.trim())) {
       errors.push(`expectations[${index}] required_keys must be an array of non-empty strings`);
     }
   }
-  if (['tool_attempted', 'tool_executed', 'tool_completed', 'tool_denied', 'execution_evidence'].includes(type)) {
+  if (['tool_attempted', 'tool_executed', 'tool_completed', 'tool_denied', 'execution_evidence', 'tdd_quality_gate'].includes(type)) {
     if (expectation.value === undefined && expectation.tool === undefined && expectation.name === undefined && expectation.command === undefined) {
       errors.push(`expectations[${index}] ${type} requires a tool/value target`);
     }
     if (expectation.value !== undefined && !['string', 'number'].includes(typeof expectation.value) && !isPlainObject(expectation.value)) {
       errors.push(`expectations[${index}] execution target must be scalar or mapping`);
+    }
+    if (isPlainObject(expectation.value) && expectation.value.command_pattern !== undefined) {
+      if (typeof expectation.value.command_pattern !== 'string' || !expectation.value.command_pattern) {
+        errors.push(`expectations[${index}] command_pattern must be a non-empty string`);
+      } else {
+        try { new RegExp(expectation.value.command_pattern); }
+        catch { errors.push(`expectations[${index}] command_pattern must be a valid regular expression`); }
+      }
     }
   }
   return errors;
@@ -210,6 +222,8 @@ function negativeControls() {
     { id: 'bad-path', prompt: 'x', max_turns: 1, fixture: { files: [{ path: '../escape.js', content: 'x' }] }, expectations: [{ type: 'trace_contains', value: 'x' }] },
     { id: 'duplicate-path', prompt: 'x', max_turns: 1, fixture: { files: [{ path: 'x.js', content: '' }, { path: 'x.js', content: '' }] }, expectations: [{ type: 'trace_contains', value: 'x' }] },
     { id: 'bad-execution', prompt: 'x', max_turns: 1, fixture: { files: [{ path: 'x.js', content: '' }] }, expectations: [{ type: 'tool_executed' }] },
+    { id: 'quality-gate-no-pattern', prompt: 'x', max_turns: 1, fixture: { files: [{ path: 'x.js', content: '' }] }, expectations: [{ type: 'tdd_quality_gate', value: { name: 'Bash' } }] },
+    { id: 'bad-command-pattern', prompt: 'x', max_turns: 1, fixture: { files: [{ path: 'x.js', content: '' }] }, expectations: [{ type: 'tool_executed', value: { command_pattern: '(' } }] },
   ];
   return controls.map(control => ({ control, errors: validateCase(control) })).filter(result => result.errors.length === 0);
 }
