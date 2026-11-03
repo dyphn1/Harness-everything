@@ -140,6 +140,22 @@ const sourceDefect = evaluate(req => {
   req.sourceEvidence = [{ source: 'docs/example.md', assertion: 'expect(output.value).toEqual(3)', expected: 3, observed: 2 }];
 });
 helper.check('2s. source defects are reported separately without inventing a mismatch', sourceDefect.result === 'PASS' && sourceDefect.requirements[0].sourceValidity === 'SOURCE_DEFECT');
+helper.check(
+  '2s. source defect evidence is reviewer-required: an implementation mismatch alone does not validate a source defect',
+  sourceDefect.result === 'PASS' &&
+    sourceDefect.requirements[0].sourceEvidenceStatus === 'REVIEWER_REQUIRED' &&
+    !sourceDefect.errors.some(e => /sourceEvidence/.test(e))
+);
+const sourceDefectUncheckable = evaluate(req => {
+  req.sourceValidity = 'SOURCE_DEFECT';
+  req.sourceNotes = 'The approved example appears internally wrong.';
+  req.sourceEvidence = [{ source: 'docs/example.md', assertion: 'expect(output.value).toEqual(computeExpected())', expected: 3, observed: 2 }];
+});
+helper.check(
+  '2s. source defect with a non-checkable quote is REVIEWER_REQUIRED without a sourceEvidence error',
+  sourceDefectUncheckable.requirements[0].sourceEvidenceStatus === 'REVIEWER_REQUIRED' &&
+    !sourceDefectUncheckable.errors.some(e => /sourceEvidence/.test(e))
+);
 const sourceDefectNoEvidence = evaluate(req => { req.sourceValidity = 'SOURCE_DEFECT'; req.sourceNotes = 'Appears wrong.'; });
 helper.check('2s. source defects without quoted sourceEvidence are rejected', sourceDefectNoEvidence.result === 'FAIL' && sourceDefectNoEvidence.errors.some(e => /sourceEvidence/.test(e)));
 

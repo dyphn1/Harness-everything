@@ -309,8 +309,10 @@ function quotedExpectedValue(assertion) {
   return jsonLiteral(args[1]);
 }
 
-// Returns the sourceEvidence status: VERIFIED when the disagreement is backed by
-// mechanically readable literals, REVIEWER_REQUIRED when a quote is not checkable.
+// Returns the sourceEvidence status. VERIFIED means two quoted literals from
+// different sources disagree (SOURCE_CONFLICT only). A quote/observed mismatch
+// alone shows the implementation differs from the source, not that the source
+// is defective, so SOURCE_DEFECT is always REVIEWER_REQUIRED.
 function evaluateSourceEvidence(requirement, declaredSources, errors, prefix) {
   const label = requirement.sourceValidity;
   const evidence = requirement.sourceEvidence;
@@ -346,7 +348,8 @@ function evaluateSourceEvidence(requirement, declaredSources, errors, prefix) {
   if (mismatched.length === 0) {
     errors.push(`${prefix}.sourceEvidence must compare a quoted assertion with a failing observed value before blaming the source`);
   } else if (label === 'SOURCE_DEFECT') {
-    status = mismatched.some(entry => checkable.get(entry)) ? 'VERIFIED' : 'REVIEWER_REQUIRED';
+    // No independent corroboration exists for a single source, so the reviewer decides.
+    status = 'REVIEWER_REQUIRED';
   }
   if (label === 'SOURCE_CONFLICT') {
     if (new Set(entries.map(entry => entry.source)).size < 2) {

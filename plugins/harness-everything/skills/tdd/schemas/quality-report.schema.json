@@ -97,7 +97,7 @@
         "sourceValidity": { "enum": ["VALID", "SOURCE_DEFECT", "SOURCE_CONFLICT", null] },
         "sourceNotes": { "type": "string" },
         "sourceEvidence": { "type": "array" },
-        "sourceEvidenceStatus": { "enum": ["VERIFIED", "REVIEWER_REQUIRED"] },
+        "sourceEvidenceStatus": { "enum": ["VERIFIED", "REVIEWER_REQUIRED"], "description": "VERIFIED only for a SOURCE_CONFLICT whose two quoted literals disagree; SOURCE_DEFECT is always REVIEWER_REQUIRED." },
         "dimensions": { "$ref": "#/$defs/dimensions" },
         "skippedTests": { "type": "array" },
         "flakyTests": { "type": "array" },
