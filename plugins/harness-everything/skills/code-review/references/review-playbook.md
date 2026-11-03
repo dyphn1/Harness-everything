@@ -19,6 +19,15 @@ Use this checklist for the applicable risks; do not force irrelevant categories.
 - [ ] Follow each important diagnostic/fact through every consumer and ancestor. Check whether required facts are computed before derived authority, indexes, or output.
 - [ ] Compare new rules with previously accepted rules and controls. Separate display severity from safety prerequisites.
 
+## Check evidence a gate trusts
+
+Apply these when the change grades, gates or labels evidence. Authors SHOULD run them as a self-review before push.
+
+- [ ] **Claimed vs observed.** Separate what the subject reports about itself (a tool's `completed` status, a result marker, an agent-supplied expected value, a status label) from what the checker observes independently (exit code, output, a recomputed result, the quoted source). A self-report alone never passes; when nothing independent is observable, the result is inconclusive.
+- [ ] **Select, then judge.** When the last, first or any item of a sequence decides (last run, final message, latest attempt), select from every attempt in order before filtering by outcome. Test both orders: failure then success, and success then failure or no result.
+- [ ] **One witness per rule.** Give each detection rule a negative case that triggers only that rule; a case that also trips an exit code or another pattern cannot show the rule works. Probe positive cases at structural boundaries (inside a token, string or quote), not only at safe separators.
+- [ ] **Comparable subjects, honest labels.** A comparison or conflict needs both sides to describe the same target. A status name claims only what was checked: a consistent quote is not a validated diagnosis.
+
 ## Check tests and output
 
 - [ ] Ask whether each test still passes if the behavior is disabled, bypassed, or broken (mutation thought experiment). Confirm the test is included in CI.

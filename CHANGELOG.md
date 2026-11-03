@@ -46,6 +46,8 @@ All notable changes to this project are documented in this file.
 
 ### Bug Fixes
 
+* **code-review:** add evidence-gate counterexamples (claimed vs observed, select then judge, one witness per rule, comparable subjects and honest labels) for reviewers and author self-review.
+* **zoom-out:** the author applying review fixes counts repair-loop rounds too; a decision class repeated from the previous round triggers Phase 2 before editing.
 * **doc-reconciliation:** pin the owner-approved VERI-to-EVID row mapping and exclude ordinary SubagentStop completions from quality-review candidates.
 * **doc-reconciliation:** allow uniquely identified same-root reviewers that start after the correlated draft worker stops.
 
