@@ -171,6 +171,16 @@ additional arguments) or `tool_denied` when denial is the behavior under test.
 Legacy one-object Claude JSON and incomplete streams are graded inconclusive
 for execution evidence.
 
+Use `final_output_json_only` when the final message must be only a JSON object
+(raw, or inside one fenced block) with no prose outside it. Hidden
+`<!-- harness-label -->` lines are ignored. Optional `required_keys` lists keys
+that must be present. Extracting the selection fields from prose does not pass.
+The final message is every assistant text part after the last tool call, joined
+by exact concatenation (so JSON streamed in chunks reassembles exactly), with
+newline-separated blocks as an alternative; the case passes if either reading is
+a single JSON output. Claude's repeated `result` is used only when no parts exist.
+Prose streamed in a separate part still fails under both readings.
+
 Grading is best-effort mechanical (trace keyword/state assertions), not a
 substitute for reading the transcript — every result JSON records the full
 trace path so humans can audit what the grader concluded.

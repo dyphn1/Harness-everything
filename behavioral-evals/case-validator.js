@@ -25,6 +25,7 @@ const EXPECTATION_TYPES = new Set([
   'tool_completed',
   'tool_denied',
   'execution_evidence',
+  'final_output_json_only',
 ]);
 
 const PRESSURE_CATEGORIES = new Set([
@@ -118,6 +119,12 @@ function validateExpectation(expectation, index) {
     errors.push(`expectations[${index}] ${type} requires a string value`);
   }
   if (type === 'command_exit_0' && (typeof expectation.command !== 'string' || !expectation.command.trim())) errors.push(`expectations[${index}] command_exit_0 requires a non-empty command`);
+  if (type === 'final_output_json_only' && expectation.required_keys !== undefined) {
+    const keys = expectation.required_keys;
+    if (!Array.isArray(keys) || keys.some(key => typeof key !== 'string' || !key.trim())) {
+      errors.push(`expectations[${index}] required_keys must be an array of non-empty strings`);
+    }
+  }
   if (['tool_attempted', 'tool_executed', 'tool_completed', 'tool_denied', 'execution_evidence'].includes(type)) {
     if (expectation.value === undefined && expectation.tool === undefined && expectation.name === undefined && expectation.command === undefined) {
       errors.push(`expectations[${index}] ${type} requires a tool/value target`);
