@@ -849,13 +849,26 @@ function verifyQualityGateRun(call, ws) {
   return artifacts;
 }
 
+// The last matching attempt is the one that counts: an agent may fix evidence and
+// re-run. Attempts are graded in transcript order, including failed, denied and
+// unresolved ones, so an earlier PASS cannot satisfy the gate once a later run
+// did not complete. A completed last run is re-verified from retained evidence.
 function gradeQualityGate(expectation, parsed, ws) {
-  const executed = gradeExecutionEvidence({ ...expectation, type: 'tool_executed' }, parsed);
-  if (executed.status === 'inconclusive') return executed;
-  if (!executed.pass) return { pass: false, status: 'fail', reason: `quality gate not executed: ${executed.reason}` };
-  // The last completed run is the one that counts: an agent may fix evidence and re-run.
-  const verdict = verifyQualityGateRun(executed.observed[executed.observed.length - 1], ws);
-  return { pass: verdict.pass, status: verdict.status, reason: verdict.reason };
+  const attempted = gradeExecutionEvidence({ ...expectation, type: 'tool_attempted' }, parsed);
+  if (attempted.status === 'inconclusive') return attempted;
+  if (!attempted.pass) return { pass: false, status: 'fail', reason: `quality gate not executed: ${attempted.reason}` };
+  const last = attempted.observed[attempted.observed.length - 1];
+  if (last.denied === true || last.status === 'denied') {
+    return { pass: false, status: 'fail', reason: `the last quality gate run (${last.id}) was denied; an earlier run cannot satisfy the gate` };
+  }
+  if (last.status === 'failed') {
+    return { pass: false, status: 'fail', reason: `the last quality gate run (${last.id}) failed; an earlier run cannot satisfy the gate` };
+  }
+  if (last.status === 'completed') {
+    const verdict = verifyQualityGateRun(last, ws);
+    return { pass: verdict.pass, status: verdict.status, reason: verdict.reason };
+  }
+  return { pass: false, status: 'inconclusive', reason: `the last quality gate run (${last.id}) has no observable result` };
 }
 
 function grade(c, ws, transcriptPath, engine = 'auto') {

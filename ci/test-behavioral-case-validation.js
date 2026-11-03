@@ -370,8 +370,49 @@ try {
   const claudeError = claudeGate('claude-error', { is_error: true, content: 'npm ERR! Missing script' });
   assert.strictEqual(claudeError.passed, false, 'Claude tool_result with is_error must not satisfy the gate');
   assert.strictEqual(claudeError.results[0].status, 'fail', 'Claude tool_result error must be a definitive fail');
-  assert.match(claudeError.results[0].reason, /not executed/, 'Claude errored gate call should not count as executed');
+  assert.match(claudeError.results[0].reason, /last quality gate run \(bash-1\) failed/, 'Claude errored gate call should be the failing last run');
   assert.strictEqual(claudeGate('claude-success', { is_error: false, content: [{ type: 'text', text: 'TDD Quality Gate: PASS' }] }).passed, true, 'Claude tool_result carrying the gate success line should pass');
+  // Runs are graded in transcript order: the last matching attempt decides, so an
+  // earlier PASS never hides a later failed or unresolved run.
+  const claudeRuns = (name, runs) => {
+    const transcriptPath = path.join(gateDir, `${name}.jsonl`);
+    const events = [];
+    runs.forEach(({ command, result }, index) => {
+      const id = `${name}-bash-${index}`;
+      events.push({ type: 'assistant', message: { content: [{ type: 'tool_use', id, name: 'Bash', input: { command } }] } });
+      if (result) events.push({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: id, ...result }] } });
+    });
+    events.push({ type: 'assistant', message: { content: [{ type: 'text', text: 'done' }] } });
+    events.push({ type: 'result', subtype: 'success', result: 'done' });
+    fs.writeFileSync(transcriptPath, events.map(event => JSON.stringify(event)).join('\n'));
+    return grade({ expectations: [qualityGate] }, gateDir, transcriptPath);
+  };
+  const gatePass = { is_error: false, content: [{ type: 'text', text: 'TDD Quality Gate: PASS' }] };
+  const gateFail = { is_error: true, content: 'TDD Quality Gate: FAIL' };
+  const lastRunError = claudeRuns('claude-pass-then-error', [
+    { command: observedGate, result: gatePass },
+    { command: observedGate, result: gateFail },
+  ]);
+  assert.strictEqual(lastRunError.results[0].status, 'fail', 'a failed last run must be a definitive fail even after an earlier PASS');
+  assert.strictEqual(lastRunError.passed, false, 'an earlier PASS must not satisfy the gate after a failed last run');
+  assert.match(lastRunError.results[0].reason, /last quality gate run/, 'the failed last run should be named');
+  const lastRunUnresolved = claudeRuns('claude-pass-then-unresolved', [
+    { command: observedGate, result: gatePass },
+    { command: observedGate },
+  ]);
+  assert.strictEqual(lastRunUnresolved.results[0].status, 'inconclusive', 'an unresolved last run must be inconclusive, not a pass');
+  assert.strictEqual(lastRunUnresolved.passed, false, 'an unresolved last run must not pass the gate');
+  assert.match(lastRunUnresolved.results[0].reason, /no observable result/, 'the unresolved last run should be named');
+  const otherEvidenceError = claudeRuns('claude-pass-then-other-evidence', [
+    { command: observedGate, result: gatePass },
+    { command: 'node tdd/scripts/quality-gate.js failing-evidence.json', result: gateFail },
+  ]);
+  assert.strictEqual(otherEvidenceError.results[0].status, 'fail', 'a failed run against other evidence must fail the gate');
+  assert.match(otherEvidenceError.results[0].reason, /last quality gate run/, 'the failed last run against other evidence should be named');
+  assert.strictEqual(claudeRuns('claude-fail-then-retry', [
+    { command: observedGate, result: gateFail },
+    { command: observedGate, result: gatePass },
+  ]).passed, true, 'a failed run followed by a successful retry must pass');
   // Retained --output report: a full report must be present and must equal the
   // fresh re-evaluation over every top-level key.
   const realReport = evaluateEvidence(JSON.parse(PASS_EVIDENCE));

@@ -184,7 +184,7 @@ non-zero, prints an npm error line (`npm ERR!`, `npm error`, or `Missing script:
 or prints `TDD Quality Gate: FAIL`. It passes only when the output contains the
 gate's own `TDD Quality Gate: PASS` line and none of those signals. When the
 transcript shows neither output nor an exit code, the result is `inconclusive`
-rather than a pass.
+rather than a pass. The last matching attempt counts, in transcript order: a later failed or denied run fails the gate, and a later unresolved run is inconclusive, even when an earlier run passed.
 Legacy one-object Claude JSON and incomplete streams are graded inconclusive
 for execution evidence.
 
