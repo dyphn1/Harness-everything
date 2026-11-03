@@ -26,6 +26,7 @@ const EXPECTATION_TYPES = new Set([
   'tool_denied',
   'execution_evidence',
   'tdd_quality_gate',
+  'final_output_json_only',
 ]);
 
 const PRESSURE_CATEGORIES = new Set([
@@ -121,6 +122,12 @@ function validateExpectation(expectation, index) {
   if (type === 'command_exit_0' && (typeof expectation.command !== 'string' || !expectation.command.trim())) errors.push(`expectations[${index}] command_exit_0 requires a non-empty command`);
   if (type === 'tdd_quality_gate' && !(isPlainObject(expectation.value) && expectation.value.command_pattern !== undefined)) {
     errors.push(`expectations[${index}] tdd_quality_gate requires value.command_pattern`);
+  }
+  if (type === 'final_output_json_only' && expectation.required_keys !== undefined) {
+    const keys = expectation.required_keys;
+    if (!Array.isArray(keys) || keys.some(key => typeof key !== 'string' || !key.trim())) {
+      errors.push(`expectations[${index}] required_keys must be an array of non-empty strings`);
+    }
   }
   if (['tool_attempted', 'tool_executed', 'tool_completed', 'tool_denied', 'execution_evidence', 'tdd_quality_gate'].includes(type)) {
     if (expectation.value === undefined && expectation.tool === undefined && expectation.name === undefined && expectation.command === undefined) {

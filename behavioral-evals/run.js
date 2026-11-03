@@ -28,7 +28,7 @@ const {
   parseTranscriptFile,
 } = require('./transcript-parser');
 const { commandMatches, normalizeRepoPath } = require('../scripts/lib/execution-contract');
-const { resolveFixtureSetup, validateFixture } = require('./case-validator');
+const { resolveFixtureSetup, validateFixture, validateExpectation } = require('./case-validator');
 
 const ROOT = path.resolve(__dirname, '..');
 const CASES_DIR = path.join(__dirname, 'cases');
@@ -151,6 +151,7 @@ function validate(cases) {
     'trace_contains', 'trace_not_contains', 'file_contains', 'file_not_exists', 'command_exit_0',
     'tool_call', 'tool_attempted', 'tool_completed', 'tool_executed', 'tool_denied', 'execution_evidence',
     'tdd_quality_gate',
+    'final_output_json_only',
   ]);
   for (const c of cases) {
     const problems = [];
@@ -166,7 +167,9 @@ function validate(cases) {
     if (!resolveTreatmentSkills(c).length) problems.push('treatment must load at least one named Harness skill');
     for (const e of c.expectations || []) {
       if (!EXPECT_TYPES.has(e.type)) problems.push(`unknown expectation type "${e.type}"`);
-      if (e.value === undefined && e.command === undefined && e.tool === undefined && e.name === undefined && e.count === undefined) {
+      if (e.type === 'final_output_json_only') {
+        problems.push(...validateExpectation(e, c.expectations.indexOf(e)));
+      } else if (e.value === undefined && e.command === undefined && e.tool === undefined && e.name === undefined && e.count === undefined) {
         problems.push(`expectation ${e.type} needs value, tool, name, count, or command`);
       }
     }
@@ -493,8 +496,10 @@ function parseTranscriptEvents(transcriptPath) {
   const events = [];
   const pendingById = new Map();
   let sequence = 0;
-  const addText = text => {
-    if (typeof text === 'string' && text) events.push({ kind: 'text', text, sequence: sequence++ });
+  // `source` separates assistant content parts from Claude's terminal `result`
+  // field, which repeats the final message and must not be joined with it.
+  const addText = (text, source = 'content') => {
+    if (typeof text === 'string' && text) events.push({ kind: 'text', text, source, sequence: sequence++ });
   };
   const addTool = (event, part) => {
     const type = eventType(event);
@@ -534,7 +539,7 @@ function parseTranscriptEvents(transcriptPath) {
     }
     if (value.message && value.message.content) visit(value.message.content, value.type !== 'user');
     if (value.content && value.content !== value.message) visit(value.content, includeText);
-    if (!value.part && typeof value.result === 'string' && includeText) addText(value.result);
+    if (!value.part && typeof value.result === 'string' && includeText) addText(value.result, 'result');
   };
   let structured = false;
   for (const line of raw.split('\n')) {
@@ -549,7 +554,7 @@ function parseTranscriptEvents(transcriptPath) {
   if (!structured) {
     try {
       const value = JSON.parse(raw);
-      if (value && typeof value.result === 'string') addText(value.result);
+      if (value && typeof value.result === 'string') addText(value.result, 'result');
       else visit(value);
     } catch { /* raw fallback handled by renderAgentTrace */ }
   }
@@ -643,6 +648,60 @@ function isExecutionLikeTraceValue(value) {
   const text = value.trim();
   return (EXECUTION_COMMAND_RE.test(text) && /\s+\S/.test(text))
     || /(?:^|[/\\])[\w.-]+\.(?:c?js|mjs|py|sh|ps1|bat|cmd)\b/i.test(text);
+}
+
+// Harness turn-label lines are hidden bookkeeping (AGENTS.md rule 14) and are
+// ignored when judging whether the final message is JSON-only.
+const HARNESS_LABEL_LINE_RE = /^[ \t]*<!--\s*harness-label\b.*?-->[ \t\r]*$/gm;
+
+// Pure check for `final_output_json_only`: the final assistant text must be
+// exactly one JSON object, raw or inside a single fenced block, with no prose.
+function checkJsonOnlyOutput(text, requiredKeys = []) {
+  const fail = reason => ({ pass: false, reason });
+  if (typeof text !== 'string') return fail('final assistant text is missing');
+  const body = text.replace(HARNESS_LABEL_LINE_RE, '').trim();
+  if (!body) return fail('final assistant text is empty');
+  let json;
+  if (body.startsWith('```')) {
+    const fence = /^```(?:json)?[ \t]*\r?\n([\s\S]*)\r?\n```$/i.exec(body);
+    if (!fence) return fail('final output has text outside the single JSON code fence');
+    if (fence[1].includes('```')) return fail('final output contains more than one code fence');
+    json = fence[1];
+  } else if (body.startsWith('{') || body.startsWith('[')) {
+    json = body;
+  } else {
+    try { JSON.parse(body); }
+    catch { return fail('final output has prose before the JSON object'); }
+    return fail('final JSON value must be an object');
+  }
+  let value;
+  try { value = JSON.parse(json); }
+  catch (error) { return fail(`final output is not a single valid JSON value (${error.message}); prose after the JSON also fails`); }
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return fail('final JSON value must be an object');
+  const missing = requiredKeys.filter(key => !Object.prototype.hasOwnProperty.call(value, key));
+  if (missing.length) return fail(`missing required JSON keys: ${missing.join(', ')}`);
+  return { pass: true, reason: null };
+}
+
+// The final assistant message is every assistant text part after the last tool
+// event. A final turn may stream prose and JSON as separate parts, so all parts
+// count (#308). Parts can be transport chunks of one message (exact
+// concatenation) or separate complete blocks (newline-separated). Candidates
+// are returned exact-concatenation first. Claude's terminal `result` repeats
+// that message, so it is used only when the transcript has no content parts.
+function finalAssistantTextCandidates(events) {
+  let lastToolIndex = -1;
+  events.forEach((event, index) => { if (event.kind === 'tool') lastToolIndex = index; });
+  const texts = events.slice(lastToolIndex + 1).filter(event => event.kind === 'text');
+  const parts = texts.filter(event => event.source !== 'result');
+  if (!parts.length) return [texts.length ? texts[texts.length - 1].text : ''];
+  const candidates = [parts.map(event => event.text).join(''), parts.map(event => event.text).join('\n')];
+  return [...new Set(candidates)];
+}
+
+// Exact text of the final message (first candidate).
+function finalAssistantText(events) {
+  return finalAssistantTextCandidates(events)[0];
 }
 
 // --- tdd_quality_gate -------------------------------------------------------
@@ -831,6 +890,23 @@ function grade(c, ws, transcriptPath, engine = 'auto') {
         } else {
           pass = e.type === 'trace_contains' ? trace.includes(e.value) : !trace.includes(e.value);
           status = pass ? 'pass' : 'fail';
+        }
+      } else if (e.type === 'final_output_json_only') {
+        if (parsed.parseStatus !== 'parsed') {
+          status = 'inconclusive';
+          reason = parsed.parseError || 'transcript parser did not produce a complete structured trace';
+        } else {
+          // Neither join can hide prose: prose stays outside the JSON either way.
+          // Exact concatenation covers transport chunks of one JSON message;
+          // newline join covers separate complete blocks such as a fenced JSON
+          // block followed by a separate `<!-- harness-label ... -->` part.
+          // PASS if any candidate passes; otherwise report the exact-text reason.
+          const verdicts = finalAssistantTextCandidates(ordered.events)
+            .map(candidate => checkJsonOnlyOutput(candidate, e.required_keys || []));
+          const verdict = verdicts.find(v => v.pass) || verdicts[0];
+          pass = verdict.pass;
+          status = pass ? 'pass' : 'fail';
+          reason = verdict.reason;
         }
       } else if (e.type === 'file_contains') {
         pass = fs.readFileSync(path.join(ws, e.path), 'utf8').includes(e.value);
@@ -1155,6 +1231,9 @@ module.exports = {
   extractAgentEvents,
   extractAgentTrace,
   extractSessionMetadata,
+  checkJsonOnlyOutput,
+  finalAssistantText,
+  finalAssistantTextCandidates,
   grade,
   GATE_COMMAND_ERROR_RE,
   qualityGateArgs,
