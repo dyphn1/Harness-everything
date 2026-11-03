@@ -66,6 +66,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+* **doc-reconciliation:** support a baseline-pinned, opt-in inventory exclusion for untracked artifacts under `node_modules` and `.husky/_`, with overlap guards that resolve absolute selectors against the workspace while ignoring task-pin identity metadata.
+
 ### Bug Fixes
 
 * **code-review:** add evidence-gate counterexamples (claimed vs observed, select then judge, one witness per rule, comparable subjects and honest labels) for reviewers and author self-review.
