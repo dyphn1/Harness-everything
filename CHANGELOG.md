@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.47.4](https://github.com/dyphn1/Harness-everything/compare/v0.47.3...v0.47.4) (2026-11-03)
+
+### Bug Fixes
+
+* **behavioral-evals:** grade the whole final assistant message for json-only ([ebbe33c](https://github.com/dyphn1/Harness-everything/commit/ebbe33c7ac8beb3d2b104f81666f06a0ebfcd77d)), closes [#308](https://github.com/dyphn1/Harness-everything/issues/308)
+* **behavioral-evals:** recombine final text parts exactly for json-only grading ([de8341c](https://github.com/dyphn1/Harness-everything/commit/de8341c0621c6aacf319467a9e3c9b1420f51f37)), closes [#308](https://github.com/dyphn1/Harness-everything/issues/308)
+
 ## [0.47.3](https://github.com/dyphn1/Harness-everything/compare/v0.47.2...v0.47.3) (2026-10-31)
 
 ### Bug Fixes
