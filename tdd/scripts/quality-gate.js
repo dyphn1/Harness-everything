@@ -239,6 +239,163 @@ function evaluateSource(source, errors, prefix) {
   return { source: clone(source), traced: valid ? 1 : 0, total: 1, percentage: valid ? 100 : 0 };
 }
 
+// SOURCE_DEFECT and SOURCE_CONFLICT must quote the assertions they blame and
+// compare each with the observed value from the run. Sources are identified by
+// their declared authoritative path.
+const EXPECT_ASSERTION = /^expect\((.*?)\)\s*\.\s*(?:toEqual|toStrictEqual|toBe)\s*\((.*)\)$/;
+const ASSERT_ASSERTION = /^assert\s*\.\s*(?:equal|strictEqual|deepEqual|deepStrictEqual)\s*\((.*)\)$/;
+
+function jsonLiteral(text) {
+  const literal = text.trim();
+  const single = /^'([^'"\\]*)'$/.exec(literal);
+  try {
+    return { checkable: true, value: JSON.parse(single ? `"${single[1]}"` : literal) };
+  } catch (error) {
+    return { checkable: false };
+  }
+}
+
+// Splits an argument list on commas at depth 0, outside string literals.
+// Returns null when brackets or strings are unbalanced. Not a general parser.
+function splitTopLevelArguments(text) {
+  const parts = [];
+  let depth = 0;
+  let quote = null;
+  let current = '';
+  for (let index = 0; index < text.length; index += 1) {
+    const ch = text[index];
+    if (quote) {
+      current += ch;
+      if (ch === '\\') {
+        current += text[index + 1] ?? '';
+        index += 1;
+      } else if (ch === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === '`') {
+      quote = ch;
+    } else if ('([{'.includes(ch)) {
+      depth += 1;
+    } else if (')]}'.includes(ch)) {
+      depth -= 1;
+      if (depth < 0) return null;
+    } else if (ch === ',' && depth === 0) {
+      parts.push(current);
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  if (quote !== null || depth !== 0) return null;
+  parts.push(current);
+  return parts;
+}
+
+// The literal expected value pinned by a quoted assertion, for the recognised
+// shapes only. Anything else (identifiers, constructors, prose, negated or
+// resolved modifiers) is not checkable. One trailing ';' is tolerated.
+function quotedExpectedValue(assertion) {
+  if (typeof assertion !== 'string') return { checkable: false };
+  const text = assertion.trim().replace(/;$/, '').trim();
+  const expectCall = EXPECT_ASSERTION.exec(text);
+  if (expectCall) return jsonLiteral(expectCall[2]);
+  const assertCall = ASSERT_ASSERTION.exec(text);
+  if (!assertCall) return { checkable: false };
+  // assert.equal(actual, expected[, message]): the expected value is the second argument.
+  const args = splitTopLevelArguments(assertCall[1]);
+  if (!args || (args.length !== 2 && args.length !== 3)) return { checkable: false };
+  return jsonLiteral(args[1]);
+}
+
+// Returns the sourceEvidence status. VERIFIED means two quoted literals from
+// different sources disagree (SOURCE_CONFLICT only). A quote/observed mismatch
+// alone shows the implementation differs from the source, not that the source
+// is defective, so SOURCE_DEFECT is always REVIEWER_REQUIRED.
+function evaluateSourceEvidence(requirement, declaredSources, errors, prefix) {
+  const label = requirement.sourceValidity;
+  const evidence = requirement.sourceEvidence;
+  if (!Array.isArray(evidence) || evidence.length === 0) {
+    errors.push(`${prefix}.sourceEvidence must quote the assertions for ${label}`);
+    return undefined;
+  }
+  const declaredPaths = declaredSources.filter(isObject).map(source => source.path);
+  const entries = [];
+  const checkable = new Map();
+  evidence.forEach((entry, index) => {
+    const entryPrefix = `${prefix}.sourceEvidence[${index}]`;
+    if (!isObject(entry)) {
+      errors.push(`${entryPrefix} must be an object`);
+      return;
+    }
+    if (!declaredPaths.includes(entry.source)) errors.push(`${entryPrefix}.source must name a declared authoritative source path`);
+    if (!nonEmpty(entry.assertion)) errors.push(`${entryPrefix}.assertion must quote the exact assertion text`);
+    if (!('expected' in entry)) errors.push(`${entryPrefix}.expected is required`);
+    if (!('observed' in entry)) errors.push(`${entryPrefix}.observed is required`);
+    if (declaredPaths.includes(entry.source) && nonEmpty(entry.assertion) && 'expected' in entry && 'observed' in entry) {
+      const quoted = quotedExpectedValue(entry.assertion);
+      if (quoted.checkable && !equal(quoted.value, entry.expected)) {
+        errors.push(`${entryPrefix}.expected does not match the value in the quoted assertion`);
+        return;
+      }
+      checkable.set(entry, quoted.checkable);
+      entries.push(entry);
+    }
+  });
+  let status;
+  const mismatched = entries.filter(entry => !equal(entry.expected, entry.observed));
+  if (mismatched.length === 0) {
+    errors.push(`${prefix}.sourceEvidence must compare a quoted assertion with a failing observed value before blaming the source`);
+  } else if (label === 'SOURCE_DEFECT') {
+    // No independent corroboration exists for a single source, so the reviewer decides.
+    status = 'REVIEWER_REQUIRED';
+  }
+  if (label === 'SOURCE_CONFLICT') {
+    if (new Set(entries.map(entry => entry.source)).size < 2) {
+      errors.push(`${prefix}.sourceEvidence must quote assertions from at least two distinct authoritative sources`);
+    }
+    // A conflict needs two sources constraining the same contract subject;
+    // unequal expectations about unrelated targets are not a conflict.
+    const subjects = new Map();
+    evidence.forEach((entry, index) => {
+      if (!entries.includes(entry)) return;
+      const entryPrefix = `${prefix}.sourceEvidence[${index}]`;
+      if (!nonEmpty(entry.subject)) {
+        errors.push(`${entryPrefix}.subject must name the contract target the assertion constrains`);
+      } else if (!assertionNamesSubject(entry.assertion, entry.subject.trim())) {
+        errors.push(`${entryPrefix}.subject must appear as a whole target in the quoted assertion`);
+      } else {
+        subjects.set(entry, entry.subject.trim());
+      }
+    });
+    const sameSubjectPairs = [];
+    for (const a of subjects.keys()) {
+      for (const b of subjects.keys()) {
+        if (a !== b && a.source !== b.source && subjects.get(a) === subjects.get(b)) sameSubjectPairs.push([a, b]);
+      }
+    }
+    const disagreeing = sameSubjectPairs.filter(([a, b]) => !equal(a.expected, b.expected));
+    if (subjects.size >= 2 && sameSubjectPairs.length === 0) {
+      errors.push(`${prefix}.sourceEvidence must quote assertions from two sources about the same subject; unequal expectations about unrelated targets are not a SOURCE_CONFLICT`);
+    } else if (sameSubjectPairs.length && disagreeing.length === 0) {
+      errors.push(`${prefix}.sourceEvidence expected values must disagree across sources; agreeing expectations with a failing observed value are NON_CONFORMANT`);
+    } else if (disagreeing.length) {
+      // Only a disagreement between two literal quotes is verified; a quote that
+      // cannot be read mechanically goes to the reviewer without an error.
+      status = disagreeing.some(([a, b]) => checkable.get(a) && checkable.get(b)) ? 'VERIFIED' : 'REVIEWER_REQUIRED';
+    }
+  }
+  return status;
+}
+
+// True when `subject` appears in `assertion` as a whole target: `list.head`
+// matches `expect(list.head)` but not `expect(list.head.value)`.
+function assertionNamesSubject(assertion, subject) {
+  const escaped = subject.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?<![\\w$.])${escaped}(?![\\w$.\\[])`).test(assertion);
+}
+
 function scoreDimensions(dimensions) {
   let weighted = 0;
   let appliedWeight = 0;
@@ -323,6 +480,10 @@ function evaluateRequirement(requirement, index, errors) {
   if (requirement.sourceValidity === 'SOURCE_CONFLICT' && declaredSources.some(source => !isObject(source) || source.status !== 'AUTHORITATIVE')) {
     errors.push(`${prefix}.SOURCE_CONFLICT may only identify authoritative sources`);
   }
+  let sourceEvidenceStatus;
+  if (['SOURCE_DEFECT', 'SOURCE_CONFLICT'].includes(requirement.sourceValidity)) {
+    sourceEvidenceStatus = evaluateSourceEvidence(requirement, declaredSources, errors, prefix);
+  }
 
   const scoring = scoringDetails(dimensions);
   const score = scoreDimensions(dimensions);
@@ -347,6 +508,8 @@ function evaluateRequirement(requirement, index, errors) {
     sourceConformance: requirement.sourceConformance || null,
     sourceValidity: requirement.sourceValidity || null,
     ...(requirement.sourceNotes ? { sourceNotes: requirement.sourceNotes } : {}),
+    ...(requirement.sourceEvidence ? { sourceEvidence: clone(requirement.sourceEvidence) } : {}),
+    ...(sourceEvidenceStatus ? { sourceEvidenceStatus } : {}),
     dimensions,
     skippedTests,
     flakyTests: Array.isArray(requirement.flakyTests) ? clone(requirement.flakyTests) : [],
@@ -432,6 +595,7 @@ function printSummary(report) {
   console.log('Requirements:');
   for (const requirement of report.requirements) {
     console.log(`- ${requirement.requirementId} [${requirement.testProfile}]: ${requirement.result} ${requirement.score}%`);
+    if (requirement.sourceEvidenceStatus) console.log(`- ${requirement.requirementId} sourceEvidence: ${requirement.sourceEvidenceStatus}`);
   }
   console.log('Dimensions:');
   for (const name of DIMENSIONS) {
@@ -472,4 +636,4 @@ function runCli(argv) {
 
 if (require.main === module) process.exit(runCli(process.argv));
 
-module.exports = { DIMENSIONS, REQUIRED_CLASSES, VERSION, evaluateEvidence, runCli };
+module.exports = { DIMENSIONS, REQUIRED_CLASSES, VERSION, evaluateEvidence, quotedExpectedValue, runCli };
