@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.47.5](https://github.com/dyphn1/Harness-everything/compare/v0.47.4...v0.47.5) (2026-11-03)
+
+### Bug Fixes
+
+* **behavioral-evals:** detect npm ERR! lines in quality gate output ([b599224](https://github.com/dyphn1/Harness-everything/commit/b599224ba09f27dc1f5e5c1156c40c20e57f6f52))
+* **behavioral-evals:** grade tdd quality gate on independently re-evaluated evidence ([f9433ed](https://github.com/dyphn1/Harness-everything/commit/f9433ed535ba4b1882029622a31325ae564cdd50)), closes [#311](https://github.com/dyphn1/Harness-everything/issues/311)
+* **behavioral-evals:** grade the last quality gate attempt, not the last completed run ([8065345](https://github.com/dyphn1/Harness-everything/commit/806534592dbc47665868e74a36b4095d44a2647b))
+* **behavioral-evals:** order gate workspace checks before outcome and compare printed report ([ded48fd](https://github.com/dyphn1/Harness-everything/commit/ded48fd7221cb66c61cc58a70c1f4924f0c0fc82))
+* **behavioral-evals:** require observed gate success and full retained report ([47d35d7](https://github.com/dyphn1/Harness-everything/commit/47d35d725623a4355dcc8a054347ec68832edaa2))
+* **tdd:** keep source defect evidence reviewer-required ([443e966](https://github.com/dyphn1/Harness-everything/commit/443e96635c972713acd9fa76e974cb79bfa310ff))
+* **tdd:** read assert.* expected from second argument; tolerate trailing semicolon ([1745ea2](https://github.com/dyphn1/Harness-everything/commit/1745ea2860a2566703af93ec23fc1ff1b00d7eef))
+* **tdd:** require quoted assertion evidence for source conflict claims ([e9e1ab9](https://github.com/dyphn1/Harness-everything/commit/e9e1ab9b8170054a1ecf57b440b18124b4f99108)), closes [#312](https://github.com/dyphn1/Harness-everything/issues/312)
+* **tdd:** require same-subject assertions for SOURCE_CONFLICT evidence ([d0ab25f](https://github.com/dyphn1/Harness-everything/commit/d0ab25fb810f390921acc9f38584eead95f18214))
+* **tdd:** verify sourceEvidence expected values against quoted literals ([77a8ba6](https://github.com/dyphn1/Harness-everything/commit/77a8ba690de69db9852371270e86c063d30b77ed))
+
 ## [0.47.4](https://github.com/dyphn1/Harness-everything/compare/v0.47.3...v0.47.4) (2026-11-03)
 
 ### Bug Fixes
