@@ -192,6 +192,24 @@ try {
   const npmErrorLine = gradeCommands('npm-error-line', [{ command: observedGate, output: 'npm error Missing script: "tdd:quality"' }]);
   assert.strictEqual(npmErrorLine.results[0].status, 'fail', 'an npm error line must be a definitive fail');
   assert.match(npmErrorLine.results[0].reason, /npm error/, 'npm error line should be named');
+  // npm ERR!/error lines after a PASS line must fail even without exit metadata;
+  // the boundary after the token must match whitespace or end of line.
+  const npmTrailer = (name, output) => gradeCommands(name, [{ command: observedGate, output }]);
+  for (const [name, output] of [
+    ['npm-err-bang-eacces', 'TDD Quality Gate: PASS\nnpm ERR! code EACCES'],
+    ['npm-err-bang-eresolve', 'TDD Quality Gate: PASS\nnpm ERR! code ERESOLVE'],
+    ['npm-error-elifecycle', 'TDD Quality Gate: PASS\nnpm error code ELIFECYCLE'],
+    ['npm-err-bang-eol', 'TDD Quality Gate: PASS\nnpm ERR!'],
+  ]) {
+    const graded = npmTrailer(name, output);
+    assert.strictEqual(graded.results[0].status, 'fail', `${name} must be a definitive fail`);
+    assert.strictEqual(graded.passed, false, `${name} must not satisfy the quality gate`);
+    assert.match(graded.results[0].reason, /npm error/i, `${name} should name the npm error`);
+  }
+  assert.strictEqual(npmTrailer('npm-errors-word', 'TDD Quality Gate: PASS\nnpm ERRORS are documented').passed, true, 'a word that only starts with ERR must not be an npm error');
+  const { GATE_COMMAND_ERROR_RE } = require('../behavioral-evals/run');
+  assert.strictEqual(GATE_COMMAND_ERROR_RE.test('npm ERR! code EACCES'), true, 'npm ERR! line must match the error regex');
+  assert.strictEqual(GATE_COMMAND_ERROR_RE.test('npm ERRORS'), false, 'npm ERRORS must not match the error regex');
 
   // Claude stream-json: is_error on the tool_result is the host's failure
   // signal; the call is recorded as failed, so it never counts as executed.

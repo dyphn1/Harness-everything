@@ -686,7 +686,7 @@ function resolveInWorkspace(ws, file) {
 // alone is not enough: OpenCode reports "completed" for a gate that exited 1.
 // Returns { status: 'pass' | 'fail' | 'inconclusive', reason }.
 // Line-anchored so prose such as "avoid npm error handling" is not an error.
-const GATE_COMMAND_ERROR_RE = /^(?:npm (?:ERR!|error)\b|.*Missing script:)/m;
+const GATE_COMMAND_ERROR_RE = /^(?:npm (?:ERR!|error)(?=\s|$)|.*Missing script:)/m;
 
 function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -1156,6 +1156,7 @@ module.exports = {
   extractAgentTrace,
   extractSessionMetadata,
   grade,
+  GATE_COMMAND_ERROR_RE,
   qualityGateArgs,
   parseTranscriptEvents,
   pairVerdict,
