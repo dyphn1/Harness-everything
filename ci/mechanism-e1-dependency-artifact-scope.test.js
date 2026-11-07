@@ -371,6 +371,8 @@ runCase('glob-selector-metacharacters-cannot-hide-dependency-root-overlaps', [RE
     { label: 'bracket and parent traversal before dependency root', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['docs/[a]/../node_modules/**'] }) },
     { label: 'parent traversal before dependency root', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['docs/../node_modules/**'] }) },
     { label: 'parent traversal cannot hide a question wildcard overlap', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['docs/../?ode_modules/**'] }) },
+    { label: 'repeated dot segments cannot hide a question wildcard overlap', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['././?ode_modules/**'] }) },
+    { label: 'inner dot and empty segments cannot hide husky overlap', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['./.husk?/./_//**'] }) },
     { label: 'absolute node_modules selector', makeScope: root => ({ prdRoot: 'docs/prd/', paths: [path.join(root, 'node_modules', '**')] }) }
   ];
   for (const item of cases) {
