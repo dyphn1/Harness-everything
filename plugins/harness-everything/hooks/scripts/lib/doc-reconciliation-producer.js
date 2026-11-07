@@ -172,6 +172,19 @@ function absoluteSelectorRelatives(selector, workspaceRoot) {
   const realRelative = relativePathWithin(workspace, resolved, pathApi);
   if (lexicalRelative !== null && realRelative !== null) return [lexicalRelative, realRelative];
   if (lexicalRelative !== null || realRelative !== null) return true;
+  // A glob before the workspace boundary (/tmp/*/node_modules/**) can still expand into the
+  // workspace: disjoint only when the literal prefix is not the workspace or one of its ancestors.
+  const meta = selector.search(/[*?\[\]{}]/);
+  if (meta >= 0) {
+    const prefix = pathApi.dirname(pathApi.resolve(selector.slice(0, meta) + 'x'));
+    const realPrefix = realpathWithMissingSuffix(prefix, pathApi);
+    if (!realPrefix) return true;
+    for (const base of [prefix, realPrefix]) {
+      for (const root of [workspace, pathApi.resolve(workspaceRoot)]) {
+        if (relativePathWithin(base, root, pathApi) !== null) return true;
+      }
+    }
+  }
   return false;
 }
 function selectorMayIntersectRoot(selector, root, workspaceRoot) {

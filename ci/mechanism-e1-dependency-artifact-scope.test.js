@@ -363,6 +363,9 @@ runCase('governed-derived-broad-and-task-input-overlaps-block-pruning', [REQUIRE
   }
 });
 
+const DISJOINT_DIR = canonical(fs.mkdtempSync(path.join(os.tmpdir(), 'e1-dep-scope-disjoint-')));
+process.on('exit', () => fs.rmSync(DISJOINT_DIR, { recursive: true, force: true }));
+
 runCase('glob-selector-metacharacters-cannot-hide-dependency-root-overlaps', [REQUIREMENTS.producer], mods => {
   const cases = [
     { label: 'absolute question wildcard selector', makeScope: root => ({ prdRoot: 'docs/prd/', paths: [path.join(root, '?ode_modules', '**')] }) },
@@ -379,6 +382,12 @@ runCase('glob-selector-metacharacters-cannot-hide-dependency-root-overlaps', [RE
     ...['?ODE_MODULES/**', 'Node_Module?/**', '*_MODULES/**', '.?USKY/_/**', '.HUSK*/_/**', '.husky/?/**', './/?ODE_MODULES\\**'].map(selector => (
       { label: `mixed-case wildcard ${selector}`, makeScope: () => ({ prdRoot: 'docs/prd/', paths: [selector] }) })),
     { label: 'absolute mixed-case wildcard selector', makeScope: root => ({ prdRoot: 'docs/prd/', paths: [path.join(root, '?ODE_MODULES', '**')] }) },
+    // Globs before the workspace boundary can expand into the workspace (#396 review 2026-11-07).
+    { label: 'absolute star before workspace segment', makeScope: root => ({ prdRoot: 'docs/prd/', paths: [path.join(path.dirname(root), '*', 'node_modules', '**')] }) },
+    { label: 'absolute question before workspace segment', makeScope: root => ({ prdRoot: 'docs/prd/', paths: [path.join(path.dirname(root), `${path.basename(root).slice(0, -1)}?`, 'node_modules', '**')] }) },
+    { label: 'absolute globstar before workspace segment', makeScope: root => ({ prdRoot: 'docs/prd/', paths: [path.join(path.dirname(root), '**', 'node_modules', '**')] }) },
+    { label: 'absolute bracket before workspace segment', makeScope: root => ({ prdRoot: 'docs/prd/', paths: [path.join(path.dirname(root), `[${path.basename(root)[0]}]${path.basename(root).slice(1)}`, '.husky', '_', '**')] }) },
+    { label: 'absolute glob under a non-canonical tmp alias', makeScope: () => ({ prdRoot: 'docs/prd/', paths: [path.join(os.tmpdir(), '*', 'node_modules', '**')] }) },
     { label: 'absolute node_modules selector', makeScope: root => ({ prdRoot: 'docs/prd/', paths: [path.join(root, 'node_modules', '**')] }) }
   ];
   for (const item of cases) {
@@ -389,7 +398,8 @@ runCase('glob-selector-metacharacters-cannot-hide-dependency-root-overlaps', [RE
   }
   for (const item of [
     { label: 'absolute docs selector', makeScope: root => ({ prdRoot: 'docs/prd/', paths: [path.join(root, 'docs', 'prd', '**')] }) },
-    { label: 'relative question wildcard outside roots', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['docs/pr?/**'] }) }
+    { label: 'relative question wildcard outside roots', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['docs/pr?/**'] }) },
+    { label: 'absolute glob under a disjoint sibling directory', makeScope: () => ({ prdRoot: 'docs/prd/', paths: [path.join(DISJOINT_DIR, '*', 'node_modules', '**')] }) }
   ]) {
     withRepo({ config: artifactConfig() }, repo => {
       ready(produce(mods, repo, { top: { scope: item.makeScope(repo.root) } }).result, item.label);
