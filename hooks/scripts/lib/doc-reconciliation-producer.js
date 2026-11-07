@@ -86,16 +86,20 @@ function rootMention(value, root) {
   }
   return false;
 }
-function globSegmentMatches(pattern, segment) {
+function globSegmentMatches(rawPattern, rawSegment) {
+  // Same NFC + lowercase folding as rootMention()/pathUnderRoot(), so a wildcard spelling cannot dodge it.
+  const pattern = rawPattern.normalize('NFC').toLowerCase();
+  const segment = rawSegment.normalize('NFC').toLowerCase();
   if (/[\[\]{}]/.test(pattern)) return true;
   const escaped = pattern.split(/([*?])/).map(part => part === '*' ? '[\\s\\S]*' : part === '?' ? '[\\s\\S]'
     : part.replace(/[|\\{}()[\]^$+?.]/g, '\\$&')).join('');
   return new RegExp(`^${escaped}$`).test(segment);
 }
 function relativeSelectorMayIntersectRoot(selector, root) {
-  const normalized = selector.replace(/\\/g, '/').replace(/^\.\//, '');
+  const normalized = selector.replace(/\\/g, '/');
   if (/[\[\]{}]/.test(normalized) || normalized.split('/').includes('..')) return true;
-  const pattern = normalized.split('/');
+  // `.` and empty segments are redundant anywhere in a workspace-relative selector.
+  const pattern = normalized.split('/').filter(segment => segment !== '' && segment !== '.');
   const target = root.split('/');
   let states = new Set([0]);
   const closure = values => {
@@ -168,6 +172,9 @@ function absoluteSelectorRelatives(selector, workspaceRoot) {
   const realRelative = relativePathWithin(workspace, resolved, pathApi);
   if (lexicalRelative !== null && realRelative !== null) return [lexicalRelative, realRelative];
   if (lexicalRelative !== null || realRelative !== null) return true;
+  // A glob outside the workspace can still expand into it (via a parent such as /tmp/*/node_modules/**
+  // or a symlinked entry under an unrelated directory); only literal outside paths are provably disjoint.
+  if (/[*?\[\]{}]/.test(selector)) return true;
   return false;
 }
 function selectorMayIntersectRoot(selector, root, workspaceRoot) {
