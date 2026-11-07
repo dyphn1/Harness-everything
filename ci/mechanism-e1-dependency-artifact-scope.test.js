@@ -7,6 +7,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const H = require('./fixtures/doc-obligations/reconciliation-s2a/harness.js');
+const { canonical } = require(path.resolve(__dirname, '../hooks/scripts/lib/workflow-isolation.js'));
 const RUN13_REQUIREMENTS = require('./fixtures/doc-obligations/reconciliation-s2a/run13-workflow-requirements.json');
 
 const PRODUCER = 'doc-reconciliation-producer.js';
@@ -33,11 +34,13 @@ function artifactConfig(roots = EXPECTED_ROOTS) {
 function withRepo(options, fn) {
   const vectors = options.vectors || H.vectorFiles('normative');
   const config = options.config === undefined ? H.DERIVE_CONFIG : options.config;
-  const repo = H.makeRepo({
+  const made = H.makeRepo({
     ...vectors.base,
     ...options.baseFiles,
     [H.CONFIG_REL]: `${JSON.stringify(config, null, 2)}\n`
   });
+  // Windows 8.3 short temp paths (RUNNER~1) must match the producer's canonical long root (as in c508e431).
+  const repo = { ...made, root: canonical(made.root) };
   try {
     H.writeFiles(repo.root, vectors.candidate);
     H.writeFiles(repo.root, options.candidateFiles || {});
