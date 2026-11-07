@@ -50,16 +50,17 @@ function withRepo(options, fn) {
 
 function writeInstalledTree(root) {
   const installedPackage = path.join(H.ROOT, 'node_modules', 'husky');
-  const installedHooks = path.join(H.ROOT, '.husky', '_');
   assert(fs.statSync(installedPackage).isDirectory(), 'npm-installed Husky package must exist before the witness runs');
-  assert(fs.statSync(installedHooks).isDirectory(), 'npm-generated .husky/_ tree must exist before the witness runs');
   const packageDir = path.join(root, 'node_modules', 'husky');
   const binDir = path.join(root, 'node_modules', '.bin');
   fs.mkdirSync(packageDir, { recursive: true });
   fs.mkdirSync(binDir, { recursive: true });
-  for (const file of ['bin.js', 'package.json']) fs.copyFileSync(path.join(installedPackage, file), path.join(packageDir, file));
+  for (const file of ['bin.js', 'husky', 'index.js', 'package.json']) fs.copyFileSync(path.join(installedPackage, file), path.join(packageDir, file));
   fs.symlinkSync('../husky/bin.js', path.join(binDir, 'husky'));
-  fs.cpSync(installedHooks, path.join(root, '.husky', '_'), { recursive: true, dereference: false });
+  const install = spawnSync(process.execPath, [path.join(packageDir, 'bin.js'), 'install'], {
+    cwd: root, env: { ...process.env, HUSKY: '1' }, encoding: 'utf8'
+  });
+  assert.strictEqual(install.status, 0, `installed Husky package must generate its fixture hooks: ${install.stderr || install.stdout}`);
   assert(fs.statSync(path.join(packageDir, 'bin.js')).isFile(), 'installed package witness must be real Husky JavaScript');
   assert(fs.lstatSync(path.join(binDir, 'husky')).isSymbolicLink(), 'installed .bin witness must be a real symlink');
   assert(fs.statSync(path.join(root, '.husky', '_', 'husky.sh')).isFile(), 'generated Husky witness must come from the installed tree');
@@ -355,6 +356,30 @@ runCase('governed-derived-broad-and-task-input-overlaps-block-pruning', [REQUIRE
       if (item.makeTask) overrides.task = item.makeTask(repo.root);
       if (item.makeScope) overrides.top = { scope: item.makeScope(repo.root) };
       unavailable(produce(mods, repo, overrides).result, item.label, item.reason);
+    });
+  }
+});
+
+runCase('glob-selector-metacharacters-cannot-hide-dependency-root-overlaps', [REQUIREMENTS.producer], mods => {
+  const cases = [
+    { label: 'absolute question wildcard selector', makeScope: root => ({ prdRoot: 'docs/prd/', paths: [path.join(root, '?ode_modules', '**')] }) },
+    { label: 'relative question wildcard selector', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['?ode_modules/**'] }) },
+    { label: 'husky question wildcard selector', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['.husk?/_/**'] }) },
+    { label: 'bracket class selector', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['[n]ode_modules/**'] }) },
+    { label: 'absolute node_modules selector', makeScope: root => ({ prdRoot: 'docs/prd/', paths: [path.join(root, 'node_modules', '**')] }) }
+  ];
+  for (const item of cases) {
+    withRepo({ config: artifactConfig() }, repo => {
+      unavailable(produce(mods, repo, { top: { scope: item.makeScope(repo.root) } }).result,
+        item.label, 'task-input-overlap');
+    });
+  }
+  for (const item of [
+    { label: 'absolute docs selector', makeScope: root => ({ prdRoot: 'docs/prd/', paths: [path.join(root, 'docs', 'prd', '**')] }) },
+    { label: 'relative question wildcard outside roots', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['docs/pr?/**'] }) }
+  ]) {
+    withRepo({ config: artifactConfig() }, repo => {
+      ready(produce(mods, repo, { top: { scope: item.makeScope(repo.root) } }).result, item.label);
     });
   }
 });

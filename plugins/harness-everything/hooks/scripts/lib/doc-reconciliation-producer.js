@@ -87,7 +87,9 @@ function rootMention(value, root) {
   return false;
 }
 function globSegmentMatches(pattern, segment) {
-  const escaped = pattern.split('*').map(part => part.replace(/[|\\{}()[\]^$+?.]/g, '\\$&')).join('.*');
+  if (/[\[\]{}]/.test(pattern)) return true;
+  const escaped = pattern.split(/([*?])/).map(part => part === '*' ? '[\\s\\S]*' : part === '?' ? '[\\s\\S]'
+    : part.replace(/[|\\{}()[\]^$+?.]/g, '\\$&')).join('');
   return new RegExp(`^${escaped}$`).test(segment);
 }
 function relativeSelectorMayIntersectRoot(selector, root) {
@@ -183,10 +185,10 @@ function valueMayIntersectRoots(value, roots, workspaceRoot) {
     if (absolute !== null) return roots.some(root => absolute.some(relative => {
       const selector = relative || '.';
       return rootMention(selector, root)
-        || ((selector.includes('/') || /[*?]/.test(selector)) && selectorMayIntersectRoot(selector, root, workspaceRoot));
+        || ((selector.includes('/') || /[*?\[\]{}]/.test(selector)) && selectorMayIntersectRoot(selector, root, workspaceRoot));
     }));
     return roots.some(root => rootMention(value, root)
-      || ((!value.trim() || value.includes('/') || /[*?]/.test(value))
+      || ((!value.trim() || value.includes('/') || /[*?\[\]{}]/.test(value))
         && selectorMayIntersectRoot(value, root, workspaceRoot)));
   }
   if (Array.isArray(value)) return value.some(item => valueMayIntersectRoots(item, roots, workspaceRoot));

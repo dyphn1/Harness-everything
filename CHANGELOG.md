@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Bug Fixes
+
+* **doc-reconciliation:** keep outline approvals durable and detect dependency-root selector overlaps conservatively
+
 ## [0.47.5](https://github.com/dyphn1/Harness-everything/compare/v0.47.4...v0.47.5) (2026-11-03)
 
 ### Bug Fixes
