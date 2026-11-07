@@ -366,6 +366,11 @@ runCase('glob-selector-metacharacters-cannot-hide-dependency-root-overlaps', [RE
     { label: 'relative question wildcard selector', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['?ode_modules/**'] }) },
     { label: 'husky question wildcard selector', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['.husk?/_/**'] }) },
     { label: 'bracket class selector', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['[n]ode_modules/**'] }) },
+    { label: 'brace selector after leading literal', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['docs/{foo,../node_modules}/**'] }) },
+    { label: 'brace selector crossing to husky after leading literal', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['docs/{foo,../.husky}/_/**'] }) },
+    { label: 'bracket and parent traversal before dependency root', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['docs/[a]/../node_modules/**'] }) },
+    { label: 'parent traversal before dependency root', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['docs/../node_modules/**'] }) },
+    { label: 'parent traversal cannot hide a question wildcard overlap', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['docs/../?ode_modules/**'] }) },
     { label: 'absolute node_modules selector', makeScope: root => ({ prdRoot: 'docs/prd/', paths: [path.join(root, 'node_modules', '**')] }) }
   ];
   for (const item of cases) {

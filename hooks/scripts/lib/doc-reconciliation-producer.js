@@ -94,6 +94,7 @@ function globSegmentMatches(pattern, segment) {
 }
 function relativeSelectorMayIntersectRoot(selector, root) {
   const normalized = selector.replace(/\\/g, '/').replace(/^\.\//, '');
+  if (/[\[\]{}]/.test(normalized) || normalized.split('/').includes('..')) return true;
   const pattern = normalized.split('/');
   const target = root.split('/');
   let states = new Set([0]);
