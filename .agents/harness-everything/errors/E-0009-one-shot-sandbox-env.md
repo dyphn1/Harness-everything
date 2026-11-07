@@ -25,6 +25,15 @@ episodes:
         change: "Worker TMPDIR outside any repository, stdin closed (`< /dev/null`), coordinator reruns `verify:all -- --fast` outside the sandbox"
         review: coordinator
         result: "Later packets reported sandbox-UNCHECKED cleanly; coordinator reruns were 0 FAIL"
+  - episode: 341-e1-stage2-haiku-allowlist
+    feature: "#412 E1 stage-2 one-shot workers"
+    date: 2026-11-07
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "one-shot `claude -p` workers had an allowlist of only the packet's named commands; mid-run every other `node ci/*` regression suite required approval, so three consecutive packets reported provider-loading regressions as not run; the coordinator ran 7, 7 and 15 suites afterwards (all exit 0)"
   - episode: 341-e1-stage2-readonly-review-scratch
     feature: "#396 E1 stage 2 reviewer and worker dispatch"
     date: 2026-11-07
@@ -43,6 +52,8 @@ A sandboxed one-shot worker reports FAIL or stalls on loopback, temp-directory o
 ## Lesson
 
 Dispatch one-shot `codex exec` with a TMPDIR outside every repository and stdin closed; treat loopback-bind failures as sandbox-UNCHECKED and rerun the fast gate outside the sandbox before accepting. A log ending in `Reading additional input from stdin` is a hang, not progress.
+
+- Grant the pattern the packet's verification needs (e.g. `Bash(node ci/*)`), not only the listed commands.
 
 ## Stage 2 read-only review scratch (#396, 2026-11-07)
 
