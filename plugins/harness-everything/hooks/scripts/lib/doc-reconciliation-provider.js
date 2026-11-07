@@ -1558,6 +1558,12 @@ function resolveOutlineEvidence({ safeInput, capture, captures, request, originR
       && item.event === 'SubagentStart' && item.ref !== worker.ref && sameCanonicalPath(item.cwd, workerRoot)
       && !stoppedBeforeDispatch(item) && !startedAfterWorkerStop(item));
     if (competingStarts.length) return fail('outline-competing-writer-start');
+    // Reviewer lifecycle is exactly one Start and one Stop for its identity; a duplicate or missing record withholds credit.
+    const reviewerLifecycle = event => journal.filter(item => recordOf(item) && item.event === event
+      && item.agent_id === review.reviewerPrincipal).length;
+    if (reviewerLifecycle('SubagentStart') !== 1 || reviewerLifecycle('SubagentStop') !== 1) {
+      return fail('outline-review-result-missing-or-ambiguous');
+    }
     // Review window: the reviewer's first record (or its launch result) through its SubagentStop.
     const reviewLaunchIds = new Set(journal.filter(item => recordOf(item) && item.event === 'PostToolUse'
       && ['Task', 'Agent'].includes(item.tool_name) && item.agent_id === review.reviewerPrincipal && textOf(item.tool_use_id))
@@ -1575,6 +1581,15 @@ function resolveOutlineEvidence({ safeInput, capture, captures, request, originR
     const oChanged = outlineGit(seam.worktree.root, ['diff', '--name-only', '--no-renames', '-z', taskState.baseline.commit,
       handoff.outline.commit]).split('\0').filter(Boolean).sort(compareKeys);
     if (captureJson(oChanged) !== captureJson([...targetPaths].sort(compareKeys))) return fail('outline-commit-scope-invalid');
+    // The cumulative diff hides content committed then reverted inside B..O, so every commit (merges too, per parent) must touch only the targets.
+    const targetSet = new Set(targetPaths);
+    const rangeCommits = outlineGit(seam.worktree.root, ['rev-list', `${taskState.baseline.commit}..${handoff.outline.commit}`])
+      .split('\n').filter(Boolean);
+    for (const commit of rangeCommits) {
+      const touched = outlineGit(seam.worktree.root, ['diff-tree', '-r', '--root', '-m', '--no-commit-id', '--name-only',
+        '--no-renames', '-z', commit]).split('\0').filter(Boolean);
+      if (touched.some(file => !targetSet.has(file))) return fail('outline-commit-scope-invalid');
+    }
 
     let candidateRoot;
     try { candidateRoot = canonicalOutlineRoot(safeInput.workspaceRoot); }
