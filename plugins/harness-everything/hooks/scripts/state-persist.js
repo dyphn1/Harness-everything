@@ -148,6 +148,11 @@ function persistPilotCapture(payload, eventName, sessionId, root) {
     // Observation-time identity: the workflow and pin in force when the host event was captured.
     const observed = provider.observedIdentityFor(sessionDir);
     if (observed) entry.observedIdentity = observed;
+    // #341 step 1: O's identity is taken at launch records, so a reviewer's identity predates its review.
+    if (eventName === 'SubagentStart') {
+      const outlineIdentity = provider.captureOutlineStartIdentity({ sessionDir });
+      if (outlineIdentity) entry.outlineIdentity = outlineIdentity;
+    }
     if (eventName === 'PreToolUse' && (entry.tool_name === 'Agent' || entry.tool_name === 'Task')) {
       try {
         const existing = provider.readCaptureView(sessionDir);

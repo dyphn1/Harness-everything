@@ -219,9 +219,9 @@ function createOutlineFixture(options = {}) {
     fixtureGit(root, ['add', '-A']);
     fixtureGit(root, ['commit', '-q', '-m', 'O outline']);
   }
-  const outlineCommit = fixtureGit(root, ['rev-parse', 'HEAD']);
-  const outlineTree = fixtureGit(root, ['rev-parse', 'HEAD^{tree}']);
-  const outlineBlob = fixtureGit(root, ['rev-parse', `HEAD:${target}`]);
+  let outlineCommit = fixtureGit(root, ['rev-parse', 'HEAD']);
+  let outlineTree = fixtureGit(root, ['rev-parse', 'HEAD^{tree}']);
+  let outlineBlob = fixtureGit(root, ['rev-parse', `HEAD:${target}`]);
 
   const inventoryBytes = retainedInventory
     ? fs.readFileSync(path.join(ROOT, 'benchmarks/results/live-host/claude-341-outline-dispatch-2026-10-28/inventory/2741bd4514d2cd68f57d93a2b3ce94cbe597ca62d30e26f0ca58e882df5b03c6.md'))
@@ -271,6 +271,22 @@ function createOutlineFixture(options = {}) {
     if (!options.omitReviewerStart) runHook(reviewerStartPayload);
     if (!options.omitReviewResult) runHook(reviewResultPayload);
     runInterleaved(interleave.duringReview);
+    if (options.gitAfterReview) {
+      // Uncaptured Git rewrite of O inside the review window (not journaled by the hook). The coordinator then
+      // records the rewritten O in the handoff, so only the identity taken at reviewer start can reject it.
+      if (options.gitAfterReview === 'amend') fixtureGit(root, ['commit', '--amend', '-q', '-m', 'O outline amended']);
+      else if (options.gitAfterReview === 'addPath') {
+        fs.writeFileSync(path.join(root, 'docs/adr/DOCS-002.md'), `---\nid: DOCS-002\nstatus: proposed\n---\n\n## Outline\n- Context: TBD\n`);
+        fixtureGit(root, ['add', '--', 'docs/adr/DOCS-002.md']);
+        fixtureGit(root, ['commit', '--amend', '-q', '-m', 'O outline with second target']);
+      } else {
+        fixtureGit(root, ['reset', '-q', '--soft', baselineCommit]);
+        fixtureGit(root, ['commit', '-q', '-m', 'O outline replaced']);
+      }
+      outlineCommit = fixtureGit(root, ['rev-parse', 'HEAD']);
+      outlineTree = fixtureGit(root, ['rev-parse', 'HEAD^{tree}']);
+      outlineBlob = fixtureGit(root, ['rev-parse', `HEAD:${target}`]);
+    }
     runHook(reviewStopPayload);
     const retained = provider.readCaptureView(sessionDir).records;
     reviewResult = retained.find(item => item.event === 'PostToolUse' && item.tool_use_id === 'review-dispatch');
@@ -283,6 +299,8 @@ function createOutlineFixture(options = {}) {
     if (!options.omitReviewerStart) {
       reviewerStartRecord = provider.buildCaptureRecord(reviewerStartPayload, 'SubagentStart', root);
       reviewerStartRecord.observedIdentity = reviewStop.observedIdentity;
+      // Same identity capture the hook applies at SubagentStart (state-persist persistPilotCapture).
+      reviewerStartRecord.outlineIdentity = provider.captureOutlineStartIdentity({ sessionDir });
     }
   }
   if (!reviewStop || (!reviewResult && !options.omitReviewResult)) throw new Error('review hook captures were not retained');
@@ -305,7 +323,8 @@ function createOutlineFixture(options = {}) {
     workflowId, workflowRevision, sessionId, hostId: 'claude-code',
     baseline: { root, commit: baselineCommit, tree: baselineTree, configDigest },
     configDigest, targetPaths: [target], draftWorktreeRoot: workerRoot,
-    outline: { commit: outlineCommit, tree: outlineTree, targetBlobs: { [target]: { blobOid: outlineBlob, storedBytesSha256: sha(outlineBytes) } } },
+    outline: { commit: outlineCommit, tree: options.handoffTreeOverride ? 'f'.repeat(40) : outlineTree,
+      targetBlobs: { [target]: { blobOid: outlineBlob, storedBytesSha256: sha(outlineBytes) } } },
     inventory: { ...expectedPin, rowId, domain, targetPaths: [target] },
     reviewCaptureRef: reviewStop.ref, reviewCaptureDigest: reviewRecordDigest, reviewDigest: reviewStop.reviewDigest,
     coordinatorPrincipal: sessionId, writerLeaseId: lease.id, writerLeaseDigest: leaseDigest,
@@ -1833,6 +1852,36 @@ test('pre-review writer positive controls earn outline credit on the same real p
     assert.strictEqual(result.status, 'accepted', `${name}: ${result.codes.join(', ')}`);
     assert.strictEqual(result.outcome, 'pass', name);
   }
+});
+
+// #341 step 1 (owner clarification 6708822276): O identity is recorded by Harness at reviewer SubagentStart and must equal
+// the handoff identity at dispatch. Every control below changes O or its identity after review and must fail closed.
+test('outline identity recorded at reviewer start is bound to the review and revalidated at dispatch', () => {
+  const identityControls = [
+    ['git commit --amend of O after review start', { gitAfterReview: 'amend' }],
+    ['O replaced by a new commit with identical target bytes after review', { gitAfterReview: 'replace' }],
+    ['tree mismatch at dispatch', { handoffTreeOverride: true }],
+    // O gains a second target after review and the handoff re-declares it: the declared scope matches, only the identity differs.
+    ['target path set changed after review', { gitAfterReview: 'addPath',
+      handoffOverrides: { targetPaths: ['docs/adr/DOCS-001.md', 'docs/adr/DOCS-002.md'] } }],
+  ];
+  const witness = [];
+  const problems = [];
+  for (const [name, options] of identityControls) {
+    const result = runWriterControl(name, options);
+    witness.push(result);
+    if (result.status === 'accepted') problems.push(`${name}: origin must not accept`);
+    if (result.outcome === 'pass') problems.push(`${name}: outline must not pass`);
+    if (!result.codes.includes('outline-identity-mismatch')) {
+      problems.push(`${name}: expected outline-identity-mismatch; got ${[...new Set(result.codes)].join(', ')}`);
+    }
+  }
+  const positive = runWriterControl('positive: unchanged O after review start', {});
+  witness.push(positive);
+  console.log('OUTLINE-IDENTITY-CONTROLS ' + JSON.stringify(witness.map(({ control, status, outcome, codes }) => ({ control, status, outcome, codes: [...new Set(codes)] }))));
+  assert.strictEqual(positive.status, 'accepted', `positive control: ${positive.codes.join(', ')}`);
+  assert.strictEqual(positive.outcome, 'pass', 'positive control outcome');
+  assert.deepStrictEqual(problems, [], 'outline identity controls');
 });
 
 test('real capture→provider→adapter→checker→pilot discovers one outline event without injected refs', () => {

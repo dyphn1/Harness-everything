@@ -1291,6 +1291,17 @@ flowchart LR
 - The reviewer launch is the first journal record that is the reviewer's own, or the launch result sharing its `tool_use_id`. The review ends at the reviewer's `SubagentStop`.
 - Write-family records carry `writeTargets` (the `file_path`, or the `apply_patch` headers). A record without a target is ambiguous.
 - The O commit scope check requires `git diff --name-only B O` to equal the pinned target paths, otherwise `outline-commit-scope-invalid`.
+- **Pre-review Git identity (W2).** This is the immutable Git object identity of Outline O, taken before independent review. It is not the Git author's name or email. Harness records `{baselineCommit, outlineCommit, outlineTree, targetPaths, targetBlobs}` (per target: `blobOid` and `storedBytesSha256`) at each `SubagentStart` inside an outline task. The reviewer's launch record therefore predates its review, and the reviewer does not echo any identity. Dispatch requires the handoff identity to equal the reviewer's record exactly; any difference is `outline-identity-mismatch`, and a fresh review is needed for a new O.
+
+```mermaid
+flowchart LR
+  S["reviewer SubagentStart<br/>records O identity"] --> R["review<br/>bound to that record"]
+  R --> D{"dispatch: handoff identity equal?"}
+  D -->|"yes"| W["worker starts from clean O"]
+  D -->|"no: amend, replacement, tree or target change"| X["outline-identity-mismatch: fresh review"]
+```
+
+- Suggested contract wording (owner, #341 comment 6708822276): "Exact task and target-path binding, captured writer operations, and immutable Outline O Git commit/tree/artifact identity validated before independent review and revalidated at dispatch."
 - **W3 stays rejected.** Handoff, lease, pin and merge-correspondence files are written outside capture and their content is not bound at capture time, so no coordinator state write is verifiable from evidence yet. The dispatch seam still validates those bytes; the writes themselves are rejected.
 - **W4 is unchanged.** Outline credit still needs a host-captured `SubagentStop` review and a correlated Task/Agent result from an agent distinct from the coordinator and worker. Only the Claude Code host is captured for outline credit; OpenCode and other reviewer providers are not.
 - Negative controls: the mechanism file injects each rejected case through the real hook, provider and `pilot.assess()` (`writer-policy negative controls`, `pre-review writer positive controls`).

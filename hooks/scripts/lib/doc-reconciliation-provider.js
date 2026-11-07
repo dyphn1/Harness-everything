@@ -964,6 +964,47 @@ function outlineHandoffDirectory(sessionDir, taskId) {
   return path.join(sessionDir, 'doc-reconciliation', 'outline-confirmation', taskId);
 }
 
+// #341 step 1: Harness records O's identity at each SubagentStart inside an outline task. A reviewer's launch record predates
+// its review, so the identity it carries is the O the reviewer evaluated; the record is not taken from the reviewer's prose.
+function captureOutlineStartIdentity({ sessionDir } = {}) {
+  const taskState = outlineTaskState(sessionDir);
+  if (taskState.state !== 'accepted') return null;
+  const root = taskState.baseline.root;
+  try {
+    const commit = outlineGit(root, ['rev-parse', '--verify', 'HEAD^{commit}']).trim();
+    const tree = outlineGit(root, ['rev-parse', '--verify', 'HEAD^{tree}']).trim();
+    const targetPaths = outlineGit(root, ['diff', '--name-only', '--no-renames', '-z', taskState.baseline.commit, commit])
+      .split('\0').filter(Boolean).sort(compareKeys);
+    const targetBlobs = {};
+    for (const target of targetPaths) {
+      targetBlobs[target] = { blobOid: outlineGit(root, ['rev-parse', `${commit}:${target}`]).trim(),
+        storedBytesSha256: outlineSha(outlineGit(root, ['show', `${commit}:${target}`], true)) };
+    }
+    return { state: 'accepted', identity: { baselineCommit: taskState.baseline.commit, outlineCommit: commit,
+      outlineTree: tree, targetPaths, targetBlobs } };
+  } catch {
+    return { state: 'unresolved', reason: 'outline-identity-unavailable' };
+  }
+}
+
+// The reviewer has exactly one launch record, it precedes the review Stop, and its identity equals the handoff's O identity.
+function validateOutlineIdentity({ handoff, captures } = {}) {
+  const refs = (Array.isArray(captures) ? captures : []).filter(recordOf);
+  const stop = refs.find(item => item.ref === handoff.reviewCaptureRef && item.event === 'SubagentStop');
+  if (!stop || !textOf(stop.agent_id)) return { state: 'unresolved', reason: 'outline-review-capture-missing-or-ambiguous' };
+  const starts = refs.filter(item => item.event === 'SubagentStart' && item.agent_id === stop.agent_id);
+  if (starts.length !== 1) return { state: 'unresolved', reason: 'outline-review-result-missing-or-ambiguous' };
+  if (refs.indexOf(starts[0]) > refs.indexOf(stop)) return { state: 'unresolved', reason: 'outline-identity-mismatch' };
+  const recorded = starts[0].outlineIdentity;
+  if (!recordOf(recorded) || recorded.state !== 'accepted' || !recordOf(recorded.identity)) {
+    return { state: 'unresolved', reason: 'outline-identity-unavailable' };
+  }
+  const current = { baselineCommit: handoff.baseline?.commit, outlineCommit: handoff.outline?.commit,
+    outlineTree: handoff.outline?.tree, targetPaths: handoff.targetPaths, targetBlobs: handoff.outline?.targetBlobs };
+  if (captureJson(recorded.identity) !== captureJson(current)) return { state: 'unresolved', reason: 'outline-identity-mismatch' };
+  return { state: 'accepted', identityDigest: outlineSha(Buffer.from(captureJson(recorded.identity))) };
+}
+
 function validateOutlineReview({ handoff, attemptDir, captures, targetPaths, outlineDigests, inventory, sessionId } = {}) {
   const refs = Array.isArray(captures) ? captures : [];
   const matches = refs.filter(item => recordOf(item) && item.ref === handoff.reviewCaptureRef && item.event === 'SubagentStop');
@@ -1010,6 +1051,15 @@ function validateOutlineHandoffAtDispatch({ payload, parsed, sessionDir, workspa
     || handoff.baseline.tree !== baseline.tree || handoff.configDigest !== taskBinding.configDigest) {
     return { state: 'unresolved', reason: 'handoff-identity-mismatch' };
   }
+  // O must change exactly the declared targets. Checked before the identity so an extra file reports its scope reason.
+  const changedAtO = outlineGit(baseline.root, ['diff', '--name-only', '--no-renames', '-z', baseline.commit, handoff.outline.commit])
+    .split('\0').filter(Boolean).sort(compareKeys);
+  if (captureJson(changedAtO) !== captureJson(Array.isArray(handoff.targetPaths) ? [...handoff.targetPaths].sort(compareKeys) : null)) {
+    return { state: 'unresolved', reason: 'outline-commit-scope-invalid' };
+  }
+  // Dispatch must still name the O the reviewer recorded: checked before the worktree, lease and review checks.
+  const recordedIdentity = validateOutlineIdentity({ handoff, captures });
+  if (recordedIdentity.state !== 'accepted') return recordedIdentity;
   const markerRoot = canonicalOutlineRoot(parsed.workerRoot);
   const declaredRoot = canonicalOutlineRoot(handoff.draftWorktreeRoot);
   if (!sameCanonicalPath(markerRoot, declaredRoot)) return { state: 'unresolved', reason: 'worker-root-mismatch' };
@@ -1091,7 +1141,7 @@ function validateOutlineHandoffAtDispatch({ payload, parsed, sessionDir, workspa
   return { state: 'accepted', taskBinding, baseline, handoff, handoffDigest, attemptDir, markerRoot,
     worktree: { root: markerRoot, head, tree, statusDigest, clean: true },
     inventory, inventoryPinDigest: outlineSha(pinLoaded.bytes), row: citedRow, targetPaths, outlineDigests, review,
-    leaseDigest: leaseLoaded.digest, leaseId: lease.id };
+    leaseDigest: leaseLoaded.digest, leaseId: lease.id, identityDigest: recordedIdentity.identityDigest };
 }
 
 function outlineDispatchUnresolved(parsed, reason) {
@@ -1151,7 +1201,8 @@ function captureOutlineDispatch(input = {}) {
       tokenDigest: parsed.tokenDigest, promptDigest: parsed.promptDigest, blockDigest: parsed.blockDigest,
       dispatchInputDigest: parsed.dispatchInputDigest, handoffDigest: validated.handoffDigest,
       reviewCaptureRef: validated.review.review.ref, reviewCaptureDigest: validated.review.captureDigest,
-      reviewDigest: validated.review.reviewDigest, inventoryPinDigest: validated.inventoryPinDigest,
+      reviewDigest: validated.review.reviewDigest, outlineIdentityDigest: validated.identityDigest,
+      inventoryPinDigest: validated.inventoryPinDigest,
       writerLeaseDigest: validated.leaseDigest, writerLeaseId: validated.leaseId,
       coordinatorPrincipal: payload.session_id, reviewerPrincipal: validated.review.reviewerPrincipal,
       worktree: validated.worktree, validationReasons: [],
@@ -1449,7 +1500,10 @@ function resolveOutlineEvidence({ safeInput, capture, captures, request, originR
     const dispatch = cap?.outlineDispatch;
     if (!recordOf(dispatch) || dispatch.schema !== OUTLINE_DISPATCH_SCHEMA || dispatch.state !== 'accepted'
       || !textOf(dispatch.seamRef) || dispatch.captureRef !== cap.ref || dispatch.toolUseId !== cap.tool_use_id) {
-      return fail('outline-pre-dispatch-seam-unresolved');
+      // The dispatch-time reason (for example outline-identity-mismatch) is kept beside the wrapper code, so the rejection names its cause.
+      const reasons = recordOf(dispatch) && Array.isArray(dispatch.reasons) ? dispatch.reasons.filter(reason => /^[a-z0-9-]+$/.test(String(reason))) : [];
+      return { status: 'rejected', diagnostics: [diagnostic('outline-pre-dispatch-seam-unresolved', { reason: 'outline-pre-dispatch-seam-unresolved' }),
+        ...reasons.map(reason => diagnostic(reason, { reason }))] };
     }
     if (cap.event !== 'PreToolUse' || !['Task', 'Agent'].includes(cap.tool_name)
       || cap.session_id !== safeInput.sessionId || cap.observedIdentity?.taskPin?.taskId !== safeInput.taskId) {
@@ -1563,6 +1617,11 @@ function resolveOutlineEvidence({ safeInput, capture, captures, request, originR
       && item.agent_id === review.reviewerPrincipal).length;
     if (reviewerLifecycle('SubagentStart') !== 1 || reviewerLifecycle('SubagentStop') !== 1) {
       return fail('outline-review-result-missing-or-ambiguous');
+    }
+    // The O the reviewer recorded at launch must still be the O dispatch and the handoff name (#341 step 1).
+    const identityNow = validateOutlineIdentity({ handoff, captures });
+    if (identityNow.state !== 'accepted' || identityNow.identityDigest !== seam.outlineIdentityDigest) {
+      return fail(identityNow.reason || 'outline-identity-mismatch');
     }
     // Review window: the reviewer's first record (or its launch result) through its SubagentStop.
     const reviewLaunchIds = new Set(journal.filter(item => recordOf(item) && item.event === 'PostToolUse'
@@ -2472,8 +2531,9 @@ function reviewRecordIndependent(cap, captures, principals) {
 module.exports = { createClaudeOriginProvider, createOpencodeOriginProvider, buildCaptureRecord, resolveDocCheckInvocation,
   registeredInstalledCheck: resolveDocCheckInvocation, installedDocCheck,
   fileDigest, SHIPPED_DOC_CHECK_DIGEST, trustRisk, journalExecutors, reviewRecordIndependent,
-  captureOutlineDispatch, writeImmutableEvent, rebuildJournalView, readCaptureView, readOpencodeCaptureView, observedIdentityFor,
-  _internals: { captureJson, captureDigest, digestText, canonicalCapture, parseOutlineDispatchPrompt,
+  captureOutlineDispatch, captureOutlineStartIdentity, writeImmutableEvent, rebuildJournalView, readCaptureView,
+  readOpencodeCaptureView, observedIdentityFor,
+  _internals: { validateOutlineIdentity, captureJson, captureDigest, digestText, canonicalCapture, parseOutlineDispatchPrompt,
     parseInventoryPinRows, validateOutlineInventoryPin, resolveInventoryRow, parseOutlineCitation, resolveOutlineAttempt,
     captureOutlineDispatch, resolveOutlineEvidence, verifyOutlineMergeCorrespondence, validateOutlineCaptureQualification,
     outlineCaptureMappingValid, correlateOutlineDispatch, OUTLINE_CAPTURE_MAPPING, OUTLINE_INVENTORY_PIN } };
