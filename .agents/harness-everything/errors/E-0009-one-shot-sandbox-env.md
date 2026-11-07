@@ -34,6 +34,15 @@ episodes:
         change: null
         review: coordinator
         result: "one-shot `claude -p` workers had an allowlist of only the packet's named commands; mid-run every other `node ci/*` regression suite required approval, so three consecutive packets reported provider-loading regressions as not run; the coordinator ran 7, 7 and 15 suites afterwards (all exit 0)"
+  - episode: 412-free-reviewer-delivery
+    feature: "#412 E1 writer contract, OpenCode free-model review-11"
+    date: 2026-11-08
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "Three review-11 attempts on free models delivered no accepted report: no column-zero STATUS line (E-0002), `Free usage limit reached` mid-run, then a run that exited 0 without writing the report; the coordinator stopped after three and parked the review for a paid runner"
   - episode: 341-e1-stage2-readonly-review-scratch
     feature: "#396 E1 stage 2 reviewer and worker dispatch"
     date: 2026-11-07
@@ -54,6 +63,7 @@ A sandboxed one-shot worker reports FAIL or stalls on loopback, temp-directory o
 Dispatch one-shot `codex exec` with a TMPDIR outside every repository and stdin closed; treat loopback-bind failures as sandbox-UNCHECKED and rerun the fast gate outside the sandbox before accepting. A log ending in `Reading additional input from stdin` is a hang, not progress.
 
 - Grant the pattern the packet's verification needs (e.g. `Bash(node ci/*)`), not only the listed commands.
+- Free reviewer models can stop on quota or end without a report: ping the model first, and after one failed delivery prefer a paid runner over a third free attempt.
 
 ## Stage 2 read-only review scratch (#396, 2026-11-07)
 
