@@ -388,6 +388,11 @@ runCase('glob-selector-metacharacters-cannot-hide-dependency-root-overlaps', [RE
     { label: 'absolute globstar before workspace segment', makeScope: root => ({ prdRoot: 'docs/prd/', paths: [path.join(path.dirname(root), '**', 'node_modules', '**')] }) },
     { label: 'absolute bracket before workspace segment', makeScope: root => ({ prdRoot: 'docs/prd/', paths: [path.join(path.dirname(root), `[${path.basename(root)[0]}]${path.basename(root).slice(1)}`, '.husky', '_', '**')] }) },
     { label: 'absolute glob under a non-canonical tmp alias', makeScope: () => ({ prdRoot: 'docs/prd/', paths: [path.join(os.tmpdir(), '*', 'node_modules', '**')] }) },
+    { label: 'absolute glob under a disjoint sibling with a symlink into the workspace', makeScope: root => {
+      fs.rmSync(path.join(DISJOINT_DIR, 'link'), { recursive: true, force: true });
+      fs.symlinkSync(root, path.join(DISJOINT_DIR, 'link'), 'junction');
+      return { prdRoot: 'docs/prd/', paths: [path.join(DISJOINT_DIR, '*', 'node_modules', '**')] };
+    } },
     { label: 'absolute node_modules selector', makeScope: root => ({ prdRoot: 'docs/prd/', paths: [path.join(root, 'node_modules', '**')] }) }
   ];
   for (const item of cases) {
@@ -399,7 +404,7 @@ runCase('glob-selector-metacharacters-cannot-hide-dependency-root-overlaps', [RE
   for (const item of [
     { label: 'absolute docs selector', makeScope: root => ({ prdRoot: 'docs/prd/', paths: [path.join(root, 'docs', 'prd', '**')] }) },
     { label: 'relative question wildcard outside roots', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['docs/pr?/**'] }) },
-    { label: 'absolute glob under a disjoint sibling directory', makeScope: () => ({ prdRoot: 'docs/prd/', paths: [path.join(DISJOINT_DIR, '*', 'node_modules', '**')] }) }
+    { label: 'absolute literal path under a disjoint sibling directory', makeScope: () => ({ prdRoot: 'docs/prd/', paths: [path.join(DISJOINT_DIR, 'docs', 'prd', 'graph.md')] }) }
   ]) {
     withRepo({ config: artifactConfig() }, repo => {
       ready(produce(mods, repo, { top: { scope: item.makeScope(repo.root) } }).result, item.label);
