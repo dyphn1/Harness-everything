@@ -109,35 +109,6 @@ function createOutlineFixture(options = {}) {
     finally { if (priorStateHome === undefined) delete process.env.HARNESS_STATE_HOME; else process.env.HARNESS_STATE_HOME = priorStateHome; }
   }
 
-  fs.writeFileSync(path.join(root, target), outlineText({
-    complete: options.completeOutline === true,
-    decisionPlaceholder: options.decisionPlaceholder === true,
-    duplicateDecision: options.duplicateDecision === true,
-    indentedDecision: options.indentedDecision === true,
-    rowId, target, domain,
-  }));
-  fixtureGit(root, ['add', '-A']);
-  fixtureGit(root, ['commit', '-q', '-m', 'O outline']);
-  const outlineCommit = fixtureGit(root, ['rev-parse', 'HEAD']);
-  const outlineTree = fixtureGit(root, ['rev-parse', 'HEAD^{tree}']);
-  const outlineBytes = fs.readFileSync(path.join(root, target));
-  const outlineBlob = fixtureGit(root, ['rev-parse', `HEAD:${target}`]);
-
-  const inventoryBytes = retainedInventory
-    ? fs.readFileSync(path.join(ROOT, 'benchmarks/results/live-host/claude-341-outline-dispatch-2026-10-28/inventory/2741bd4514d2cd68f57d93a2b3ce94cbe597ca62d30e26f0ca58e882df5b03c6.md'))
-    : Buffer.from(syntheticInventory);
-  const pinDigest = sha(inventoryBytes);
-  const expectedPin = retainedInventory ? internals.OUTLINE_INVENTORY_PIN : {
-    source: 'synthetic://approved-inventory', sha256: pinDigest, runId: 'synthetic-run', inputSha: 'abcdef012345',
-    approvalRef: { issue: 325, commentId: 'synthetic-comment', decision: 1 },
-    retainedArtifactPath: `inventory/${pinDigest}.md`,
-  };
-  if (retainedInventory) assert.strictEqual(pinDigest, expectedPin.sha256, 'retained inventory bytes must match the pinned digest');
-  const outlineRoot = path.join(sessionDir, 'doc-reconciliation/outline-confirmation');
-  const inventoryDir = path.join(outlineRoot, 'inventory');
-  fs.mkdirSync(inventoryDir, { recursive: true });
-  fs.writeFileSync(path.join(inventoryDir, `${pinDigest}.md`), inventoryBytes);
-  writeJson(path.join(inventoryDir, 'inventory-pin.json'), expectedPin);
   const requirementIds = ['prb'];
   const workspaceId = 'ws-' + internals.digestText(internals.captureJson({ workspaceRoot: root }));
   const taskBinding = { schema: 'harness.doc-reconciliation-task-pin.v1', taskId, requirementIds,
@@ -149,9 +120,9 @@ function createOutlineFixture(options = {}) {
   });
 
   let hookPreloader = null;
-  function runHook(payload, pilotEnabled = true) {
+  function runHook(payload, pilotEnabled = true, usePreload = true) {
     if (!options.realHook) throw new Error('real state-persist capture was not enabled for this fixture');
-    if (!hookPreloader) {
+    if (usePreload && !hookPreloader) {
       hookPreloader = path.join(stateHome, 'outline-test-preload.js');
       const providerPath = path.join(ROOT, 'hooks/scripts/lib/doc-reconciliation-provider.js');
       fs.writeFileSync(hookPreloader, [
@@ -176,7 +147,7 @@ function createOutlineFixture(options = {}) {
         '}',
       ].join('\n'));
     }
-    const child = spawnSync(process.execPath, ['--require', hookPreloader, path.join(ROOT, 'hooks/scripts/state-persist.js')], {
+    const child = spawnSync(process.execPath, [...(usePreload ? ['--require', hookPreloader] : []), path.join(ROOT, 'hooks/scripts/state-persist.js')], {
       cwd: root, encoding: 'utf8', input: JSON.stringify(payload),
       env: { ...process.env, HARNESS_STATE_HOME: stateHome, HARNESS_WORKSPACE_ROOT: root,
         HARNESS_DOC_RECONCILIATION_PILOT: pilotEnabled ? '1' : '0' },
@@ -184,6 +155,61 @@ function createOutlineFixture(options = {}) {
     if (child.status !== 0) throw new Error(`state-persist failed open contract: ${child.stderr || child.stdout || child.status}`);
     return provider.readCaptureView(sessionDir).records;
   }
+
+  const outlineBytes = Buffer.from(outlineText({
+    complete: options.completeOutline === true,
+    decisionPlaceholder: options.decisionPlaceholder === true,
+    duplicateDecision: options.duplicateDecision === true,
+    indentedDecision: options.indentedDecision === true,
+    rowId, target, domain,
+  }));
+  let preOutlineOperation = null;
+  if (options.preOutlineOperation) {
+    if (!options.realHook) throw new Error('pre-outline operation requires the real state-persist hook');
+    const operation = options.preOutlineOperation;
+    const toolUseId = 'pre-outline-' + operation + '-' + sessionId;
+    const payload = operation === 'write'
+      ? { session_id: sessionId, cwd: root, hook_event_name: 'PreToolUse', tool_name: 'Write', tool_use_id: toolUseId,
+        tool_input: { file_path: path.join(root, target), content: outlineBytes.toString('utf8') } }
+      : { session_id: sessionId, cwd: root, hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_use_id: toolUseId,
+        tool_input: { command: 'git status --porcelain' } };
+    const preRecords = runHook(payload, true, false);
+    let output = '';
+    if (operation === 'write') fs.writeFileSync(path.join(root, target), outlineBytes);
+    else output = execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' });
+    const postPayload = { ...payload, hook_event_name: 'PostToolUse', tool_response: { exitCode: 0, stdout: output } };
+    runHook(postPayload, true, false);
+    const records = provider.readCaptureView(sessionDir).records;
+    const pre = preRecords.find(item => item.event === 'PreToolUse' && item.tool_use_id === toolUseId);
+    const post = records.find(item => item.event === 'PostToolUse' && item.tool_use_id === toolUseId);
+    assert.ok(pre && post, operation + ' operation has real PreToolUse and successful PostToolUse captures');
+    preOutlineOperation = { operation, toolUseId, command: operation === 'status' ? 'git status --porcelain' : null,
+      output, preRef: pre.ref, postRef: post.ref };
+  }
+
+  if (!preOutlineOperation || preOutlineOperation.operation !== 'write') fs.writeFileSync(path.join(root, target), outlineBytes);
+  fixtureGit(root, ['add', '-A']);
+  fixtureGit(root, ['commit', '-q', '-m', 'O outline']);
+  const outlineCommit = fixtureGit(root, ['rev-parse', 'HEAD']);
+  const outlineTree = fixtureGit(root, ['rev-parse', 'HEAD^{tree}']);
+  const outlineBlob = fixtureGit(root, ['rev-parse', `HEAD:${target}`]);
+
+  const inventoryBytes = retainedInventory
+    ? fs.readFileSync(path.join(ROOT, 'benchmarks/results/live-host/claude-341-outline-dispatch-2026-10-28/inventory/2741bd4514d2cd68f57d93a2b3ce94cbe597ca62d30e26f0ca58e882df5b03c6.md'))
+    : Buffer.from(syntheticInventory);
+  const pinDigest = sha(inventoryBytes);
+  const expectedPin = retainedInventory ? internals.OUTLINE_INVENTORY_PIN : {
+    source: 'synthetic://approved-inventory', sha256: pinDigest, runId: 'synthetic-run', inputSha: 'abcdef012345',
+    approvalRef: { issue: 325, commentId: 'synthetic-comment', decision: 1 },
+    retainedArtifactPath: `inventory/${pinDigest}.md`,
+  };
+  if (retainedInventory) assert.strictEqual(pinDigest, expectedPin.sha256, 'retained inventory bytes must match the pinned digest');
+  const outlineRoot = path.join(sessionDir, 'doc-reconciliation/outline-confirmation');
+  const inventoryDir = path.join(outlineRoot, 'inventory');
+  fs.mkdirSync(inventoryDir, { recursive: true });
+  fs.writeFileSync(path.join(inventoryDir, `${pinDigest}.md`), inventoryBytes);
+  writeJson(path.join(inventoryDir, 'inventory-pin.json'), expectedPin);
+
 
   const inventoryPath = `doc-reconciliation/outline-confirmation/inventory/${pinDigest}.md`;
   const reviewerPrincipal = options.reviewerPrincipal || 'outline-reviewer';
@@ -437,7 +463,7 @@ function createOutlineFixture(options = {}) {
     return { captures, origin, identity, draftCommit, draftBytes, result, pilot: pilotResult };
   }
 
-  return { root, sessionDir, target, taskId, attemptId, sessionId, workflowId, workflowRevision,
+  return { root, sessionDir, target, taskId, attemptId, sessionId, workflowId, workflowRevision, preOutlineOperation,
     baselineCommit, baselineTree, outlineCommit, outlineTree, outlineBlob, outlineBytes, configDigest,
     expectedPin, taskBinding, attemptDir, handoff, payload, capture, reviewCaptures, workerStart,
     extraCaptures, dispatchAgain, finishDraft, runHook, stateHome,
@@ -1589,6 +1615,97 @@ test('overwriting a dispatched predecessor handoff invalidates the retained atte
       taskId: fixture.taskId, attemptId: secondId }).state, 'unresolved',
     'the retained handoff seal still detects overwrites after token/seam files are removed');
   } finally { fixture.cleanup(); }
+});
+
+test('captured pre-O coordinator Write is withheld while the paired read-only control earns outline credit', () => {
+  const legs = [];
+  for (const [name, operation, sessionId] of [
+    ['writer', 'write', 'coordinator-writer-session'],
+    ['control', 'status', 'coordinator-control-session'],
+  ]) {
+    const fixture = createOutlineFixture({ realHook: true, preOutlineOperation: operation, sessionId });
+    try {
+      const completed = fixture.finishDraft({ runPilot: true });
+      const captures = completed.captures;
+      const preOperation = captures.find(item => item.ref === fixture.preOutlineOperation.preRef);
+      const postOperation = captures.find(item => item.ref === fixture.preOutlineOperation.postRef);
+      const reviewResult = captures.find(item => item.event === 'PostToolUse' && item.tool_use_id === 'review-dispatch');
+      const reviewStop = captures.find(item => item.ref === fixture.handoff.reviewCaptureRef);
+      const dispatch = captures.find(item => item.event === 'PreToolUse' && item.tool_use_id === fixture.payload.tool_use_id);
+      const correlation = internals.correlateOutlineDispatch(captures, dispatch, fixture.root);
+      const reviewIndependent = provider.reviewRecordIndependent(reviewStop, captures, {
+        author: fixture.sessionId, executors: provider.journalExecutors(captures, fixture.sessionId),
+      });
+      assert.ok(preOperation && postOperation && reviewResult && reviewStop && dispatch);
+      assert.strictEqual(preOperation.event, 'PreToolUse');
+      assert.strictEqual(postOperation.event, 'PostToolUse');
+      assert.strictEqual(preOperation.session_id, fixture.sessionId);
+      assert.strictEqual(preOperation.tool_name, operation === 'write' ? 'Write' : 'Bash');
+      if (operation === 'status') assert.strictEqual(preOperation.command, 'git status --porcelain');
+      assert.ok(!Object.prototype.hasOwnProperty.call(preOperation, 'agent_id'),
+        'pre-O operation retains the root coordinator identity shape');
+      assert.strictEqual(fixture.capture.outlineDispatch.state, 'accepted', name + ' dispatch seam accepted');
+      assert.strictEqual(dispatch.outlineDispatch.state, 'accepted', name + ' retained dispatch seam accepted');
+      assert.strictEqual(reviewIndependent, true, name + ' independent exact-O reviewer remains valid');
+      assert.strictEqual(correlation.state, 'accepted', name + ' worker dispatch/result/start/stop correlation accepted');
+      assert.strictEqual(correlation.agentId, 'draft-worker');
+      assert.strictEqual(correlation.workerRoot, fixture.root);
+
+      const eventRefs = [preOperation.ref, postOperation.ref, reviewResult.ref, reviewStop.ref, dispatch.ref,
+        correlation.start.ref, correlation.result.ref, correlation.stop.ref];
+      const eventIndexes = eventRefs.map(ref => captures.findIndex(item => item.ref === ref));
+      assert.ok(eventIndexes.every(index => index >= 0));
+      assert.ok(eventIndexes.every((index, position) => position === 0 || eventIndexes[position - 1] < index),
+        name + ' retained events preserve Pre/Post → review → dispatch → worker lifecycle order');
+      fixtureGit(fixture.root, ['merge-base', '--is-ancestor', fixture.baselineCommit, fixture.outlineCommit]);
+      fixtureGit(fixture.root, ['merge-base', '--is-ancestor', fixture.outlineCommit, completed.draftCommit]);
+      assert.notStrictEqual(fixture.outlineCommit, completed.draftCommit, name + ' D is a strict descendant of O');
+
+      const report = completed.pilot?.report;
+      assert.ok(report, name + ' used the actual pilot.assess() consumer');
+      const diagnosticCodes = (completed.result.diagnostics || []).map(item => item.code);
+      const outlineEvidence = report.outlineEvidence;
+      const pilotDiagnosticCodes = (outlineEvidence.diagnostics || []).map(item => item.code);
+      if (name === 'writer') {
+        assert.strictEqual(completed.result.status, 'rejected');
+        assert.ok(diagnosticCodes.includes('outline-writer-activity-ambiguous'), JSON.stringify(completed.result));
+        assert.ok(pilotDiagnosticCodes.includes('outline-writer-activity-ambiguous'), JSON.stringify(report));
+        assert.notStrictEqual(outlineEvidence.outcome, 'pass', JSON.stringify(report));
+      } else {
+        assert.strictEqual(fixture.preOutlineOperation.output, '', 'clean B produces the real empty git status output');
+        assert.strictEqual(completed.result.status, 'accepted', JSON.stringify(completed.result));
+        assert.strictEqual(outlineEvidence.outcome, 'pass', JSON.stringify(report));
+      }
+      legs.push({ name, operation: fixture.preOutlineOperation, target: fixture.target, targetSha256: sha(fixture.outlineBytes),
+        taskId: fixture.taskId, requirementIds: fixture.taskBinding.requirementIds,
+        baselineCommit: fixture.baselineCommit, outlineCommit: fixture.outlineCommit, draftCommit: completed.draftCommit,
+        outlineBlob: fixture.outlineBlob, outlineEvidenceOutcome: outlineEvidence.outcome,
+        expectedMustIds: report.expectedMustIds, unsatisfied: report.unsatisfied,
+        diagnosticCodes, providerStatus: completed.result.status,
+        reviewer: { resultRef: reviewResult.ref, stopRef: reviewStop.ref, principal: reviewStop.agent_id, independent: reviewIndependent },
+        dispatch: { ref: dispatch.ref, seamState: dispatch.outlineDispatch.state },
+        worker: { startRef: correlation.start.ref, resultRef: correlation.result.ref, stopRef: correlation.stop.ref,
+          principal: correlation.agentId, root: correlation.workerRoot },
+        orderedEventRefs: eventRefs });
+    } finally { fixture.cleanup(); }
+  }
+
+  assert.deepStrictEqual(legs[0].expectedMustIds, legs[1].expectedMustIds,
+    'both legs retain the same applicable MUST obligations');
+  assert.ok(legs[0].expectedMustIds.includes('doc-change:outline-confirmation'),
+    'the same outline-confirmation MUST remains applicable in both legs');
+  assert.deepStrictEqual(
+    [legs[0].taskId, legs[0].requirementIds, legs[0].target, legs[0].targetSha256],
+    [legs[1].taskId, legs[1].requirementIds, legs[1].target, legs[1].targetSha256],
+    'both legs use the same task, obligation inputs, target and O bytes');
+  const unrelatedMustResults = leg => leg.unsatisfied
+    .filter(item => item.obligationId.startsWith('doc-change:') && item.obligationId !== 'doc-change:outline-confirmation')
+    .map(item => [item.obligationId, item.state, item.reasonCode]);
+  assert.deepStrictEqual(unrelatedMustResults(legs[0]), unrelatedMustResults(legs[1]),
+    'remaining aggregate MUST failures are identical and unrelated to outline credit');
+  assert.strictEqual(legs[0].targetSha256, legs[1].targetSha256);
+  assert.strictEqual(legs[0].outlineBlob, legs[1].outlineBlob, 'same O bytes produce the same target blob');
+  console.log('WITNESS ' + JSON.stringify(legs));
 });
 
 test('real capture→provider→adapter→checker→pilot discovers one outline event without injected refs', () => {
