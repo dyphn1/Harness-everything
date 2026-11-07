@@ -373,6 +373,9 @@ runCase('glob-selector-metacharacters-cannot-hide-dependency-root-overlaps', [RE
     { label: 'parent traversal cannot hide a question wildcard overlap', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['docs/../?ode_modules/**'] }) },
     { label: 'repeated dot segments cannot hide a question wildcard overlap', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['././?ode_modules/**'] }) },
     { label: 'inner dot and empty segments cannot hide husky overlap', makeScope: () => ({ prdRoot: 'docs/prd/', paths: ['./.husk?/./_//**'] }) },
+    ...['?ODE_MODULES/**', 'Node_Module?/**', '*_MODULES/**', '.?USKY/_/**', '.HUSK*/_/**', '.husky/?/**', './/?ODE_MODULES\\**'].map(selector => (
+      { label: `mixed-case wildcard ${selector}`, makeScope: () => ({ prdRoot: 'docs/prd/', paths: [selector] }) })),
+    { label: 'absolute mixed-case wildcard selector', makeScope: root => ({ prdRoot: 'docs/prd/', paths: [path.join(root, '?ODE_MODULES', '**')] }) },
     { label: 'absolute node_modules selector', makeScope: root => ({ prdRoot: 'docs/prd/', paths: [path.join(root, 'node_modules', '**')] }) }
   ];
   for (const item of cases) {

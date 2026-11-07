@@ -86,7 +86,10 @@ function rootMention(value, root) {
   }
   return false;
 }
-function globSegmentMatches(pattern, segment) {
+function globSegmentMatches(rawPattern, rawSegment) {
+  // Same NFC + lowercase folding as rootMention()/pathUnderRoot(), so a wildcard spelling cannot dodge it.
+  const pattern = rawPattern.normalize('NFC').toLowerCase();
+  const segment = rawSegment.normalize('NFC').toLowerCase();
   if (/[\[\]{}]/.test(pattern)) return true;
   const escaped = pattern.split(/([*?])/).map(part => part === '*' ? '[\\s\\S]*' : part === '?' ? '[\\s\\S]'
     : part.replace(/[|\\{}()[\]^$+?.]/g, '\\$&')).join('');
