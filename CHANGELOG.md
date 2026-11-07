@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Bug Fixes
+
+* **doc-reconciliation:** keep outline approvals durable and detect dependency-root selector overlaps conservatively, including unsupported glob syntax and parent traversal
+
 ## [0.47.5](https://github.com/dyphn1/Harness-everything/compare/v0.47.4...v0.47.5) (2026-11-03)
 
 ### Bug Fixes
@@ -65,6 +71,10 @@ All notable changes to this project are documented in this file.
 * **doc-reconciliation:** sanitize outline dispatch tokens and test the derived seam end to end ([c30b20b](https://github.com/dyphn1/Harness-everything/commit/c30b20ba6d5899805a6f6e6468fe68b04a71ef31))
 
 ## [Unreleased]
+
+### Added
+
+* **doc-reconciliation:** support a baseline-pinned, opt-in inventory exclusion for untracked artifacts under `node_modules` and `.husky/_`, with overlap guards that resolve absolute selectors against the workspace while ignoring task-pin identity metadata.
 
 ### Bug Fixes
 

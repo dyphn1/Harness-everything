@@ -1701,6 +1701,15 @@ function parseInventoryDoc(relativePath, bytes) {
   };
 }
 
+function convertWorkspaceFiles(root, inventory) {
+  const files = (Array.isArray(inventory) ? inventory : []).map(item => ({
+    relative: item.path,
+    bytes: Buffer.from(item.bytes)
+  }));
+  const rules = readWorkingTreeRules(root, files.filter(item => item.bytes.includes(0x0d)).map(item => item.relative));
+  return files.map(item => ({ path: item.relative, bytes: workingStoredBytes(root, item.relative, item.bytes, rules) }));
+}
+
 function scanWorkspaceFiles(root, scope = null) {
   if (!root) return [];
   const workspace = path.resolve(root);
@@ -1728,8 +1737,7 @@ function scanWorkspaceFiles(root, scope = null) {
     }
   }
   walk(workspace, '');
-  const rules = readWorkingTreeRules(workspace, files.filter(item => item.bytes.includes(0x0d)).map(item => item.relative));
-  return files.map(item => ({ path: item.relative, bytes: workingStoredBytes(workspace, item.relative, item.bytes, rules) }));
+  return convertWorkspaceFiles(workspace, files.map(item => ({ path: item.relative, bytes: item.bytes })));
 }
 
 function scanWorkspaceInventory(root) {
@@ -2785,6 +2793,6 @@ function main(argv = process.argv.slice(2)) {
   return analysis.diagnostics.some(item => item.severity === 'error') ? 1 : 0;
 }
 
-module.exports = { readGitBaseInventory, scanWorkspaceFiles, parseFrontmatter, parseRequirementBlocks, collectDocs, documentCorpusPaths, analyzeDocs, resolveRef, lintDocs, buildIndex, buildIndexSnapshot, configSourceInventory, diffRevisions, buildGitDocumentInventory };
+module.exports = { readGitBaseInventory, scanWorkspaceFiles, convertWorkspaceFiles, parseFrontmatter, parseRequirementBlocks, collectDocs, documentCorpusPaths, analyzeDocs, resolveRef, lintDocs, buildIndex, buildIndexSnapshot, configSourceInventory, diffRevisions, buildGitDocumentInventory };
 
 if (require.main === module) process.exitCode = main();

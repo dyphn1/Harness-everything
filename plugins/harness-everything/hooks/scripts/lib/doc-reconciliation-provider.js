@@ -77,7 +77,7 @@ const OUTLINE_INVENTORY_PIN = Object.freeze({
   inputSha: '0ef0541c6cae550e8269ba712e03797e0e987dfb',
   approvalRef: { issue: 325, commentId: '6436207729', decision: 1 },
   rowDomainMappings: Object.freeze([Object.freeze({ rowIds: Object.freeze(['15', '16', '17', '18']),
-    sourceDomain: 'VERI', domain: 'EVID', approvalRef: '../e1-feasibility-2026-10-28/owner-decision-veri-evid.md' })]),
+    sourceDomain: 'VERI', domain: 'EVID', approvalRef: 'https://github.com/dyphn1/Harness-everything/issues/325#issuecomment-6706805112' })]),
   retainedArtifactPath: `inventory/${OUTLINE_INVENTORY_SHA256}.md`,
 });
 const OUTLINE_MARKER = 'HARNESS_OUTLINE_DISPATCH_V1';

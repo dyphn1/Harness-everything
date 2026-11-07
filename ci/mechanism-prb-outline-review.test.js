@@ -533,7 +533,7 @@ test('the trusted inventory pin maps only owner-approved VERI rows 15–18 to EV
   const bytes = fs.readFileSync(path.join(ROOT,
     'benchmarks/results/live-host/claude-341-outline-dispatch-2026-10-28/inventory/2741bd4514d2cd68f57d93a2b3ce94cbe597ca62d30e26f0ca58e882df5b03c6.md'));
   const mapping = [{ rowIds: ['15', '16', '17', '18'], sourceDomain: 'VERI', domain: 'EVID',
-    approvalRef: '../e1-feasibility-2026-10-28/owner-decision-veri-evid.md' }];
+    approvalRef: 'https://github.com/dyphn1/Harness-everything/issues/325#issuecomment-6706805112' }];
   assert.deepStrictEqual(pin.rowDomainMappings, mapping, 'the owner approval is part of the trusted pin');
   const valid = internals.validateOutlineInventoryPin({ bytes, pin, expectedPin: pin });
   assert.strictEqual(valid.state, 'accepted');
