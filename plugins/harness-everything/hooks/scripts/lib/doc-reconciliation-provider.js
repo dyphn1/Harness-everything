@@ -68,6 +68,10 @@ const OUTLINE_CAPTURE_MAPPING = Object.freeze({
 const OUTLINE_SEAM_SCHEMA = 'harness.outline-dispatch-seam.v1';
 const OUTLINE_HANDOFF_SCHEMA = 'harness.outline-handoff.v1';
 const OUTLINE_LEASE_SCHEMA = 'harness.outline-writer-lease.v1';
+const OUTLINE_WRITE_TOOLS = ['Write', 'Edit', 'apply_patch'];
+// B→O commit shape: one simple git add/commit segment. The string only selects the candidate; the O commit scope check
+// and the clean-O dispatch seam decide its effect.
+const OUTLINE_B_TO_O_GIT = /^git (?:add|commit)(?: [^;&|<>$`(){}\r\n]*)?$/;
 const OUTLINE_INVENTORY_SOURCE = '/Users/daniel.chang/Desktop/Skills/Harness-everything/.worktrees/packets/adr-e1-2026-10-27/report-inv.md';
 const OUTLINE_INVENTORY_SHA256 = '2741bd4514d2cd68f57d93a2b3ce94cbe597ca62d30e26f0ca58e882df5b03c6';
 const OUTLINE_INVENTORY_PIN = Object.freeze({
@@ -1384,9 +1388,36 @@ function outlineAncestry(root, ancestor, descendant) {
 
 function possibleWriterCapture(item) {
   if (!recordOf(item)) return false;
-  if (['Write', 'Edit', 'apply_patch'].includes(item.tool_name)) return true;
+  if (OUTLINE_WRITE_TOOLS.includes(item.tool_name)) return true;
   if (!['Bash', 'PowerShell', 'exec_command'].includes(item.tool_name)) return false;
   return !['read-only', 'worktree-setup'].includes(classifyShell(item.command));
+}
+
+function writeTargetsOf(toolName, toolInput) {
+  if (toolName === 'apply_patch') {
+    const patch = typeof toolInput === 'string' ? toolInput : (recordOf(toolInput) ? String(toolInput.patch || toolInput.input || '') : '');
+    return [...patch.matchAll(/^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+?)\r?$/gm)].map(match => match[1].trim());
+  }
+  const file = recordOf(toolInput) ? toolInput.file_path || toolInput.path : undefined;
+  return typeof file === 'string' && file.trim() ? [file] : [];
+}
+
+// Phase-aware writer decision (W1–W3). Principal and phase come from captured identity and journal position only.
+// Allowed: coordinator Write/Edit/apply_patch of exactly a pinned target before the reviewer lifecycle starts; coordinator
+// git add/commit of the same before review (its effect is checked by the O commit scope); the correlated draft worker
+// between dispatch and its Stop. Everything else, including any coordinator state write after review, stays ambiguous.
+function outlineWriterAllowed(item, { index, sessionId, root, targets, worker, workerRoot, reviewStartIndex, reviewStopIndex,
+  dispatchIndex, workerStopIndex }) {
+  const phase = index < reviewStartIndex ? 'b-to-o' : index <= reviewStopIndex ? 'review'
+    : index < dispatchIndex ? 'review-to-dispatch' : index <= workerStopIndex ? 'dispatch-to-draft' : 'after-draft';
+  if (phase === 'dispatch-to-draft') return item.agent_id === worker.agent_id && sameCanonicalPath(item.cwd, workerRoot);
+  if (phase !== 'b-to-o' || textOf(item.agent_id) || item.session_id !== sessionId) return false;
+  if (OUTLINE_WRITE_TOOLS.includes(item.tool_name)) {
+    const pinned = targets.map(target => path.join(root, target));
+    return Array.isArray(item.writeTargets) && item.writeTargets.length > 0
+      && item.writeTargets.every(file => pinned.some(target => samePathKey(path.resolve(item.cwd || root, file), target)));
+  }
+  return item.tool_name === 'Bash' && samePathKey(item.cwd || root, root) && OUTLINE_B_TO_O_GIT.test(String(item.command || '').trim());
 }
 
 function sameCanonicalPath(left, right) {
@@ -1527,9 +1558,23 @@ function resolveOutlineEvidence({ safeInput, capture, captures, request, originR
       && item.event === 'SubagentStart' && item.ref !== worker.ref && sameCanonicalPath(item.cwd, workerRoot)
       && !stoppedBeforeDispatch(item) && !startedAfterWorkerStop(item));
     if (competingStarts.length) return fail('outline-competing-writer-start');
-    const unattributedWriters = (Array.isArray(captures) ? captures : []).filter(item => possibleWriterCapture(item)
-      && (item.agent_id !== worker.agent_id || !sameCanonicalPath(item.cwd, workerRoot)));
+    // Review window: the reviewer's first record (or its launch result) through its SubagentStop.
+    const reviewLaunchIds = new Set(journal.filter(item => recordOf(item) && item.event === 'PostToolUse'
+      && ['Task', 'Agent'].includes(item.tool_name) && item.agent_id === review.reviewerPrincipal && textOf(item.tool_use_id))
+      .map(item => item.tool_use_id));
+    const writerWindow = {
+      sessionId: safeInput.sessionId, root: taskState.baseline.root, targets: targetPaths, worker, workerRoot,
+      reviewStartIndex: journal.findIndex(item => recordOf(item) && (item.agent_id === review.reviewerPrincipal
+        || (textOf(item.tool_use_id) && reviewLaunchIds.has(item.tool_use_id)))),
+      reviewStopIndex: journal.indexOf(review.review), dispatchIndex, workerStopIndex: journal.indexOf(correlation.stop),
+    };
+    const unattributedWriters = journal.filter((item, index) => possibleWriterCapture(item)
+      && !outlineWriterAllowed(item, { ...writerWindow, index }));
     if (unattributedWriters.length) return fail('outline-writer-activity-ambiguous');
+    // The B→O commit is accepted only if O changes exactly the pinned target(s) relative to B.
+    const oChanged = outlineGit(seam.worktree.root, ['diff', '--name-only', '--no-renames', '-z', taskState.baseline.commit,
+      handoff.outline.commit]).split('\0').filter(Boolean).sort(compareKeys);
+    if (captureJson(oChanged) !== captureJson([...targetPaths].sort(compareKeys))) return fail('outline-commit-scope-invalid');
 
     let candidateRoot;
     try { candidateRoot = canonicalOutlineRoot(safeInput.workspaceRoot); }
@@ -2233,6 +2278,8 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
   if (payload.parent_tool_use_id !== undefined) record.parent_tool_use_id = payload.parent_tool_use_id;
   // The launch tool name separates the Agent/Task result surface and the subagent launch from executed tools (F4/F5).
   if (typeof payload.tool_name === 'string') record.tool_name = payload.tool_name;
+  // The write target is the only path evidence the writer policy binds to (W1/W2); absent for other tools.
+  if (OUTLINE_WRITE_TOOLS.includes(payload.tool_name)) record.writeTargets = writeTargetsOf(payload.tool_name, payload.tool_input);
   if (outlinePre) {
     if (Object.prototype.hasOwnProperty.call(toolInput, 'run_in_background')) record.run_in_background = toolInput.run_in_background;
     record.isolationSet = Object.prototype.hasOwnProperty.call(toolInput, 'isolation');

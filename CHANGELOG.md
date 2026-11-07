@@ -7,6 +7,7 @@ All notable changes to this project are documented in this file.
 ### Bug Fixes
 
 * **doc-reconciliation:** keep outline approvals durable and detect dependency-root selector overlaps conservatively, including unsupported glob syntax and parent traversal
+* **doc-reconciliation:** replace the blanket outline writer rule with a phase-aware policy: a coordinator write or git add/commit of the pinned target before review earns credit, and every other captured writer stays ambiguous (#341)
 
 ## [0.47.5](https://github.com/dyphn1/Harness-everything/compare/v0.47.4...v0.47.5) (2026-11-03)
 

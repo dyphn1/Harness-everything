@@ -1260,7 +1260,40 @@ flowchart LR
 | Worker and D | The dispatch key is `(session_id, tool_use_id)`. Exactly one matching Task/Agent result must carry `tool_response.status === 'completed'`; its observed `tool_response.agentId` must map to exactly one `SubagentStart` and one `SubagentStop` with the same `session_id` and `agent_id`. Require PreToolUse < SubagentStart < SubagentStop in journal order, but do not order the completed result against Stop. Both worker events need exact canonical `cwd === workerRoot`. `prompt_id` and `parent_tool_use_id` are not correlation keys; `interrupted` is not completion proof. Async launches, failures, cancellation, missing/duplicate events, replayed IDs, worktree isolation and root mismatch stay unresolved. D is checked against the current candidate separately from O. O must be a strict ancestor of D. A squash may retain the cycle only when a coordinator correspondence record proves identical target blobs between retained pre-merge D and the merged tree; changed bytes need fresh final quality review. |
 | Checker outcome | `outline-confirmation` has its own pass/unresolved lane. Generic command success and waivers never satisfy it. No D is incomplete/unresolved. Its result is separate from the aggregate result over every MUST derived from original B→D; an outline pass never waives lint, conflict, quality review, requirement-sync or other MUSTs. |
 
-Capture and validation failures stay fail-open to host tools and withhold evidence credit. Unclassified shell commands and writes outside the correlated worker/root remain unresolved. A same-root subagent start is unresolved as a competing writer when it may overlap the exclusive draft interval, from accepted dispatch PreToolUse through the uniquely correlated draft worker’s Stop. A uniquely identified agent whose Start and unique Stop both precede dispatch, or whose Start occurs strictly after that worker Stop, does not establish overlap by its Start alone. Missing, duplicated or inconsistent lifecycle evidence stays unresolved. This exception does not authorize writes outside the correlated draft worker/root or relax independent review, artifact identity or final-byte validation.
+Capture and validation failures stay fail-open to host tools and withhold evidence credit. Writer activity is decided per captured record by the phase-aware policy below (see [Writer policy](#writer-policy-phase-aware)); anything it does not allow stays `outline-writer-activity-ambiguous`. A same-root subagent start is unresolved as a competing writer when it may overlap the exclusive draft interval, from accepted dispatch PreToolUse through the uniquely correlated draft worker’s Stop. A uniquely identified agent whose Start and unique Stop both precede dispatch, or whose Start occurs strictly after that worker Stop, does not establish overlap by its Start alone. Missing, duplicated or inconsistent lifecycle evidence stays unresolved. This exception does not authorize writes outside the correlated draft worker/root or relax independent review, artifact identity or final-byte validation.
+
+### Writer policy (phase-aware)
+
+Each captured writer record is decided by principal × phase × operation × target. Captured identity and journal position are the only inputs; a command string never decides on its own. This replaces the earlier blanket rule that rejected any writer other than the draft worker.
+
+```mermaid
+flowchart LR
+  R["captured writer record"] --> P{"journal phase"}
+  P -->|"before reviewer launch"| B["B→O: coordinator writes or git add/commit of the pinned target"]
+  P -->|"reviewer launch to its Stop"| V["review: no writer"]
+  P -->|"review Stop to dispatch"| H["review→dispatch: no writer (W3 unverifiable)"]
+  P -->|"dispatch to worker Stop"| D["draft: correlated worker in its root"]
+  P -->|"after worker Stop"| A["after D: no writer"]
+  B --> S["O commit must change exactly the pinned target(s) against B"]
+```
+
+| Phase | Principal | Operation and target | Result |
+|---|---|---|---|
+| Before reviewer launch | Coordinator: no `agent_id`, author `session_id` | `Write`, `Edit` or `apply_patch` whose every path is a pinned target | Allowed |
+| Before reviewer launch | Coordinator | Bash `git add` or `git commit` as one simple segment (no `;`, `&`, `\|`, redirection, substitution or grouping) | Allowed; the O commit scope check decides the effect |
+| Before reviewer launch | Any | Any other write, chained or unknown shell command, or a path that is not the target | `outline-writer-activity-ambiguous` |
+| Review | Reviewer or any other agent | Any writer | Ambiguous |
+| Review to dispatch | Coordinator | Any write, including handoff, lease, pin and merge-correspondence files | Ambiguous |
+| Dispatch to worker Stop | Correlated worker, `cwd` equal to the worker root | Any writer | Allowed |
+| Dispatch to worker Stop | Other agent or coordinator | Any writer | Ambiguous; an overlapping same-root start is `outline-competing-writer-start` |
+| After worker Stop | Any | Any writer | Ambiguous |
+
+- The reviewer launch is the first journal record that is the reviewer's own, or the launch result sharing its `tool_use_id`. The review ends at the reviewer's `SubagentStop`.
+- Write-family records carry `writeTargets` (the `file_path`, or the `apply_patch` headers). A record without a target is ambiguous.
+- The O commit scope check requires `git diff --name-only B O` to equal the pinned target paths, otherwise `outline-commit-scope-invalid`.
+- **W3 stays rejected.** Handoff, lease, pin and merge-correspondence files are written outside capture and their content is not bound at capture time, so no coordinator state write is verifiable from evidence yet. The dispatch seam still validates those bytes; the writes themselves are rejected.
+- **W4 is unchanged.** Outline credit still needs a host-captured `SubagentStop` review and a correlated Task/Agent result from an agent distinct from the coordinator and worker. Only the Claude Code host is captured for outline credit; OpenCode and other reviewer providers are not.
+- Negative controls: the mechanism file injects each rejected case through the real hook, provider and `pilot.assess()` (`writer-policy negative controls`, `pre-review writer positive controls`).
 
 Retries use a fresh attempt, token, clean worktree and immutable handoff; only one non-superseded leaf is current. An identical same-tool-ID/input callback may reuse its stored seam, but repeated PreToolUse records remain ambiguous for evidence credit; changed input or token reuse is unresolved. OpenCode and Codex remain unsupported for positive outline credit.
 

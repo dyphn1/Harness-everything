@@ -188,8 +188,28 @@ function createOutlineFixture(options = {}) {
   }
 
   if (!preOutlineOperation || preOutlineOperation.operation !== 'write') fs.writeFileSync(path.join(root, target), outlineBytes);
-  fixtureGit(root, ['add', '-A']);
-  fixtureGit(root, ['commit', '-q', '-m', 'O outline']);
+  let capturedCommit = false;
+  if (options.capturedOutlineCommit) {
+    // The coordinator's own git add/commit run through the real hook, so the B→O commit is captured Bash evidence.
+    if (!options.realHook || !preOutlineOperation || preOutlineOperation.operation !== 'write') {
+      throw new Error('captured O commit requires the real hook and a captured pre-O write');
+    }
+    // extraOutlineFile is an uncaptured write staged into O: only the O commit scope check can reject it.
+    if (options.extraOutlineFile) fs.writeFileSync(path.join(root, options.extraOutlineFile), 'uncaptured extra\n');
+    const addArgs = options.extraOutlineFile ? ['add', '-A'] : ['add', '--', target];
+    for (const [name, args] of [['add', addArgs], ['commit', ['commit', '-q', '-m', 'O outline']]]) {
+      const payload = { session_id: sessionId, cwd: root, hook_event_name: 'PreToolUse', tool_name: 'Bash',
+        tool_use_id: `pre-outline-${name}-${sessionId}`, tool_input: { command: 'git ' + args.join(' ') } };
+      runHook(payload, true, false);
+      fixtureGit(root, args);
+      runHook({ ...payload, hook_event_name: 'PostToolUse', tool_response: { exitCode: 0, stdout: '' } }, true, false);
+    }
+    capturedCommit = true;
+  }
+  if (!capturedCommit) {
+    fixtureGit(root, ['add', '-A']);
+    fixtureGit(root, ['commit', '-q', '-m', 'O outline']);
+  }
   const outlineCommit = fixtureGit(root, ['rev-parse', 'HEAD']);
   const outlineTree = fixtureGit(root, ['rev-parse', 'HEAD^{tree}']);
   const outlineBlob = fixtureGit(root, ['rev-parse', `HEAD:${target}`]);
@@ -230,8 +250,13 @@ function createOutlineFixture(options = {}) {
   };
   let reviewResult;
   let reviewStop;
+  // Negative-control injection points: each entry is a payload factory run through the real hook at that journal position.
+  const interleave = options.interleave || {};
+  const runInterleaved = list => { for (const make of list || []) runHook(make({ root, sessionId, target })); };
   if (options.realHook) {
-    runHook(reviewResultPayload);
+    runInterleaved(interleave.beforeReview);
+    if (!options.omitReviewResult) runHook(reviewResultPayload);
+    runInterleaved(interleave.duringReview);
     runHook(reviewStopPayload);
     const retained = provider.readCaptureView(sessionDir).records;
     reviewResult = retained.find(item => item.event === 'PostToolUse' && item.tool_use_id === 'review-dispatch');
@@ -242,7 +267,7 @@ function createOutlineFixture(options = {}) {
     reviewResult.observedIdentity = { workflowId, workflowRevision, baselinePin: { root, commit: baselineCommit }, taskPin: taskBinding };
     reviewStop.observedIdentity = { workflowId, workflowRevision, baselinePin: { root, commit: baselineCommit }, taskPin: taskBinding };
   }
-  if (!reviewResult || !reviewStop) throw new Error('review hook captures were not retained');
+  if (!reviewStop || (!reviewResult && !options.omitReviewResult)) throw new Error('review hook captures were not retained');
   const reviewRecordDigest = provider._internals?.captureDigest
     ? provider._internals.captureDigest(reviewStop)
     : sha(JSON.stringify(reviewStop));
@@ -287,6 +312,7 @@ function createOutlineFixture(options = {}) {
       fs.rmSync(path.join(sessionDir, 'doc-reconciliation-capture'), { recursive: true, force: true });
       fs.rmSync(path.join(sessionDir, 'doc-reconciliation-capture.json'), { force: true });
     }
+    runInterleaved(interleave.beforeDispatch);
     runHook(payload);
     const retained = provider.readCaptureView(sessionDir).records;
     capture = retained.find(item => item.event === 'PreToolUse' && item.tool_use_id === payload.tool_use_id);
@@ -346,7 +372,7 @@ function createOutlineFixture(options = {}) {
     omitWorkerStart = false, omitWorkerResult = false, omitWorkerStop = false, tamperHandoff = false,
     providerSessionId = sessionId, providerTaskId = taskId, providerBaseline = { root, commit: baselineCommit },
     runPilot = false, handAuthoredCapture = false, removeSeam = false, mutateAfterFinalReview = false,
-    postWorkerCaptures = [] } = {}) {
+    postWorkerCaptures = [], afterWorkerStop = [] } = {}) {
     if (draft) {
       fs.writeFileSync(path.join(root, target), `---\nid: ${domain}-001\nstatus: proposed\n---\n\n## Decision\nFinal D for row ${rowId}.\n`);
       fixtureGit(root, ['add', '-A']);
@@ -378,6 +404,7 @@ function createOutlineFixture(options = {}) {
         session_id: sessionId, cwd: root, hook_event_name: 'SubagentStop',
         agent_id: options.workerPrincipal || 'draft-worker', agent_type: 'worker',
       });
+      for (const make of afterWorkerStop) runHook(make({ root, sessionId, target }));
     }
     if (finalReview) {
       const finalReviewer = 'final-reviewer';
@@ -1617,7 +1644,7 @@ test('overwriting a dispatched predecessor handoff invalidates the retained atte
   } finally { fixture.cleanup(); }
 });
 
-test('captured pre-O coordinator Write is withheld while the paired read-only control earns outline credit', () => {
+test('captured pre-O coordinator Write of the pinned target earns outline credit, like the paired read-only control', () => {
   const legs = [];
   for (const [name, operation, sessionId] of [
     ['writer', 'write', 'coordinator-writer-session'],
@@ -1667,10 +1694,12 @@ test('captured pre-O coordinator Write is withheld while the paired read-only co
       const outlineEvidence = report.outlineEvidence;
       const pilotDiagnosticCodes = (outlineEvidence.diagnostics || []).map(item => item.code);
       if (name === 'writer') {
-        assert.strictEqual(completed.result.status, 'rejected');
-        assert.ok(diagnosticCodes.includes('outline-writer-activity-ambiguous'), JSON.stringify(completed.result));
-        assert.ok(pilotDiagnosticCodes.includes('outline-writer-activity-ambiguous'), JSON.stringify(report));
-        assert.notStrictEqual(outlineEvidence.outcome, 'pass', JSON.stringify(report));
+        // W2: the coordinator Write of the pinned target before review is the captured B→O write, so it earns credit.
+        assert.strictEqual(preOperation.tool_name, 'Write');
+        assert.ok(!diagnosticCodes.includes('outline-writer-activity-ambiguous'), JSON.stringify(completed.result));
+        assert.ok(!pilotDiagnosticCodes.includes('outline-writer-activity-ambiguous'), JSON.stringify(report));
+        assert.strictEqual(completed.result.status, 'accepted', JSON.stringify(completed.result));
+        assert.strictEqual(outlineEvidence.outcome, 'pass', JSON.stringify(report));
       } else {
         assert.strictEqual(fixture.preOutlineOperation.output, '', 'clean B produces the real empty git status output');
         assert.strictEqual(completed.result.status, 'accepted', JSON.stringify(completed.result));
@@ -1706,6 +1735,86 @@ test('captured pre-O coordinator Write is withheld while the paired read-only co
   assert.strictEqual(legs[0].targetSha256, legs[1].targetSha256);
   assert.strictEqual(legs[0].outlineBlob, legs[1].outlineBlob, 'same O bytes produce the same target blob');
   console.log('WITNESS ' + JSON.stringify(legs));
+});
+
+// Writer-policy controls (#341 W1–W5). Each control enters the real state-persist hook at a named journal position and
+// must withhold outline credit through provider → pilot.assess(). The positive controls take the same path and earn it.
+const ctxOf = fixture => ({ root: fixture.root, sessionId: fixture.sessionId, target: fixture.target });
+const writerRecord = ({ toolUseId, file = null, agentId = null, tool = 'Write', command = null }) => ctx => ({
+  session_id: ctx.sessionId, cwd: ctx.root, hook_event_name: 'PreToolUse', tool_name: tool, tool_use_id: toolUseId,
+  ...(agentId ? { agent_id: agentId, agent_type: 'worker' } : {}),
+  tool_input: tool === 'Bash' ? { command } : { file_path: path.join(ctx.root, file || ctx.target), content: 'injected writer' },
+});
+const WRITER_AMBIGUOUS = 'outline-writer-activity-ambiguous';
+const SEAM_UNRESOLVED = 'outline-pre-dispatch-seam-unresolved';
+
+function runWriterControl(name, options, arrange = () => {}) {
+  const fixture = createOutlineFixture({ realHook: true, ...options });
+  try {
+    arrange(fixture);
+    const completed = fixture.finishDraft({ runPilot: true });
+    const outline = completed.pilot?.report?.outlineEvidence;
+    const codes = [...(completed.result.diagnostics || []), ...(outline?.diagnostics || [])]
+      .flatMap(item => [item.code, item.reason]).filter(Boolean);
+    return { control: name, status: completed.result.status, outcome: outline?.outcome ?? null, codes };
+  } finally { fixture.cleanup(); }
+}
+
+test('writer-policy negative controls withhold outline credit through the real hook, provider and pilot.assess()', () => {
+  const controls = [
+    ['unauthorized target before review', { interleave: { beforeReview: [writerRecord({ toolUseId: 'nc-target', file: 'docs/adr/OTHER-001.md' })] } }, [WRITER_AMBIGUOUS]],
+    ['wrong phase: coordinator writes O during review', { interleave: { duringReview: [writerRecord({ toolUseId: 'nc-review' })] } }, [WRITER_AMBIGUOUS]],
+    ['edit to O after review, before dispatch', { interleave: { beforeDispatch: [writerRecord({ toolUseId: 'nc-edit' })] } }, [WRITER_AMBIGUOUS]],
+    ['write-and-restore of O between review and dispatch', { interleave: { beforeDispatch: [
+      writerRecord({ toolUseId: 'nc-write' }), writerRecord({ toolUseId: 'nc-restore' })] } }, [WRITER_AMBIGUOUS]],
+    ['coordinator write after dispatch', {}, [WRITER_AMBIGUOUS],
+      f => f.runHook(writerRecord({ toolUseId: 'nc-after-dispatch' })(ctxOf(f)))],
+    ['competing worker writes during the draft window', {}, ['outline-competing-writer-start', WRITER_AMBIGUOUS],
+      f => {
+        f.runHook({ session_id: f.sessionId, cwd: f.root, hook_event_name: 'SubagentStart', agent_id: 'rival-worker', agent_type: 'worker' });
+        f.runHook(writerRecord({ toolUseId: 'nc-rival', agentId: 'rival-worker' })(ctxOf(f)));
+      }],
+    ['ambiguous shell effect: chained git commit', { interleave: { beforeReview: [writerRecord({ toolUseId: 'nc-shell', tool: 'Bash',
+      command: 'git commit -q -m "O outline" && node ./mutate.js' })] } }, [WRITER_AMBIGUOUS]],
+    ['ambiguous shell effect: git add with a trailing script', { interleave: { beforeReview: [writerRecord({ toolUseId: 'nc-shell-2', tool: 'Bash',
+      command: 'git add -- docs/adr/DOCS-001.md; node ./mutate.js' })] } }, [WRITER_AMBIGUOUS]],
+    ['replayed coordinator B→O write record', { sessionId: 'coordinator-writer-session', preOutlineOperation: 'write',
+      interleave: { beforeDispatch: [writerRecord({ toolUseId: 'pre-outline-write-coordinator-writer-session' })] } }, [WRITER_AMBIGUOUS]],
+    ['reviewer writes during review', { interleave: { duringReview: [writerRecord({ toolUseId: 'nc-reviewer', agentId: 'outline-reviewer' })] } }, [WRITER_AMBIGUOUS]],
+    ['reviewer is the coordinator', { reviewerPrincipal: 'author-session' }, [SEAM_UNRESOLVED]],
+    // The worker's own Task result names the same agent id, so the review-result surface is ambiguous before the identity check.
+    ['reviewer is the draft worker', { reviewerPrincipal: 'draft-worker' }, ['outline-review-result-missing-or-ambiguous']],
+    ['missing reviewer lifecycle', { omitReviewResult: true }, [SEAM_UNRESOLVED]],
+    ['review digest mismatch at dispatch', { handoffOverrides: { reviewDigest: 'f'.repeat(64) } }, [SEAM_UNRESOLVED]],
+    ['task mismatch at dispatch', { handoffOverrides: { taskId: 'task-other' } }, [SEAM_UNRESOLVED]],
+    ['O commit mismatch at dispatch', { handoffOverrides: { outline: { commit: 'a'.repeat(40), tree: 'b'.repeat(40), targetBlobs: {} } } },
+      [SEAM_UNRESOLVED]],
+    ['O commit carries an uncaptured extra file', { preOutlineOperation: 'write', capturedOutlineCommit: true,
+      extraOutlineFile: 'docs/adr/EXTRA-001.md' }, ['outline-commit-scope-invalid']],
+  ];
+  const witness = [];
+  const problems = [];
+  for (const [name, options, expected, arrange] of controls) {
+    const result = runWriterControl(name, options, arrange);
+    witness.push({ ...result, expected });
+    if (result.status === 'accepted') problems.push(`${name}: origin must not accept`);
+    if (result.outcome === 'pass') problems.push(`${name}: outline must not pass`);
+    if (!expected.some(code => result.codes.includes(code))) problems.push(`${name}: expected ${expected.join(' | ')}; got ${[...new Set(result.codes)].join(', ')}`);
+  }
+  console.log('WRITER-NEGATIVE-CONTROLS ' + JSON.stringify(witness));
+  assert.deepStrictEqual(problems, [], 'writer-policy negative controls');
+});
+
+test('pre-review writer positive controls earn outline credit on the same real path', () => {
+  const controls = [
+    ['coordinator Write of the pinned target before review', { interleave: { beforeReview: [writerRecord({ toolUseId: 'pc-target' })] } }],
+    ['captured coordinator git add/commit of the pinned target', { preOutlineOperation: 'write', capturedOutlineCommit: true }],
+  ];
+  for (const [name, options] of controls) {
+    const result = runWriterControl(name, options);
+    assert.strictEqual(result.status, 'accepted', `${name}: ${result.codes.join(', ')}`);
+    assert.strictEqual(result.outcome, 'pass', name);
+  }
 });
 
 test('real capture→provider→adapter→checker→pilot discovers one outline event without injected refs', () => {
