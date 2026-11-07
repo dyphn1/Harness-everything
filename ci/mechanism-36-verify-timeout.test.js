@@ -79,7 +79,7 @@ for (let i = 0; i < DEFAULTS.length; i += 1) {
   assert.ok(/timed out after/.test(source), `${label} labels timeout failures as timeouts`);
   assert.ok(/test_failure/.test(source), `${label} classifies confirmed failing checks`);
   assert.ok(/execution_error/.test(source), `${label} classifies spawn-level execution errors`);
-  assert.ok(/maxBuffer/.test(source), `${label} bounds captured output instead of using the 1 MiB default`);
+  assert.ok(i === 0 ? /VERIFY_LINE_LIMIT = 4096/.test(source) : /maxBuffer/.test(source), `${label} bounds retained output`);
   const declared = Number(source.match(/^const DEFAULT_VERIFY_TIMEOUT_MS = (\d+);?$/m)[1]);
   assert.ok(declared >= 300000, `${label} default budget (${declared}ms) clears a several-minute suite`);
 }
@@ -95,15 +95,12 @@ assert.strictEqual(
   extractConst(cliSource, 'VERIFY_TIMEOUT_ENV').match(/'([^']*)'/)[1],
   'the plugin and the manual CLI read the same env override',
 );
-assert.strictEqual(
-  extractConst(pluginSource, 'VERIFY_MAX_BUFFER').match(/= (\d+ \* \d+ \* \d+)/)[1],
-  extractConst(cliSource, 'VERIFY_MAX_BUFFER').match(/= (\d+ \* \d+ \* \d+)/)[1],
-  'the plugin and the manual CLI allow the same output buffer',
-);
+// The plugin now streams output; the standalone CLI retains its 16 MiB
+// synchronous capture. Actual async runner contracts are exercised in 338.
 
 // Behavior: budget resolution.
 {
-  const context = loadVerificationLogic(pluginSource);
+  const context = loadVerificationLogic(cliSource);
   assert.strictEqual(context.verifyTimeoutMs(), 600000, 'unset env uses the default budget');
   for (const value of ['abc', '0', '-5', '']) {
     context.process.env.HARNESS_VERIFY_TIMEOUT_MS = value;
@@ -114,167 +111,9 @@ assert.strictEqual(
   assert.ok(!Number.isNaN(Number(context.verifyTimeoutMs())), 'the resolved budget is numeric');
 }
 
-// Behavior: outcome classification per failure kind.
-{
-  const context = loadVerificationLogic(pluginSource);
-  const calls = [];
-  context.execSync = (command, options) => {
-    calls.push({ command, options });
-    return '';
-  };
-  let result = context.runVerification('/nonexistent-workspace');
-  assert.strictEqual(result.allPassed, true, 'a passing script verifies');
-  assert.strictEqual(result.results[0].outcome, 'pass', 'a passing script is classified pass');
-  assert.strictEqual(calls.length, 1, 'one command ran');
-  assert.strictEqual(calls[0].command, 'npm test', 'the test script is the command');
-  assert.strictEqual(calls[0].options.timeout, 600000, 'execSync receives the default budget');
-  assert.strictEqual(calls[0].options.maxBuffer, 16 * 1024 * 1024, 'execSync receives the raised output buffer');
-
-  context.process.env.HARNESS_VERIFY_TIMEOUT_MS = '120';
-  calls.length = 0;
-  context.execSync = (command, options) => {
-    calls.push({ command, options });
-    return '';
-  };
-  context.runVerification('/nonexistent-workspace');
-  assert.strictEqual(calls[0].options.timeout, 120, 'execSync receives the overridden budget');
-
-  delete context.process.env.HARNESS_VERIFY_TIMEOUT_MS;
-  context.execSync = () => {
-    const error = new Error('spawnSync npm test ETIMEDOUT');
-    error.code = 'ETIMEDOUT';
-    error.signal = 'SIGTERM'; // the live execSync timeout kill shape
-    error.stdout = 'Harness OS - Self-Regression Test Suite\n';
-    throw error;
-  };
-  result = context.runVerification('/nonexistent-workspace');
-  assert.strictEqual(result.allPassed, false, 'a timeout is a verification failure');
-  assert.strictEqual(result.results[0].timedOut, true, 'the timeout is recorded as a timeout');
-  assert.strictEqual(result.results[0].outcome, 'timeout', 'a timeout is classified as timeout, not test_failure');
-  assert.ok(/timed out after 600s/.test(result.results[0].error), 'the failure names the budget');
-  assert.ok(/HARNESS_VERIFY_TIMEOUT_MS/.test(result.results[0].error), 'the failure names the override');
-  assert.ok(/Self-Regression/.test(result.results[0].error), 'the failure keeps the last output for diagnosis');
-
-  context.process.env.HARNESS_VERIFY_TIMEOUT_MS = '50';
-  context.execSync = () => {
-    const started = Date.now();
-    while (Date.now() - started < 120) { /* simulate a kill at the budget without an error code */ }
-    const error = new Error('Command failed: npm test');
-    error.stdout = 'partial output';
-    throw error;
-  };
-  result = context.runVerification('/nonexistent-workspace');
-  assert.strictEqual(result.results[0].timedOut, true, 'a kill at the budget is recognized without an ETIMEDOUT code');
-  assert.strictEqual(result.results[0].outcome, 'timeout', 'a kill at the budget is classified as timeout');
-
-  // P2: a signal is external termination; only budget expiry is a timeout.
-  context.process.env.HARNESS_VERIFY_TIMEOUT_MS = '600000';
-  context.execSync = () => {
-    const error = new Error('Command failed: npm test');
-    error.signal = 'SIGTERM'; // killed early by a user, host, or process manager
-    throw error; // status stays null: no verdict from the suite
-  };
-  result = context.runVerification('/nonexistent-workspace');
-  assert.strictEqual(result.results[0].outcome, 'execution_error', 'an early external SIGTERM is an execution error, not a timeout');
-  assert.strictEqual(result.results[0].timedOut, false, 'an early external SIGTERM does not claim a timeout');
-  assert.strictEqual(result.results[0].signal, 'SIGTERM', 'the signal is retained for diagnostics');
-  assert.ok(/signal SIGTERM/.test(result.results[0].error), 'the execution error names the signal');
-
-  context.process.env.HARNESS_VERIFY_TIMEOUT_MS = '50';
-  context.execSync = () => {
-    const started = Date.now();
-    while (Date.now() - started < 80) { /* killed once the budget already elapsed, like execSync's own timeout */ }
-    const error = new Error('spawnSync npm test SIGTERM');
-    error.signal = 'SIGTERM';
-    throw error;
-  };
-  result = context.runVerification('/nonexistent-workspace');
-  assert.strictEqual(result.results[0].outcome, 'timeout', 'a signal kill with no exit status once the budget elapsed is a timeout');
-
-  context.execSync = () => {
-    const started = Date.now();
-    while (Date.now() - started < 80) { /* slow, but it still produced a verdict */ }
-    const error = new Error('Command failed: npm test');
-    error.status = 1;
-    error.stdout = 'confirmed failure after a slow run';
-    throw error;
-  };
-  result = context.runVerification('/nonexistent-workspace');
-  assert.strictEqual(result.results[0].outcome, 'test_failure', 'a real exit status stays a confirmed failure even past the budget');
-  assert.strictEqual(result.results[0].timedOut, false, 'a confirmed verdict is not a timeout');
-
-  context.process.env.HARNESS_VERIFY_TIMEOUT_MS = '600000';
-  context.execSync = () => {
-    const error = new Error('Command failed: npm test');
-    error.status = 1;
-    error.stdout = 'real assertion failure';
-    throw error;
-  };
-  result = context.runVerification('/nonexistent-workspace');
-  assert.strictEqual(result.results[0].timedOut, false, 'a fast failure is not mislabeled as a timeout');
-  assert.strictEqual(result.results[0].outcome, 'test_failure', 'a non-zero exit is a confirmed test failure');
-  assert.strictEqual(result.results[0].error, 'real assertion failure', 'a fast failure reports its output');
-
-  context.execSync = () => {
-    const error = new Error('spawnSync npm test ENOBUFS');
-    error.code = 'ENOBUFS';
-    error.stdout = 'x'.repeat(300);
-    throw error;
-  };
-  result = context.runVerification('/nonexistent-workspace');
-  assert.strictEqual(result.results[0].outcome, 'execution_error', 'ENOBUFS is an execution error, not a test failure');
-  assert.ok(/execution error: ENOBUFS/.test(result.results[0].error), 'the execution error names its cause');
-  assert.ok(!/timed out/.test(result.results[0].error), 'ENOBUFS is not reported as a timeout');
-
-  context.execSync = () => {
-    const error = new Error('spawnSync npm test ENOENT');
-    error.code = 'ENOENT';
-    throw error;
-  };
-  result = context.runVerification('/nonexistent-workspace');
-  assert.strictEqual(result.results[0].outcome, 'execution_error', 'a missing executable is an execution error');
-  assert.strictEqual(result.results[0].exitCode, null, 'a spawn-level error has no exit status');
-}
-
-// Behavior: test_failure evidence spans both streams in full (P1).
-{
-  const context = loadVerificationLogic(pluginSource);
-  context.process.env.HARNESS_VERIFY_TIMEOUT_MS = '600000';
-  context.execSync = () => {
-    const error = new Error('Command failed: npm test');
-    error.status = 1;
-    error.stdout = '> fixture@0.0.0 test\n> node fixture.js\n';
-    error.stderr = 'AssertionError [ERR_ASSERTION]: alpha boom\n';
-    throw error;
-  };
-  const bothStreams = context.runVerification('/nonexistent-workspace').results[0];
-  assert.strictEqual(bothStreams.outcome, 'test_failure', 'a both-stream failure is a confirmed test failure');
-  assert.ok(/alpha boom/.test(bothStreams.error), 'the user-visible diagnostic includes the stderr assertion');
-  assert.ok(/node fixture\.js/.test(bothStreams.error), 'the user-visible diagnostic keeps the stdout banner');
-  assert.ok(/alpha boom/.test(bothStreams.evidence), 'the kept evidence includes stderr');
-  assert.ok(/node fixture\.js/.test(bothStreams.evidence), 'the kept evidence includes stdout');
-
-  context.execSync = () => {
-    const error = new Error('Command failed: npm test');
-    error.status = 1;
-    error.stdout = `${'A'.repeat(2000)}TAIL-MARKER`;
-    throw error;
-  };
-  const longOutput = context.runVerification('/nonexistent-workspace').results[0];
-  assert.ok(longOutput.error.length < 2200, 'the user-visible diagnostic stays bounded');
-  assert.ok(/TAIL-MARKER/.test(longOutput.error), 'the trailing failure evidence survives diagnostic truncation');
-  assert.ok(/chars omitted/.test(longOutput.error), 'the elision is explicit in the diagnostic');
-  assert.ok(longOutput.evidence.length > 2000 && /TAIL-MARKER/.test(longOutput.evidence), 'the full evidence is retained untruncated for signature analysis');
-
-  context.execSync = () => {
-    const error = new Error('Command failed: npm test');
-    error.code = 'ENOBUFS';
-    error.stdout = `${'A'.repeat(2000)}TAIL-MARKER`;
-    throw error;
-  };
-  const spawnError = context.runVerification('/nonexistent-workspace').results[0];
-  assert.strictEqual(spawnError.evidence, undefined, 'only confirmed test failures keep full evidence');
-}
+// Plugin outcome, evidence and cleanup behavior is covered with real child
+// processes in mechanism-338-opencode-async.test.js, and downstream Rule-of-3
+// behavior remains in mechanism-39-opencode-verify-outcomes.test.js.
 
 // Behavior: the manual CLI mirror classifies the same way.
 {

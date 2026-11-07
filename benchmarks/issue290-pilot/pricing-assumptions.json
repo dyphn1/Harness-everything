@@ -1,0 +1,29 @@
+{
+  "status": "frozen historical pilot assumptions, not a verified provider price capture",
+  "recorded_date": "2026-10-14",
+  "currency": "USD per million tokens",
+  "codex": {
+    "model": "gpt-6-luna",
+    "input": 0.10,
+    "cache_read": 0.01,
+    "cache_write": 0.125,
+    "output": 0.50,
+    "large_context_above": 272000,
+    "large_context_input_multiplier": 2,
+    "large_context_output_multiplier": 1.5,
+    "reported_source": "https://developers.openai.com/api/docs/models/gpt-6-luna"
+  },
+  "claude": {
+    "model": "claude-haiku-5-5",
+    "input": 0.10,
+    "cache_read": 0.01,
+    "cache_write_5m": 0.125,
+    "cache_write_1h": 0.20,
+    "output": 0.50,
+    "large_context_above": 100000,
+    "large_context_multiplier": 5,
+    "reported_source": "https://platform.claude.com/docs/en/about-claude/pricing",
+    "multiplier_provenance": "Present in the original analyzer; no immutable provider page capture was retained. Assumption only."
+  },
+  "limitation": "Replays reproduce these historical assumptions; they do not validate actual charges or current/provider pricing."
+}

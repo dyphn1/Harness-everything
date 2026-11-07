@@ -2,6 +2,55 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.47.5](https://github.com/dyphn1/Harness-everything/compare/v0.47.4...v0.47.5) (2026-11-03)
+
+### Bug Fixes
+
+* **behavioral-evals:** detect npm ERR! lines in quality gate output ([b599224](https://github.com/dyphn1/Harness-everything/commit/b599224ba09f27dc1f5e5c1156c40c20e57f6f52))
+* **behavioral-evals:** grade tdd quality gate on independently re-evaluated evidence ([f9433ed](https://github.com/dyphn1/Harness-everything/commit/f9433ed535ba4b1882029622a31325ae564cdd50)), closes [#311](https://github.com/dyphn1/Harness-everything/issues/311)
+* **behavioral-evals:** grade the last quality gate attempt, not the last completed run ([8065345](https://github.com/dyphn1/Harness-everything/commit/806534592dbc47665868e74a36b4095d44a2647b))
+* **behavioral-evals:** order gate workspace checks before outcome and compare printed report ([ded48fd](https://github.com/dyphn1/Harness-everything/commit/ded48fd7221cb66c61cc58a70c1f4924f0c0fc82))
+* **behavioral-evals:** require observed gate success and full retained report ([47d35d7](https://github.com/dyphn1/Harness-everything/commit/47d35d725623a4355dcc8a054347ec68832edaa2))
+* **tdd:** keep source defect evidence reviewer-required ([443e966](https://github.com/dyphn1/Harness-everything/commit/443e96635c972713acd9fa76e974cb79bfa310ff))
+* **tdd:** read assert.* expected from second argument; tolerate trailing semicolon ([1745ea2](https://github.com/dyphn1/Harness-everything/commit/1745ea2860a2566703af93ec23fc1ff1b00d7eef))
+* **tdd:** require quoted assertion evidence for source conflict claims ([e9e1ab9](https://github.com/dyphn1/Harness-everything/commit/e9e1ab9b8170054a1ecf57b440b18124b4f99108)), closes [#312](https://github.com/dyphn1/Harness-everything/issues/312)
+* **tdd:** require same-subject assertions for SOURCE_CONFLICT evidence ([d0ab25f](https://github.com/dyphn1/Harness-everything/commit/d0ab25fb810f390921acc9f38584eead95f18214))
+* **tdd:** verify sourceEvidence expected values against quoted literals ([77a8ba6](https://github.com/dyphn1/Harness-everything/commit/77a8ba690de69db9852371270e86c063d30b77ed))
+
+## [0.47.4](https://github.com/dyphn1/Harness-everything/compare/v0.47.3...v0.47.4) (2026-11-03)
+
+### Bug Fixes
+
+* **behavioral-evals:** grade the whole final assistant message for json-only ([ebbe33c](https://github.com/dyphn1/Harness-everything/commit/ebbe33c7ac8beb3d2b104f81666f06a0ebfcd77d)), closes [#308](https://github.com/dyphn1/Harness-everything/issues/308)
+* **behavioral-evals:** recombine final text parts exactly for json-only grading ([de8341c](https://github.com/dyphn1/Harness-everything/commit/de8341c0621c6aacf319467a9e3c9b1420f51f37)), closes [#308](https://github.com/dyphn1/Harness-everything/issues/308)
+
+## [0.47.3](https://github.com/dyphn1/Harness-everything/compare/v0.47.2...v0.47.3) (2026-10-31)
+
+### Bug Fixes
+
+* **docs:** preserve exact file identities in derived comparisons ([8bc3ddb](https://github.com/dyphn1/Harness-everything/commit/8bc3ddbac38eaffa7495e70922dc1240f9aa63eb))
+* **docs:** repin shipped verifier after exact file identity fix ([c24d0f1](https://github.com/dyphn1/Harness-everything/commit/c24d0f100ce392edd02275aa06b58f141ade6cdd))
+* **opencode:** invalidate idle waiters on session reset ([41b2663](https://github.com/dyphn1/Harness-everything/commit/41b2663f66edbe77188c3ca9fa3b0add6f7ab76d))
+* **opencode:** stream verification asynchronously within a shared budget ([1470247](https://github.com/dyphn1/Harness-everything/commit/1470247249548ec6ccf2acaf97463824e0268be4)), closes [#338](https://github.com/dyphn1/Harness-everything/issues/338)
+
+## [0.47.2](https://github.com/dyphn1/Harness-everything/compare/v0.47.1...v0.47.2) (2026-10-31)
+
+### Bug Fixes
+
+* **benchmarks:** close offline pilot evidence review gaps ([fa3bee6](https://github.com/dyphn1/Harness-everything/commit/fa3bee6b948265a7203a1414a1a05dab9d6d6a58))
+* **benchmarks:** detect explicit TDD quality gate invocations ([53c0181](https://github.com/dyphn1/Harness-everything/commit/53c018112c01ebb5b270aeb14fdce5528e195e1a)), closes [#318](https://github.com/dyphn1/Harness-everything/issues/318)
+* **benchmarks:** make offline attribution independent of filesystem order ([998ff4b](https://github.com/dyphn1/Harness-everything/commit/998ff4b2ad31c0e7abef1dda7c74db53faec76c8))
+* **benchmarks:** restore pinned ESM replay fixture ([664da1e](https://github.com/dyphn1/Harness-everything/commit/664da1e4f32251bd9e4c79d78fef5152cd9b86cd))
+
+## [0.47.1](https://github.com/dyphn1/Harness-everything/compare/v0.47.0...v0.47.1) (2026-10-31)
+
+### Bug Fixes
+
+* **doc-reconciliation:** match line terminators in derive-mirror ** globs ([900ec05](https://github.com/dyphn1/Harness-everything/commit/900ec054d408616ff7f7b61dc550586164a809c8)), closes [#383](https://github.com/dyphn1/Harness-everything/issues/383)
+* **docs:** match line terminators in recursive document globs ([7c6259d](https://github.com/dyphn1/Harness-everything/commit/7c6259d7070c429d00326076d42e53bb14b092dd)), closes [#383](https://github.com/dyphn1/Harness-everything/issues/383)
+* **self-evolve:** bind helper lookup to one validated installation ([e28d478](https://github.com/dyphn1/Harness-everything/commit/e28d478bd7304e5e12842962e42bda445776a21d))
+* **self-evolve:** resolve workspace helpers across source and packaged layouts ([57d1017](https://github.com/dyphn1/Harness-everything/commit/57d101735bdab7dea9da71a1c5e71d6beae4eae6)), closes [#379](https://github.com/dyphn1/Harness-everything/issues/379)
+
 ## [0.47.0](https://github.com/dyphn1/Harness-everything/compare/v0.46.3...v0.47.0) (2026-10-29)
 
 ### Features
@@ -23,6 +72,8 @@ All notable changes to this project are documented in this file.
 
 ### Bug Fixes
 
+* **code-review:** add evidence-gate counterexamples (claimed vs observed, select then judge, one witness per rule, comparable subjects and honest labels) for reviewers and author self-review.
+* **zoom-out:** the author applying review fixes counts repair-loop rounds too; a decision class repeated from the previous round triggers Phase 2 before editing.
 * **doc-reconciliation:** pin the owner-approved VERI-to-EVID row mapping and exclude ordinary SubagentStop completions from quality-review candidates.
 * **doc-reconciliation:** allow uniquely identified same-root reviewers that start after the correlated draft worker stops.
 

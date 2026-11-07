@@ -1,0 +1,10 @@
+{
+  "quixbugs/find_in_sorted.py": "https://raw.githubusercontent.com/jkoppel/QuixBugs/4257f44b0ff1181dedaedee6a447e133219fcebf/python_programs/find_in_sorted.py",
+  "quixbugs/test_find_in_sorted.py": "https://raw.githubusercontent.com/jkoppel/QuixBugs/4257f44b0ff1181dedaedee6a447e133219fcebf/python_testcases/test_find_in_sorted.py",
+  "polyglot/instructions.md": "https://raw.githubusercontent.com/Aider-AI/polyglot-benchmark/7e0611e77b54e2dea774cdc0aa00cf9f7ed6144f/javascript/exercises/practice/simple-linked-list/.docs/instructions.md",
+  "polyglot/package.json": "https://raw.githubusercontent.com/Aider-AI/polyglot-benchmark/7e0611e77b54e2dea774cdc0aa00cf9f7ed6144f/javascript/exercises/practice/simple-linked-list/package.json",
+  "polyglot/simple-linked-list.spec.js": "https://raw.githubusercontent.com/Aider-AI/polyglot-benchmark/7e0611e77b54e2dea774cdc0aa00cf9f7ed6144f/javascript/exercises/practice/simple-linked-list/simple-linked-list.spec.js",
+  "polyglot/simple-linked-list.js": "https://raw.githubusercontent.com/Aider-AI/polyglot-benchmark/7e0611e77b54e2dea774cdc0aa00cf9f7ed6144f/javascript/exercises/practice/simple-linked-list/simple-linked-list.js",
+  "quixbugs/cases.json": "https://raw.githubusercontent.com/jkoppel/QuixBugs/4257f44b0ff1181dedaedee6a447e133219fcebf/json_testcases/find_in_sorted.json",
+  "quixbugs/LICENSE": "https://raw.githubusercontent.com/jkoppel/QuixBugs/4257f44b0ff1181dedaedee6a447e133219fcebf/LICENSE"
+}

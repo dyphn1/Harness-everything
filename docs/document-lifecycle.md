@@ -114,7 +114,7 @@ Two *separate* gates apply. The **functional gate** requires contract tests, neg
 | `tickets` | `"tracker"` or a repo-relative path |
 | Unknown keys | Warning, not error |
 
-Globs are repo-relative POSIX paths supporting `*` (one segment) and `**` (any depth).
+Globs are repo-relative POSIX paths supporting `*` (one segment) and `**` (any depth). Recursive `**` branches include line terminators in path components; `*` still cannot cross `/`.
 
 ## Roles and status (D6.1, D6.3)
 

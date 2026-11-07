@@ -168,8 +168,35 @@ command ran: final prose and attempted tool inputs can mention an action that
 never completed. Use structured execution expectations instead, for example
 `tool_completed` with `command: "npm test"` (command prefixes may include
 additional arguments) or `tool_denied` when denial is the behavior under test.
+When one completion must accept several explicit command shapes, use
+`value: {command_pattern: "<regex>"}`; the regex is matched against the whole
+command, so shell control operators must be excluded explicitly.
+`tdd_quality_gate` takes the same `command_pattern` but does not trust the tool
+call's completed status. For the last matching run the grader first runs the
+workspace checks: the evidence file must be retained, valid JSON and re-evaluate
+to `PASS` with this repository's `tdd/scripts/quality-gate.js`; a `--output`
+report must be present and deep-equal the fresh re-evaluation over every
+top-level key (key order ignored); and a full report printed to stdout must do
+the same. Missing, invalid or disagreeing artifacts are definitive `fail`s, and
+a missing required key or a differing key is named in the reason. Then it reads
+the observed command outcome: the call fails when it reports an error, exits
+non-zero, prints an npm error line (`npm ERR!`, `npm error`, or `Missing script:`)
+or prints `TDD Quality Gate: FAIL`. It passes only when the output contains the
+gate's own `TDD Quality Gate: PASS` line and none of those signals. When the
+transcript shows neither output nor an exit code, the result is `inconclusive`
+rather than a pass. The last matching attempt counts, in transcript order: a later failed or denied run fails the gate, and a later unresolved run is inconclusive, even when an earlier run passed.
 Legacy one-object Claude JSON and incomplete streams are graded inconclusive
 for execution evidence.
+
+Use `final_output_json_only` when the final message must be only a JSON object
+(raw, or inside one fenced block) with no prose outside it. Hidden
+`<!-- harness-label -->` lines are ignored. Optional `required_keys` lists keys
+that must be present. Extracting the selection fields from prose does not pass.
+The final message is every assistant text part after the last tool call, joined
+by exact concatenation (so JSON streamed in chunks reassembles exactly), with
+newline-separated blocks as an alternative; the case passes if either reading is
+a single JSON output. Claude's repeated `result` is used only when no parts exist.
+Prose streamed in a separate part still fails under both readings.
 
 Grading is best-effort mechanical (trace keyword/state assertions), not a
 substitute for reading the transcript — every result JSON records the full

@@ -28,7 +28,7 @@ const {
   parseTranscriptFile,
 } = require('./transcript-parser');
 const { commandMatches, normalizeRepoPath } = require('../scripts/lib/execution-contract');
-const { resolveFixtureSetup, validateFixture } = require('./case-validator');
+const { resolveFixtureSetup, validateFixture, validateExpectation } = require('./case-validator');
 
 const ROOT = path.resolve(__dirname, '..');
 const CASES_DIR = path.join(__dirname, 'cases');
@@ -150,6 +150,8 @@ function validate(cases) {
   const EXPECT_TYPES = new Set([
     'trace_contains', 'trace_not_contains', 'file_contains', 'file_not_exists', 'command_exit_0',
     'tool_call', 'tool_attempted', 'tool_completed', 'tool_executed', 'tool_denied', 'execution_evidence',
+    'tdd_quality_gate',
+    'final_output_json_only',
   ]);
   for (const c of cases) {
     const problems = [];
@@ -165,7 +167,9 @@ function validate(cases) {
     if (!resolveTreatmentSkills(c).length) problems.push('treatment must load at least one named Harness skill');
     for (const e of c.expectations || []) {
       if (!EXPECT_TYPES.has(e.type)) problems.push(`unknown expectation type "${e.type}"`);
-      if (e.value === undefined && e.command === undefined && e.tool === undefined && e.name === undefined && e.count === undefined) {
+      if (e.type === 'final_output_json_only') {
+        problems.push(...validateExpectation(e, c.expectations.indexOf(e)));
+      } else if (e.value === undefined && e.command === undefined && e.tool === undefined && e.name === undefined && e.count === undefined) {
         problems.push(`expectation ${e.type} needs value, tool, name, count, or command`);
       }
     }
@@ -492,8 +496,10 @@ function parseTranscriptEvents(transcriptPath) {
   const events = [];
   const pendingById = new Map();
   let sequence = 0;
-  const addText = text => {
-    if (typeof text === 'string' && text) events.push({ kind: 'text', text, sequence: sequence++ });
+  // `source` separates assistant content parts from Claude's terminal `result`
+  // field, which repeats the final message and must not be joined with it.
+  const addText = (text, source = 'content') => {
+    if (typeof text === 'string' && text) events.push({ kind: 'text', text, source, sequence: sequence++ });
   };
   const addTool = (event, part) => {
     const type = eventType(event);
@@ -533,7 +539,7 @@ function parseTranscriptEvents(transcriptPath) {
     }
     if (value.message && value.message.content) visit(value.message.content, value.type !== 'user');
     if (value.content && value.content !== value.message) visit(value.content, includeText);
-    if (!value.part && typeof value.result === 'string' && includeText) addText(value.result);
+    if (!value.part && typeof value.result === 'string' && includeText) addText(value.result, 'result');
   };
   let structured = false;
   for (const line of raw.split('\n')) {
@@ -548,7 +554,7 @@ function parseTranscriptEvents(transcriptPath) {
   if (!structured) {
     try {
       const value = JSON.parse(raw);
-      if (value && typeof value.result === 'string') addText(value.result);
+      if (value && typeof value.result === 'string') addText(value.result, 'result');
       else visit(value);
     } catch { /* raw fallback handled by renderAgentTrace */ }
   }
@@ -644,6 +650,227 @@ function isExecutionLikeTraceValue(value) {
     || /(?:^|[/\\])[\w.-]+\.(?:c?js|mjs|py|sh|ps1|bat|cmd)\b/i.test(text);
 }
 
+// Harness turn-label lines are hidden bookkeeping (AGENTS.md rule 14) and are
+// ignored when judging whether the final message is JSON-only.
+const HARNESS_LABEL_LINE_RE = /^[ \t]*<!--\s*harness-label\b.*?-->[ \t\r]*$/gm;
+
+// Pure check for `final_output_json_only`: the final assistant text must be
+// exactly one JSON object, raw or inside a single fenced block, with no prose.
+function checkJsonOnlyOutput(text, requiredKeys = []) {
+  const fail = reason => ({ pass: false, reason });
+  if (typeof text !== 'string') return fail('final assistant text is missing');
+  const body = text.replace(HARNESS_LABEL_LINE_RE, '').trim();
+  if (!body) return fail('final assistant text is empty');
+  let json;
+  if (body.startsWith('```')) {
+    const fence = /^```(?:json)?[ \t]*\r?\n([\s\S]*)\r?\n```$/i.exec(body);
+    if (!fence) return fail('final output has text outside the single JSON code fence');
+    if (fence[1].includes('```')) return fail('final output contains more than one code fence');
+    json = fence[1];
+  } else if (body.startsWith('{') || body.startsWith('[')) {
+    json = body;
+  } else {
+    try { JSON.parse(body); }
+    catch { return fail('final output has prose before the JSON object'); }
+    return fail('final JSON value must be an object');
+  }
+  let value;
+  try { value = JSON.parse(json); }
+  catch (error) { return fail(`final output is not a single valid JSON value (${error.message}); prose after the JSON also fails`); }
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return fail('final JSON value must be an object');
+  const missing = requiredKeys.filter(key => !Object.prototype.hasOwnProperty.call(value, key));
+  if (missing.length) return fail(`missing required JSON keys: ${missing.join(', ')}`);
+  return { pass: true, reason: null };
+}
+
+// The final assistant message is every assistant text part after the last tool
+// event. A final turn may stream prose and JSON as separate parts, so all parts
+// count (#308). Parts can be transport chunks of one message (exact
+// concatenation) or separate complete blocks (newline-separated). Candidates
+// are returned exact-concatenation first. Claude's terminal `result` repeats
+// that message, so it is used only when the transcript has no content parts.
+function finalAssistantTextCandidates(events) {
+  let lastToolIndex = -1;
+  events.forEach((event, index) => { if (event.kind === 'tool') lastToolIndex = index; });
+  const texts = events.slice(lastToolIndex + 1).filter(event => event.kind === 'text');
+  const parts = texts.filter(event => event.source !== 'result');
+  if (!parts.length) return [texts.length ? texts[texts.length - 1].text : ''];
+  const candidates = [parts.map(event => event.text).join(''), parts.map(event => event.text).join('\n')];
+  return [...new Set(candidates)];
+}
+
+// Exact text of the final message (first candidate).
+function finalAssistantText(events) {
+  return finalAssistantTextCandidates(events)[0];
+}
+
+// --- tdd_quality_gate -------------------------------------------------------
+// A completed tool call only proves the shell returned; it does not prove the
+// gate passed (exit 1 still "completes") or that auditable evidence exists.
+// The grader therefore re-evaluates the evidence the agent pointed the gate at,
+// independently and after the run, with this repository's own evaluator.
+
+function splitCommandArgs(command) {
+  const args = [];
+  const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+  let match;
+  while ((match = re.exec(command))) args.push(match[1] ?? match[2] ?? match[3]);
+  return args;
+}
+
+// Returns { evidence, output } paths named by a quality-gate command, or null
+// when the command names no evidence file.
+function qualityGateArgs(command) {
+  const args = splitCommandArgs(String(command || ''));
+  const scriptIndex = args.findIndex(arg => /(?:^|[/\\])quality-gate\.js$/.test(arg) || arg === 'tdd:quality' || arg === 'test:tdd-quality');
+  if (scriptIndex < 0) return null;
+  const rest = args.slice(scriptIndex + 1).filter(arg => arg !== '--');
+  let evidence = null;
+  let output = null;
+  for (let index = 0; index < rest.length; index++) {
+    if (rest[index] === '--output') { output = rest[index + 1] || null; index++; continue; }
+    if (rest[index].startsWith('-')) continue;
+    if (evidence === null) evidence = rest[index];
+  }
+  return { script: args[scriptIndex], evidence, output };
+}
+
+function resolveInWorkspace(ws, file) {
+  const root = path.resolve(ws);
+  const resolved = path.resolve(root, file);
+  return resolved === root || resolved.startsWith(root + path.sep) ? resolved : null;
+}
+
+// Judges what the transcript shows the gate command did. A completed status
+// alone is not enough: OpenCode reports "completed" for a gate that exited 1.
+// Returns { status: 'pass' | 'fail' | 'inconclusive', reason }.
+// Line-anchored so prose such as "avoid npm error handling" is not an error.
+const GATE_COMMAND_ERROR_RE = /^(?:npm (?:ERR!|error)(?=\s|$)|.*Missing script:)/m;
+
+function isObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function observedGateOutcome(call) {
+  const output = typeof call.output === 'string' ? call.output : '';
+  const exitCode = typeof call.exit_code === 'number' ? call.exit_code : null;
+  if (call.is_error === true) return { status: 'fail', reason: 'the tool call reported an error' };
+  if (exitCode !== null && exitCode !== 0) return { status: 'fail', reason: `the command exited with code ${exitCode}` };
+  if (GATE_COMMAND_ERROR_RE.test(output)) return { status: 'fail', reason: 'the command output reports an npm error' };
+  if (output.includes('TDD Quality Gate: FAIL')) return { status: 'fail', reason: 'the gate printed TDD Quality Gate: FAIL' };
+  if (output.includes('TDD Quality Gate: PASS')) return { status: 'pass', reason: 'the gate printed TDD Quality Gate: PASS' };
+  if (!output && exitCode === null) return { status: 'inconclusive', reason: 'quality gate command outcome is not observable in the transcript' };
+  return { status: 'inconclusive', reason: 'the gate success line TDD Quality Gate: PASS was not observed in the command output' };
+}
+
+// Key-sorted serialisation, so two reports compare equal regardless of key order.
+function stableStringify(value) {
+  if (value === undefined) return 'undefined';
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`;
+}
+
+// Key-sorted comparison of two reports. Returns the first top-level key that
+// differs, or undefined when they are equal. Shared by the --output file and
+// the report the gate prints to stdout.
+function firstDifferingKey(actual, expected) {
+  return [...new Set([...Object.keys(actual), ...Object.keys(expected)])].sort()
+    .find(key => stableStringify(actual[key]) !== stableStringify(expected[key]));
+}
+
+// The gate CLI prints a summary, then (without --output) the full report JSON.
+// Returns that object when the output carries a parseable one, else null.
+function embeddedReport(output) {
+  const lines = String(output || '').split(/\r?\n/);
+  const start = lines.findIndex(line => line.startsWith('{'));
+  if (start < 0) return null;
+  try {
+    const value = JSON.parse(lines.slice(start).join('\n'));
+    return isObject(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+// Workspace checks: the evidence the command names must be retained, valid and
+// re-evaluate to PASS, and any report the gate wrote or printed must equal the
+// fresh re-evaluation. Definitive failures here win over the observed outcome.
+function checkRetainedGateArtifacts(call, args, ws) {
+  const fail = reason => ({ pass: false, status: 'fail', reason });
+  const evidencePath = resolveInWorkspace(ws, args.evidence);
+  if (!evidencePath) return fail(`evidence file ${args.evidence} is outside the workspace`);
+  if (!fs.existsSync(evidencePath)) return fail(`evidence file ${args.evidence} was not retained in the workspace`);
+  let evidence;
+  try { evidence = JSON.parse(fs.readFileSync(evidencePath, 'utf8')); }
+  catch (error) { return fail(`evidence file ${args.evidence} is not valid JSON (${error.message})`); }
+  const { evaluateEvidence } = require(path.join(ROOT, 'tdd', 'scripts', 'quality-gate.js'));
+  const report = evaluateEvidence(evidence);
+  if (report.result !== 'PASS') {
+    const failed = Object.entries(report.mandatoryGates || {}).filter(([, ok]) => !ok).map(([name]) => name);
+    return fail(`independent re-evaluation of ${args.evidence} is ${report.result} (gate would exit 1)${failed.length ? `; failed gates: ${failed.join(', ')}` : ''}`);
+  }
+  // Compare through JSON so the fresh report has the same shape as a retained one.
+  const expected = JSON.parse(JSON.stringify(report));
+  if (args.output) {
+    const outputPath = resolveInWorkspace(ws, args.output);
+    if (!outputPath || !fs.existsSync(outputPath)) return fail(`quality report ${args.output} was not retained in the workspace`);
+    let retained;
+    try { retained = JSON.parse(fs.readFileSync(outputPath, 'utf8')); }
+    catch (error) { return fail(`quality report ${args.output} is not valid JSON (${error.message})`); }
+    if (!isObject(retained)) return fail(`retained report ${args.output} is not a JSON object`);
+    const { required } = require(path.join(ROOT, 'tdd', 'schemas', 'quality-report.schema.json'));
+    const missing = required.filter(key => !Object.prototype.hasOwnProperty.call(retained, key));
+    if (missing.length) return fail(`retained report ${args.output} is missing required keys: ${missing.join(', ')}`);
+    // The retained file must be the full report, not a marker.
+    const differing = firstDifferingKey(retained, expected);
+    if (differing !== undefined) return fail(`retained report ${args.output} differs from re-evaluation at "${differing}"`);
+  }
+  const printed = embeddedReport(call.output);
+  if (printed) {
+    const differing = firstDifferingKey(printed, expected);
+    if (differing !== undefined) return fail(`gate output report differs from re-evaluation at "${differing}"`);
+  }
+  return { pass: true, status: 'pass', reason: `quality gate re-evaluated ${args.evidence}: PASS` };
+}
+
+function verifyQualityGateRun(call, ws) {
+  const fail = reason => ({ pass: false, status: 'fail', reason });
+  const command = call && call.input && typeof call.input === 'object' ? call.input.command : undefined;
+  const args = qualityGateArgs(command);
+  if (!args) return fail('matched command is not a TDD quality-gate invocation');
+  if (args.script === 'test:tdd-quality') return fail('test:tdd-quality runs the repository self-test, not the gate on task evidence');
+  if (!args.evidence) return fail('quality gate was run without an evidence file, so no auditable report exists');
+  const artifacts = checkRetainedGateArtifacts(call, args, ws);
+  if (!artifacts.pass) return artifacts;
+  const outcome = observedGateOutcome(call);
+  if (outcome.status === 'fail') return fail(`quality gate command failed: ${outcome.reason}`);
+  if (outcome.status === 'inconclusive') return { pass: false, status: 'inconclusive', reason: outcome.reason };
+  return artifacts;
+}
+
+// The last matching attempt is the one that counts: an agent may fix evidence and
+// re-run. Attempts are graded in transcript order, including failed, denied and
+// unresolved ones, so an earlier PASS cannot satisfy the gate once a later run
+// did not complete. A completed last run is re-verified from retained evidence.
+function gradeQualityGate(expectation, parsed, ws) {
+  const attempted = gradeExecutionEvidence({ ...expectation, type: 'tool_attempted' }, parsed);
+  if (attempted.status === 'inconclusive') return attempted;
+  if (!attempted.pass) return { pass: false, status: 'fail', reason: `quality gate not executed: ${attempted.reason}` };
+  const last = attempted.observed[attempted.observed.length - 1];
+  if (last.denied === true || last.status === 'denied') {
+    return { pass: false, status: 'fail', reason: `the last quality gate run (${last.id}) was denied; an earlier run cannot satisfy the gate` };
+  }
+  if (last.status === 'failed') {
+    return { pass: false, status: 'fail', reason: `the last quality gate run (${last.id}) failed; an earlier run cannot satisfy the gate` };
+  }
+  if (last.status === 'completed') {
+    const verdict = verifyQualityGateRun(last, ws);
+    return { pass: verdict.pass, status: verdict.status, reason: verdict.reason };
+  }
+  return { pass: false, status: 'inconclusive', reason: `the last quality gate run (${last.id}) has no observable result` };
+}
+
 function grade(c, ws, transcriptPath, engine = 'auto') {
   const parsed = parseTranscriptFile(transcriptPath, engine);
   const ordered = parseTranscriptEvents(transcriptPath);
@@ -664,6 +891,8 @@ function grade(c, ws, transcriptPath, engine = 'auto') {
           status = 'fail';
           reason = 'expected a completed edit before the matching tool execution';
         }
+      } else if (e.type === 'tdd_quality_gate') {
+        ({ pass, status, reason } = gradeQualityGate(e, parsed, ws));
       } else if (e.type === 'trace_contains' || e.type === 'trace_not_contains') {
         if (e.type === 'trace_contains' && isExecutionLikeTraceValue(e.value)) {
           status = 'inconclusive';
@@ -674,6 +903,23 @@ function grade(c, ws, transcriptPath, engine = 'auto') {
         } else {
           pass = e.type === 'trace_contains' ? trace.includes(e.value) : !trace.includes(e.value);
           status = pass ? 'pass' : 'fail';
+        }
+      } else if (e.type === 'final_output_json_only') {
+        if (parsed.parseStatus !== 'parsed') {
+          status = 'inconclusive';
+          reason = parsed.parseError || 'transcript parser did not produce a complete structured trace';
+        } else {
+          // Neither join can hide prose: prose stays outside the JSON either way.
+          // Exact concatenation covers transport chunks of one JSON message;
+          // newline join covers separate complete blocks such as a fenced JSON
+          // block followed by a separate `<!-- harness-label ... -->` part.
+          // PASS if any candidate passes; otherwise report the exact-text reason.
+          const verdicts = finalAssistantTextCandidates(ordered.events)
+            .map(candidate => checkJsonOnlyOutput(candidate, e.required_keys || []));
+          const verdict = verdicts.find(v => v.pass) || verdicts[0];
+          pass = verdict.pass;
+          status = pass ? 'pass' : 'fail';
+          reason = verdict.reason;
         }
       } else if (e.type === 'file_contains') {
         pass = fs.readFileSync(path.join(ws, e.path), 'utf8').includes(e.value);
@@ -998,7 +1244,12 @@ module.exports = {
   extractAgentEvents,
   extractAgentTrace,
   extractSessionMetadata,
+  checkJsonOnlyOutput,
+  finalAssistantText,
+  finalAssistantTextCandidates,
   grade,
+  GATE_COMMAND_ERROR_RE,
+  qualityGateArgs,
   parseTranscriptEvents,
   pairVerdict,
   parseSimpleYaml,

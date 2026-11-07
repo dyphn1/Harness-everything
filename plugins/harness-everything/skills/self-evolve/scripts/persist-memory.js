@@ -4,20 +4,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-let getWorkspaceRoot;
-let getWorkspaceStateDir;
-let getWorkspaceKey;
-try {
-  ({ getWorkspaceRoot, getWorkspaceStateDir, getWorkspaceKey } = require('../../scripts/lib/workspace'));
-} catch (err) {
-  getWorkspaceRoot = () => null;
-  getWorkspaceStateDir = () => null;
-  getWorkspaceKey = () => null;
-}
-
-// NOTE: this script ships standalone - it is copied whole into every install
-// target. When the canonical workspace resolver is not present, persistence
-// fails closed rather than guessing a project root (issue #42).
+const { getWorkspaceRoot, getWorkspaceStateDir, getWorkspaceKey } = require('./workspace-helper');
 
 const SECRET_PATTERNS = [
   ['github-token', /\bgh[pousr]_[A-Za-z0-9]{20,}\b/],

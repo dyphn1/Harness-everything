@@ -18,14 +18,7 @@ for (const relative of [
   }
 }
 
-let getWorkspaceRoot;
-let getWorkspaceStateDir;
-try {
-  ({ getWorkspaceRoot, getWorkspaceStateDir } = require('../../scripts/lib/workspace'));
-} catch (_) {
-  getWorkspaceRoot = () => null;
-  getWorkspaceStateDir = () => null;
-}
+const { getWorkspaceRoot, getWorkspaceStateDir, workspaceError } = require('./workspace-helper');
 
 const SCHEMA_VERSION = 1;
 const TERMINAL = new Set(['rejected', 'validated', 'regressed', 'superseded']);
@@ -48,10 +41,10 @@ function readJson(filePath) {
 }
 
 function candidatePath(workspace, sessionId, candidateId) {
-  if (!workspace || !getWorkspaceStateDir(workspace)) throw new Error('workspace state root is unavailable');
+  const stateDir = getWorkspaceStateDir(workspace);
   if (!/^lesson-[a-f0-9]{24}$/.test(String(candidateId || ''))) throw new Error('invalid candidate id');
   return path.join(
-    getWorkspaceStateDir(workspace),
+    stateDir,
     'state',
     'sessions',
     safeSessionName(sessionId),
@@ -292,7 +285,10 @@ function observeCandidate(input) {
 function listCandidates({ workspace, sessionId }) {
   const base = path.join(getWorkspaceStateDir(workspace), 'state', 'sessions', safeSessionName(sessionId), 'learning-candidates');
   let files = [];
-  try { files = fs.readdirSync(base).filter(name => /^lesson-[a-f0-9]{24}\.json$/.test(name)); } catch (_) { return []; }
+  try { files = fs.readdirSync(base).filter(name => /^lesson-[a-f0-9]{24}\.json$/.test(name)); } catch (error) {
+    if (error.code === 'ENOENT') return [];
+    throw workspaceError('WORKSPACE_STATE_UNAVAILABLE', `cannot read candidate directory ${base}`, error);
+  }
   return files.map(name => readJson(path.join(base, name))).filter(Boolean);
 }
 
@@ -303,7 +299,8 @@ function option(args, name) {
 
 function parseCli(argv) {
   const command = argv[0];
-  const workspace = path.resolve(option(argv, '--workspace') || getWorkspaceRoot() || process.cwd());
+  const explicit = option(argv, '--workspace');
+  const workspace = getWorkspaceRoot(explicit ? { workspace_root: path.resolve(explicit) } : undefined);
   const base = {
     command,
     workspace,

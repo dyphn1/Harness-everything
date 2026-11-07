@@ -77,6 +77,13 @@ helper.check(
 
   const push = (event) => eventQueue.push(event);
   const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
+  const waitFor = async (predicate) => {
+    const deadline = Date.now() + 5000;
+    while (!predicate()) {
+      if (Date.now() > deadline) throw new Error('V2 async verification did not settle');
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+  };
 
   const mod = await import(pathToFileURL(path.join(helper.root, 'opencode-plugin', 'index.mjs')).href);
   const definition = mod.default;
@@ -113,7 +120,7 @@ helper.check(
   for (let i = 1; i <= 3; i++) {
     await after({ tool: 'edit', sessionID: 's1', id: `c${i}`, input: {} });
     push({ type: 'session.idle', sessionID: 's1' });
-    await settle();
+    await waitFor(() => prompts.length === i);
   }
 
   helper.check(

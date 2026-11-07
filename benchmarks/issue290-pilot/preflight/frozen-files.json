@@ -1,0 +1,18 @@
+{
+  "sources.json": "453260eac66351761d91603c4d6653470d81eb3002097dc672bb5919837b6bb2",
+  "run.py": "5b7b80ab9ed9177cff3fc5b8bd707e52d9ad3aac39dcd8f47726b8c2ae727389",
+  "grader.cjs": "e14dfba2b13d4027279c8ac3e8735f08dba9657791941eb432c1d4d8a2c773fe",
+  "protocol.json": "ad0c893f71a4c6ff73ae6cc723e3bf7bfd91e678b10cac43f9a538b6c4528b32",
+  "host-hook.cjs": "30d1775088aebc10bbe09eb60f01d5af0b9cf2eb574a81cf54ca8d1604ad3021",
+  "hook.test.cjs": "36e5e30b7b139177a9732af5bb3f20a25d0836281695b550c4da7d3e52a202a8",
+  "preflight/graders.json": "33e9c64af560d1a04db7f8e44d53b00fec7fe463f04cbf19d09c9f262fed4be0",
+  "preflight/amendment.md": "5340c74ff3a462ff7885ee23d5253d29c32629fe4570a6081e1faf6d91e1413c",
+  "fixtures/polyglot/simple-linked-list.js": "f305a2ba4fea7f8dd036989bd635f2466bd36c75d25bec049145a683dd22b8f1",
+  "fixtures/polyglot/simple-linked-list.spec.js": "7a181633077ca3586a47961a00858f1071b90d12cca9f114284707fb82d30255",
+  "fixtures/polyglot/package.json": "14a0a23e784a338496939c2f1a8719661c1b2eb36c17f4c7d6d146f2fa33519e",
+  "fixtures/polyglot/instructions.md": "ddf0b0d7a6d0a7b39a70a8dac0ae2e5cc4b7d9ad4163f4a103988bb53abeb914",
+  "fixtures/quixbugs/LICENSE": "3bb03003929be645f6557a66fcb9820f527df7ce2b51b491405d233cb191d517",
+  "fixtures/quixbugs/test_find_in_sorted.py": "a943c5c1df1e87360308b23341a651da9cfb31b1f1e2954cdca75c2cf4b6ba54",
+  "fixtures/quixbugs/cases.json": "21e0348affa246a85a6907f1d0f8b0b76454bf3c2c133ed1bff808a97ee82dfe",
+  "fixtures/quixbugs/find_in_sorted.py": "b640b4bcb1b2c0f7875de8f13df191f4e61ddf7e6fbdcfc42d477ec60885d3c7"
+}

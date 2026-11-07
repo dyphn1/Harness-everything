@@ -1,0 +1,9 @@
+
+> harness-everything@0.31.1 test:platform:compatibility
+> node ci/mechanism-2w-platform-compatibility.test.js
+
+OpenAI skill bundle: <TMP>/harness-2w-submission-3017.zip
+Files: 196
+SHA256: 90b8fec6511ae9d4d72d2646dd4f4ae6a0d95397aecc83920d5d851a9abdebf8
+Manifest: <TMP>/harness-2w-submission-3017.manifest.json
+Platform compatibility verified: official-source matrix, installer targets, package manifests, and public bundle boundaries.

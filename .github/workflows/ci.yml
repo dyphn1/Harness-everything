@@ -9,6 +9,18 @@ on:
   workflow_call:
 
 jobs:
+  pilot-offline-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Install helper dependencies
+        run: npm ci
+      - name: Verify pilot instrumentation, sanitizer and offline replay
+        run: python3 benchmarks/issue290-pilot/check.py
+
   doc-governance:
     runs-on: ubuntu-latest
     steps:
@@ -106,6 +118,8 @@ jobs:
           node-version: 24
       - name: Install dependencies for regression suite
         run: npm ci
+      - name: Verify OpenCode async process fixtures before the full suite
+        run: node ci/mechanism-338-opencode-async.test.js
       - name: Run hermetic self-regression suite
         run: npm test
       - name: Run focused mutation checks

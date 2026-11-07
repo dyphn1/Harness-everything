@@ -202,10 +202,10 @@ function globToRegExp(glob) {
     const char = source[index];
     if (char === '*' && source[index + 1] === '*') {
       if (source[index + 2] === '/') {
-        pattern += '(?:.*/)?';
+        pattern += '(?:[\\s\\S]*/)?';
         index += 2;
       } else {
-        pattern += '.*';
+        pattern += '[\\s\\S]*';
         index++;
       }
     } else if (char === '*') {

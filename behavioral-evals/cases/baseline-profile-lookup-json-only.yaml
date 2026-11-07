@@ -1,0 +1,23 @@
+# Baseline case: Profile lookup returns only the JSON selection record
+id: baseline-profile-lookup-json-only
+name: Profile lookup answers with a JSON-only selection record
+discipline: fable-mode
+loaded_skills:
+  - fable-mode
+fixture:
+  files:
+    - path: README.md
+      content: |
+        Profile lookup fixture. No orchestration or delegation is needed.
+prompt: "Explain what 'fable on sonnect' means; return only a small JSON selection record with requestedProfile, effectiveProfile, profileAlias, assignedRole, runtimeModel, runtimeEffort. No orchestration or delegation."
+max_turns: 4
+expectations:
+  - type: final_output_json_only
+    required_keys:
+      - requestedProfile
+      - effectiveProfile
+      - profileAlias
+      - assignedRole
+      - runtimeModel
+      - runtimeEffort
+    description: final message is exactly one JSON selection record (raw or fenced) with no prose outside it, and carries all six selection fields; selection-field extraction alone is not completion

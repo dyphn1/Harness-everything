@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-31",
+  "evidence_layer": "deterministic mechanism and offline analysis; no model calls",
+  "implementation_sha256": {
+    "analyze.py": "7001dfd507c354e95483172bf55f5ffa836a936390cfa777d3955bfce00ae4f1",
+    "analyze.test.py": "571cd99fa1b63170c7079407bdc5d1ce5a383bc997c2e689202d5441fdc8a2f8",
+    "read_metrics.py": "ccddb2599500cfdd9c80bb32afc6265aa1f09fd17d19e467d558ab6a0ae68ee3",
+    "metrics.test.py": "28845c1af7570834e29b033e0407f3d7ecb41bf0df44185a007b81772c8033ec",
+    "reporting.py": "5ec38030eb1235a8226e43c9aec86153abc59b65f9a829c58a4d74b1e175713d",
+    "replay.py": "e4820db94f2684a549db45017485546ebd68448f8e1c0cc9856639aead948750",
+    "export.py": "75144035c383d17f408bc12adcbaed9b5c2e062c32702f28ea4199f3b2ed5a8f",
+    "export.test.py": "8311c4cfafc8cdf89d2310495c9c2ed821449b9fe32f7dd131f6132be4e09de2",
+    "grader.cjs": "2204bf0999b3ea191a84bc1f7817bb60b3ff38ef925ee77faf8bd68aed7c711b",
+    "grader.test.cjs": "1296407409c16057ce4491431001fcd924283fbd134ee15eace4fb203e6d33a2",
+    "run.py": "c669cddf520fecd0ee956549cc8c9cb5e3ceb56dff1fa0d4abbd5515965eba51",
+    "fable-supplement.py": "fa92e32b85e74aa2b3e848ad8611f98bb179bb4e2a2e11bd68bacceb445dc82d",
+    "fixture.test.py": "cc62a42ca33aebe47454836d1267a4136dca87a8f530cf405c73b0662a40488a",
+    "check.py": "78fc05e706e0c89087f992575fe4fa1c6e04c0a5da48e591b28ce54c8d4b09ee"
+  },
+  "commands": [
+    {
+      "command": "python3 benchmarks/issue290-pilot/check.py",
+      "exit": 0
+    }
+  ],
+  "results": {
+    "python_tests": 26,
+    "node_hook": "PASS",
+    "node_grader": "PASS",
+    "syntax": "PASS",
+    "replay_episodes": 40,
+    "verified_exported_hashes": 621,
+    "readme_tables": "exact generated match",
+    "final_scan": "PASS for configured credential classes; not a proof of universal absence"
+  },
+  "filesystem_order_regression": {
+    "counterexample": "Reversed Path.rglob enumeration changed stage-binding order in the ledger.",
+    "before": "isolated regression fails on unsorted analyzer",
+    "after": "sorted state traversal passes, including reversed-enumeration control"
+  },
+  "historical_failures_retained": [
+    {
+      "ci_run": 41176140722,
+      "head": "8c8e6c1e770bf6aac85420e6d1bf0a4e350abda0",
+      "failure": "offline replay ledger mismatch"
+    },
+    {
+      "ci_run": 41176337714,
+      "head": "664da1e4f32251bd9e4c79d78fef5152cd9b86cd",
+      "failure": "diagnostics identify stage-binding ordering from filesystem enumeration"
+    }
+  ],
+  "limits": [
+    "Original archive and model observations unchanged.",
+    "Private session/worker telemetry remains frozen or unknown.",
+    "Final CI is separate from these local results.",
+    "Governance REVIEW_REQUIRED is not waived by this report."
+  ]
+}

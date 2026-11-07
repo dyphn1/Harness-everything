@@ -33,6 +33,7 @@ flowchart TD
   - "Same decision class" means the same acceptance decision under the same trust assumptions, possibly at different sites. "Same directory" or "validation" is too broad. Count a repeated or renamed finding once, and treat missing history as unknown, not zero.
   - Phase 2 here means: list every finding so far by decision class, state the acceptance clause each violates, and inventory every site (callers, state readers, Stop consumers) that makes the same decision. Findings that map to no acceptance clause stay `unresolved` for the owner instead of becoming new fixes.
   - RESUME by using the inventory to choose the smallest justified correction (which may be one shared fix, or no code change), then re-trace one normal end-to-end acceptance path. Unresolved findings need scope adjudication, not speculative repairs.
+  - Whoever applies the fixes counts too. Before fixing review round 2 or later on one feature, classify each new finding against the decision classes of earlier rounds. A class that also appeared in the previous round MUST trigger Phase 2 before any edit; do not wait for the reviewer to name the pattern.
   - A one-shot reviewer cannot see the previous round on its own. The packet carries the current acceptance anchor, a link to the previous comparable report with its revision, the prior finding IDs and dispositions, and the fix made since.
 - **Goal Drift**: Execution strays far from the initial task objective.
 - **User Instruction**: The user requests a step back ("zoom out", "step back", "stop and think").

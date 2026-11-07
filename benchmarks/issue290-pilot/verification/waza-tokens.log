@@ -1,0 +1,710 @@
+─── bad-frontmatter-colon ───
+File      Tokens  Limit  Status
+-----------------------------------------
+SKILL.md      73    500  ✅ OK
+-----------------------------------------
+
+1/1 files within limits
+
+─── duplicate-a ───
+File      Tokens  Limit  Status
+-----------------------------------------
+SKILL.md      64    500  ✅ OK
+-----------------------------------------
+
+1/1 files within limits
+
+─── duplicate-b ───
+File      Tokens  Limit  Status
+-----------------------------------------
+SKILL.md      64    500  ✅ OK
+-----------------------------------------
+
+1/1 files within limits
+
+─── environment-detection ───
+File                              Tokens  Limit  Status
+-----------------------------------------------------------------
+SKILL.md                             484    500  ✅ OK
+references/shell-syntax-rules.md    1197   4000  ✅ OK
+-----------------------------------------------------------------
+
+2/2 files within limits
+
+─── bad-frontmatter-colon ───
+File      Tokens  Limit  Status
+-----------------------------------------
+SKILL.md      68    500  ✅ OK
+-----------------------------------------
+
+1/1 files within limits
+
+─── duplicate-desc-skill-a ───
+File      Tokens  Limit  Status
+-----------------------------------------
+SKILL.md      69    500  ✅ OK
+-----------------------------------------
+
+1/1 files within limits
+
+─── duplicate-desc-skill-b ───
+File      Tokens  Limit  Status
+-----------------------------------------
+SKILL.md      69    500  ✅ OK
+-----------------------------------------
+
+1/1 files within limits
+
+─── missing-delimiter ───
+File      Tokens  Limit  Status
+-----------------------------------------
+SKILL.md      60    500  ✅ OK
+-----------------------------------------
+
+1/1 files within limits
+
+─── over-budget-skill ───
+File      Tokens  Limit  Status
+-----------------------------------------
+SKILL.md     855    500  ❌ EXCEEDED
+-----------------------------------------
+
+0/1 files within limits
+
+⚠️  1 file(s) exceed their token limits:
+   SKILL.md: 855 tokens (355 over limit of 500)
+
+─── eval-harness ───
+File                          Tokens  Limit  Status
+-------------------------------------------------------------
+SKILL.md                         401    500  ✅ OK
+references/scoring-rubric.md     891   4000  ✅ OK
+-------------------------------------------------------------
+
+2/2 files within limits
+
+─── fable-discipline ───
+File                            Tokens  Limit  Status
+---------------------------------------------------------------
+SKILL.md                           479    500  ✅ OK
+references/discipline-rules.md     439   4000  ✅ OK
+---------------------------------------------------------------
+
+2/2 files within limits
+
+─── fable-mode ───
+File                                                Tokens  Limit  Status
+-----------------------------------------------------------------------------------
+CONTRACT-FORMAT.md                                    1943   4000  ✅ OK
+SKILL.md                                               498    500  ✅ OK
+agents/fable-orchestrator.md                          2244   4000  ✅ OK
+agents/fable-verifier.md                               447   4000  ✅ OK
+agents/fable-worker-haiku.md                           622   4000  ✅ OK
+agents/fable-worker-sonnet.md                          668   4000  ✅ OK
+execution-guardrails/SKILL.md                          467    500  ✅ OK
+execution-guardrails/references/guardrail-rules.md     816   4000  ✅ OK
+fable-haiku/SKILL.md                                   411    500  ✅ OK
+fable-haiku/references/routing-notes.md                319   4000  ✅ OK
+fable-opus/SKILL.md                                    477    500  ✅ OK
+fable-sonnet/SKILL.md                                  422    500  ✅ OK
+references/execution-phases.md                         399   4000  ✅ OK
+references/model-matrix.md                             674   4000  ✅ OK
+references/profile-lookup.md                           301   4000  ✅ OK
+-----------------------------------------------------------------------------------
+
+15/15 files within limits
+
+─── find-skills ───
+File                          Tokens  Limit  Status
+-------------------------------------------------------------
+SKILL.md                         459    500  ✅ OK
+references/discovery-flow.md    1797   4000  ✅ OK
+-------------------------------------------------------------
+
+2/2 files within limits
+
+─── git-commit ───
+File                          Tokens  Limit  Status
+-------------------------------------------------------------
+SKILL.md                         443    500  ✅ OK
+guides/ANGULAR_STYLE.md          541   4000  ✅ OK
+guides/COMMIT_GENERATION.md      385   4000  ✅ OK
+guides/LANGUAGE_DETECTION.md     190   4000  ✅ OK
+guides/MAIN_REPO.md              178   4000  ✅ OK
+guides/SUBMODULES.md            1163   4000  ✅ OK
+references/commit-flow.md        359   4000  ✅ OK
+-------------------------------------------------------------
+
+7/7 files within limits
+
+─── grill-me ───
+File                             Tokens  Limit  Status
+----------------------------------------------------------------
+SKILL.md                            310    500  ✅ OK
+references/grilling-playbook.md     594   4000  ✅ OK
+----------------------------------------------------------------
+
+2/2 files within limits
+
+─── grill-with-docs ───
+File                            Tokens  Limit  Status
+---------------------------------------------------------------
+ADR-FORMAT.md                      826   4000  ✅ OK
+CONTEXT-FORMAT.md                  615   4000  ✅ OK
+SKILL.md                           449    500  ✅ OK
+references/session-playbook.md    1211   4000  ✅ OK
+---------------------------------------------------------------
+
+4/4 files within limits
+
+─── harness-everything ───
+File                                Tokens  Limit  Status
+-------------------------------------------------------------------
+SKILL.md                               497    500  ✅ OK
+examples/README.md                      78   4000  ✅ OK
+examples/todo-workflow.md              282   4000  ✅ OK
+references/router-workflow-plan.md    1581   4000  ✅ OK
+references/skill-registry.md          1144   4000  ✅ OK
+references/triage-and-tiers.md        2431   4000  ✅ OK
+-------------------------------------------------------------------
+
+6/6 files within limits
+
+─── improve-codebase-architecture ───
+File                            Tokens  Limit  Status
+---------------------------------------------------------------
+SKILL.md                           419    500  ✅ OK
+guides/DEEPENING.md                537   4000  ✅ OK
+guides/HTML-REPORT.md             1596   4000  ✅ OK
+guides/INTERFACE-DESIGN.md         606   4000  ✅ OK
+guides/LANGUAGE.md                 828   4000  ✅ OK
+guides/refactoring-workflow.md     821   4000  ✅ OK
+references/README.md               169   4000  ✅ OK
+---------------------------------------------------------------
+
+7/7 files within limits
+
+─── install-cognitive-os ───
+File                          Tokens  Limit  Status
+-------------------------------------------------------------
+SKILL.md                         442    500  ✅ OK
+references/cognitive-loop.md     215   4000  ✅ OK
+-------------------------------------------------------------
+
+2/2 files within limits
+
+─── multi-agent-workspace ───
+File                                     Tokens  Limit  Status
+------------------------------------------------------------------------
+NOTICE-agency-agents.md                     271   4000  ✅ OK
+SKILL.md                                    498    500  ✅ OK
+examples/csharp-monorepo.md                1520   4000  ✅ OK
+examples/typescript-cli.md                 1493   4000  ✅ OK
+guidelines/platform-claude.md               644   4000  ✅ OK
+guidelines/platform-codex.md               1105   4000  ✅ OK
+guidelines/platform-continue.md             306   4000  ✅ OK
+guidelines/platform-copilot.md              552   4000  ✅ OK
+guidelines/platform-cursor.md               320   4000  ✅ OK
+guidelines/platform-hermes.md               298   4000  ✅ OK
+guidelines/role-capabilities.md             929   4000  ✅ OK
+references/agency-agents.md                 386   4000  ✅ OK
+references/architecture-guide.md            359   4000  ✅ OK
+references/orchestration.md                1064   4000  ✅ OK
+templates/AGENTS.md                         206   4000  ✅ OK
+templates/README.md                         432   4000  ✅ OK
+templates/agent-launcher.md                1079   4000  ✅ OK
+templates/backend-developer-csharp.md       743   4000  ✅ OK
+templates/backend-developer-polyglot.md     830   4000  ✅ OK
+templates/backend-developer-ts.md           773   4000  ✅ OK
+templates/memory-keeper.md                  468   4000  ✅ OK
+templates/requirement-analyzer.md           886   4000  ✅ OK
+templates/specialist-agent.md               392   4000  ✅ OK
+templates/task-verifier.md                  880   4000  ✅ OK
+templates/tool-maker.md                     459   4000  ✅ OK
+workflows/01-init.md                        401   4000  ✅ OK
+workflows/02-analysis.md                    410   4000  ✅ OK
+workflows/03-generation.md                  392   4000  ✅ OK
+workflows/04-launcher.md                    220   4000  ✅ OK
+------------------------------------------------------------------------
+
+29/29 files within limits
+
+─── environment-detection ───
+File                              Tokens  Limit  Status
+-----------------------------------------------------------------
+SKILL.md                             484    500  ✅ OK
+references/shell-syntax-rules.md    1197   4000  ✅ OK
+-----------------------------------------------------------------
+
+2/2 files within limits
+
+─── eval-harness ───
+File                          Tokens  Limit  Status
+-------------------------------------------------------------
+SKILL.md                         401    500  ✅ OK
+references/scoring-rubric.md     891   4000  ✅ OK
+-------------------------------------------------------------
+
+2/2 files within limits
+
+─── fable-discipline ───
+File                            Tokens  Limit  Status
+---------------------------------------------------------------
+SKILL.md                           479    500  ✅ OK
+references/discipline-rules.md     439   4000  ✅ OK
+---------------------------------------------------------------
+
+2/2 files within limits
+
+─── fable-mode ───
+File                                                Tokens  Limit  Status
+-----------------------------------------------------------------------------------
+CONTRACT-FORMAT.md                                    1943   4000  ✅ OK
+SKILL.md                                               498    500  ✅ OK
+agents/fable-orchestrator.md                          2244   4000  ✅ OK
+agents/fable-verifier.md                               447   4000  ✅ OK
+agents/fable-worker-haiku.md                           622   4000  ✅ OK
+agents/fable-worker-sonnet.md                          668   4000  ✅ OK
+execution-guardrails/SKILL.md                          467    500  ✅ OK
+execution-guardrails/references/guardrail-rules.md     816   4000  ✅ OK
+fable-haiku/SKILL.md                                   411    500  ✅ OK
+fable-haiku/references/routing-notes.md                319   4000  ✅ OK
+fable-opus/SKILL.md                                    477    500  ✅ OK
+fable-sonnet/SKILL.md                                  422    500  ✅ OK
+references/execution-phases.md                         399   4000  ✅ OK
+references/model-matrix.md                             674   4000  ✅ OK
+references/profile-lookup.md                           301   4000  ✅ OK
+-----------------------------------------------------------------------------------
+
+15/15 files within limits
+
+─── find-skills ───
+File                          Tokens  Limit  Status
+-------------------------------------------------------------
+SKILL.md                         459    500  ✅ OK
+references/discovery-flow.md    1797   4000  ✅ OK
+-------------------------------------------------------------
+
+2/2 files within limits
+
+─── git-commit ───
+File                          Tokens  Limit  Status
+-------------------------------------------------------------
+SKILL.md                         443    500  ✅ OK
+guides/ANGULAR_STYLE.md          541   4000  ✅ OK
+guides/COMMIT_GENERATION.md      385   4000  ✅ OK
+guides/LANGUAGE_DETECTION.md     190   4000  ✅ OK
+guides/MAIN_REPO.md              178   4000  ✅ OK
+guides/SUBMODULES.md            1163   4000  ✅ OK
+references/commit-flow.md        359   4000  ✅ OK
+-------------------------------------------------------------
+
+7/7 files within limits
+
+─── grill-me ───
+File                             Tokens  Limit  Status
+----------------------------------------------------------------
+SKILL.md                            310    500  ✅ OK
+references/grilling-playbook.md     594   4000  ✅ OK
+----------------------------------------------------------------
+
+2/2 files within limits
+
+─── grill-with-docs ───
+File                            Tokens  Limit  Status
+---------------------------------------------------------------
+ADR-FORMAT.md                      826   4000  ✅ OK
+CONTEXT-FORMAT.md                  615   4000  ✅ OK
+SKILL.md                           449    500  ✅ OK
+references/session-playbook.md    1211   4000  ✅ OK
+---------------------------------------------------------------
+
+4/4 files within limits
+
+─── harness-everything ───
+File                                Tokens  Limit  Status
+-------------------------------------------------------------------
+SKILL.md                               497    500  ✅ OK
+examples/README.md                      78   4000  ✅ OK
+examples/todo-workflow.md              282   4000  ✅ OK
+references/router-workflow-plan.md    1581   4000  ✅ OK
+references/skill-registry.md          1144   4000  ✅ OK
+references/triage-and-tiers.md        2431   4000  ✅ OK
+-------------------------------------------------------------------
+
+6/6 files within limits
+
+─── improve-codebase-architecture ───
+File                            Tokens  Limit  Status
+---------------------------------------------------------------
+SKILL.md                           419    500  ✅ OK
+guides/DEEPENING.md                537   4000  ✅ OK
+guides/HTML-REPORT.md             1596   4000  ✅ OK
+guides/INTERFACE-DESIGN.md         606   4000  ✅ OK
+guides/LANGUAGE.md                 828   4000  ✅ OK
+guides/refactoring-workflow.md     821   4000  ✅ OK
+references/README.md               169   4000  ✅ OK
+---------------------------------------------------------------
+
+7/7 files within limits
+
+─── install-cognitive-os ───
+File                          Tokens  Limit  Status
+-------------------------------------------------------------
+SKILL.md                         442    500  ✅ OK
+references/cognitive-loop.md     215   4000  ✅ OK
+-------------------------------------------------------------
+
+2/2 files within limits
+
+─── multi-agent-workspace ───
+File                                     Tokens  Limit  Status
+------------------------------------------------------------------------
+NOTICE-agency-agents.md                     271   4000  ✅ OK
+SKILL.md                                    498    500  ✅ OK
+examples/csharp-monorepo.md                1520   4000  ✅ OK
+examples/typescript-cli.md                 1493   4000  ✅ OK
+guidelines/platform-claude.md               644   4000  ✅ OK
+guidelines/platform-codex.md               1105   4000  ✅ OK
+guidelines/platform-continue.md             306   4000  ✅ OK
+guidelines/platform-copilot.md              552   4000  ✅ OK
+guidelines/platform-cursor.md               320   4000  ✅ OK
+guidelines/platform-hermes.md               298   4000  ✅ OK
+guidelines/role-capabilities.md             929   4000  ✅ OK
+references/agency-agents.md                 386   4000  ✅ OK
+references/architecture-guide.md            359   4000  ✅ OK
+references/orchestration.md                1064   4000  ✅ OK
+templates/AGENTS.md                         206   4000  ✅ OK
+templates/README.md                         432   4000  ✅ OK
+templates/agent-launcher.md                1079   4000  ✅ OK
+templates/backend-developer-csharp.md       743   4000  ✅ OK
+templates/backend-developer-polyglot.md     830   4000  ✅ OK
+templates/backend-developer-ts.md           773   4000  ✅ OK
+templates/memory-keeper.md                  468   4000  ✅ OK
+templates/requirement-analyzer.md           886   4000  ✅ OK
+templates/specialist-agent.md               392   4000  ✅ OK
+templates/task-verifier.md                  880   4000  ✅ OK
+templates/tool-maker.md                     459   4000  ✅ OK
+workflows/01-init.md                        401   4000  ✅ OK
+workflows/02-analysis.md                    410   4000  ✅ OK
+workflows/03-generation.md                  392   4000  ✅ OK
+workflows/04-launcher.md                    220   4000  ✅ OK
+------------------------------------------------------------------------
+
+29/29 files within limits
+
+─── repo-docs ───
+File                                       Tokens  Limit  Status
+--------------------------------------------------------------------------
+SKILL.md                                      440    500  ✅ OK
+references/process-guide.md                   933   4000  ✅ OK
+templates/agents-template.md                 1822   4000  ✅ OK
+templates/knowledge-agents-template.md        535   4000  ✅ OK
+templates/knowledge-readme-template.md        742   4000  ✅ OK
+templates/manual-recon.md                     798   4000  ✅ OK
+templates/multi-skills-readme-template.md     601   4000  ✅ OK
+templates/product-agents-template.md          719   4000  ✅ OK
+templates/product-readme-template.md          675   4000  ✅ OK
+templates/readme-template.md                  887   4000  ✅ OK
+templates/single-skill-readme-template.md     490   4000  ✅ OK
+templates/skills-agents-template.md           683   4000  ✅ OK
+--------------------------------------------------------------------------
+
+12/12 files within limits
+
+─── rewrite-commits ───
+File                    Tokens  Limit  Status
+-------------------------------------------------------
+SKILL.md                   497    500  ✅ OK
+references/workflow.md     346   4000  ✅ OK
+-------------------------------------------------------
+
+2/2 files within limits
+
+─── security-review ───
+File                              Tokens  Limit  Status
+-----------------------------------------------------------------
+SKILL.md                             491    500  ✅ OK
+guides/OWASP-PATTERNS.md             244   4000  ✅ OK
+guides/STRIDE-THREAT-MODEL.md        345   4000  ✅ OK
+references/security-checklist.md    2930   4000  ✅ OK
+-----------------------------------------------------------------
+
+4/4 files within limits
+
+─── self-evolve ───
+File                             Tokens  Limit  Status
+----------------------------------------------------------------
+SKILL.md                            383    500  ✅ OK
+references/memory-resolution.md    1216   4000  ✅ OK
+----------------------------------------------------------------
+
+2/2 files within limits
+
+─── skill-creator ───
+File                                       Tokens  Limit  Status
+--------------------------------------------------------------------------
+SKILL.md                                      496    500  ✅ OK
+references/authoring-workflow.md              138   4000  ✅ OK
+references/dynamic-generation-contract.md     752   4000  ✅ OK
+references/quality-checklist.md               681   4000  ✅ OK
+references/quality-principles.md             2224   4000  ✅ OK
+references/testing-workflow.md                242   4000  ✅ OK
+--------------------------------------------------------------------------
+
+6/6 files within limits
+
+─── skill-style ───
+File                       Tokens  Limit  Status
+----------------------------------------------------------
+SKILL.md                      431    500  ✅ OK
+references/style-guide.md    1201   4000  ✅ OK
+----------------------------------------------------------
+
+2/2 files within limits
+
+─── tdd ───
+File                               Tokens  Limit  Status
+------------------------------------------------------------------
+SKILL.md                              361    500  ✅ OK
+guides/deep-modules.md                189   4000  ✅ OK
+guides/interface-design.md            148   4000  ✅ OK
+guides/mocking.md                     331   4000  ✅ OK
+guides/refactoring.md                  87   4000  ✅ OK
+guides/tests.md                       371   4000  ✅ OK
+references/core-discipline.md         822   4000  ✅ OK
+references/integration-testing.md     222   4000  ✅ OK
+references/quality-model.md          1160   4000  ✅ OK
+references/unit-testing.md            255   4000  ✅ OK
+------------------------------------------------------------------
+
+10/10 files within limits
+
+─── to-spec ───
+File                        Tokens  Limit  Status
+-----------------------------------------------------------
+SKILL.md                       464    500  ✅ OK
+references/process.md         1565   4000  ✅ OK
+templates/cli-reference.md     321   4000  ✅ OK
+templates/dev-doc.md           256   4000  ✅ OK
+templates/feature-spec.md      518   4000  ✅ OK
+templates/schema-doc.md        330   4000  ✅ OK
+-----------------------------------------------------------
+
+6/6 files within limits
+
+─── to-tickets ───
+File                                    Tokens  Limit  Status
+-----------------------------------------------------------------------
+SKILL.md                                   497    500  ✅ OK
+references/publishing-and-templates.md    1395   4000  ✅ OK
+-----------------------------------------------------------------------
+
+2/2 files within limits
+
+─── todo-driven-workflow ───
+File                           Tokens  Limit  Status
+--------------------------------------------------------------
+SKILL.md                          447    500  ✅ OK
+references/execution-guide.md     260   4000  ✅ OK
+--------------------------------------------------------------
+
+2/2 files within limits
+
+─── using-git-worktrees ───
+File                                   Tokens  Limit  Status
+----------------------------------------------------------------------
+SKILL.md                                  411    500  ✅ OK
+references/submodules-in-worktrees.md    1392   4000  ✅ OK
+references/workflow-details.md            583   4000  ✅ OK
+----------------------------------------------------------------------
+
+3/3 files within limits
+
+─── verification-loop ───
+File                                         Tokens  Limit  Status
+----------------------------------------------------------------------------
+SKILL.md                                        369    500  ✅ OK
+references/project-verification-contract.md    1131   4000  ✅ OK
+references/verification-phases.md              1160   4000  ✅ OK
+templates/verification-report.template.md       142   4000  ✅ OK
+----------------------------------------------------------------------------
+
+4/4 files within limits
+
+─── verify-before-claim ───
+File                              Tokens  Limit  Status
+-----------------------------------------------------------------
+SKILL.md                             416    500  ✅ OK
+references/verification-guide.md     819   4000  ✅ OK
+-----------------------------------------------------------------
+
+2/2 files within limits
+
+─── zoom-out ───
+File                                   Tokens  Limit  Status
+----------------------------------------------------------------------
+SKILL.md                                  478    500  ✅ OK
+references/circuit-breaker.md             966   4000  ✅ OK
+templates/zoom-out-report.template.md     170   4000  ✅ OK
+----------------------------------------------------------------------
+
+3/3 files within limits
+
+─── repo-docs ───
+File                                       Tokens  Limit  Status
+--------------------------------------------------------------------------
+SKILL.md                                      440    500  ✅ OK
+references/process-guide.md                   933   4000  ✅ OK
+templates/agents-template.md                 1822   4000  ✅ OK
+templates/knowledge-agents-template.md        535   4000  ✅ OK
+templates/knowledge-readme-template.md        742   4000  ✅ OK
+templates/manual-recon.md                     798   4000  ✅ OK
+templates/multi-skills-readme-template.md     601   4000  ✅ OK
+templates/product-agents-template.md          719   4000  ✅ OK
+templates/product-readme-template.md          675   4000  ✅ OK
+templates/readme-template.md                  887   4000  ✅ OK
+templates/single-skill-readme-template.md     490   4000  ✅ OK
+templates/skills-agents-template.md           683   4000  ✅ OK
+--------------------------------------------------------------------------
+
+12/12 files within limits
+
+─── rewrite-commits ───
+File                    Tokens  Limit  Status
+-------------------------------------------------------
+SKILL.md                   497    500  ✅ OK
+references/workflow.md     346   4000  ✅ OK
+-------------------------------------------------------
+
+2/2 files within limits
+
+─── security-review ───
+File                              Tokens  Limit  Status
+-----------------------------------------------------------------
+SKILL.md                             491    500  ✅ OK
+guides/OWASP-PATTERNS.md             244   4000  ✅ OK
+guides/STRIDE-THREAT-MODEL.md        345   4000  ✅ OK
+references/security-checklist.md    2930   4000  ✅ OK
+-----------------------------------------------------------------
+
+4/4 files within limits
+
+─── self-evolve ───
+File                             Tokens  Limit  Status
+----------------------------------------------------------------
+SKILL.md                            383    500  ✅ OK
+references/memory-resolution.md    1216   4000  ✅ OK
+----------------------------------------------------------------
+
+2/2 files within limits
+
+─── skill-creator ───
+File                                       Tokens  Limit  Status
+--------------------------------------------------------------------------
+SKILL.md                                      496    500  ✅ OK
+references/authoring-workflow.md              138   4000  ✅ OK
+references/dynamic-generation-contract.md     752   4000  ✅ OK
+references/quality-checklist.md               681   4000  ✅ OK
+references/quality-principles.md             2224   4000  ✅ OK
+references/testing-workflow.md                242   4000  ✅ OK
+--------------------------------------------------------------------------
+
+6/6 files within limits
+
+─── skill-style ───
+File                       Tokens  Limit  Status
+----------------------------------------------------------
+SKILL.md                      431    500  ✅ OK
+references/style-guide.md    1201   4000  ✅ OK
+----------------------------------------------------------
+
+2/2 files within limits
+
+─── tdd ───
+File                               Tokens  Limit  Status
+------------------------------------------------------------------
+SKILL.md                              361    500  ✅ OK
+guides/deep-modules.md                189   4000  ✅ OK
+guides/interface-design.md            148   4000  ✅ OK
+guides/mocking.md                     331   4000  ✅ OK
+guides/refactoring.md                  87   4000  ✅ OK
+guides/tests.md                       371   4000  ✅ OK
+references/core-discipline.md         822   4000  ✅ OK
+references/integration-testing.md     222   4000  ✅ OK
+references/quality-model.md          1160   4000  ✅ OK
+references/unit-testing.md            255   4000  ✅ OK
+------------------------------------------------------------------
+
+10/10 files within limits
+
+─── to-spec ───
+File                        Tokens  Limit  Status
+-----------------------------------------------------------
+SKILL.md                       464    500  ✅ OK
+references/process.md         1565   4000  ✅ OK
+templates/cli-reference.md     321   4000  ✅ OK
+templates/dev-doc.md           256   4000  ✅ OK
+templates/feature-spec.md      518   4000  ✅ OK
+templates/schema-doc.md        330   4000  ✅ OK
+-----------------------------------------------------------
+
+6/6 files within limits
+
+─── to-tickets ───
+File                                    Tokens  Limit  Status
+-----------------------------------------------------------------------
+SKILL.md                                   497    500  ✅ OK
+references/publishing-and-templates.md    1395   4000  ✅ OK
+-----------------------------------------------------------------------
+
+2/2 files within limits
+
+─── todo-driven-workflow ───
+File                           Tokens  Limit  Status
+--------------------------------------------------------------
+SKILL.md                          447    500  ✅ OK
+references/execution-guide.md     260   4000  ✅ OK
+--------------------------------------------------------------
+
+2/2 files within limits
+
+─── using-git-worktrees ───
+File                                   Tokens  Limit  Status
+----------------------------------------------------------------------
+SKILL.md                                  411    500  ✅ OK
+references/submodules-in-worktrees.md    1392   4000  ✅ OK
+references/workflow-details.md            583   4000  ✅ OK
+----------------------------------------------------------------------
+
+3/3 files within limits
+
+─── verification-loop ───
+File                                         Tokens  Limit  Status
+----------------------------------------------------------------------------
+SKILL.md                                        369    500  ✅ OK
+references/project-verification-contract.md    1131   4000  ✅ OK
+references/verification-phases.md              1160   4000  ✅ OK
+templates/verification-report.template.md       142   4000  ✅ OK
+----------------------------------------------------------------------------
+
+4/4 files within limits
+
+─── verify-before-claim ───
+File                              Tokens  Limit  Status
+-----------------------------------------------------------------
+SKILL.md                             416    500  ✅ OK
+references/verification-guide.md     819   4000  ✅ OK
+-----------------------------------------------------------------
+
+2/2 files within limits
+
+─── zoom-out ───
+File                                   Tokens  Limit  Status
+----------------------------------------------------------------------
+SKILL.md                                  478    500  ✅ OK
+references/circuit-breaker.md             966   4000  ✅ OK
+templates/zoom-out-report.template.md     170   4000  ✅ OK
+----------------------------------------------------------------------
+
+3/3 files within limits

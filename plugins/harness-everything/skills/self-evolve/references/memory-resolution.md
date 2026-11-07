@@ -35,6 +35,17 @@ For a simple rule, inspect/list the session candidate, evaluate it with a genera
 
 For a reusable multi-step procedure, load `skill-creator/SKILL.md`, create the draft skill, and use `register-dynamic-skill.js` to update each platform's `manifest.json` `generated[]` registry. The host agent remains responsible for deciding which evidence is relevant; these scripts do not discover session history.
 
+## Workspace helper and diagnostics
+
+| Contract | Behavior |
+| --- | --- |
+| Trusted imports | Select one layout using its installation marker: source `package.json` takes precedence; packaged `skills/` requires `.codex-plugin/plugin.json`. Load only that root’s `scripts/lib/workspace.js`; never fall through to ancestor/project/cwd code. |
+| Identity and state | Use the canonical resolver and `HARNESS_STATE_HOME` precedence; source and plugin read the same workspace/session candidates. No alternate state root. |
+| Missing helper | `WORKSPACE_HELPER_UNAVAILABLE` identifies the selected helper path or invalid layout marker and cause; absent or broken helpers fail without trying another layout. |
+| Unresolved identity | `WORKSPACE_ROOT_UNRESOLVED` exits nonzero; do not substitute cwd when canonical resolution fails. |
+| Unusable state | `WORKSPACE_STATE_UNAVAILABLE` exits nonzero for invalid state paths or failed reads; only a genuinely absent candidate directory returns `[]`. |
+| Writes | Existing screening and workflow authorization still apply. Resolver failures never authorize persistence or state repair. |
+
 ## Candidate Lifecycle
 
 ```text
