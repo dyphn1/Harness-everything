@@ -2301,6 +2301,18 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
       assert.strictEqual(result.status, exitCode, `the standalone job propagates guard exit ${exitCode}`);
     }
   });
+
+  checkCase('2ax. release gate calls and waits for the standalone document-governance workflow', () => {
+    const releaseWorkflow = require('js-yaml').load(fs.readFileSync(path.join(REPOSITORY_ROOT, '.github/workflows/release.yml'), 'utf8'));
+    const ciWorkflow = require('js-yaml').load(fs.readFileSync(path.join(REPOSITORY_ROOT, '.github/workflows/ci.yml'), 'utf8'));
+    const governanceWorkflow = require('js-yaml').load(fs.readFileSync(path.join(REPOSITORY_ROOT, '.github/workflows/doc-governance.yml'), 'utf8'));
+
+    assert.strictEqual(releaseWorkflow.jobs.gate.uses, './.github/workflows/ci.yml', 'release keeps the CI reusable-workflow gate');
+    assert.strictEqual(releaseWorkflow.jobs['doc-governance']?.uses, './.github/workflows/doc-governance.yml', 'release calls the extracted governance workflow');
+    assert.deepStrictEqual(releaseWorkflow.jobs.release.needs, ['gate', 'doc-governance'], 'release waits for CI and document governance');
+    assert.ok(!ciWorkflow.jobs['doc-governance'], 'CI does not duplicate the extracted governance runner');
+    assert.ok(governanceWorkflow.jobs['doc-governance'], 'the called standalone workflow owns the governance job');
+  });
 });
 
 helper.finish();

@@ -19,12 +19,15 @@ permissions:
   id-token: write
 
 jobs:
-  # Release publication is gated by exactly the same test matrix as a PR.
+  # Release publication waits for the full CI matrix and document governance.
   gate:
     uses: ./.github/workflows/ci.yml
 
+  doc-governance:
+    uses: ./.github/workflows/doc-governance.yml
+
   release:
-    needs: gate
+    needs: [gate, doc-governance]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout full release history
