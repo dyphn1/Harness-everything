@@ -23,8 +23,12 @@ episodes:
         result: "Windows CI failure"
       - round: 1
         change: "Commit `c508e431`: outline roots built with `workflow-isolation` `canonical()`"
-        review: unknown
-        result: "unknown; the packet marks the episode closed"
+        review: "hosted CI at `c508e431`"
+        result: "Windows self-regression and consistency still failed (cause not re-read)"
+      - round: 2
+        change: "Commit `f39f5333`: legacy session-dir keying on the raw workspace root"
+        review: "hosted Windows CI green at `f39f5333` (#387 head, merged 2026-10-27)"
+        result: "episode closed"
   - episode: 341-dependency-scope-windows-short-path
     feature: "#396 dependency-artifact inventory scope"
     date: 2026-11-07
