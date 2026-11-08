@@ -190,6 +190,10 @@ function createOutlineFixture(options = {}) {
   }
 
   if (!preOutlineOperation || preOutlineOperation.operation !== 'write') fs.writeFileSync(path.join(root, target), outlineBytes);
+  if (options.symlinkOutlineObject) {
+    fs.rmSync(path.join(root, target), { force: true });
+    fs.symlinkSync(outlineBytes.toString('utf8'), path.join(root, target));
+  }
   let capturedCommit = false;
   let indexAfterCapturedAdd = null;
   let indexAfterOutlineCommit = null;
@@ -285,7 +289,9 @@ function createOutlineFixture(options = {}) {
     agent_id: reviewerPrincipal, agent_type: 'reviewer' };
   let reviewerStartRecord = null;
   if (options.realHook) {
-    runInterleaved(interleave.beforeReview);
+    const restoreBeforeReview = options.beforeReviewSetup?.({ root, target });
+    try { runInterleaved(interleave.beforeReview); }
+    finally { if (typeof restoreBeforeReview === 'function') restoreBeforeReview(); }
     // The live host journals the reviewer's SubagentStart before its launch result (run8 sanitized capture).
     if (!options.omitReviewerStart) runHook(reviewerStartPayload);
     if (!options.omitReviewResult) runHook(reviewResultPayload);
@@ -430,6 +436,7 @@ function createOutlineFixture(options = {}) {
     runPilot = false, handAuthoredCapture = false, removeSeam = false, mutateAfterFinalReview = false,
     postWorkerCaptures = [], afterWorkerStop = [] } = {}) {
     if (draft) {
+      if (fs.lstatSync(path.join(root, target)).isSymbolicLink()) fs.unlinkSync(path.join(root, target));
       fs.writeFileSync(path.join(root, target), `---\nid: ${domain}-001\nstatus: proposed\n---\n\n## Decision\nFinal D for row ${rowId}.\n`);
       fixtureGit(root, ['add', '-A']);
       fixtureGit(root, ['commit', '-q', '-m', 'D final draft']);
@@ -1800,7 +1807,10 @@ const ctxOf = fixture => ({ root: fixture.root, sessionId: fixture.sessionId, ta
 const writerRecord = ({ toolUseId, file = null, agentId = null, tool = 'Write', command = null }) => ctx => ({
   session_id: ctx.sessionId, cwd: ctx.root, hook_event_name: 'PreToolUse', tool_name: tool, tool_use_id: toolUseId,
   ...(agentId ? { agent_id: agentId, agent_type: 'worker' } : {}),
-  tool_input: tool === 'Bash' ? { command } : { file_path: path.join(ctx.root, file || ctx.target), content: 'injected writer' },
+  tool_input: tool === 'Bash' ? { command } : tool === 'apply_patch'
+    ? { patch: `*** Update File: ${file || ctx.target}\n@@\n-old\n+new\n` }
+    : tool === 'Edit' ? { file_path: path.join(ctx.root, file || ctx.target), old_string: 'old', new_string: 'new' }
+      : { file_path: path.join(ctx.root, file || ctx.target), content: 'injected writer' },
 });
 const WRITER_AMBIGUOUS = 'outline-writer-activity-ambiguous';
 const SEAM_UNRESOLVED = 'outline-pre-dispatch-seam-unresolved';
@@ -1816,6 +1826,109 @@ function runWriterControl(name, options, arrange = () => {}) {
     return { control: name, status: completed.result.status, outcome: outline?.outcome ?? null, codes };
   } finally { fixture.cleanup(); }
 }
+
+function replaceOutlinePathForWriterCapture(root, target, kind) {
+  const file = path.join(root, target);
+  const parent = path.dirname(file);
+  const backup = `${parent}-prb-original`;
+  const outside = `${root}-outside`;
+  const original = fs.readFileSync(file);
+  if (kind === 'outward-leaf' || kind === 'inward-leaf' || kind === 'dangling-leaf' || kind === 'directory-leaf') {
+    fs.rmSync(file, { recursive: true, force: true });
+    if (kind === 'outward-leaf') {
+      fs.mkdirSync(outside, { recursive: true });
+      fs.writeFileSync(path.join(outside, 'outside.md'), original);
+      fs.symlinkSync(path.join(outside, 'outside.md'), file);
+    } else if (kind === 'inward-leaf') {
+      fs.writeFileSync(path.join(parent, 'OTHER-001.md'), original);
+      fs.symlinkSync('OTHER-001.md', file);
+    } else if (kind === 'dangling-leaf') fs.symlinkSync(path.join(outside, 'missing.md'), file);
+    else fs.mkdirSync(file);
+    return () => {
+      fs.rmSync(file, { recursive: true, force: true });
+      fs.rmSync(path.join(parent, 'OTHER-001.md'), { force: true });
+      fs.writeFileSync(file, original);
+      fs.rmSync(outside, { recursive: true, force: true });
+    };
+  }
+  fs.renameSync(parent, backup);
+  if (kind === 'parent-file-error') fs.writeFileSync(parent, 'not a directory');
+  else {
+    fs.mkdirSync(outside, { recursive: true });
+    if (kind === 'parent-outward-existing') fs.writeFileSync(path.join(outside, path.basename(file)), original);
+    fs.symlinkSync(outside, parent, 'dir');
+  }
+  return () => {
+    fs.rmSync(parent, { recursive: true, force: true });
+    fs.renameSync(backup, parent);
+    fs.rmSync(outside, { recursive: true, force: true });
+  };
+}
+
+test('writer topology at PreToolUse is checked through the real hook, provider and pilot.assess()', () => {
+  const target = 'docs/adr/DOCS-001.md';
+  const cases = [
+    ['outward leaf symlink', 'outward-leaf'],
+    ['inward leaf symlink', 'inward-leaf'],
+    ['dangling leaf symlink', 'dangling-leaf'],
+    ['outward symlinked parent with regular leaf', 'parent-outward-existing'],
+    ['outward symlinked parent with missing leaf', 'parent-outward-missing'],
+    ['directory leaf', 'directory-leaf'],
+    ['filesystem error from non-directory parent', 'parent-file-error'],
+  ];
+  const controls = cases.flatMap(([name, kind], index) => ['Write', 'Bash'].map(tool => ({
+    name: `${name} (${tool})`, kind, tool, index,
+  })));
+  const observed = [];
+  const problems = [];
+  for (const { name, kind, tool, index } of controls) {
+    const result = runWriterControl(name, {
+      beforeReviewSetup: ({ root }) => replaceOutlinePathForWriterCapture(root, target, kind),
+      interleave: { beforeReview: [writerRecord({ toolUseId: `topology-${index}-${tool}`, tool,
+        command: tool === 'Bash' ? `git add -- ${target}` : null })] },
+    });
+    observed.push({ name, ...result });
+    if (result.status === 'accepted' || result.outcome === 'pass' || !result.codes.includes(WRITER_AMBIGUOUS)) {
+      problems.push(`${name}: expected ${WRITER_AMBIGUOUS}, got ${result.status}/${result.outcome} (${result.codes.join(', ')})`);
+    }
+  }
+  console.log('WRITER-TOPOLOGY-CONTROLS ' + JSON.stringify(observed));
+  assert.deepStrictEqual(problems, [], 'writer topology controls');
+});
+
+test('pinned O symlink with citation-looking link text gets no outline credit when the worktree leaf is regular', () => {
+  const fixture = createOutlineFixture({ realHook: true, symlinkOutlineObject: true });
+  try {
+    const linkText = fs.readlinkSync(path.join(fixture.root, fixture.target));
+    assert.strictEqual(internals.parseOutlineCitation(Buffer.from(linkText), fixture.target).state, 'accepted',
+      'the symlink link text itself looks like a valid outline citation');
+    const completed = fixture.finishDraft({ runPilot: true });
+    const outline = completed.pilot?.report?.outlineEvidence;
+    const codes = [...(completed.result.diagnostics || []), ...(outline?.diagnostics || [])]
+      .flatMap(item => [item.code, item.reason]).filter(Boolean);
+    assert.notStrictEqual(completed.result.status, 'accepted', JSON.stringify(completed.result));
+    assert.notStrictEqual(outline?.outcome, 'pass', JSON.stringify(outline));
+    assert.ok(codes.includes('outline-target-object-not-regular'),
+      `expected pinned O mode rejection before citation acceptance; got ${codes.join(', ')}`);
+    assert.ok(fs.statSync(path.join(fixture.root, fixture.target)).isFile(), 'D leaves a regular worktree target after O');
+  } finally { fixture.cleanup(); }
+});
+
+test('captured git add of an absent outline target is not positive staging evidence', () => {
+  const target = 'docs/adr/DOCS-001.md';
+  const result = runWriterControl('git add before target creation', {
+    beforeReviewSetup: ({ root }) => {
+      const file = path.join(root, target);
+      const bytes = fs.readFileSync(file);
+      fs.unlinkSync(file);
+      return () => fs.writeFileSync(file, bytes);
+    },
+    interleave: { beforeReview: [writerRecord({ toolUseId: 'absent-target-add', tool: 'Bash', command: `git add -- ${target}` })] },
+  });
+  assert.notStrictEqual(result.status, 'accepted', JSON.stringify(result));
+  assert.notStrictEqual(result.outcome, 'pass', JSON.stringify(result));
+  assert.ok(result.codes.includes(WRITER_AMBIGUOUS), `expected ${WRITER_AMBIGUOUS}; got ${result.codes.join(', ')}`);
+});
 
 test('writer-policy negative controls withhold outline credit through the real hook, provider and pilot.assess()', () => {
   const target = 'docs/adr/DOCS-001.md';
@@ -1889,10 +2002,15 @@ test('pre-review writer positive controls earn outline credit on the same real p
   const target = 'docs/adr/DOCS-001.md';
   const controls = [
     ['coordinator Write of the pinned target before review', { interleave: { beforeReview: [writerRecord({ toolUseId: 'pc-target' })] } }],
+    ['coordinator Edit of the pinned target before review', { interleave: { beforeReview: [writerRecord({ toolUseId: 'pc-edit', tool: 'Edit' })] } }],
+    ['coordinator apply_patch of the pinned target before review', { interleave: { beforeReview: [writerRecord({ toolUseId: 'pc-patch', tool: 'apply_patch' })] } }],
     ['captured git add -- target and git commit -m x', { preOutlineOperation: 'write', capturedOutlineCommit: true,
       capturedOutlineCommitCommand: 'git commit -m x', capturedOutlineCommitArgs: ['commit', '-m', 'x'] }],
     ['captured plain git add target', { preOutlineOperation: 'write', capturedOutlineCommit: true,
       capturedOutlineAddCommand: `git add ${target}`, capturedOutlineAddArgs: ['add', target],
+      capturedOutlineCommitCommand: 'git commit -m x', capturedOutlineCommitArgs: ['commit', '-m', 'x'] }],
+    ['captured quoted git add target', { preOutlineOperation: 'write', capturedOutlineCommit: true,
+      capturedOutlineAddCommand: `git add -- "${target}"`, capturedOutlineAddArgs: ['add', '--', target],
       capturedOutlineCommitCommand: 'git commit -m x', capturedOutlineCommitArgs: ['commit', '-m', 'x'] }],
     ['captured quoted git commit message', { preOutlineOperation: 'write', capturedOutlineCommit: true,
       capturedOutlineCommitCommand: 'git commit -m "a b"', capturedOutlineCommitArgs: ['commit', '-m', 'a b'] }],

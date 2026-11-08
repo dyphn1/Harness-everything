@@ -1100,6 +1100,9 @@ function validateOutlineHandoffAtDispatch({ payload, parsed, sessionDir, workspa
   for (const target of targetPaths) {
     const atBaseline = outlineGit(baseline.root, ['ls-tree', '-r', '--name-only', baseline.commit, '--', target]).trim();
     if (atBaseline.split('\n').filter(Boolean).includes(target)) return { state: 'unresolved', reason: 'outline-target-existed-at-B' };
+    if (!outlineGitTreeHasRegularBlob(markerRoot, handoff.outline.tree, target)) {
+      return { state: 'unresolved', reason: 'outline-target-object-not-regular' };
+    }
     const bytes = outlineGit(markerRoot, ['show', `${handoff.outline.commit}:${target}`], true);
     const blobOid = outlineGit(markerRoot, ['rev-parse', `${handoff.outline.commit}:${target}`]).trim();
     const expected = outlineBlobs[target];
@@ -1450,42 +1453,108 @@ function writeTargetsOf(toolName, toolInput) {
   return typeof file === 'string' && file.trim() ? [file] : [];
 }
 
-function outlineBToOGitAllowed(command, { cwd, root, targets }) {
+function outlineBToOGitAllowed(command, { cwd, root, targets, topology }) {
   const parsed = safeTokenize(String(command || '').trim());
   if (!parsed.ok || parsed.tokens[0] !== 'git' || parsed.tokens.length < 2) return false;
   const [operation, ...args] = parsed.tokens.slice(1);
   if (operation === 'add') {
     const operands = args[0] === '--' ? args.slice(1) : args;
-    if (!operands.length) return false;
-    return operands.every(operand => {
+    if (!operands.length || !Array.isArray(topology) || topology.length !== operands.length) return false;
+    return operands.every((operand, index) => {
       if (!operand || operand.startsWith(':') || /[*?\[\]{}]/.test(operand) || /[\\/]$/.test(operand)) return false;
-      return targets.some(target => {
+      const target = targets.find(target => {
         const pinned = path.resolve(root, target);
         const resolved = path.resolve(cwd, operand);
         return (operand === target || operand === pinned) && resolved === pinned && samePathKey(resolved, pinned);
       });
+      const proof = topology[index];
+      return Boolean(target && proof?.path === target && proof.state === 'regular'
+        && outlineFilesystemProof(root, root, target, false).state === 'regular');
     });
   }
   return operation === 'commit' && args.length === 2 && args[0] === '-m' && args[1] !== '';
 }
 
-// Phase-aware writer decision (W1–W3). Principal and phase come from captured identity and journal position only.
+function outlineFilesystemProof(root, cwd, target, allowMissing) {
+  let relativePath;
+  try {
+    const canonicalRoot = canonicalOutlineRoot(root);
+    const base = path.resolve(cwd || root);
+    if (!sameCanonicalPath(base, canonicalRoot)) return { path: null, state: 'unresolved' };
+    const relative = path.relative(base, path.resolve(base, target));
+    if (!relative || path.isAbsolute(relative) || relative === '..' || relative.startsWith(`..${path.sep}`)) {
+      return { path: null, state: 'unresolved' };
+    }
+    const absolute = path.resolve(canonicalRoot, relative);
+    relativePath = path.relative(canonicalRoot, absolute);
+    if (!relativePath || path.isAbsolute(relativePath) || relativePath === '..' || relativePath.startsWith(`..${path.sep}`)) {
+      return { path: null, state: 'unresolved' };
+    }
+    const relativeKey = relativePath.split(path.sep).join('/');
+    let current = canonicalRoot;
+    const parts = relativePath.split(path.sep);
+    for (let index = 0; index < parts.length; index++) {
+      current = path.join(current, parts[index]);
+      let stat;
+      try { stat = fs.lstatSync(current); }
+      catch (error) {
+        return error.code === 'ENOENT' && allowMissing
+          ? { path: relativeKey, state: 'absent' } : { path: relativeKey, state: 'unresolved' };
+      }
+      if (stat.isSymbolicLink() || (index < parts.length - 1 && !stat.isDirectory())) {
+        return { path: relativeKey, state: 'unresolved' };
+      }
+      if (index === parts.length - 1) return { path: relativeKey, state: stat.isFile() ? 'regular' : 'unresolved' };
+    }
+  } catch { /* filesystem state is evidence only when every component can be checked */ }
+  return { path: relativePath ? relativePath.split(path.sep).join('/') : null, state: 'unresolved' };
+}
+
+function outlineGitTreeHasRegularBlob(root, tree, target) {
+  try {
+    const entries = outlineGit(root, ['--literal-pathspecs', 'ls-tree', '-z', tree, '--', target], true)
+      .toString('utf8').split('\0').filter(Boolean);
+    if (entries.length !== 1) return false;
+    const tab = entries[0].indexOf('\t');
+    if (tab < 0 || entries[0].slice(tab + 1) !== target) return false;
+    const [mode, type, oid] = entries[0].slice(0, tab).split(/\s+/);
+    return type === 'blob' && ['100644', '100755'].includes(mode) && /^[0-9a-f]+$/i.test(oid);
+  } catch { return false; }
+}
+
+// Phase-aware writer decision (W1–W3). Principal, phase and operation-time path topology come from captured records.
 // Allowed: coordinator Write/Edit/apply_patch of exactly a pinned target before the reviewer lifecycle starts; coordinator
 // target-bound git add or simple git commit before review; the correlated draft worker
 // between dispatch and its Stop. Everything else, including any coordinator state write after review, stays ambiguous.
 function outlineWriterAllowed(item, { index, sessionId, root, targets, worker, workerRoot, reviewStartIndex, reviewStopIndex,
-  dispatchIndex, workerStopIndex }) {
+  dispatchIndex, workerStopIndex, captures }) {
   const phase = index < reviewStartIndex ? 'b-to-o' : index <= reviewStopIndex ? 'review'
     : index < dispatchIndex ? 'review-to-dispatch' : index <= workerStopIndex ? 'dispatch-to-draft' : 'after-draft';
   if (phase === 'dispatch-to-draft') return item.agent_id === worker.agent_id && sameCanonicalPath(item.cwd, workerRoot);
   if (phase !== 'b-to-o' || textOf(item.agent_id) || item.session_id !== sessionId) return false;
+  if (item.event !== 'PreToolUse') {
+    const pre = (Array.isArray(captures) ? captures : []).find(record => record.event === 'PreToolUse'
+      && record.session_id === item.session_id && record.tool_use_id === item.tool_use_id
+      && record.tool_name === item.tool_name && record.command === item.command
+      && captureJson(record.writeTargets || null) === captureJson(item.writeTargets || null)
+      && samePathKey(record.cwd || root, item.cwd || root));
+    return Boolean(pre && outlineWriterAllowed(pre, { index: captures.indexOf(pre), sessionId, root, targets, worker, workerRoot,
+      reviewStartIndex, reviewStopIndex, dispatchIndex, workerStopIndex, captures }));
+  }
   if (OUTLINE_WRITE_TOOLS.includes(item.tool_name)) {
-    const pinned = targets.map(target => path.join(root, target));
+    const topology = item.outlineWriteTopology;
     return Array.isArray(item.writeTargets) && item.writeTargets.length > 0
-      && item.writeTargets.every(file => pinned.some(target => samePathKey(path.resolve(item.cwd || root, file), target)));
+      && Array.isArray(topology) && topology.length === item.writeTargets.length
+      && item.writeTargets.every((file, index) => {
+        const target = targets.find(target => samePathKey(path.resolve(item.cwd || root, file), path.join(root, target)));
+        const proof = topology[index];
+        return Boolean(target && proof?.path === target && ['absent', 'regular'].includes(proof.state)
+          && outlineFilesystemProof(root, root, target, false).state === 'regular');
+      });
   }
   const cwd = item.cwd || root;
-  return item.tool_name === 'Bash' && samePathKey(cwd, root) && outlineBToOGitAllowed(item.command, { cwd, root, targets });
+  return item.tool_name === 'Bash' && samePathKey(cwd, root)
+    && outlineBToOGitAllowed(item.command, { cwd, root, targets, topology: item.outlineWriteTopology });
 }
 
 function sameCanonicalPath(left, right) {
@@ -1577,6 +1646,9 @@ function resolveOutlineEvidence({ safeInput, capture, captures, request, originR
     const outlineDigests = {};
     const reviewRows = {};
     for (const target of targetPaths) {
+      if (!outlineGitTreeHasRegularBlob(seam.worktree.root, handoff.outline.tree, target)) {
+        return fail('outline-target-object-not-regular');
+      }
       const bytes = outlineGit(seam.worktree.root, ['show', `${handoff.outline.commit}:${target}`], true);
       outlineDigests[target] = outlineSha(bytes);
       const citation = parseOutlineCitation(bytes, target);
@@ -1646,6 +1718,7 @@ function resolveOutlineEvidence({ safeInput, capture, captures, request, originR
       .map(item => item.tool_use_id));
     const writerWindow = {
       sessionId: safeInput.sessionId, root: taskState.baseline.root, targets: targetPaths, worker, workerRoot,
+      captures: journal,
       reviewStartIndex: journal.findIndex(item => recordOf(item) && (item.agent_id === review.reviewerPrincipal
         || (textOf(item.tool_use_id) && reviewLaunchIds.has(item.tool_use_id)))),
       reviewStopIndex: journal.indexOf(review.review), dispatchIndex, workerStopIndex: journal.indexOf(correlation.stop),
@@ -2369,8 +2442,25 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
   if (payload.parent_tool_use_id !== undefined) record.parent_tool_use_id = payload.parent_tool_use_id;
   // The launch tool name separates the Agent/Task result surface and the subagent launch from executed tools (F4/F5).
   if (typeof payload.tool_name === 'string') record.tool_name = payload.tool_name;
-  // The write target is the only path evidence the writer policy binds to (W1/W2); absent for other tools.
+  // The write target and its PreToolUse topology snapshot are path evidence for W1/W2; absent for other tools.
   if (OUTLINE_WRITE_TOOLS.includes(payload.tool_name)) record.writeTargets = writeTargetsOf(payload.tool_name, payload.tool_input);
+  // shortcut: this snapshot cannot close capture-to-operation races; upgrade if the host can bind path proof atomically.
+  if (event === 'PreToolUse') {
+    let topologyTargets = OUTLINE_WRITE_TOOLS.includes(payload.tool_name) ? record.writeTargets : null;
+    let allowMissing = OUTLINE_WRITE_TOOLS.includes(payload.tool_name);
+    if (payload.tool_name === 'Bash') {
+      const parsed = safeTokenize(record.command.trim());
+      if (parsed.ok && parsed.tokens[0] === 'git' && parsed.tokens[1] === 'add') {
+        const args = parsed.tokens.slice(2);
+        topologyTargets = args[0] === '--' ? args.slice(1) : args;
+        allowMissing = false;
+      }
+    }
+    if (Array.isArray(topologyTargets)) {
+      record.outlineWriteTopology = topologyTargets.map(target => outlineFilesystemProof(workspaceRoot, record.cwd,
+        target, allowMissing));
+    }
+  }
   if (outlinePre) {
     if (Object.prototype.hasOwnProperty.call(toolInput, 'run_in_background')) record.run_in_background = toolInput.run_in_background;
     record.isolationSet = Object.prototype.hasOwnProperty.call(toolInput, 'isolation');

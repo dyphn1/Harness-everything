@@ -1290,6 +1290,7 @@ flowchart LR
 
 - The reviewer launch is the first journal record that is the reviewer's own, or the launch result sharing its `tool_use_id`. The review ends at the reviewer's `SubagentStop`.
 - Write-family records carry `writeTargets` (the `file_path`, or the `apply_patch` headers). A record without a target is ambiguous.
+- **F1 symlink boundary.** Coordinator writer credit requires an in-root path with no symlink components and a regular current leaf (Git add also requires a regular leaf at PreToolUse); O citations are parsed only from an exact pinned-tree `blob` entry of mode `100644` or `100755`. The PreToolUse topology snapshot does not lock the path through the operation, so any unbound operation-time state is UNCHECKED; locally rewritten events remain within the F13 limit.
 - The O commit scope check requires `git diff --name-only B O` to equal the pinned target paths, otherwise `outline-commit-scope-invalid`.
 - **Pre-review Git identity (W2).** This is the immutable Git object identity of Outline O, taken before independent review. It is not the Git author's name or email. Harness records `{baselineCommit, outlineCommit, outlineTree, targetPaths, targetBlobs}` (per target: `blobOid` and `storedBytesSha256`) at each `SubagentStart` inside an outline task. The reviewer's launch record therefore predates its review, and the reviewer does not echo any identity. Dispatch requires the handoff identity to equal the reviewer's record exactly; any difference is `outline-identity-mismatch`, and a fresh review is needed for a new O.
 
