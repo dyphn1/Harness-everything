@@ -46,6 +46,19 @@ episodes:
         change: null
         review: "commit-msg hook"
         result: "subject `... approved E1 contract` rejected for `subject-case` (uppercase `E1`); fixed by lowering the subject"
+  - episode: 418-ledger-commit-header-length
+    feature: "#418 error-ledger batch (coordinator commit)"
+    date: 2026-11-08
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "commitlint (husky commit-msg)"
+        result: "coordinator commit header was 108 characters; `header-max-length` (100) rejected it — the recorded lesson was re-violated by the coordinator"
+      - round: 1
+        change: "header shortened to fit 100 characters"
+        review: "commitlint"
+        result: "commit accepted"
 ---
 
 ## Cue
