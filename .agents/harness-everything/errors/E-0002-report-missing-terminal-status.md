@@ -44,6 +44,19 @@ episodes:
         change: null
         review: coordinator
         result: "The reviewer's last line was `` `STATUS: DONE` from reading only; ... `` (leading backtick and trailing prose), so no column-zero STATUS line existed; the run was treated as failed and re-dispatched fresh with the exact last-line format stated as an acceptance condition"
+  - episode: 412-review13-label-after-status
+    feature: "#412 E1 writer contract, review-13 report"
+    date: 2026-11-08
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "review-13 report had a column-zero `STATUS: DONE` followed by a hidden harness-label line, so STATUS was not the terminal line; cause: the repository AGENTS.md rule 'end each final message with the label line' conflicts with 'STATUS is the last line'"
+      - round: 1
+        change: "packets state 'its last line must be the column-zero STATUS line, nothing after it'"
+        review: coordinator
+        result: "fix-class and review-14 ended with STATUS as the last line"
 ---
 
 ## Cue
@@ -57,6 +70,8 @@ Eight retained F4 packet reports (F4-I2b, F4-T5, F4-T6, F4-T7, F4-T8, F4-T9, F4-
 ## Lesson
 
 Every report ends with one plain column-zero `STATUS: DONE` or `STATUS: BLOCKED: <reason>` line. Keep "RED packet completed" and "product GREEN" as separate acceptance criteria rather than overriding the status ad hoc.
+
+When a host rule also requires a trailing line, the packet must state which line is terminal.
 
 ## Evidence
 
