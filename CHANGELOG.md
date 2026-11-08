@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.49.0](https://github.com/dyphn1/Harness-everything/compare/v0.48.0...v0.49.0) (2026-11-08)
+
+### Features
+
+* **doc-reconciliation:** attribute outline writers by phase under the approved e1 contract ([fe1a3e0](https://github.com/dyphn1/Harness-everything/commit/fe1a3e0bc2f73ab7789615d116ea27696d55860f)), closes [#341](https://github.com/dyphn1/Harness-everything/issues/341) [#341](https://github.com/dyphn1/Harness-everything/issues/341)
+* **doc-reconciliation:** honor an owner-approved dependency-artifact inventory scope ([9c08c8a](https://github.com/dyphn1/Harness-everything/commit/9c08c8aa16cf876522afd554320e9b39e7db3bcb))
+
+### Bug Fixes
+
+* **doc-reconciliation:** bind b-to-o git add to pinned targets and allow only simple commits ([20128c3](https://github.com/dyphn1/Harness-everything/commit/20128c353e545ca3070b70048678e6a4b02df36f))
+* **doc-reconciliation:** bind the outline review to the git identity recorded at reviewer start ([85ecc8a](https://github.com/dyphn1/Harness-everything/commit/85ecc8abf272f921c3513d666c34cc75b602a43c)), closes [#341](https://github.com/dyphn1/Harness-everything/issues/341) [#341](https://github.com/dyphn1/Harness-everything/issues/341)
+* **doc-reconciliation:** credit outline writers only for exact pinned-target spellings ([22dc944](https://github.com/dyphn1/Harness-everything/commit/22dc944ace6efc098ecf8b865ad0b82168b2f3fa))
+* **doc-reconciliation:** fail closed on unsupported selector globs and self-contain husky fixture ([3732b13](https://github.com/dyphn1/Harness-everything/commit/3732b1346c97b7229426a587338c800f5a5e5968)), closes [#325](https://github.com/dyphn1/Harness-everything/issues/325) [#341](https://github.com/dyphn1/Harness-everything/issues/341) [#396](https://github.com/dyphn1/Harness-everything/issues/396)
+* **doc-reconciliation:** keep task-pin identity out of the dependency-root overlap guard ([4962c5e](https://github.com/dyphn1/Harness-everything/commit/4962c5ed13942af00d9792e760ea88bbbb06370e))
+* **doc-reconciliation:** require a unique outline reviewer lifecycle and per-commit outline scope ([06ee12d](https://github.com/dyphn1/Harness-everything/commit/06ee12dd0e22e077cdaed39de45681706339b09a)), closes [#341](https://github.com/dyphn1/Harness-everything/issues/341)
+* **doc-reconciliation:** require regular in-root outline targets and regular-file o tree entries ([782e19f](https://github.com/dyphn1/Harness-everything/commit/782e19f7ee448090cfde6d328210a01be02ddb40))
+* **doc-reconciliation:** resolve absolute selectors against the workspace root ([0a1c8b1](https://github.com/dyphn1/Harness-everything/commit/0a1c8b130c6c9c6d66383c69218c20133dd30f10))
+* **doc-reconciliation:** treat brace, bracket and dot-dot selectors as overlapping ([59037db](https://github.com/dyphn1/Harness-everything/commit/59037db846ca3b3a93f8bbf8c373b03b275015dd)), closes [#341](https://github.com/dyphn1/Harness-everything/issues/341) [#396](https://github.com/dyphn1/Harness-everything/issues/396)
+
 ## [0.48.0](https://github.com/dyphn1/Harness-everything/compare/v0.47.5...v0.48.0) (2026-11-07)
 
 ### Features
