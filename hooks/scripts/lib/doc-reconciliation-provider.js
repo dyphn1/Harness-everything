@@ -1447,10 +1447,96 @@ function possibleWriterCapture(item) {
 function writeTargetsOf(toolName, toolInput) {
   if (toolName === 'apply_patch') {
     const patch = typeof toolInput === 'string' ? toolInput : (recordOf(toolInput) ? String(toolInput.patch || toolInput.input || '') : '');
-    return [...patch.matchAll(/^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+?)\r?$/gm)].map(match => match[1].trim());
+    const targets = [];
+    for (const match of patch.matchAll(/^\*\*\* ([^\r\n]*)(?:\r?$)/gm)) {
+      const header = match[1];
+      if (['Begin Patch', 'End Patch', 'End of File'].includes(header)) continue;
+      const fileHeader = /^(?:Add File|Update File|Delete File|Move to): (.*)$/.exec(header);
+      if (!fileHeader) return null;
+      targets.push(fileHeader[1]);
+    }
+    return targets;
   }
   const file = recordOf(toolInput) ? toolInput.file_path || toolInput.path : undefined;
-  return typeof file === 'string' && file.trim() ? [file] : [];
+  return typeof file === 'string' && file.length ? [file] : [];
+}
+
+function validOutlineTarget(target) {
+  return typeof target === 'string' && target.length > 0 && !target.includes('\0') && !target.includes('\\')
+    && !target.includes(':') && !path.posix.isAbsolute(target)
+    && target.split('/').every(part => part && part !== '.' && part !== '..');
+}
+
+function outlineRootSpellings(root) {
+  try {
+    if (typeof root !== 'string' || !path.isAbsolute(root)) return [];
+    return [...new Set([root, canonicalOutlineRoot(root)])];
+  } catch { return []; }
+}
+
+function outlineCwdMatchesRoot(cwd, root, allowVerifiedAlias = false) {
+  if (typeof cwd !== 'string' || !path.isAbsolute(cwd)) return false;
+  if (outlineRootSpellings(root).includes(cwd)) return true;
+  if (!allowVerifiedAlias) return false;
+  try { return canonicalOutlineRoot(cwd) === canonicalOutlineRoot(root); }
+  catch { return false; }
+}
+
+function outlineCaptureRootSpellings(root, cwd) {
+  const roots = outlineRootSpellings(root);
+  // Hook setup may retain the canonical root while the captured cwd keeps its original spelling; this affects topology only.
+  if (outlineCwdMatchesRoot(cwd, root, true)) roots.push(cwd);
+  return [...new Set(roots)];
+}
+
+function outlineRelativeSpellingKey(spelling, toolName) {
+  if (validOutlineTarget(spelling)) return spelling;
+  if (process.platform !== 'win32' || !OUTLINE_WRITE_TOOLS.includes(toolName)
+    || !spelling.includes(path.sep) || spelling.includes('/')) return null;
+  const candidate = spelling.split(path.sep).join('/');
+  return validOutlineTarget(candidate) ? candidate : null;
+}
+
+function outlineSpellingKey(spelling, { root, cwd, toolName } = {}) {
+  if (typeof spelling !== 'string' || !spelling.length || spelling.includes('\0')
+    || !outlineCwdMatchesRoot(cwd, root, true)) return null;
+  const relative = outlineRelativeSpellingKey(spelling, toolName);
+  if (relative) return relative;
+  for (const rootSpelling of outlineCaptureRootSpellings(root, cwd)) {
+    const prefix = rootSpelling.endsWith(path.sep) ? rootSpelling : `${rootSpelling}${path.sep}`;
+    if (!spelling.startsWith(prefix)) continue;
+    return outlineRelativeSpellingKey(spelling.slice(prefix.length), toolName);
+  }
+  return null;
+}
+
+function outlineTargetSpellings(target, { root, toolName } = {}) {
+  if (!validOutlineTarget(target)) return [];
+  const targetSpellings = [target];
+  if (process.platform === 'win32' && OUTLINE_WRITE_TOOLS.includes(toolName)) {
+    targetSpellings.push(target.split('/').join(path.sep));
+  }
+  const spellings = [...targetSpellings];
+  for (const rootSpelling of outlineRootSpellings(root)) {
+    const prefix = rootSpelling.endsWith(path.sep) ? rootSpelling : `${rootSpelling}${path.sep}`;
+    for (const renderedTarget of targetSpellings) spellings.push(prefix + renderedTarget);
+  }
+  return spellings;
+}
+
+// Capture can prove a lexical path/topology before the later handoff supplies the pin. Its candidate is non-authorizing;
+// the assessment call below must match the same raw spelling against the validated pinned target set.
+function recognizeOutlineTarget(spelling, { root, cwd, targets, toolName } = {}) {
+  const hasPinnedTargets = Array.isArray(targets);
+  if (typeof spelling !== 'string' || !spelling.length || spelling.includes('\0')
+    || !outlineCwdMatchesRoot(cwd, root, !hasPinnedTargets)) return null;
+  if (Array.isArray(targets)) {
+    const target = targets.find(item => outlineTargetSpellings(item, { root, toolName }).includes(spelling));
+    return target ? { candidate: target, target } : null;
+  }
+  const candidate = outlineSpellingKey(spelling, { root, cwd, toolName });
+  if (!candidate) return null;
+  return { candidate, target: null };
 }
 
 function outlineBToOGitAllowed(command, { cwd, root, targets, topology }) {
@@ -1458,15 +1544,13 @@ function outlineBToOGitAllowed(command, { cwd, root, targets, topology }) {
   if (!parsed.ok || parsed.tokens[0] !== 'git' || parsed.tokens.length < 2) return false;
   const [operation, ...args] = parsed.tokens.slice(1);
   if (operation === 'add') {
-    const operands = args[0] === '--' ? args.slice(1) : args;
+    const hasOperandMarker = args[0] === '--';
+    const operands = hasOperandMarker ? args.slice(1) : args;
     if (!operands.length || !Array.isArray(topology) || topology.length !== operands.length) return false;
+    if (!hasOperandMarker && operands.some(operand => operand.startsWith('-'))) return false;
     return operands.every((operand, index) => {
       if (!operand || operand.startsWith(':') || /[*?\[\]{}]/.test(operand) || /[\\/]$/.test(operand)) return false;
-      const target = targets.find(target => {
-        const pinned = path.resolve(root, target);
-        const resolved = path.resolve(cwd, operand);
-        return (operand === target || operand === pinned) && resolved === pinned && samePathKey(resolved, pinned);
-      });
+      const target = recognizeOutlineTarget(operand, { root, cwd, targets, toolName: 'Bash' })?.target;
       const proof = topology[index];
       return Boolean(target && proof?.path === target && proof.state === 'regular'
         && outlineFilesystemProof(root, root, target, false).state === 'regular');
@@ -1479,9 +1563,9 @@ function outlineFilesystemProof(root, cwd, target, allowMissing) {
   let relativePath;
   try {
     const canonicalRoot = canonicalOutlineRoot(root);
-    const base = path.resolve(cwd || root);
-    if (!sameCanonicalPath(base, canonicalRoot)) return { path: null, state: 'unresolved' };
-    const relative = path.relative(base, path.resolve(base, target));
+    const base = canonicalOutlineRoot(cwd || root);
+    if (base !== canonicalRoot) return { path: null, state: 'unresolved' };
+    const relative = path.relative(canonicalRoot, path.resolve(canonicalRoot, target));
     if (!relative || path.isAbsolute(relative) || relative === '..' || relative.startsWith(`..${path.sep}`)) {
       return { path: null, state: 'unresolved' };
     }
@@ -1546,14 +1630,14 @@ function outlineWriterAllowed(item, { index, sessionId, root, targets, worker, w
     return Array.isArray(item.writeTargets) && item.writeTargets.length > 0
       && Array.isArray(topology) && topology.length === item.writeTargets.length
       && item.writeTargets.every((file, index) => {
-        const target = targets.find(target => samePathKey(path.resolve(item.cwd || root, file), path.join(root, target)));
+        const target = recognizeOutlineTarget(file, { root, cwd: item.cwd, targets, toolName: item.tool_name })?.target;
         const proof = topology[index];
         return Boolean(target && proof?.path === target && ['absent', 'regular'].includes(proof.state)
           && outlineFilesystemProof(root, root, target, false).state === 'regular');
       });
   }
-  const cwd = item.cwd || root;
-  return item.tool_name === 'Bash' && samePathKey(cwd, root)
+  const cwd = item.cwd;
+  return item.tool_name === 'Bash' && outlineCwdMatchesRoot(cwd, root)
     && outlineBToOGitAllowed(item.command, { cwd, root, targets, topology: item.outlineWriteTopology });
 }
 
@@ -2436,8 +2520,14 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
     responseDigest: captureDigest(toolResponse),
     responseRef: `host-payload/${event}/${captureId}`,
   };
+  const parsedWriterCommand = event === 'PreToolUse' && payload.tool_name === 'Bash'
+    ? safeTokenize(record.command.trim()) : null;
+  const writerMayNeedCwd = OUTLINE_WRITE_TOOLS.includes(payload.tool_name)
+    || (parsedWriterCommand?.ok && parsedWriterCommand.tokens[0] === 'git'
+      && ['add', 'commit'].includes(parsedWriterCommand.tokens[1]));
   if (typeof payload.cwd === 'string' && payload.cwd) record.cwd = payload.cwd;
-  else if (!['SubagentStart', 'SubagentStop'].includes(event) && typeof workspaceRoot === 'string' && workspaceRoot) record.cwd = workspaceRoot;
+  else if (!writerMayNeedCwd && !['SubagentStart', 'SubagentStop'].includes(event)
+    && typeof workspaceRoot === 'string' && workspaceRoot) record.cwd = workspaceRoot;
   if (payload.prompt_id !== undefined) record.prompt_id = payload.prompt_id;
   if (payload.parent_tool_use_id !== undefined) record.parent_tool_use_id = payload.parent_tool_use_id;
   // The launch tool name separates the Agent/Task result surface and the subagent launch from executed tools (F4/F5).
@@ -2457,8 +2547,11 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
       }
     }
     if (Array.isArray(topologyTargets)) {
-      record.outlineWriteTopology = topologyTargets.map(target => outlineFilesystemProof(workspaceRoot, record.cwd,
-        target, allowMissing));
+      record.outlineWriteTopology = topologyTargets.map(target => {
+        const recognized = recognizeOutlineTarget(target, { root: workspaceRoot, cwd: record.cwd, toolName: payload.tool_name });
+        return recognized ? outlineFilesystemProof(workspaceRoot, record.cwd, recognized.candidate, allowMissing)
+          : { path: null, state: 'unresolved' };
+      });
     }
   }
   if (outlinePre) {

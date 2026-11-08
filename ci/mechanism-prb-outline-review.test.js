@@ -64,7 +64,7 @@ function fixtureGit(root, args) {
   }
 }
 
-function outlineText({ complete = false, decisionPlaceholder = false, duplicateDecision = false, titledDecision = false,
+function outlineText({ id = null, complete = false, decisionPlaceholder = false, duplicateDecision = false, titledDecision = false,
   indentedDecision = false,
   rowId = '20', target = 'docs/adr/DOCS-001.md', domain = 'DOCS' } = {}) {
   const decision = complete ? '\n## Decision\nThis is already a complete drafted decision.\n'
@@ -72,11 +72,12 @@ function outlineText({ complete = false, decisionPlaceholder = false, duplicateD
       : titledDecision ? '\n## Decision — Final choice\nThis titled section contains a complete decision.\n'
         : indentedDecision ? '\n   ## Decision — Indented final choice\nThis indented section contains substantive text.\n'
       : decisionPlaceholder ? '\n## Decision\n- TBD\n' : '';
-  return `---\nid: ${domain}-001\nstatus: proposed\n---\n\nInventory row: ${rowId}\nTarget: ${target}\nDomain: ${domain}\n\n## Outline\n- Context: TBD\n- Decision: TBD\n${decision}`;
+  return `---\nid: ${id || `${domain}-001`}\nstatus: proposed\n---\n\nInventory row: ${rowId}\nTarget: ${target}\nDomain: ${domain}\n\n## Outline\n- Context: TBD\n- Decision: TBD\n${decision}`;
 }
 
 function createOutlineFixture(options = {}) {
-  const root = canonical(fs.mkdtempSync(path.join(os.tmpdir(), 'prb-outline-fixture-')));
+  const generatedRoot = fs.mkdtempSync(path.join(options.rootDirectory || os.tmpdir(), 'prb-outline-fixture-'));
+  const root = options.preserveRootSpelling ? generatedRoot : canonical(generatedRoot);
   const retainedInventory = options.retainedInventory === true;
   const target = options.target || (retainedInventory ? 'docs/adr/EVID-001.md' : 'docs/adr/DOCS-001.md');
   const rowId = options.rowId || (retainedInventory ? '17' : '20');
@@ -89,7 +90,7 @@ function createOutlineFixture(options = {}) {
     ? `${root}${path.sep}..${path.sep}${path.basename(root)}` : root;
   const workflowId = 'workflow-prb';
   const workflowRevision = 2;
-  const config = JSON.stringify({ governed: [{ path: 'docs/adr/*.md', role: 'adr' }], domains: [domain], derived: [] }, null, 2) + '\n';
+  const config = JSON.stringify({ governed: [{ path: options.governedPattern || 'docs/adr/*.md', role: 'adr' }], domains: [domain], derived: [] }, null, 2) + '\n';
   const configDigest = sha(config);
   fs.mkdirSync(path.join(root, '.agents/harness-everything'), { recursive: true });
   fs.mkdirSync(path.dirname(path.join(root, target)), { recursive: true });
@@ -112,7 +113,7 @@ function createOutlineFixture(options = {}) {
   }
 
   const requirementIds = ['prb'];
-  const workspaceId = 'ws-' + internals.digestText(internals.captureJson({ workspaceRoot: root }));
+  const workspaceId = 'ws-' + internals.digestText(internals.captureJson({ workspaceRoot: canonical(root) }));
   const taskBinding = { schema: 'harness.doc-reconciliation-task-pin.v1', taskId, requirementIds,
     requirementDigest: sha(JSON.stringify(requirementIds)), baselineCommit, baselineRoot: root,
     configDigest, sessionId, workflowId, workspaceId };
@@ -159,6 +160,7 @@ function createOutlineFixture(options = {}) {
   }
 
   const outlineBytes = Buffer.from(outlineText({
+    id: options.targetId,
     complete: options.completeOutline === true,
     decisionPlaceholder: options.decisionPlaceholder === true,
     duplicateDecision: options.duplicateDecision === true,
@@ -206,8 +208,10 @@ function createOutlineFixture(options = {}) {
     if (options.extraOutlineFile) fs.writeFileSync(path.join(root, options.extraOutlineFile), 'uncaptured extra\n');
     const addArgs = options.capturedOutlineAddArgs || ['add', '--', target];
     const commitArgs = options.capturedOutlineCommitArgs || ['commit', '-m', 'O outline'];
+    const addCommand = typeof options.capturedOutlineAddCommand === 'function'
+      ? options.capturedOutlineAddCommand({ root, target }) : options.capturedOutlineAddCommand;
     const gitOperations = [
-      ['add', addArgs, options.capturedOutlineAddCommand || `git add -- ${target}`],
+      ['add', addArgs, addCommand || `git add -- ${target}`],
       ['commit', commitArgs, options.capturedOutlineCommitCommand || 'git commit -m "O outline"'],
     ];
     for (const [name, args, command] of gitOperations) {
@@ -1483,6 +1487,19 @@ test('capture record retains only explicit outline result and dispatch fields', 
   assert.strictEqual(Object.hasOwn(noStatus, 'tool_response_status'), false, 'missing result status stays absent');
 });
 
+test('unknown cwd stays unknown for PreToolUse writers without erasing PostToolUse verification context', () => {
+  const direct = provider.buildCaptureRecord({ session_id: 'coordinator', tool_name: 'Write', tool_use_id: 'missing-cwd-write',
+    tool_input: { file_path: 'docs/adr/DOCS-001.md', content: 'outline' } }, 'PreToolUse', ROOT);
+  assert.strictEqual(Object.hasOwn(direct, 'cwd'), false, 'a file writer cannot inherit a guessed cwd');
+  const add = provider.buildCaptureRecord({ session_id: 'coordinator', cwd: undefined, tool_name: 'Bash',
+    tool_input: { command: 'git add -- docs/adr/DOCS-001.md' } }, 'PreToolUse', ROOT);
+  assert.strictEqual(Object.hasOwn(add, 'cwd'), false, 'a Git-add writer cannot inherit a guessed cwd');
+  const verification = provider.buildCaptureRecord({ session_id: 'coordinator', tool_name: 'Bash',
+    tool_input: { command: `node ${path.join(ROOT, 'harness-everything/scripts/doc-check.js')}` },
+    tool_response: { exitCode: 0, stdout: '' } }, 'PostToolUse', ROOT);
+  assert.strictEqual(verification.cwd, ROOT, 'other PostToolUse shell evidence retains the established root fallback');
+});
+
 for (const [name, make, reason] of [
   ['concurrent same-session dispatches cannot reuse one worker result', () => {
     const one = qualificationDispatch({ id: 'dispatch-1' });
@@ -1804,27 +1821,83 @@ test('captured pre-O coordinator Write of the pinned target earns outline credit
 // Writer-policy controls (#341 W1–W5). Each control enters the real state-persist hook at a named journal position and
 // must withhold outline credit through provider → pilot.assess(). The positive controls take the same path and earn it.
 const ctxOf = fixture => ({ root: fixture.root, sessionId: fixture.sessionId, target: fixture.target });
-const writerRecord = ({ toolUseId, file = null, agentId = null, tool = 'Write', command = null }) => ctx => ({
-  session_id: ctx.sessionId, cwd: ctx.root, hook_event_name: 'PreToolUse', tool_name: tool, tool_use_id: toolUseId,
+const writerRecord = ({ toolUseId, file = null, filePath = null, patch = null, cwd = null, omitCwd = false,
+  toolInput = null, agentId = null, tool = 'Write', command = null }) => ctx => {
+  const rawPath = typeof file === 'function' ? file(ctx) : file || ctx.target;
+  const inputPath = filePath || (path.isAbsolute(rawPath) ? rawPath : path.join(ctx.root, rawPath));
+  const inputPatch = typeof patch === 'function' ? patch(ctx) : patch;
+  const inputCommand = typeof command === 'function' ? command(ctx) : command;
+  return {
+  session_id: ctx.sessionId, ...(omitCwd ? {} : { cwd: cwd || ctx.root }), hook_event_name: 'PreToolUse', tool_name: tool, tool_use_id: toolUseId,
   ...(agentId ? { agent_id: agentId, agent_type: 'worker' } : {}),
-  tool_input: tool === 'Bash' ? { command } : tool === 'apply_patch'
-    ? { patch: `*** Update File: ${file || ctx.target}\n@@\n-old\n+new\n` }
-    : tool === 'Edit' ? { file_path: path.join(ctx.root, file || ctx.target), old_string: 'old', new_string: 'new' }
-      : { file_path: path.join(ctx.root, file || ctx.target), content: 'injected writer' },
-});
+  tool_input: toolInput || (tool === 'Bash' ? { command: inputCommand } : tool === 'apply_patch'
+    ? { patch: inputPatch || `*** Update File: ${rawPath}\n@@\n-old\n+new\n` }
+    : tool === 'Edit' ? { file_path: inputPath, old_string: 'old', new_string: 'new' }
+      : { file_path: inputPath, content: 'injected writer' }),
+  };
+};
 const WRITER_AMBIGUOUS = 'outline-writer-activity-ambiguous';
 const SEAM_UNRESOLVED = 'outline-pre-dispatch-seam-unresolved';
 
 function runWriterControl(name, options, arrange = () => {}) {
-  const fixture = createOutlineFixture({ realHook: true, ...options });
+  const { inspectWriterUseId, capturePayload, ...fixtureOptions } = options;
+  const fixture = createOutlineFixture({ realHook: true, ...fixtureOptions });
   try {
     arrange(fixture);
     const completed = fixture.finishDraft({ runPilot: true });
     const outline = completed.pilot?.report?.outlineEvidence;
     const codes = [...(completed.result.diagnostics || []), ...(outline?.diagnostics || [])]
       .flatMap(item => [item.code, item.reason]).filter(Boolean);
-    return { control: name, status: completed.result.status, outcome: outline?.outcome ?? null, codes };
+    const writer = inspectWriterUseId
+      ? provider.readCaptureView(fixture.sessionDir).records.find(item => item.event === 'PreToolUse' && item.tool_use_id === inspectWriterUseId)
+      : undefined;
+    return { control: name, writer, payload: capturePayload?.(), status: completed.result.status, outcome: outline?.outcome ?? null, codes };
   } finally { fixture.cleanup(); }
+}
+
+function runCapturedWriterControl(name, toolUseId, makeRecord, options = {}) {
+  const interleave = options.interleave || {};
+  let payload;
+  const captureRecord = ctx => { payload = makeRecord(ctx); return payload; };
+  return runWriterControl(name, { ...options, inspectWriterUseId: toolUseId,
+    interleave: { ...interleave, beforeReview: [...(interleave.beforeReview || []), captureRecord] },
+    capturePayload: () => payload });
+}
+
+function writerPayloadFor(tool, toolUseId, value, options = {}) {
+  return ctx => {
+    const raw = typeof value === 'function' ? value(ctx) : value;
+    const cwd = typeof options.cwd === 'function' ? options.cwd(ctx) : options.cwd;
+    const patch = typeof options.patch === 'function' ? options.patch(ctx, raw) : options.patch;
+    const command = typeof options.command === 'function' ? options.command(ctx, raw) : options.command;
+    return writerRecord({ toolUseId, tool, filePath: raw, cwd, omitCwd: options.omitCwd,
+      patch: patch || `*** Begin Patch\n*** Update File: ${raw}\n@@\n-old\n+new\n*** End Patch\n`,
+      command: command || `git add -- ${shellWord(raw)}`, toolInput: options.toolInput?.(ctx, raw) })(ctx);
+  };
+}
+
+function shellWord(value) {
+  return /[\s'"\\]/.test(value)
+    ? `"${String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\$/g, '\\$').replace(/`/g, '\\`')}"`
+    : value;
+}
+
+function rawTargetsFromPayload(tool, payload) {
+  const input = payload.tool_input || {};
+  if (tool === 'Bash') return input.command;
+  if (tool !== 'apply_patch') {
+    const file = input.file_path || input.path;
+    return typeof file === 'string' && file.length ? [file] : [];
+  }
+  const patch = typeof input === 'string' ? input : String(input.patch || input.input || '');
+  const targets = [];
+  for (const match of patch.matchAll(/^\*\*\* ([^\r\n]*)(?:\r?$)/gm)) {
+    if (['Begin Patch', 'End Patch', 'End of File'].includes(match[1])) continue;
+    const fileHeader = /^(?:Add File|Update File|Delete File|Move to): (.*)$/.exec(match[1]);
+    if (!fileHeader) return null;
+    targets.push(fileHeader[1]);
+  }
+  return targets;
 }
 
 function replaceOutlinePathForWriterCapture(root, target, kind) {
@@ -1876,7 +1949,7 @@ test('writer topology at PreToolUse is checked through the real hook, provider a
     ['directory leaf', 'directory-leaf'],
     ['filesystem error from non-directory parent', 'parent-file-error'],
   ];
-  const controls = cases.flatMap(([name, kind], index) => ['Write', 'Bash'].map(tool => ({
+  const controls = cases.flatMap(([name, kind], index) => ['Write', 'Edit', 'apply_patch', 'Bash'].map(tool => ({
     name: `${name} (${tool})`, kind, tool, index,
   })));
   const observed = [];
@@ -2004,6 +2077,8 @@ test('pre-review writer positive controls earn outline credit on the same real p
     ['coordinator Write of the pinned target before review', { interleave: { beforeReview: [writerRecord({ toolUseId: 'pc-target' })] } }],
     ['coordinator Edit of the pinned target before review', { interleave: { beforeReview: [writerRecord({ toolUseId: 'pc-edit', tool: 'Edit' })] } }],
     ['coordinator apply_patch of the pinned target before review', { interleave: { beforeReview: [writerRecord({ toolUseId: 'pc-patch', tool: 'apply_patch' })] } }],
+    ['coordinator apply_patch with exact CRLF header path before review', { interleave: { beforeReview: [writerRecord({ toolUseId: 'pc-patch-crlf', tool: 'apply_patch',
+      patch: ctx => `*** Begin Patch\r\n*** Update File: ${ctx.target}\r\n@@\r\n-old\r\n+new\r\n*** End Patch\r\n` })] } }],
     ['captured git add -- target and git commit -m x', { preOutlineOperation: 'write', capturedOutlineCommit: true,
       capturedOutlineCommitCommand: 'git commit -m x', capturedOutlineCommitArgs: ['commit', '-m', 'x'] }],
     ['captured plain git add target', { preOutlineOperation: 'write', capturedOutlineCommit: true,
@@ -2011,6 +2086,9 @@ test('pre-review writer positive controls earn outline credit on the same real p
       capturedOutlineCommitCommand: 'git commit -m x', capturedOutlineCommitArgs: ['commit', '-m', 'x'] }],
     ['captured quoted git add target', { preOutlineOperation: 'write', capturedOutlineCommit: true,
       capturedOutlineAddCommand: `git add -- "${target}"`, capturedOutlineAddArgs: ['add', '--', target],
+      capturedOutlineCommitCommand: 'git commit -m x', capturedOutlineCommitArgs: ['commit', '-m', 'x'] }],
+    ['captured escaped exact git add target', { preOutlineOperation: 'write', capturedOutlineCommit: true,
+      capturedOutlineAddCommand: String.raw`git add -- docs/adr/DOCS-001\.md`, capturedOutlineAddArgs: ['add', '--', target],
       capturedOutlineCommitCommand: 'git commit -m x', capturedOutlineCommitArgs: ['commit', '-m', 'x'] }],
     ['captured quoted git commit message', { preOutlineOperation: 'write', capturedOutlineCommit: true,
       capturedOutlineCommitCommand: 'git commit -m "a b"', capturedOutlineCommitArgs: ['commit', '-m', 'a b'] }],
@@ -2020,6 +2098,214 @@ test('pre-review writer positive controls earn outline credit on the same real p
     assert.strictEqual(result.status, 'accepted', `${name}: ${result.codes.join(', ')}`);
     assert.strictEqual(result.outcome, 'pass', name);
   }
+});
+
+test('writer spelling controls preserve raw capture and bind identity before normalization', () => {
+  const cases = [
+    ['Write dot-segment alias', 'spelling-write-dotdot', ctx => writerRecord({ toolUseId: 'spelling-write-dotdot',
+      file: `${ctx.root}/docs/adr/sub/../DOCS-001.md` })(ctx)],
+    ['Edit dot-segment alias', 'spelling-edit-dot', ctx => writerRecord({ toolUseId: 'spelling-edit-dot',
+      tool: 'Edit', file: `${ctx.root}/docs/adr/./DOCS-001.md` })(ctx)],
+    ['apply_patch trailing-space alias', 'spelling-patch-space', ctx => writerRecord({ toolUseId: 'spelling-patch-space', tool: 'apply_patch',
+      patch: `*** Begin Patch\n*** Update File: ${ctx.target} \r\n@@\n-old\n+new\n*** End Patch\n` })(ctx)],
+    ['Git-add dot-segment operand', 'spelling-git-dotdot', ctx => writerRecord({ toolUseId: 'spelling-git-dotdot', tool: 'Bash',
+      command: 'git add -- docs/adr/sub/../DOCS-001.md' })(ctx)],
+  ];
+  const outcomes = [];
+  const problems = [];
+  for (const [name, toolUseId, makePayload] of cases) {
+    const result = runCapturedWriterControl(name, toolUseId, makePayload);
+    const expectedRaw = name === 'apply_patch trailing-space alias' ? ['docs/adr/DOCS-001.md '] : null;
+    if (expectedRaw && JSON.stringify(result.writer?.writeTargets) !== JSON.stringify(expectedRaw)) {
+      problems.push(`${name}: raw capture ${JSON.stringify(result.writer?.writeTargets)} !== ${JSON.stringify(expectedRaw)}`);
+    }
+    if (result.status === 'accepted' || result.outcome === 'pass') {
+      problems.push(`${name}: expected no credit, got ${result.status}/${result.outcome}`);
+    }
+    outcomes.push({ name, raw: result.writer?.writeTargets, status: result.status, outcome: result.outcome, codes: result.codes });
+  }
+  console.log('WRITER-SPELLING-RED ' + JSON.stringify(outcomes));
+  assert.deepStrictEqual(problems, [], 'exact target spelling and raw capture controls');
+});
+
+test('canonical-root absolute Git-add rendering remains credited when /tmp has a distinct product-canonical root', () => {
+  const canonicalTmp = canonical('/tmp');
+  if (process.platform !== 'darwin' || canonicalTmp === '/tmp') {
+    console.log('UNCHECKED /tmp vs /private/tmp root alias: this host has no distinct canonical root');
+    return;
+  }
+  const result = runWriterControl('canonical-root Git-add rendering', {
+    rootDirectory: '/tmp',
+    preserveRootSpelling: true,
+    preOutlineOperation: 'write',
+    capturedOutlineCommit: true,
+    capturedOutlineAddCommand: ({ root, target }) => `git add -- ${canonical(root)}/${target}`,
+    capturedOutlineAddArgs: ['add', '--', 'docs/adr/DOCS-001.md'],
+    capturedOutlineCommitCommand: 'git commit -m x',
+    capturedOutlineCommitArgs: ['commit', '-m', 'x'],
+  });
+  assert.strictEqual(result.status, 'accepted', `${result.codes.join(', ')}`);
+  assert.strictEqual(result.outcome, 'pass');
+});
+
+test('captured and product-canonical roots accept exact R/T and C/T spellings on all writer surfaces', () => {
+  const rootDirectory = fs.existsSync('/tmp') ? '/tmp' : os.tmpdir();
+  const forms = [
+    ['captured root R', ctx => `${ctx.root}${path.sep}${ctx.target.split('/').join(path.sep)}`, null],
+    ['product-canonical root C', ctx => `${canonical(ctx.root)}${path.sep}${ctx.target.split('/').join(path.sep)}`, null],
+    ['product-canonical cwd C with relative T', ctx => ctx.target, ctx => canonical(ctx.root)],
+  ];
+  const problems = [];
+  const observed = [];
+  for (const [form, spelling, cwd] of forms) for (const tool of ['Write', 'Edit', 'apply_patch', 'Bash']) {
+    const toolUseId = `root-spelling-${form === 'captured root R' ? 'R' : 'C'}-${tool}`;
+    const result = runCapturedWriterControl(`${form} (${tool})`, toolUseId,
+      writerPayloadFor(tool, toolUseId, spelling, { ...(cwd ? { cwd } : {}) }),
+      { rootDirectory, preserveRootSpelling: true });
+    observed.push({ form, tool, status: result.status, outcome: result.outcome, raw: tool === 'Bash'
+      ? result.writer?.command : result.writer?.writeTargets });
+    if (result.status !== 'accepted' || result.outcome !== 'pass') {
+      problems.push(`${form}/${tool}: expected positive control, got ${result.status}/${result.outcome} (${result.codes.join(', ')})`);
+    }
+  }
+  console.log('WRITER-ROOT-SPELLINGS ' + JSON.stringify(observed));
+  assert.deepStrictEqual(problems, [], 'exact root spellings');
+});
+
+test('option-looking Git-add path values require an explicit -- marker', () => {
+  const target = '-A/DOCS-001.md';
+  const fixtureOptions = { target, governedPattern: '-A/*.md' };
+  const withoutMarkerId = 'option-looking-git-path-no-marker';
+  const withoutMarker = runCapturedWriterControl('option-looking path without marker', withoutMarkerId,
+    writerPayloadFor('Bash', withoutMarkerId, ctx => ctx.target, { command: () => 'git add -A/DOCS-001.md' }), fixtureOptions);
+  assert.notStrictEqual(withoutMarker.status, 'accepted');
+  assert.notStrictEqual(withoutMarker.outcome, 'pass');
+  assert.ok(withoutMarker.codes.includes(WRITER_AMBIGUOUS), withoutMarker.codes.join(', '));
+
+  const withMarkerId = 'option-looking-git-path-with-marker';
+  const withMarker = runCapturedWriterControl('option-looking path with marker', withMarkerId,
+    writerPayloadFor('Bash', withMarkerId, ctx => ctx.target, { command: () => 'git add -- -A/DOCS-001.md' }), fixtureOptions);
+  assert.strictEqual(withMarker.status, 'accepted', withMarker.codes.join(', '));
+  assert.strictEqual(withMarker.outcome, 'pass');
+});
+
+test('writer path family sweep keeps every captured path operand distinct through hook, provider and pilot.assess()', () => {
+  const nativeTarget = ctx => ctx.target.split('/').join(path.sep);
+  const rootTarget = ctx => `${ctx.root}${path.sep}${nativeTarget(ctx)}`;
+  const rows = [
+    ['dot-segment', 'Write', ctx => `${ctx.root}${path.sep}docs${path.sep}adr${path.sep}sub${path.sep}..${path.sep}DOCS-001.md`],
+    ['dot-segment', 'Edit', ctx => `${ctx.root}${path.sep}docs${path.sep}adr${path.sep}.${path.sep}DOCS-001.md`],
+    ['dot-segment', 'apply_patch', 'docs/adr/./DOCS-001.md'],
+    ['dot-segment', 'Bash', 'docs/adr/sub/../DOCS-001.md'],
+    ['leading-dot-segment', 'Write', './docs/adr/DOCS-001.md'],
+    ['leading-dot-segment', 'Edit', './docs/adr/DOCS-001.md'],
+    ['leading-dot-segment', 'apply_patch', './docs/adr/DOCS-001.md'],
+    ['leading-dot-segment', 'Bash', './docs/adr/DOCS-001.md'],
+    ['repeated-dot-segments', 'Write', ctx => `${ctx.root}${path.sep}docs${path.sep}adr${path.sep}sub${path.sep}..${path.sep}sub${path.sep}..${path.sep}DOCS-001.md`],
+    ['repeated-dot-segments', 'Edit', 'docs/adr/sub/../../adr/DOCS-001.md'],
+    ['repeated-dot-segments', 'apply_patch', 'docs/adr/sub/.././DOCS-001.md'],
+    ['repeated-dot-segments', 'Bash', 'docs/adr/sub/.././DOCS-001.md'],
+    ['repeated-or-trailing-separator', 'Write', ctx => `${ctx.root}${path.sep}${nativeTarget(ctx)}${path.sep}`],
+    ['repeated-or-trailing-separator', 'Edit', ctx => `${ctx.root}${path.sep}docs${path.sep}${path.sep}adr${path.sep}DOCS-001.md`],
+    ['repeated-or-trailing-separator', 'apply_patch', 'docs//adr//DOCS-001.md'],
+    ['repeated-or-trailing-separator', 'Bash', 'docs//adr//DOCS-001.md'],
+    ['mixed-separators', 'Write', ctx => `${ctx.root}\\docs/adr\\DOCS-001.md`],
+    ['mixed-separators', 'Edit', ctx => `${ctx.root}${path.sep}docs\\adr/DOCS-001.md`],
+    ['mixed-separators', 'apply_patch', 'docs\\adr/DOCS-001.md'],
+    ['mixed-separators', 'Bash', 'docs\\adr/DOCS-001.md'],
+    ['outside-root', 'Write', ctx => `${ctx.root}-outside${path.sep}docs${path.sep}adr${path.sep}DOCS-001.md`],
+    ['sibling-root-prefix', 'Edit', ctx => `${ctx.root}-sibling${path.sep}docs${path.sep}adr${path.sep}DOCS-001.md`],
+    ['root-itself', 'apply_patch', ctx => ctx.root],
+    ['directory-operand', 'Bash', 'docs/adr'],
+    ['unrelated-cwd', 'Write', rootTarget, { cwd: ctx => path.join(ctx.root, 'docs') }],
+    ['unknown-cwd', 'Edit', 'docs/adr/DOCS-001.md', { omitCwd: true }],
+    ['unrelated-cwd', 'apply_patch', rootTarget, { cwd: ctx => path.join(ctx.root, 'docs') }],
+    ['unrelated-cwd', 'Bash', 'docs/adr/DOCS-001.md', { cwd: ctx => path.join(ctx.root, 'docs') }],
+    ['target-case-variant', 'Write', 'docs/adr/docs-001.md'],
+    ['target-case-variant', 'Edit', 'docs/adr/docs-001.md'],
+    ['target-case-variant', 'apply_patch', 'docs/adr/docs-001.md'],
+    ['target-case-variant', 'Bash', 'docs/adr/docs-001.md'],
+    ['windows-drive-relative', 'Write', 'C:docs\\adr\\DOCS-001.md'],
+    ['windows-alternate-drive', 'Edit', 'D:\\docs\\adr\\DOCS-001.md'],
+    ['windows-root-relative', 'Edit', '\\docs\\adr\\DOCS-001.md'],
+    ['windows-device-namespace', 'apply_patch', () => ['\\\\', '?', '\\', 'C', String.fromCharCode(58), '\\docs\\adr\\DOCS-001.md'].join('')],
+    ['windows-unc-namespace', 'Bash', '\\\\server\\share\\docs\\adr\\DOCS-001.md'],
+    ['home-expansion', 'Write', '~/docs/adr/DOCS-001.md'],
+    ['environment-expression', 'Edit', '$ROOT/docs/adr/DOCS-001.md'],
+    ['file-url-and-encoding', 'apply_patch', 'file:///docs/adr/DOCS-001.md'],
+    ['percent-encoded-alias', 'Bash', 'docs/adr/%2e%2e/DOCS-001.md'],
+    ['escaped-dot-segment-alias', 'Bash', 'docs/adr/./DOCS-001.md', {
+      command: () => String.raw`git add -- docs/adr/\./DOCS-001.md` }],
+    ['trailing-filename-space', 'Write', 'docs/adr/DOCS-001.md '],
+    ['leading-filename-space', 'Edit', ' docs/adr/DOCS-001.md'],
+    ['tab-filename-byte', 'Write', 'docs/adr/\tDOCS-001.md'],
+    ['newline-filename-byte', 'Edit', 'docs/adr/DOCS-001.md\n'],
+    ['patch-header-trailing-space', 'apply_patch', 'docs/adr/DOCS-001.md ', {
+      patch: (ctx, raw) => `*** Begin Patch\n*** Update File: ${raw}\r\n@@\n-old\n+new\n*** End Patch\n`,
+      expectedRaw: 'docs/adr/DOCS-001.md ' }],
+    ['quoted-trailing-filename-space', 'Bash', 'docs/adr/DOCS-001.md '],
+    ['nul-path', 'Write', '\0docs/adr/DOCS-001.md'],
+    ['non-string-path', 'Edit', null, { toolInput: () => ({ file_path: 7, old_string: 'old', new_string: 'new' }) }],
+    ['unextractable-patch', 'apply_patch', '', { patch: () => '*** Begin Patch\n*** End Patch\n', expectedRaw: [] }],
+    ['empty-git-operand', 'Bash', '', { command: () => 'git add -- ""' }],
+    ['multiple-patch-sections', 'apply_patch', 'docs/adr/DOCS-001.md', {
+      patch: ctx => `*** Begin Patch\n*** Update File: ${ctx.target}\n@@\n-old\n+new\n*** Update File: docs/adr/OTHER-001.md\n@@\n-old\n+new\n*** End Patch\n`,
+      expectedRaw: ['docs/adr/DOCS-001.md', 'docs/adr/OTHER-001.md'] }],
+    ['move-source-and-destination', 'apply_patch', 'docs/adr/DOCS-001.md', {
+      patch: ctx => `*** Begin Patch\n*** Update File: ${ctx.target}\n*** Move to: docs/adr/OTHER-001.md\n@@\n-old\n+new\n*** End Patch\n`,
+      expectedRaw: ['docs/adr/DOCS-001.md', 'docs/adr/OTHER-001.md'] }],
+    ['unrecognized-patch-effect-with-valid-target', 'apply_patch', 'docs/adr/DOCS-001.md', {
+      patch: ctx => `*** Begin Patch\n*** Update File: ${ctx.target}\n*** Rename from: docs/adr/OTHER-001.md\n@@\n-old\n+new\n*** End Patch\n`,
+      expectedRaw: null }],
+    ['multiple-git-operands', 'Bash', 'docs/adr/DOCS-001.md', {
+      command: () => 'git add -- docs/adr/DOCS-001.md unrelated.md' }],
+  ];
+  const observed = [];
+  const problems = [];
+  for (let index = 0; index < rows.length; index += 1) {
+    const [family, tool, spelling, options = {}] = rows[index];
+    const toolUseId = `class-sweep-${index}`;
+    let result;
+    try {
+      result = runCapturedWriterControl(`${family} (${tool})`, toolUseId,
+        writerPayloadFor(tool, toolUseId, spelling, options), options.fixtureOptions || {});
+    } catch (error) {
+      problems.push(`${family}/${tool}: fixture or capture failed (${error.message})`);
+      observed.push({ family, tool, status: 'unrun', error: error.message });
+      continue;
+    }
+    const rawExpected = rawTargetsFromPayload(tool, result.payload);
+    const rawActual = tool === 'Bash' ? result.writer?.command : result.writer?.writeTargets;
+    if (JSON.stringify(rawActual) !== JSON.stringify(rawExpected)) {
+      problems.push(`${family}/${tool}: raw capture ${JSON.stringify(rawActual)} !== input spelling ${JSON.stringify(rawExpected)}`);
+    }
+    const expectedRaw = options.expectedRaw === undefined ? undefined
+      : options.expectedRaw === null ? null : Array.isArray(options.expectedRaw) ? options.expectedRaw : [options.expectedRaw];
+    if (options.expectedRaw !== undefined && JSON.stringify(result.writer?.writeTargets) !== JSON.stringify(expectedRaw)) {
+      problems.push(`${family}/${tool}: raw capture ${JSON.stringify(result.writer?.writeTargets)} !== ${JSON.stringify(expectedRaw)}`);
+    }
+    if (result.status === 'accepted' || result.outcome === 'pass') {
+      problems.push(`${family}/${tool}: expected no credit, got ${result.status}/${result.outcome}`);
+    }
+    observed.push({ family, tool, raw: tool === 'Bash' ? result.writer?.command : result.writer?.writeTargets,
+      status: result.status, outcome: result.outcome, codes: result.codes });
+  }
+
+  const unicodeTarget = 'docs/adré/DOCS-001.md';
+  for (const tool of ['Write', 'Edit', 'apply_patch', 'Bash']) {
+    const toolUseId = `unicode-${tool}`;
+    const result = runCapturedWriterControl(`unicode-normalization (${tool})`, toolUseId,
+      writerPayloadFor(tool, toolUseId, ctx => ctx.target.normalize('NFD')),
+      { target: unicodeTarget, governedPattern: 'docs/adré/*.md' });
+    if (result.status === 'accepted' || result.outcome === 'pass') {
+      problems.push(`unicode-normalization/${tool}: expected no credit, got ${result.status}/${result.outcome}`);
+    }
+    observed.push({ family: 'unicode-normalization', tool, raw: tool === 'Bash' ? result.writer?.command : result.writer?.writeTargets,
+      equivalentPathExists: result.writer?.outlineWriteTopology?.[0]?.state === 'regular',
+      status: result.status, outcome: result.outcome, codes: result.codes });
+  }
+  console.log('WRITER-PATH-FAMILY-SWEEP ' + JSON.stringify(observed));
+  assert.deepStrictEqual(problems, [], 'writer path-family sweep');
 });
 
 test('captured git add cannot stage unrelated content even when O commits only the pinned target', () => {
