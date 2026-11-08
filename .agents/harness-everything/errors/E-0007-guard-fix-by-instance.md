@@ -41,8 +41,16 @@ episodes:
         result: "Broad sweep found a mixed-case wildcard row that evaded the guard; first unresolved, then adjudicated in scope. Still open."
       - round: 6
         change: "Commit `b6aa96a3`: wildcard matching folds case like literal root mentions; RED to GREEN on a mixed-case matrix"
-        review: unknown
-        result: "pending review"
+        review: "review-8 (OpenCode): no findings"
+        result: "closed the mixed-case row"
+      - round: 7
+        change: "Commit `bd00a796`: absolute glob before the workspace boundary (`/tmp/*/node_modules/**`) is may-intersect unless its literal prefix is neither the workspace nor an ancestor"
+        review: "PR #396 owner review (source-traced) found the class; review-9 (OpenCode)"
+        result: "review-9 found a symlinked entry under a disjoint prefix still evades"
+      - round: 8
+        change: "Commit `2514056f`: every absolute glob outside the workspace is may-intersect; only literal outside paths stay disjoint"
+        review: "hosted CI (incl. Windows) and owner U5 merge of #396; no independent review after this round"
+        result: "merged in #396 (`f571ec68`)"
 ---
 
 ## Cue
@@ -55,7 +63,7 @@ Before writing the fix, replay the guard over the complete real live input and l
 
 ## Status and promotion
 
-- `closed: false`. Round 5 is still open; round 6 awaits independent review.
+- `closed: false`. Round 6 is closed by review-8. Round 7 (review-9) found a symlink hole; round 8 merged in #396 with no independent review after it.
 - Kept at `status: lesson`. The recorded lesson was re-violated across several rounds, so escalation to a mechanism is warranted, but `status: mechanism` requires an artifact that exists. None exists yet.
 - **Proposed mechanism (not in place):** extend the "Counterexample categories covered" field in `code-review/templates/finding.template.md` into a required table: family, representative or equivalent spelling, expected result, actual result per implementation, and evidence tier or UNCHECKED. Reviewers derive the families from the scope anchor and enumerate supported transformations plus unknown syntax; uncovered families stay visible. Record the committed path or SHA as `mechanism_ref` after integration.
 - The executable selector matrix in the dependency-scope test is the companion deterministic guard for this class. The review template is not CI-enforced.
@@ -65,3 +73,4 @@ Before writing the fix, replay the guard over the complete real live input and l
 
 - #341; live runs 12-14 of the row-17 kit; review finding on the absolute `?` selector.
 - #396 reviews review-5, review-6 and review-7 (D7 sweeps); commits `3732b134`, `59037db8`, `2eb19883`, `b6aa96a3`; advisor adjudication (answer 21).
+- #396 review-9 (OpenCode): symlinked entry under a disjoint prefix; commits `bd00a796`, `2514056f`; merged at `f571ec68`.

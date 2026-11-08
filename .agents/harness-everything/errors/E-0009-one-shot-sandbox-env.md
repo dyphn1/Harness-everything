@@ -25,6 +25,24 @@ episodes:
         change: "Worker TMPDIR outside any repository, stdin closed (`< /dev/null`), coordinator reruns `verify:all -- --fast` outside the sandbox"
         review: coordinator
         result: "Later packets reported sandbox-UNCHECKED cleanly; coordinator reruns were 0 FAIL"
+  - episode: 341-e1-stage2-haiku-allowlist
+    feature: "#412 E1 stage-2 one-shot workers"
+    date: 2026-11-07
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "one-shot `claude -p` workers had an allowlist of only the packet's named commands; mid-run every other `node ci/*` regression suite required approval, so three consecutive packets reported provider-loading regressions as not run; the coordinator ran 7, 7 and 15 suites afterwards (all exit 0)"
+  - episode: 412-free-reviewer-delivery
+    feature: "#412 E1 writer contract, OpenCode free-model review-11"
+    date: 2026-11-08
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "Three review-11 attempts on free models delivered no accepted report: no column-zero STATUS line (E-0002), `Free usage limit reached` mid-run, then a run that exited 0 without writing the report; the coordinator stopped after three and parked the review for a paid runner"
   - episode: 341-e1-stage2-readonly-review-scratch
     feature: "#396 E1 stage 2 reviewer and worker dispatch"
     date: 2026-11-07
@@ -34,6 +52,19 @@ episodes:
         change: null
         review: "review-5, review-6, review-7"
         result: "Read-only reviewer: fixture `mkdtemp` and report write failed with EPERM, so the fixture tests were unrunnable (review-5/6/7 are repeated observations of this one missing capability). Worker: workflow-state write failed with EPERM, so metadata was not recorded; implementation and tests remained usable."
+  - episode: 412-review11d-stdin-hang
+    feature: "#412 review-11d (codex exec luna)"
+    date: 2026-11-08
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "review-11d was launched without `< /dev/null`; the log ended at `Reading additional input from stdin...` and the run hung about 6 hours with no report (the stdin lesson from episode 1 was re-violated)"
+      - round: 1
+        change: "re-dispatched fresh as review-11e with `< /dev/null`"
+        review: coordinator
+        result: "review-11e delivered in 15 minutes with `STATUS: DONE`"
 ---
 
 ## Cue
@@ -43,6 +74,10 @@ A sandboxed one-shot worker reports FAIL or stalls on loopback, temp-directory o
 ## Lesson
 
 Dispatch one-shot `codex exec` with a TMPDIR outside every repository and stdin closed; treat loopback-bind failures as sandbox-UNCHECKED and rerun the fast gate outside the sandbox before accepting. A log ending in `Reading additional input from stdin` is a hang, not progress.
+
+- Grant the pattern the packet's verification needs (e.g. `Bash(node ci/*)`), not only the listed commands.
+- Free reviewer models can stop on quota or end without a report: ping the model first, and after one failed delivery prefer a paid runner over a third free attempt.
+- Re-violated 2026-11-08: the stdin rule lives only in prose; a dispatch wrapper that always closes stdin would make it a mechanism (not built).
 
 ## Stage 2 read-only review scratch (#396, 2026-11-07)
 

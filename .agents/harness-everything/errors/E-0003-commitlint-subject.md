@@ -37,6 +37,15 @@ episodes:
         change: "Scope-less `docs: draft evid-001` messages, checked with `npx commitlint` before the run"
         review: live-run
         result: "Kit commits passed; later a coordinator commit header of 102 characters was rejected and the pin briefly kept the previous SHA"
+  - episode: 341-e1-writer-contract-commit
+    feature: "#412 E1 stage-2 writer contract"
+    date: 2026-11-07
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: "commit-msg hook"
+        result: "subject `... approved E1 contract` rejected for `subject-case` (uppercase `E1`); fixed by lowering the subject"
 ---
 
 ## Cue
