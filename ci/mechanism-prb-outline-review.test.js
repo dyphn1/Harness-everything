@@ -123,6 +123,7 @@ function outlineText({ id = null, complete = false, decisionPlaceholder = false,
 function createOutlineFixture(options = {}) {
   const generatedRoot = fs.mkdtempSync(path.join(options.rootDirectory || os.tmpdir(), 'prb-outline-fixture-'));
   const root = options.preserveRootSpelling ? generatedRoot : canonical(generatedRoot);
+  const workspaceRoot = canonical(root);
   const retainedInventory = options.retainedInventory === true;
   const target = options.target || (retainedInventory ? 'docs/adr/EVID-001.md' : 'docs/adr/DOCS-001.md');
   const rowId = options.rowId || (retainedInventory ? '17' : '20');
@@ -153,7 +154,14 @@ function createOutlineFixture(options = {}) {
   if (options.realHook) {
     const priorStateHome = process.env.HARNESS_STATE_HOME;
     process.env.HARNESS_STATE_HOME = stateHome;
-    try { sessionDir = require(path.join(ROOT, 'hooks/scripts/lib/harness-state.js')).getSessionDir(root, sessionId); }
+    try {
+      // Model SessionStart: hook state follows the established root while later payload cwd may keep its alias spelling.
+      const workspace = require(path.join(ROOT, 'scripts/lib/workspace.js'));
+      writeJson(path.join(stateHome, 'session-workspaces', `${sha(sessionId)}.json`), {
+        version: 1, sessionId, workspaceRoot, workspaceKey: workspace.getWorkspaceKey(workspaceRoot),
+      });
+      sessionDir = require(path.join(ROOT, 'hooks/scripts/lib/harness-state.js')).getSessionDir(workspaceRoot, sessionId);
+    }
     finally { if (priorStateHome === undefined) delete process.env.HARNESS_STATE_HOME; else process.env.HARNESS_STATE_HOME = priorStateHome; }
   }
 
@@ -168,6 +176,27 @@ function createOutlineFixture(options = {}) {
   });
 
   let hookPreloader = null;
+  const hookDiagnostics = [];
+  function actualCaptureSessionDirs() {
+    const workspacesDir = path.join(stateHome, 'workspaces');
+    try {
+      return fs.readdirSync(workspacesDir).flatMap(workspaceKey => {
+        const sessionsDir = path.join(workspacesDir, workspaceKey, 'state', 'sessions');
+        try {
+          return fs.readdirSync(sessionsDir).map(session => path.join(sessionsDir, session))
+            .filter(dir => fs.readdirSync(path.join(dir, 'doc-reconciliation-capture'))
+              .some(name => /^\d{8}\.json$/.test(name)));
+        } catch { return []; }
+      });
+    } catch { return []; }
+  }
+  function logReviewHookDiagnostics() {
+    console.error('REVIEW-HOOK-CAPTURE-DIAGNOSTICS ' + JSON.stringify({
+      expectedSessionDir: sessionDir,
+      writtenSessionDirs: actualCaptureSessionDirs(),
+      hooks: hookDiagnostics.filter(item => item.agentType === 'reviewer' || item.toolUseId === 'review-dispatch'),
+    }));
+  }
   function runHook(payload, pilotEnabled = true, usePreload = true) {
     if (!options.realHook) throw new Error('real state-persist capture was not enabled for this fixture');
     if (usePreload && !hookPreloader) {
@@ -200,7 +229,18 @@ function createOutlineFixture(options = {}) {
       env: { ...process.env, HARNESS_STATE_HOME: stateHome, HARNESS_WORKSPACE_ROOT: root,
         HARNESS_DOC_RECONCILIATION_PILOT: pilotEnabled ? '1' : '0' },
     });
-    if (child.status !== 0) throw new Error(`state-persist failed open contract: ${child.stderr || child.stdout || child.status}`);
+    hookDiagnostics.push({
+      event: payload.hook_event_name,
+      toolUseId: payload.tool_use_id || null,
+      agentId: payload.agent_id || null,
+      agentType: payload.agent_type || null,
+      exitCode: child.status,
+      stderr: child.stderr || '',
+    });
+    if (child.status !== 0) {
+      if (payload.agent_type === 'reviewer' || payload.tool_use_id === 'review-dispatch') logReviewHookDiagnostics();
+      throw new Error(`state-persist failed open contract: ${child.stderr || child.stdout || child.status}`);
+    }
     return provider.readCaptureView(sessionDir).records;
   }
 
@@ -377,7 +417,10 @@ function createOutlineFixture(options = {}) {
       reviewerStartRecord.outlineIdentity = provider.captureOutlineStartIdentity({ sessionDir });
     }
   }
-  if (!reviewStop || (!reviewResult && !options.omitReviewResult)) throw new Error('review hook captures were not retained');
+  if (!reviewStop || (!reviewResult && !options.omitReviewResult)) {
+    if (options.realHook) logReviewHookDiagnostics();
+    throw new Error('review hook captures were not retained');
+  }
   const reviewRecordDigest = provider._internals?.captureDigest
     ? provider._internals.captureDigest(reviewStop)
     : sha(JSON.stringify(reviewStop));
