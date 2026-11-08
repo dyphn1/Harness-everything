@@ -69,9 +69,6 @@ const OUTLINE_SEAM_SCHEMA = 'harness.outline-dispatch-seam.v1';
 const OUTLINE_HANDOFF_SCHEMA = 'harness.outline-handoff.v1';
 const OUTLINE_LEASE_SCHEMA = 'harness.outline-writer-lease.v1';
 const OUTLINE_WRITE_TOOLS = ['Write', 'Edit', 'apply_patch'];
-// B→O commit shape: one simple git add/commit segment. The string only selects the candidate; the O commit scope check
-// and the clean-O dispatch seam decide its effect.
-const OUTLINE_B_TO_O_GIT = /^git (?:add|commit)(?: [^;&|<>$`(){}\r\n]*)?$/;
 const OUTLINE_INVENTORY_SOURCE = '/Users/daniel.chang/Desktop/Skills/Harness-everything/.worktrees/packets/adr-e1-2026-10-27/report-inv.md';
 const OUTLINE_INVENTORY_SHA256 = '2741bd4514d2cd68f57d93a2b3ce94cbe597ca62d30e26f0ca58e882df5b03c6';
 const OUTLINE_INVENTORY_PIN = Object.freeze({
@@ -1453,9 +1450,28 @@ function writeTargetsOf(toolName, toolInput) {
   return typeof file === 'string' && file.trim() ? [file] : [];
 }
 
+function outlineBToOGitAllowed(command, { cwd, root, targets }) {
+  const parsed = safeTokenize(String(command || '').trim());
+  if (!parsed.ok || parsed.tokens[0] !== 'git' || parsed.tokens.length < 2) return false;
+  const [operation, ...args] = parsed.tokens.slice(1);
+  if (operation === 'add') {
+    const operands = args[0] === '--' ? args.slice(1) : args;
+    if (!operands.length) return false;
+    return operands.every(operand => {
+      if (!operand || operand.startsWith(':') || /[*?\[\]{}]/.test(operand) || /[\\/]$/.test(operand)) return false;
+      return targets.some(target => {
+        const pinned = path.resolve(root, target);
+        const resolved = path.resolve(cwd, operand);
+        return (operand === target || operand === pinned) && resolved === pinned && samePathKey(resolved, pinned);
+      });
+    });
+  }
+  return operation === 'commit' && args.length === 2 && args[0] === '-m' && args[1] !== '';
+}
+
 // Phase-aware writer decision (W1–W3). Principal and phase come from captured identity and journal position only.
 // Allowed: coordinator Write/Edit/apply_patch of exactly a pinned target before the reviewer lifecycle starts; coordinator
-// git add/commit of the same before review (its effect is checked by the O commit scope); the correlated draft worker
+// target-bound git add or simple git commit before review; the correlated draft worker
 // between dispatch and its Stop. Everything else, including any coordinator state write after review, stays ambiguous.
 function outlineWriterAllowed(item, { index, sessionId, root, targets, worker, workerRoot, reviewStartIndex, reviewStopIndex,
   dispatchIndex, workerStopIndex }) {
@@ -1468,7 +1484,8 @@ function outlineWriterAllowed(item, { index, sessionId, root, targets, worker, w
     return Array.isArray(item.writeTargets) && item.writeTargets.length > 0
       && item.writeTargets.every(file => pinned.some(target => samePathKey(path.resolve(item.cwd || root, file), target)));
   }
-  return item.tool_name === 'Bash' && samePathKey(item.cwd || root, root) && OUTLINE_B_TO_O_GIT.test(String(item.command || '').trim());
+  const cwd = item.cwd || root;
+  return item.tool_name === 'Bash' && samePathKey(cwd, root) && outlineBToOGitAllowed(item.command, { cwd, root, targets });
 }
 
 function sameCanonicalPath(left, right) {
@@ -2438,6 +2455,8 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
 // Each capture is one event file, created exclusively and never rewritten by this code. The compatibility journal
 // `doc-reconciliation-capture.json` is rebuilt from those files, and readers compare the two. This detects accidental and
 // journal-only edits. It does not stop the local agent from rewriting event files, which the owner's bound accepts (F13).
+// F13 includes rewriting the reviewer Start event's W2 `outlineIdentity`; W2 revalidation assumes authentic captured
+// events and does not authenticate locally rewritten capture state.
 const EVENT_DIR = 'doc-reconciliation-capture';
 const JOURNAL_FILE = 'doc-reconciliation-capture.json';
 const EVENT_NAME = /^\d{8}\.json$/;

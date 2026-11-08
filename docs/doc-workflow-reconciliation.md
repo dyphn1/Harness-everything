@@ -1280,7 +1280,7 @@ flowchart LR
 | Phase | Principal | Operation and target | Result |
 |---|---|---|---|
 | Before reviewer launch | Coordinator: no `agent_id`, author `session_id` | `Write`, `Edit` or `apply_patch` whose every path is a pinned target | Allowed |
-| Before reviewer launch | Coordinator | Bash `git add` or `git commit` as one simple segment (no `;`, `&`, `\|`, redirection, substitution or grouping) | Allowed; the O commit scope check decides the effect |
+| Before reviewer launch | Coordinator | `git add [--] <literal pinned file>...` or `git commit -m <message>`; R11-1 (b): record before review, validate at dispatch; uncaptured/pre-B index effects are UNCHECKED | Allowed only under this grammar; unbound or unverified index effects receive no credit |
 | Before reviewer launch | Any | Any other write, chained or unknown shell command, or a path that is not the target | `outline-writer-activity-ambiguous` |
 | Review | Reviewer or any other agent | Any writer | Ambiguous |
 | Review to dispatch | Coordinator | Any write, including handoff, lease, pin and merge-correspondence files | Ambiguous |

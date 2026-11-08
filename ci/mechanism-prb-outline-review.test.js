@@ -96,11 +96,13 @@ function createOutlineFixture(options = {}) {
   fs.writeFileSync(path.join(root, '.agents/harness-everything/project-docs.json'), config);
   if (options.targetExistsAtB) fs.writeFileSync(path.join(root, target),
     `---\nid: DOCS-001\nstatus: proposed\n---\n\n## Decision\nAn existing B document.\n`);
+  if (options.unrelatedFileAtB) fs.writeFileSync(path.join(root, options.unrelatedFileAtB), 'unmodified at B\n');
   fixtureGit(root, ['init', '-q']);
   fixtureGit(root, ['add', '-A']);
   fixtureGit(root, ['commit', '-q', '-m', 'B baseline']);
   const baselineCommit = fixtureGit(root, ['rev-parse', 'HEAD']);
   const baselineTree = fixtureGit(root, ['rev-parse', 'HEAD^{tree}']);
+  if (options.unrelatedFileAtB) fs.writeFileSync(path.join(root, options.unrelatedFileAtB), 'modified after B\n');
   let sessionDir = path.join(stateHome, 'session');
   if (options.realHook) {
     const priorStateHome = process.env.HARNESS_STATE_HOME;
@@ -189,6 +191,8 @@ function createOutlineFixture(options = {}) {
 
   if (!preOutlineOperation || preOutlineOperation.operation !== 'write') fs.writeFileSync(path.join(root, target), outlineBytes);
   let capturedCommit = false;
+  let indexAfterCapturedAdd = null;
+  let indexAfterOutlineCommit = null;
   if (options.capturedOutlineCommit) {
     // The coordinator's own git add/commit run through the real hook, so the B→O commit is captured Bash evidence.
     if (!options.realHook || !preOutlineOperation || preOutlineOperation.operation !== 'write') {
@@ -196,16 +200,31 @@ function createOutlineFixture(options = {}) {
     }
     // extraOutlineFile is an uncaptured write staged into O: only the O commit scope check can reject it.
     if (options.extraOutlineFile) fs.writeFileSync(path.join(root, options.extraOutlineFile), 'uncaptured extra\n');
-    const addArgs = options.extraOutlineFile ? ['add', '-A'] : ['add', '--', target];
-    for (const [name, args] of [['add', addArgs], ['commit', ['commit', '-q', '-m', 'O outline']]]) {
+    const addArgs = options.capturedOutlineAddArgs || ['add', '--', target];
+    const commitArgs = options.capturedOutlineCommitArgs || ['commit', '-m', 'O outline'];
+    const gitOperations = [
+      ['add', addArgs, options.capturedOutlineAddCommand || `git add -- ${target}`],
+      ['commit', commitArgs, options.capturedOutlineCommitCommand || 'git commit -m "O outline"'],
+    ];
+    for (const [name, args, command] of gitOperations) {
       const payload = { session_id: sessionId, cwd: root, hook_event_name: 'PreToolUse', tool_name: 'Bash',
-        tool_use_id: `pre-outline-${name}-${sessionId}`, tool_input: { command: 'git ' + args.join(' ') } };
+        tool_use_id: `pre-outline-${name}-${sessionId}`, tool_input: { command } };
       runHook(payload, true, false);
+      if (name === 'add' && options.extraOutlineFile) fixtureGit(root, ['add', '--', options.extraOutlineFile]);
+      if (name === 'commit' && options.stagedUnrelatedWitness) fixtureGit(root, ['reset', '--', options.unrelatedFileAtB]);
       fixtureGit(root, args);
+      if (name === 'add' && options.stagedUnrelatedWitness) {
+        indexAfterCapturedAdd = fixtureGit(root, ['diff', '--cached', '--name-only']).split('\n').filter(Boolean).sort();
+      }
+      if (name === 'commit' && options.stagedUnrelatedWitness) {
+        fixtureGit(root, ['add', '--', options.unrelatedFileAtB]);
+        indexAfterOutlineCommit = fixtureGit(root, ['diff', '--cached', '--name-only']).split('\n').filter(Boolean).sort();
+      }
       runHook({ ...payload, hook_event_name: 'PostToolUse', tool_response: { exitCode: 0, stdout: '' } }, true, false);
     }
     capturedCommit = true;
   }
+  if (options.stagedUnrelatedWitness) fixtureGit(root, ['reset', '--hard', 'HEAD']);
   if (!capturedCommit) {
     // revertedExtraOutlineCommit: a non-target file committed inside B..O and removed before O. Only per-commit scope sees it.
     if (options.revertedExtraOutlineCommit) {
@@ -529,6 +548,7 @@ function createOutlineFixture(options = {}) {
 
   return { root, sessionDir, target, taskId, attemptId, sessionId, workflowId, workflowRevision, preOutlineOperation,
     baselineCommit, baselineTree, outlineCommit, outlineTree, outlineBlob, outlineBytes, configDigest,
+    indexAfterCapturedAdd, indexAfterOutlineCommit,
     expectedPin, taskBinding, attemptDir, handoff, payload, capture, reviewCaptures, workerStart,
     extraCaptures, dispatchAgain, finishDraft, runHook, stateHome,
     faultMarker: path.join(stateHome, 'prb-partial-dispatch-faults-used'),
@@ -1798,6 +1818,28 @@ function runWriterControl(name, options, arrange = () => {}) {
 }
 
 test('writer-policy negative controls withhold outline credit through the real hook, provider and pilot.assess()', () => {
+  const target = 'docs/adr/DOCS-001.md';
+  const gitCommandControls = [
+    ['git add -A', 'git add -A'],
+    ['git add --all', 'git add --all'],
+    ['git add current directory', 'git add .'],
+    ['git add target and unrelated plain operands', `git add ${target} unrelated.md`],
+    ['git add target and unrelated after --', `git add -- ${target} unrelated.md`],
+    ['git add pathspec file input', 'git add --pathspec-from-file=x'],
+    ['git add patch mode', `git add -p ${target}`],
+    ['git add unknown option', `git add --unknown ${target}`],
+    ['git add pathspec magic', `git add -- :(top)${target}`],
+    ['git add outside root', `git add ../${target}`],
+    ['git commit -a', 'git commit -a -m x'],
+    ['git commit --all', 'git commit --all -m x'],
+    ['git commit --include', `git commit --include ${target} -m x`],
+    ['git commit interactive mode', 'git commit --interactive -m x'],
+    ['git commit patch mode', 'git commit --patch -m x'],
+    ['git commit alternate pathspec', `git commit -m x -- ${target}`],
+    ['git commit pathspec file input', 'git commit --pathspec-from-file=x -m x'],
+  ].map(([name, command], index) => [name, {
+    interleave: { beforeReview: [writerRecord({ toolUseId: `nc-git-${index}`, tool: 'Bash', command })] },
+  }, [WRITER_AMBIGUOUS]]);
   const controls = [
     ['unauthorized target before review', { interleave: { beforeReview: [writerRecord({ toolUseId: 'nc-target', file: 'docs/adr/OTHER-001.md' })] } }, [WRITER_AMBIGUOUS]],
     ['wrong phase: coordinator writes O during review', { interleave: { duringReview: [writerRecord({ toolUseId: 'nc-review' })] } }, [WRITER_AMBIGUOUS]],
@@ -1828,6 +1870,7 @@ test('writer-policy negative controls withhold outline credit through the real h
       [SEAM_UNRESOLVED]],
     ['O commit carries an uncaptured extra file', { preOutlineOperation: 'write', capturedOutlineCommit: true,
       extraOutlineFile: 'docs/adr/EXTRA-001.md' }, ['outline-commit-scope-invalid']],
+    ...gitCommandControls,
   ];
   const witness = [];
   const problems = [];
@@ -1843,15 +1886,46 @@ test('writer-policy negative controls withhold outline credit through the real h
 });
 
 test('pre-review writer positive controls earn outline credit on the same real path', () => {
+  const target = 'docs/adr/DOCS-001.md';
   const controls = [
     ['coordinator Write of the pinned target before review', { interleave: { beforeReview: [writerRecord({ toolUseId: 'pc-target' })] } }],
-    ['captured coordinator git add/commit of the pinned target', { preOutlineOperation: 'write', capturedOutlineCommit: true }],
+    ['captured git add -- target and git commit -m x', { preOutlineOperation: 'write', capturedOutlineCommit: true,
+      capturedOutlineCommitCommand: 'git commit -m x', capturedOutlineCommitArgs: ['commit', '-m', 'x'] }],
+    ['captured plain git add target', { preOutlineOperation: 'write', capturedOutlineCommit: true,
+      capturedOutlineAddCommand: `git add ${target}`, capturedOutlineAddArgs: ['add', target],
+      capturedOutlineCommitCommand: 'git commit -m x', capturedOutlineCommitArgs: ['commit', '-m', 'x'] }],
+    ['captured quoted git commit message', { preOutlineOperation: 'write', capturedOutlineCommit: true,
+      capturedOutlineCommitCommand: 'git commit -m "a b"', capturedOutlineCommitArgs: ['commit', '-m', 'a b'] }],
   ];
   for (const [name, options] of controls) {
     const result = runWriterControl(name, options);
     assert.strictEqual(result.status, 'accepted', `${name}: ${result.codes.join(', ')}`);
     assert.strictEqual(result.outcome, 'pass', name);
   }
+});
+
+test('captured git add cannot stage unrelated content even when O commits only the pinned target', () => {
+  const target = 'docs/adr/DOCS-001.md';
+  const fixture = createOutlineFixture({ realHook: true, unrelatedFileAtB: 'unrelated.md',
+    preOutlineOperation: 'write', capturedOutlineCommit: true, stagedUnrelatedWitness: true,
+    capturedOutlineAddCommand: `git add -- ${target} unrelated.md`,
+    capturedOutlineAddArgs: ['add', '--', target, 'unrelated.md'],
+    capturedOutlineCommitCommand: 'git commit -m x', capturedOutlineCommitArgs: ['commit', '-m', 'x'] });
+  try {
+    assert.deepStrictEqual(fixture.indexAfterCapturedAdd, [target, 'unrelated.md'],
+      'git diff --cached --name-only shows both modified files after the captured add');
+    assert.deepStrictEqual(fixture.indexAfterOutlineCommit, ['unrelated.md'],
+      'git diff --cached --name-only shows unrelated content remains staged and uncommitted after O');
+    assert.deepStrictEqual(fixtureGit(fixture.root, ['diff', '--name-only', fixture.baselineCommit, fixture.outlineCommit]).split('\n').filter(Boolean), [target],
+      'B..O commits only the pinned target');
+    const completed = fixture.finishDraft({ runPilot: true });
+    const outline = completed.pilot?.report?.outlineEvidence;
+    const codes = [...(completed.result.diagnostics || []), ...(outline?.diagnostics || [])]
+      .flatMap(item => [item.code, item.reason]).filter(Boolean);
+    assert.notStrictEqual(completed.result.status, 'accepted', JSON.stringify(completed.result));
+    assert.notStrictEqual(outline?.outcome, 'pass', JSON.stringify(outline));
+    assert.ok(codes.includes(WRITER_AMBIGUOUS), `expected ${WRITER_AMBIGUOUS}; got ${codes.join(', ')}`);
+  } finally { fixture.cleanup(); }
 });
 
 // #341 step 1 (owner clarification 6708822276): O identity is recorded by Harness at reviewer SubagentStart and must equal
