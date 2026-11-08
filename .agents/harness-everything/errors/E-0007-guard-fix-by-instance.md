@@ -51,6 +51,23 @@ episodes:
         change: "Commit `2514056f`: every absolute glob outside the workspace is may-intersect; only literal outside paths stay disjoint"
         review: "hosted CI (incl. Windows) and owner U5 merge of #396; no independent review after this round"
         result: "merged in #396 (`f571ec68`)"
+  - episode: 412-target-path-acceptance
+    feature: "#412 E1 writer contract, B→O target-path acceptance"
+    date: 2026-11-08
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "review-12"
+        result: "pinned target that is a symlink outside the root was credited for Write and git add (executed probe)"
+      - round: 1
+        change: "Commit `782e19f7`: shared filesystem proof (no symlink components, regular leaf) + O tree entry mode 100644/100755"
+        review: "review-13"
+        result: "symlink and O-mode controls held, but `./` and `..` aliases of the same target were still credited — second consecutive round on the same decision"
+      - round: 2
+        change: "Commit `22dc944a`: one exact-spelling recognizer for capture and all writer surfaces, built from pinned targets and the captured/canonical root, applied before normalization; advisor-gated sweep of nine families × four surfaces"
+        review: "review-14 (independent family sweep, executed)"
+        result: "no actionable findings; episode closed"
 ---
 
 ## Cue
@@ -60,6 +77,8 @@ A guard produces a false positive on real input and the fix names the one field 
 ## Lesson
 
 Before writing the fix, replay the guard over the complete real live input and list every hit; fix the predicate that misclassifies the whole class, and put that real input in the test fixture. Enumerate the class (supported transformations plus unknown syntax) before the first fix, not one spelling per round. Re-check that the class fix does not open the opposite hole (here: wildcard syntax after relativizing).
+
+Re-violated 2026-11-08 (#412): after the second round on the same decision, switching to an advisor-gated class invariant plus a family sweep closed it in one round.
 
 ## Status and promotion
 

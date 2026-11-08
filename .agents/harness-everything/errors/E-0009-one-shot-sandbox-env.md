@@ -65,6 +65,15 @@ episodes:
         change: "re-dispatched fresh as review-11e with `< /dev/null`"
         review: coordinator
         result: "review-11e delivered in 15 minutes with `STATUS: DONE`"
+  - episode: 412-workflow-state-eperm
+    feature: "#412 E1 writer contract, workflow state under codex workspace-write"
+    date: 2026-11-08
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "fix-p2, fix-f1, fix-class, review-13 and review-14 (codex workspace-write) could not persist workflow plan/start state: its path is outside the writable roots (EPERM); each reported a degraded inline disposition"
 ---
 
 ## Cue
