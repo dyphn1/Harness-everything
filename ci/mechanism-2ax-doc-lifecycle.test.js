@@ -1625,14 +1625,24 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
     'plugins/harness-everything/skills/harness-everything/scripts/project-docs-resolver.js',
     '.agents/harness-everything/project-docs.json',
     '.agents/harness-everything/document-inventory.json',
-    '.github/workflows/ci.yml',
+    '.agents/harness-everything/errors/README.md',
+    '.github/workflows/doc-governance.yml',
     'package.json',
     'self-evolve/scripts/self-regression.js',
     'ci/mechanism-test.js',
     'ci/mutation-check.js',
     'ci/lib/isolated-test-process.js',
     'ci/test-helper.js',
+    'scripts/errors-sync.js',
     'scripts/verify-all.js'
+  ];
+  const membershipPaths = ['AGENTS.md', 'SECURITY.md', 'CODE_OF_CONDUCT.md', 'PRIVACY.md', 'TERMS.md', 'docs/document-lifecycle.md'];
+  const membershipPrefixPaths = ['docs/policy/existing.md', 'docs/prd/future.md'];
+  const fixtureSupportPaths = [
+    '.github/workflows/ci.yml',
+    'benchmarks/issue290-pilot/README.md',
+    '.agents/harness-everything/errors/E-0001-fixture.md',
+    ...membershipPrefixPaths
   ];
   const frozenGuard = fs.readFileSync(governanceGuardPath);
   const frozenTest = fs.readFileSync(__filename);
@@ -1680,6 +1690,13 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
           : fs.readFileSync(path.join(REPOSITORY_ROOT, ...relativePath.split('/')));
       writeRelative(root, relativePath, bytes);
     }
+    for (const relativePath of membershipPaths) writeRelative(root, relativePath, fs.readFileSync(path.join(REPOSITORY_ROOT, relativePath)));
+    for (const relativePath of fixtureSupportPaths) {
+      const bytes = relativePath === '.github/workflows/ci.yml'
+        ? fs.readFileSync(path.join(REPOSITORY_ROOT, relativePath))
+        : Buffer.from(`baseline ${relativePath}\n`);
+      writeRelative(root, relativePath, bytes);
+    }
     const copyScenarioTree = (from, into) => {
       fs.mkdirSync(into, { recursive: true });
       for (const entry of fs.readdirSync(from, { withFileTypes: true })) {
@@ -1715,6 +1732,9 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
   }
 
   const fixture = createFixture();
+  resetFixture(fixture);
+  writeRelative(fixture.root, 'docs/adr/GRPH-001.md', 'baseline ADR\n');
+  fixture.base = commitFixture(fixture.root, 'add ADR fixture member');
   const ordinaryPath = path.join(fixture.root, 'docs', 'ordinary.md');
   fs.writeFileSync(ordinaryPath, 'ordinary document edit\n');
   // Git for Windows rejects LF paths even when they are added directly to the index.
@@ -1737,6 +1757,9 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
   assert.strictEqual(positive.report.verifier.sha256, crypto.createHash('sha256').update(frozenGuard).digest('hex'));
   assert.strictEqual(positive.report.verifier.matchesBaseObject, true, 'running verifier bytes match the baseline guard blob');
   assert.deepStrictEqual(positive.report.trustSurface.paths.slice(0, trustedPaths.length).map(item => item.path), trustedPaths, 'fixed trust surface is explicit');
+  for (const relativePath of [...membershipPaths, ...membershipPrefixPaths]) {
+    assert.ok(positive.report.trustSurface.paths.some(item => item.path === relativePath), `${relativePath} is an explicit membership-only path`);
+  }
   const scenarioExpectedPath = 'ci/fixtures/doc-lifecycle/scenarios/active-to-active/expected.json';
   const scenarioOracle = positive.report.trustSurface.paths.find(item => item.path === scenarioExpectedPath);
   assert.ok(scenarioOracle, 'tracked scenario oracle is part of the baseline trust surface');
@@ -1784,6 +1807,90 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
   assert.strictEqual(unchanged.status, 0, 'an unchanged tree passes');
   assert.strictEqual(unchanged.report.verdict, 'PASS');
 
+  resetFixture(fixture);
+  const ciWorkflowPath = path.join(fixture.root, '.github/workflows/ci.yml');
+  const ciWorkflow = fs.readFileSync(ciWorkflowPath, 'utf8');
+  assert.ok(ciWorkflow.includes('  pilot-offline-evidence:\n    runs-on: ubuntu-latest'), 'unrelated CI job fixture exists');
+  writeRelative(fixture.root, '.github/workflows/ci.yml', ciWorkflow.replace('  pilot-offline-evidence:\n    runs-on: ubuntu-latest', '  pilot-offline-evidence:\n    name: Updated unrelated CI job\n    runs-on: ubuntu-latest'));
+  const unrelatedCiCandidate = commitFixture(fixture.root, 'change unrelated CI job');
+  const unrelatedCi = runFrozenGuard(fixture, fixture.base, unrelatedCiCandidate);
+  assert.strictEqual(unrelatedCi.status, 0, 'unrelated ci.yml job changes pass');
+  assert.strictEqual(unrelatedCi.report.verdict, 'PASS');
+
+  resetFixture(fixture);
+  writeRelative(fixture.root, '.github/workflows/doc-governance.yml', `${fs.readFileSync(path.join(fixture.root, '.github/workflows/doc-governance.yml'), 'utf8')}\n# guard workflow change\n`);
+  const governanceWorkflowCandidate = commitFixture(fixture.root, 'change guard workflow');
+  const governanceWorkflowChange = runFrozenGuard(fixture, fixture.base, governanceWorkflowCandidate);
+  assert.strictEqual(governanceWorkflowChange.status, 2, 'the standalone guard workflow remains review-required');
+  assert.strictEqual(governanceWorkflowChange.report.verdict, 'REVIEW_REQUIRED');
+
+  resetFixture(fixture);
+  for (const relativePath of ['benchmarks/issue290-pilot/README.md', '.agents/harness-everything/errors/E-0001-fixture.md']) {
+    fs.appendFileSync(path.join(fixture.root, ...relativePath.split('/')), '\nrecord update\n');
+  }
+  const recordsCandidate = commitFixture(fixture.root, 'change records only');
+  const recordsOnly = runFrozenGuard(fixture, fixture.base, recordsCandidate);
+  assert.strictEqual(recordsOnly.status, 0, 'benchmark and error-ledger records are outside the governance verdict');
+  assert.strictEqual(recordsOnly.report.verdict, 'PASS');
+
+  resetFixture(fixture);
+  writeRelative(fixture.root, '.github/workflows/doc-governance.yml', `${fs.readFileSync(path.join(fixture.root, '.github/workflows/doc-governance.yml'), 'utf8')}\n# guard workflow change\n`);
+  fs.appendFileSync(path.join(fixture.root, '.agents/harness-everything/errors/E-0001-fixture.md'), '\nrecord update\n');
+  const mixedCandidate = commitFixture(fixture.root, 'change T1 and T3');
+  assert.strictEqual(runFrozenGuard(fixture, fixture.base, mixedCandidate).report.verdict, 'REVIEW_REQUIRED', 'a T1 change controls a mixed T1 and T3 change');
+
+  for (const relativePath of membershipPaths) {
+    resetFixture(fixture);
+    fs.appendFileSync(path.join(fixture.root, relativePath), '\nordinary content revision\n');
+    const candidate = commitFixture(fixture.root, `revise ${relativePath}`);
+    const result = runFrozenGuard(fixture, fixture.base, candidate);
+    assert.strictEqual(result.report.verdict, 'PASS', `${relativePath} content revision does not require U5`);
+  }
+
+  for (const relativePath of membershipPrefixPaths) {
+    resetFixture(fixture);
+    fs.appendFileSync(path.join(fixture.root, ...relativePath.split('/')), '\nordinary content revision\n');
+    const candidate = commitFixture(fixture.root, `revise ${relativePath}`);
+    assert.strictEqual(runFrozenGuard(fixture, fixture.base, candidate).report.verdict, 'PASS', `${relativePath} content revision does not require U5`);
+  }
+
+  for (const relativePath of ['docs/policy/new.md', 'docs/prd/new.md']) {
+    resetFixture(fixture);
+    writeRelative(fixture.root, relativePath, 'new T1 member\n');
+    const candidate = commitFixture(fixture.root, `add ${relativePath}`);
+    assert.strictEqual(runFrozenGuard(fixture, fixture.base, candidate).report.verdict, 'REVIEW_REQUIRED', `adding ${relativePath} changes protected membership`);
+  }
+
+  resetFixture(fixture);
+  fixtureGit(fixture.root, ['rm', '--quiet', '--', 'AGENTS.md']);
+  const deletedRootAgentsCandidate = commitFixture(fixture.root, 'delete root AGENTS');
+  assert.strictEqual(runFrozenGuard(fixture, fixture.base, deletedRootAgentsCandidate).report.verdict, 'REVIEW_REQUIRED', 'deleting root AGENTS changes protected membership');
+
+  resetFixture(fixture);
+  const changedRootAgentsModeCandidate = commitFixture(fixture.root, 'change root AGENTS mode', 'AGENTS.md');
+  assert.strictEqual(runFrozenGuard(fixture, fixture.base, changedRootAgentsModeCandidate).report.verdict, 'REVIEW_REQUIRED', 'changing root AGENTS mode is not a content-only revision');
+
+  resetFixture(fixture);
+  fixtureGit(fixture.root, ['mv', '--', 'AGENTS.md', 'docs/AGENTS.md']);
+  const renamedRootAgentsCandidate = commitFixture(fixture.root, 'move root AGENTS');
+  assert.strictEqual(runFrozenGuard(fixture, fixture.base, renamedRootAgentsCandidate).report.verdict, 'REVIEW_REQUIRED', 'moving root AGENTS out changes protected membership');
+
+  resetFixture(fixture);
+  writeRelative(fixture.root, 'docs/adr/GRPH-001.md', 'revised ADR contents\n');
+  const adrContentCandidate = commitFixture(fixture.root, 'revise ADR contents');
+  assert.strictEqual(runFrozenGuard(fixture, fixture.base, adrContentCandidate).report.verdict, 'PASS', 'ADR content revisions do not require U5');
+
+  resetFixture(fixture);
+  fixtureGit(fixture.root, ['rm', '--quiet', '--', 'docs/adr/GRPH-001.md']);
+  const deletedAdrCandidate = commitFixture(fixture.root, 'delete ADR');
+  assert.strictEqual(runFrozenGuard(fixture, fixture.base, deletedAdrCandidate).report.verdict, 'REVIEW_REQUIRED', 'deleting an ADR changes protected membership');
+
+  resetFixture(fixture);
+  fs.mkdirSync(path.join(fixture.root, 'docs/records'), { recursive: true });
+  fixtureGit(fixture.root, ['mv', '--', 'docs/adr/GRPH-001.md', 'docs/records/GRPH-001.md']);
+  const movedAdrCandidate = commitFixture(fixture.root, 'move ADR out of governed folder');
+  assert.strictEqual(runFrozenGuard(fixture, fixture.base, movedAdrCandidate).report.verdict, 'REVIEW_REQUIRED', 'moving an ADR out of the governed folder requires review');
+
   const rawIdentity = entry => ({ mode: entry.mode, type: entry.type, oid: entry.oid });
   const configuredIdentity = (commit, relativePath) => {
     const tree = parseTreeOracle(fixtureGit(fixture.root, ['ls-tree', '-r', '-z', '--full-tree', commit]));
@@ -1813,11 +1920,12 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
   writeRelative(fixture.root, 'docs/governed-index.md', 'changed derived output\n');
   const derivedCandidate = commitFixture(fixture.root, 'change derived document');
   const derivedChange = runFrozenGuard(fixture, fixture.base, derivedCandidate);
-  assert.strictEqual(derivedChange.status, 2, 'derived content change still requires review');
-  assert.strictEqual(derivedChange.report.verdict, 'REVIEW_REQUIRED');
-  const derivedEntry = derivedChange.report.policyPreservation.configuredPaths.missingOrChanged.find(item => item.path === 'docs/governed-index.md');
-  assert.ok(derivedEntry, 'derived content change remains in review-required paths');
-  assert.strictEqual(derivedEntry.state, 'review_required');
+  assert.strictEqual(derivedChange.status, 0, 'generated-view content changes are left to ordinary CI');
+  assert.strictEqual(derivedChange.report.verdict, 'PASS');
+  const derivedEntry = derivedChange.report.policyPreservation.configuredPaths.paths.find(item => item.path === 'docs/governed-index.md');
+  assert.ok(derivedEntry, 'derived content change remains visible in the report');
+  assert.strictEqual(derivedEntry.state, 'pass');
+  assert.match(derivedEntry.reason, /regenerate-equals CI/);
   assert.deepStrictEqual(derivedEntry.base, configuredIdentity(fixture.base, 'docs/governed-index.md'));
   assert.deepStrictEqual(derivedEntry.candidate, configuredIdentity(derivedCandidate, 'docs/governed-index.md'));
 
@@ -1930,8 +2038,10 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
   writeRelative(globFixture.root, 'generated/view.md', 'changed derived glob output\n');
   const derivedGlobCandidate = commitFixture(globFixture.root, 'change derived glob member');
   const derivedGlob = runFrozenGuard(globFixture, globFixture.base, derivedGlobCandidate);
-  assert.strictEqual(derivedGlob.status, 2, 'a derived glob member content change requires review');
-  assert.strictEqual(derivedGlob.report.policyPreservation.configuredPaths.paths.find(item => item.path === 'generated/view.md').state, 'review_required');
+  assert.strictEqual(derivedGlob.status, 0, 'a generated-view revision is left to ordinary CI');
+  const derivedGlobEntry = derivedGlob.report.policyPreservation.configuredPaths.paths.find(item => item.path === 'generated/view.md');
+  assert.strictEqual(derivedGlobEntry.state, 'pass');
+  assert.match(derivedGlobEntry.reason, /regenerate-equals CI/);
 
   if (process.platform !== 'win32') {
     resetFixture(globFixture);
@@ -2119,11 +2229,20 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
   assert.notStrictEqual(missingCommit.status, 0);
   assert.notStrictEqual(missingCommit.report.verdict, 'PASS');
 
-  checkCase('2ax. CI workflow keeps the base-owned guard in a failing standalone job', () => {
-    const workflowPath = path.join(REPOSITORY_ROOT, '.github/workflows/ci.yml');
+  checkCase('2ax. guard has a standalone workflow outside the general CI workflow', () => {
+    const workflowPath = path.join(REPOSITORY_ROOT, '.github/workflows/doc-governance.yml');
+    assert.ok(fs.existsSync(workflowPath), 'dedicated document-governance workflow exists');
+  });
+
+  checkCase('2ax. standalone workflow keeps the base-owned guard in a failing job', () => {
+    const workflowPath = path.join(REPOSITORY_ROOT, '.github/workflows/doc-governance.yml');
     const workflow = require('js-yaml').load(fs.readFileSync(workflowPath, 'utf8'));
+    const ciWorkflow = require('js-yaml').load(fs.readFileSync(path.join(REPOSITORY_ROOT, '.github/workflows/ci.yml'), 'utf8'));
     const job = workflow.jobs['doc-governance'];
     assert.ok(job, 'standalone doc-governance job exists');
+    assert.ok(!ciWorkflow.jobs['doc-governance'], 'general CI workflow no longer carries the governance runner');
+    assert.deepStrictEqual(workflow.on, ciWorkflow.on, 'standalone guard keeps the original CI workflow triggers');
+    assert.ok(!/"paths(?:-ignore)?"/.test(JSON.stringify(workflow.on)), 'the guard workflow is not path-filtered');
     assert.strictEqual(job['runs-on'], 'ubuntu-latest');
     assert.notStrictEqual(job['continue-on-error'], true, 'the job does not mask guard failures');
     assert.ok(job.steps.some(step => step.uses === 'actions/checkout@v7' && step.with['fetch-depth'] === 0), 'job fetches base Git objects');
@@ -2131,7 +2250,6 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
     const guardStep = job.steps.find(step => step.name === 'Run base-owned document governance guard');
     assert.ok(guardStep, 'standalone job owns the guard step');
     assert.notStrictEqual(guardStep['continue-on-error'], true, 'the guard step propagates nonzero exits');
-    assert.ok(!workflow.jobs['self-regression'].steps.some(step => step.name === guardStep.name), 'self-regression no longer runs the guard');
     const command = String(guardStep.run || '').trimEnd();
     const inline = command.match(/^node -e '([\s\S]*)'$/);
     assert.ok(inline, 'guard step remains a directly executable Node script');
@@ -2169,7 +2287,7 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
     assert.match(passEvent.output, /"verdict": "PASS"/);
 
     resetFixture(fixture);
-    writeRelative(fixture.root, 'docs/governed-index.md', 'changed derived output for CI simulation\n');
+    writeRelative(fixture.root, '.github/workflows/doc-governance.yml', `${fs.readFileSync(path.join(fixture.root, '.github/workflows/doc-governance.yml'), 'utf8')}\n# guard workflow change\n`);
     const reviewCandidate = commitFixture(fixture.root, 'simulate guard review failure');
     const reviewEvent = simulate('pull_request', fixture.base, reviewCandidate);
     assert.strictEqual(reviewEvent.status, 2, 'REVIEW_REQUIRED stays a failing workflow job');
@@ -2182,6 +2300,18 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
       const result = simulate('pull_request', base, base);
       assert.strictEqual(result.status, exitCode, `the standalone job propagates guard exit ${exitCode}`);
     }
+  });
+
+  checkCase('2ax. release gate calls and waits for the standalone document-governance workflow', () => {
+    const releaseWorkflow = require('js-yaml').load(fs.readFileSync(path.join(REPOSITORY_ROOT, '.github/workflows/release.yml'), 'utf8'));
+    const ciWorkflow = require('js-yaml').load(fs.readFileSync(path.join(REPOSITORY_ROOT, '.github/workflows/ci.yml'), 'utf8'));
+    const governanceWorkflow = require('js-yaml').load(fs.readFileSync(path.join(REPOSITORY_ROOT, '.github/workflows/doc-governance.yml'), 'utf8'));
+
+    assert.strictEqual(releaseWorkflow.jobs.gate.uses, './.github/workflows/ci.yml', 'release keeps the CI reusable-workflow gate');
+    assert.strictEqual(releaseWorkflow.jobs['doc-governance']?.uses, './.github/workflows/doc-governance.yml', 'release calls the extracted governance workflow');
+    assert.deepStrictEqual(releaseWorkflow.jobs.release.needs, ['gate', 'doc-governance'], 'release waits for CI and document governance');
+    assert.ok(!ciWorkflow.jobs['doc-governance'], 'CI does not duplicate the extracted governance runner');
+    assert.ok(governanceWorkflow.jobs['doc-governance'], 'the called standalone workflow owns the governance job');
   });
 });
 
