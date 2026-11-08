@@ -19,13 +19,43 @@ const failures = [];
 
 function test(name, run) {
   try {
-    run();
+    const result = run();
+    if (result && typeof result.unchecked === 'string') {
+      console.log(`UNCHECKED ${name}: ${result.unchecked}`);
+      return;
+    }
     console.log(`PASS ${name}`);
   } catch (error) {
     failures.push(name);
     console.error(`FAIL ${name}: ${error.message}`);
   }
 }
+
+function symlinkUnavailable(type) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'prb-symlink-probe-'));
+  try {
+    const target = path.join(directory, 'target');
+    if (type === 'dir') fs.mkdirSync(target);
+    else fs.writeFileSync(target, '');
+    fs.symlinkSync(target, path.join(directory, 'link'), type);
+    return null;
+  } catch (error) {
+    if (['EPERM', 'EACCES', 'ENOSYS', 'ENOTSUP', 'EOPNOTSUPP'].includes(error.code)) return error.code;
+    throw error;
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+}
+
+test('explicitly unchecked controls do not also report PASS', () => {
+  const output = [];
+  const log = console.log;
+  try {
+    console.log = message => output.push(message);
+    test('fixture precondition', () => ({ unchecked: 'EPERM' }));
+  } finally { console.log = log; }
+  assert.deepStrictEqual(output, ['UNCHECKED fixture precondition: EPERM']);
+});
 
 function sha(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
@@ -1940,21 +1970,26 @@ function replaceOutlinePathForWriterCapture(root, target, kind) {
 
 test('writer topology at PreToolUse is checked through the real hook, provider and pilot.assess()', () => {
   const target = 'docs/adr/DOCS-001.md';
+  const unavailable = { file: symlinkUnavailable('file'), dir: symlinkUnavailable('dir') };
   const cases = [
-    ['outward leaf symlink', 'outward-leaf'],
-    ['inward leaf symlink', 'inward-leaf'],
-    ['dangling leaf symlink', 'dangling-leaf'],
-    ['outward symlinked parent with regular leaf', 'parent-outward-existing'],
-    ['outward symlinked parent with missing leaf', 'parent-outward-missing'],
-    ['directory leaf', 'directory-leaf'],
-    ['filesystem error from non-directory parent', 'parent-file-error'],
+    ['outward leaf symlink', 'outward-leaf', 'file'],
+    ['inward leaf symlink', 'inward-leaf', 'file'],
+    ['dangling leaf symlink', 'dangling-leaf', 'file'],
+    ['outward symlinked parent with regular leaf', 'parent-outward-existing', 'dir'],
+    ['outward symlinked parent with missing leaf', 'parent-outward-missing', 'dir'],
+    ['directory leaf', 'directory-leaf', null],
+    ['filesystem error from non-directory parent', 'parent-file-error', null],
   ];
-  const controls = cases.flatMap(([name, kind], index) => ['Write', 'Edit', 'apply_patch', 'Bash'].map(tool => ({
-    name: `${name} (${tool})`, kind, tool, index,
+  const controls = cases.flatMap(([name, kind, symlinkType], index) => ['Write', 'Edit', 'apply_patch', 'Bash'].map(tool => ({
+    name: `${name} (${tool})`, kind, symlinkType, tool, index,
   })));
   const observed = [];
   const problems = [];
-  for (const { name, kind, tool, index } of controls) {
+  for (const { name, kind, symlinkType, tool, index } of controls) {
+    if (symlinkType && unavailable[symlinkType]) {
+      observed.push({ name, status: 'unchecked', reason: unavailable[symlinkType] });
+      continue;
+    }
     const result = runWriterControl(name, {
       beforeReviewSetup: ({ root }) => replaceOutlinePathForWriterCapture(root, target, kind),
       interleave: { beforeReview: [writerRecord({ toolUseId: `topology-${index}-${tool}`, tool,
@@ -1967,14 +2002,20 @@ test('writer topology at PreToolUse is checked through the real hook, provider a
   }
   console.log('WRITER-TOPOLOGY-CONTROLS ' + JSON.stringify(observed));
   assert.deepStrictEqual(problems, [], 'writer topology controls');
+  const unavailableTypes = Object.entries(unavailable).filter(([, reason]) => reason).map(([type]) => type);
+  if (unavailableTypes.length) return { unchecked: `${unavailableTypes.join(' and ')} symlink controls were unavailable (${unavailableTypes.map(type => unavailable[type]).join(', ')})` };
 });
 
 test('pinned O symlink with citation-looking link text gets no outline credit when the worktree leaf is regular', () => {
+  const unavailable = symlinkUnavailable('file');
+  if (unavailable) return { unchecked: `file symlink creation is unavailable (${unavailable})` };
   const fixture = createOutlineFixture({ realHook: true, symlinkOutlineObject: true });
   try {
     const linkText = fs.readlinkSync(path.join(fixture.root, fixture.target));
-    assert.strictEqual(internals.parseOutlineCitation(Buffer.from(linkText), fixture.target).state, 'accepted',
-      'the symlink link text itself looks like a valid outline citation');
+    const linkTextCitation = internals.parseOutlineCitation(Buffer.from(linkText), fixture.target);
+    if (linkTextCitation.state !== 'accepted') {
+      assert.strictEqual(process.platform, 'win32', 'citation-looking symlink link text must remain a positive control');
+    }
     const completed = fixture.finishDraft({ runPilot: true });
     const outline = completed.pilot?.report?.outlineEvidence;
     const codes = [...(completed.result.diagnostics || []), ...(outline?.diagnostics || [])]
@@ -1984,6 +2025,7 @@ test('pinned O symlink with citation-looking link text gets no outline credit wh
     assert.ok(codes.includes('outline-target-object-not-regular'),
       `expected pinned O mode rejection before citation acceptance; got ${codes.join(', ')}`);
     assert.ok(fs.statSync(path.join(fixture.root, fixture.target)).isFile(), 'D leaves a regular worktree target after O');
+    if (linkTextCitation.state !== 'accepted') return { unchecked: 'Windows symlink link text did not preserve the citation bytes required by this precondition' };
   } finally { fixture.cleanup(); }
 });
 
@@ -2131,8 +2173,7 @@ test('writer spelling controls preserve raw capture and bind identity before nor
 test('canonical-root absolute Git-add rendering remains credited when /tmp has a distinct product-canonical root', () => {
   const canonicalTmp = canonical('/tmp');
   if (process.platform !== 'darwin' || canonicalTmp === '/tmp') {
-    console.log('UNCHECKED /tmp vs /private/tmp root alias: this host has no distinct canonical root');
-    return;
+    return { unchecked: 'this host has no distinct canonical root for /tmp' };
   }
   const result = runWriterControl('canonical-root Git-add rendering', {
     rootDirectory: '/tmp',
@@ -2149,18 +2190,19 @@ test('canonical-root absolute Git-add rendering remains credited when /tmp has a
 });
 
 test('captured and product-canonical roots accept exact R/T and C/T spellings on all writer surfaces', () => {
-  const rootDirectory = fs.existsSync('/tmp') ? '/tmp' : os.tmpdir();
+  const rootDirectory = process.platform === 'win32' || !fs.existsSync('/tmp') ? os.tmpdir() : '/tmp';
+  const targetSpelling = (ctx, tool) => tool === 'Bash' ? ctx.target : ctx.target.split('/').join(path.sep);
   const forms = [
-    ['captured root R', ctx => `${ctx.root}${path.sep}${ctx.target.split('/').join(path.sep)}`, null],
-    ['product-canonical root C', ctx => `${canonical(ctx.root)}${path.sep}${ctx.target.split('/').join(path.sep)}`, null],
-    ['product-canonical cwd C with relative T', ctx => ctx.target, ctx => canonical(ctx.root)],
+    ['captured root R', (ctx, tool) => `${ctx.root}${path.sep}${targetSpelling(ctx, tool)}`, null],
+    ['product-canonical root C', (ctx, tool) => `${canonical(ctx.root)}${path.sep}${targetSpelling(ctx, tool)}`, null],
+    ['product-canonical cwd C with relative T', targetSpelling, ctx => canonical(ctx.root)],
   ];
   const problems = [];
   const observed = [];
   for (const [form, spelling, cwd] of forms) for (const tool of ['Write', 'Edit', 'apply_patch', 'Bash']) {
     const toolUseId = `root-spelling-${form === 'captured root R' ? 'R' : 'C'}-${tool}`;
     const result = runCapturedWriterControl(`${form} (${tool})`, toolUseId,
-      writerPayloadFor(tool, toolUseId, spelling, { ...(cwd ? { cwd } : {}) }),
+      writerPayloadFor(tool, toolUseId, ctx => spelling(ctx, tool), { ...(cwd ? { cwd } : {}) }),
       { rootDirectory, preserveRootSpelling: true });
     observed.push({ form, tool, status: result.status, outcome: result.outcome, raw: tool === 'Bash'
       ? result.writer?.command : result.writer?.writeTargets });
@@ -2402,6 +2444,8 @@ test('scope-preserving D edits keep outline approval but stale final review cann
 });
 
 test('legacy session-dir keying stays aligned through an aliased workspace root', () => {
+  const unavailable = symlinkUnavailable('dir');
+  if (unavailable) return { unchecked: `directory symlink creation is unavailable (${unavailable})` };
   function driveAliasRootScenario() {
     const realRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prb-session-root-'));
     const aliasRoot = `${realRoot}-alias`;
