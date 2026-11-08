@@ -68,6 +68,7 @@ const OUTLINE_CAPTURE_MAPPING = Object.freeze({
 const OUTLINE_SEAM_SCHEMA = 'harness.outline-dispatch-seam.v1';
 const OUTLINE_HANDOFF_SCHEMA = 'harness.outline-handoff.v1';
 const OUTLINE_LEASE_SCHEMA = 'harness.outline-writer-lease.v1';
+const OUTLINE_WRITE_TOOLS = ['Write', 'Edit', 'apply_patch'];
 const OUTLINE_INVENTORY_SOURCE = '/Users/daniel.chang/Desktop/Skills/Harness-everything/.worktrees/packets/adr-e1-2026-10-27/report-inv.md';
 const OUTLINE_INVENTORY_SHA256 = '2741bd4514d2cd68f57d93a2b3ce94cbe597ca62d30e26f0ca58e882df5b03c6';
 const OUTLINE_INVENTORY_PIN = Object.freeze({
@@ -960,6 +961,47 @@ function outlineHandoffDirectory(sessionDir, taskId) {
   return path.join(sessionDir, 'doc-reconciliation', 'outline-confirmation', taskId);
 }
 
+// #341 step 1: Harness records O's identity at each SubagentStart inside an outline task. A reviewer's launch record predates
+// its review, so the identity it carries is the O the reviewer evaluated; the record is not taken from the reviewer's prose.
+function captureOutlineStartIdentity({ sessionDir } = {}) {
+  const taskState = outlineTaskState(sessionDir);
+  if (taskState.state !== 'accepted') return null;
+  const root = taskState.baseline.root;
+  try {
+    const commit = outlineGit(root, ['rev-parse', '--verify', 'HEAD^{commit}']).trim();
+    const tree = outlineGit(root, ['rev-parse', '--verify', 'HEAD^{tree}']).trim();
+    const targetPaths = outlineGit(root, ['diff', '--name-only', '--no-renames', '-z', taskState.baseline.commit, commit])
+      .split('\0').filter(Boolean).sort(compareKeys);
+    const targetBlobs = {};
+    for (const target of targetPaths) {
+      targetBlobs[target] = { blobOid: outlineGit(root, ['rev-parse', `${commit}:${target}`]).trim(),
+        storedBytesSha256: outlineSha(outlineGit(root, ['show', `${commit}:${target}`], true)) };
+    }
+    return { state: 'accepted', identity: { baselineCommit: taskState.baseline.commit, outlineCommit: commit,
+      outlineTree: tree, targetPaths, targetBlobs } };
+  } catch {
+    return { state: 'unresolved', reason: 'outline-identity-unavailable' };
+  }
+}
+
+// The reviewer has exactly one launch record, it precedes the review Stop, and its identity equals the handoff's O identity.
+function validateOutlineIdentity({ handoff, captures } = {}) {
+  const refs = (Array.isArray(captures) ? captures : []).filter(recordOf);
+  const stop = refs.find(item => item.ref === handoff.reviewCaptureRef && item.event === 'SubagentStop');
+  if (!stop || !textOf(stop.agent_id)) return { state: 'unresolved', reason: 'outline-review-capture-missing-or-ambiguous' };
+  const starts = refs.filter(item => item.event === 'SubagentStart' && item.agent_id === stop.agent_id);
+  if (starts.length !== 1) return { state: 'unresolved', reason: 'outline-review-result-missing-or-ambiguous' };
+  if (refs.indexOf(starts[0]) > refs.indexOf(stop)) return { state: 'unresolved', reason: 'outline-identity-mismatch' };
+  const recorded = starts[0].outlineIdentity;
+  if (!recordOf(recorded) || recorded.state !== 'accepted' || !recordOf(recorded.identity)) {
+    return { state: 'unresolved', reason: 'outline-identity-unavailable' };
+  }
+  const current = { baselineCommit: handoff.baseline?.commit, outlineCommit: handoff.outline?.commit,
+    outlineTree: handoff.outline?.tree, targetPaths: handoff.targetPaths, targetBlobs: handoff.outline?.targetBlobs };
+  if (captureJson(recorded.identity) !== captureJson(current)) return { state: 'unresolved', reason: 'outline-identity-mismatch' };
+  return { state: 'accepted', identityDigest: outlineSha(Buffer.from(captureJson(recorded.identity))) };
+}
+
 function validateOutlineReview({ handoff, attemptDir, captures, targetPaths, outlineDigests, inventory, sessionId } = {}) {
   const refs = Array.isArray(captures) ? captures : [];
   const matches = refs.filter(item => recordOf(item) && item.ref === handoff.reviewCaptureRef && item.event === 'SubagentStop');
@@ -1006,6 +1048,15 @@ function validateOutlineHandoffAtDispatch({ payload, parsed, sessionDir, workspa
     || handoff.baseline.tree !== baseline.tree || handoff.configDigest !== taskBinding.configDigest) {
     return { state: 'unresolved', reason: 'handoff-identity-mismatch' };
   }
+  // O must change exactly the declared targets. Checked before the identity so an extra file reports its scope reason.
+  const changedAtO = outlineGit(baseline.root, ['diff', '--name-only', '--no-renames', '-z', baseline.commit, handoff.outline.commit])
+    .split('\0').filter(Boolean).sort(compareKeys);
+  if (captureJson(changedAtO) !== captureJson(Array.isArray(handoff.targetPaths) ? [...handoff.targetPaths].sort(compareKeys) : null)) {
+    return { state: 'unresolved', reason: 'outline-commit-scope-invalid' };
+  }
+  // Dispatch must still name the O the reviewer recorded: checked before the worktree, lease and review checks.
+  const recordedIdentity = validateOutlineIdentity({ handoff, captures });
+  if (recordedIdentity.state !== 'accepted') return recordedIdentity;
   const markerRoot = canonicalOutlineRoot(parsed.workerRoot);
   const declaredRoot = canonicalOutlineRoot(handoff.draftWorktreeRoot);
   if (!sameCanonicalPath(markerRoot, declaredRoot)) return { state: 'unresolved', reason: 'worker-root-mismatch' };
@@ -1049,6 +1100,9 @@ function validateOutlineHandoffAtDispatch({ payload, parsed, sessionDir, workspa
   for (const target of targetPaths) {
     const atBaseline = outlineGit(baseline.root, ['ls-tree', '-r', '--name-only', baseline.commit, '--', target]).trim();
     if (atBaseline.split('\n').filter(Boolean).includes(target)) return { state: 'unresolved', reason: 'outline-target-existed-at-B' };
+    if (!outlineGitTreeHasRegularBlob(markerRoot, handoff.outline.tree, target)) {
+      return { state: 'unresolved', reason: 'outline-target-object-not-regular' };
+    }
     const bytes = outlineGit(markerRoot, ['show', `${handoff.outline.commit}:${target}`], true);
     const blobOid = outlineGit(markerRoot, ['rev-parse', `${handoff.outline.commit}:${target}`]).trim();
     const expected = outlineBlobs[target];
@@ -1087,7 +1141,7 @@ function validateOutlineHandoffAtDispatch({ payload, parsed, sessionDir, workspa
   return { state: 'accepted', taskBinding, baseline, handoff, handoffDigest, attemptDir, markerRoot,
     worktree: { root: markerRoot, head, tree, statusDigest, clean: true },
     inventory, inventoryPinDigest: outlineSha(pinLoaded.bytes), row: citedRow, targetPaths, outlineDigests, review,
-    leaseDigest: leaseLoaded.digest, leaseId: lease.id };
+    leaseDigest: leaseLoaded.digest, leaseId: lease.id, identityDigest: recordedIdentity.identityDigest };
 }
 
 function outlineDispatchUnresolved(parsed, reason) {
@@ -1147,7 +1201,8 @@ function captureOutlineDispatch(input = {}) {
       tokenDigest: parsed.tokenDigest, promptDigest: parsed.promptDigest, blockDigest: parsed.blockDigest,
       dispatchInputDigest: parsed.dispatchInputDigest, handoffDigest: validated.handoffDigest,
       reviewCaptureRef: validated.review.review.ref, reviewCaptureDigest: validated.review.captureDigest,
-      reviewDigest: validated.review.reviewDigest, inventoryPinDigest: validated.inventoryPinDigest,
+      reviewDigest: validated.review.reviewDigest, outlineIdentityDigest: validated.identityDigest,
+      inventoryPinDigest: validated.inventoryPinDigest,
       writerLeaseDigest: validated.leaseDigest, writerLeaseId: validated.leaseId,
       coordinatorPrincipal: payload.session_id, reviewerPrincipal: validated.review.reviewerPrincipal,
       worktree: validated.worktree, validationReasons: [],
@@ -1384,9 +1439,206 @@ function outlineAncestry(root, ancestor, descendant) {
 
 function possibleWriterCapture(item) {
   if (!recordOf(item)) return false;
-  if (['Write', 'Edit', 'apply_patch'].includes(item.tool_name)) return true;
+  if (OUTLINE_WRITE_TOOLS.includes(item.tool_name)) return true;
   if (!['Bash', 'PowerShell', 'exec_command'].includes(item.tool_name)) return false;
   return !['read-only', 'worktree-setup'].includes(classifyShell(item.command));
+}
+
+function writeTargetsOf(toolName, toolInput) {
+  if (toolName === 'apply_patch') {
+    const patch = typeof toolInput === 'string' ? toolInput : (recordOf(toolInput) ? String(toolInput.patch || toolInput.input || '') : '');
+    const targets = [];
+    for (const match of patch.matchAll(/^\*\*\* ([^\r\n]*)(?:\r?$)/gm)) {
+      const header = match[1];
+      if (['Begin Patch', 'End Patch', 'End of File'].includes(header)) continue;
+      const fileHeader = /^(?:Add File|Update File|Delete File|Move to): (.*)$/.exec(header);
+      if (!fileHeader) return null;
+      targets.push(fileHeader[1]);
+    }
+    return targets;
+  }
+  const file = recordOf(toolInput) ? toolInput.file_path || toolInput.path : undefined;
+  return typeof file === 'string' && file.length ? [file] : [];
+}
+
+function validOutlineTarget(target) {
+  return typeof target === 'string' && target.length > 0 && !target.includes('\0') && !target.includes('\\')
+    && !target.includes(':') && !path.posix.isAbsolute(target)
+    && target.split('/').every(part => part && part !== '.' && part !== '..');
+}
+
+function outlineRootSpellings(root) {
+  try {
+    if (typeof root !== 'string' || !path.isAbsolute(root)) return [];
+    return [...new Set([root, canonicalOutlineRoot(root)])];
+  } catch { return []; }
+}
+
+function outlineCwdMatchesRoot(cwd, root, allowVerifiedAlias = false) {
+  if (typeof cwd !== 'string' || !path.isAbsolute(cwd)) return false;
+  if (outlineRootSpellings(root).includes(cwd)) return true;
+  if (!allowVerifiedAlias) return false;
+  try { return canonicalOutlineRoot(cwd) === canonicalOutlineRoot(root); }
+  catch { return false; }
+}
+
+function outlineCaptureRootSpellings(root, cwd) {
+  const roots = outlineRootSpellings(root);
+  // Hook setup may retain the canonical root while the captured cwd keeps its original spelling; this affects topology only.
+  if (outlineCwdMatchesRoot(cwd, root, true)) roots.push(cwd);
+  return [...new Set(roots)];
+}
+
+function outlineRelativeSpellingKey(spelling, toolName) {
+  if (validOutlineTarget(spelling)) return spelling;
+  if (process.platform !== 'win32' || !OUTLINE_WRITE_TOOLS.includes(toolName)
+    || !spelling.includes(path.sep) || spelling.includes('/')) return null;
+  const candidate = spelling.split(path.sep).join('/');
+  return validOutlineTarget(candidate) ? candidate : null;
+}
+
+function outlineSpellingKey(spelling, { root, cwd, toolName } = {}) {
+  if (typeof spelling !== 'string' || !spelling.length || spelling.includes('\0')
+    || !outlineCwdMatchesRoot(cwd, root, true)) return null;
+  const relative = outlineRelativeSpellingKey(spelling, toolName);
+  if (relative) return relative;
+  for (const rootSpelling of outlineCaptureRootSpellings(root, cwd)) {
+    const prefix = rootSpelling.endsWith(path.sep) ? rootSpelling : `${rootSpelling}${path.sep}`;
+    if (!spelling.startsWith(prefix)) continue;
+    return outlineRelativeSpellingKey(spelling.slice(prefix.length), toolName);
+  }
+  return null;
+}
+
+function outlineTargetSpellings(target, { root, toolName } = {}) {
+  if (!validOutlineTarget(target)) return [];
+  const targetSpellings = [target];
+  if (process.platform === 'win32' && OUTLINE_WRITE_TOOLS.includes(toolName)) {
+    targetSpellings.push(target.split('/').join(path.sep));
+  }
+  const spellings = [...targetSpellings];
+  for (const rootSpelling of outlineRootSpellings(root)) {
+    const prefix = rootSpelling.endsWith(path.sep) ? rootSpelling : `${rootSpelling}${path.sep}`;
+    for (const renderedTarget of targetSpellings) spellings.push(prefix + renderedTarget);
+  }
+  return spellings;
+}
+
+// Capture can prove a lexical path/topology before the later handoff supplies the pin. Its candidate is non-authorizing;
+// the assessment call below must match the same raw spelling against the validated pinned target set.
+function recognizeOutlineTarget(spelling, { root, cwd, targets, toolName } = {}) {
+  const hasPinnedTargets = Array.isArray(targets);
+  if (typeof spelling !== 'string' || !spelling.length || spelling.includes('\0')
+    || !outlineCwdMatchesRoot(cwd, root, !hasPinnedTargets)) return null;
+  if (Array.isArray(targets)) {
+    const target = targets.find(item => outlineTargetSpellings(item, { root, toolName }).includes(spelling));
+    return target ? { candidate: target, target } : null;
+  }
+  const candidate = outlineSpellingKey(spelling, { root, cwd, toolName });
+  if (!candidate) return null;
+  return { candidate, target: null };
+}
+
+function outlineBToOGitAllowed(command, { cwd, root, targets, topology }) {
+  const parsed = safeTokenize(String(command || '').trim());
+  if (!parsed.ok || parsed.tokens[0] !== 'git' || parsed.tokens.length < 2) return false;
+  const [operation, ...args] = parsed.tokens.slice(1);
+  if (operation === 'add') {
+    const hasOperandMarker = args[0] === '--';
+    const operands = hasOperandMarker ? args.slice(1) : args;
+    if (!operands.length || !Array.isArray(topology) || topology.length !== operands.length) return false;
+    if (!hasOperandMarker && operands.some(operand => operand.startsWith('-'))) return false;
+    return operands.every((operand, index) => {
+      if (!operand || operand.startsWith(':') || /[*?\[\]{}]/.test(operand) || /[\\/]$/.test(operand)) return false;
+      const target = recognizeOutlineTarget(operand, { root, cwd, targets, toolName: 'Bash' })?.target;
+      const proof = topology[index];
+      return Boolean(target && proof?.path === target && proof.state === 'regular'
+        && outlineFilesystemProof(root, root, target, false).state === 'regular');
+    });
+  }
+  return operation === 'commit' && args.length === 2 && args[0] === '-m' && args[1] !== '';
+}
+
+function outlineFilesystemProof(root, cwd, target, allowMissing) {
+  let relativePath;
+  try {
+    const canonicalRoot = canonicalOutlineRoot(root);
+    const base = canonicalOutlineRoot(cwd || root);
+    if (base !== canonicalRoot) return { path: null, state: 'unresolved' };
+    const relative = path.relative(canonicalRoot, path.resolve(canonicalRoot, target));
+    if (!relative || path.isAbsolute(relative) || relative === '..' || relative.startsWith(`..${path.sep}`)) {
+      return { path: null, state: 'unresolved' };
+    }
+    const absolute = path.resolve(canonicalRoot, relative);
+    relativePath = path.relative(canonicalRoot, absolute);
+    if (!relativePath || path.isAbsolute(relativePath) || relativePath === '..' || relativePath.startsWith(`..${path.sep}`)) {
+      return { path: null, state: 'unresolved' };
+    }
+    const relativeKey = relativePath.split(path.sep).join('/');
+    let current = canonicalRoot;
+    const parts = relativePath.split(path.sep);
+    for (let index = 0; index < parts.length; index++) {
+      current = path.join(current, parts[index]);
+      let stat;
+      try { stat = fs.lstatSync(current); }
+      catch (error) {
+        return error.code === 'ENOENT' && allowMissing
+          ? { path: relativeKey, state: 'absent' } : { path: relativeKey, state: 'unresolved' };
+      }
+      if (stat.isSymbolicLink() || (index < parts.length - 1 && !stat.isDirectory())) {
+        return { path: relativeKey, state: 'unresolved' };
+      }
+      if (index === parts.length - 1) return { path: relativeKey, state: stat.isFile() ? 'regular' : 'unresolved' };
+    }
+  } catch { /* filesystem state is evidence only when every component can be checked */ }
+  return { path: relativePath ? relativePath.split(path.sep).join('/') : null, state: 'unresolved' };
+}
+
+function outlineGitTreeHasRegularBlob(root, tree, target) {
+  try {
+    const entries = outlineGit(root, ['--literal-pathspecs', 'ls-tree', '-z', tree, '--', target], true)
+      .toString('utf8').split('\0').filter(Boolean);
+    if (entries.length !== 1) return false;
+    const tab = entries[0].indexOf('\t');
+    if (tab < 0 || entries[0].slice(tab + 1) !== target) return false;
+    const [mode, type, oid] = entries[0].slice(0, tab).split(/\s+/);
+    return type === 'blob' && ['100644', '100755'].includes(mode) && /^[0-9a-f]+$/i.test(oid);
+  } catch { return false; }
+}
+
+// Phase-aware writer decision (W1–W3). Principal, phase and operation-time path topology come from captured records.
+// Allowed: coordinator Write/Edit/apply_patch of exactly a pinned target before the reviewer lifecycle starts; coordinator
+// target-bound git add or simple git commit before review; the correlated draft worker
+// between dispatch and its Stop. Everything else, including any coordinator state write after review, stays ambiguous.
+function outlineWriterAllowed(item, { index, sessionId, root, targets, worker, workerRoot, reviewStartIndex, reviewStopIndex,
+  dispatchIndex, workerStopIndex, captures }) {
+  const phase = index < reviewStartIndex ? 'b-to-o' : index <= reviewStopIndex ? 'review'
+    : index < dispatchIndex ? 'review-to-dispatch' : index <= workerStopIndex ? 'dispatch-to-draft' : 'after-draft';
+  if (phase === 'dispatch-to-draft') return item.agent_id === worker.agent_id && sameCanonicalPath(item.cwd, workerRoot);
+  if (phase !== 'b-to-o' || textOf(item.agent_id) || item.session_id !== sessionId) return false;
+  if (item.event !== 'PreToolUse') {
+    const pre = (Array.isArray(captures) ? captures : []).find(record => record.event === 'PreToolUse'
+      && record.session_id === item.session_id && record.tool_use_id === item.tool_use_id
+      && record.tool_name === item.tool_name && record.command === item.command
+      && captureJson(record.writeTargets || null) === captureJson(item.writeTargets || null)
+      && samePathKey(record.cwd || root, item.cwd || root));
+    return Boolean(pre && outlineWriterAllowed(pre, { index: captures.indexOf(pre), sessionId, root, targets, worker, workerRoot,
+      reviewStartIndex, reviewStopIndex, dispatchIndex, workerStopIndex, captures }));
+  }
+  if (OUTLINE_WRITE_TOOLS.includes(item.tool_name)) {
+    const topology = item.outlineWriteTopology;
+    return Array.isArray(item.writeTargets) && item.writeTargets.length > 0
+      && Array.isArray(topology) && topology.length === item.writeTargets.length
+      && item.writeTargets.every((file, index) => {
+        const target = recognizeOutlineTarget(file, { root, cwd: item.cwd, targets, toolName: item.tool_name })?.target;
+        const proof = topology[index];
+        return Boolean(target && proof?.path === target && ['absent', 'regular'].includes(proof.state)
+          && outlineFilesystemProof(root, root, target, false).state === 'regular');
+      });
+  }
+  const cwd = item.cwd;
+  return item.tool_name === 'Bash' && outlineCwdMatchesRoot(cwd, root)
+    && outlineBToOGitAllowed(item.command, { cwd, root, targets, topology: item.outlineWriteTopology });
 }
 
 function sameCanonicalPath(left, right) {
@@ -1418,7 +1670,10 @@ function resolveOutlineEvidence({ safeInput, capture, captures, request, originR
     const dispatch = cap?.outlineDispatch;
     if (!recordOf(dispatch) || dispatch.schema !== OUTLINE_DISPATCH_SCHEMA || dispatch.state !== 'accepted'
       || !textOf(dispatch.seamRef) || dispatch.captureRef !== cap.ref || dispatch.toolUseId !== cap.tool_use_id) {
-      return fail('outline-pre-dispatch-seam-unresolved');
+      // The dispatch-time reason (for example outline-identity-mismatch) is kept beside the wrapper code, so the rejection names its cause.
+      const reasons = recordOf(dispatch) && Array.isArray(dispatch.reasons) ? dispatch.reasons.filter(reason => /^[a-z0-9-]+$/.test(String(reason))) : [];
+      return { status: 'rejected', diagnostics: [diagnostic('outline-pre-dispatch-seam-unresolved', { reason: 'outline-pre-dispatch-seam-unresolved' }),
+        ...reasons.map(reason => diagnostic(reason, { reason }))] };
     }
     if (cap.event !== 'PreToolUse' || !['Task', 'Agent'].includes(cap.tool_name)
       || cap.session_id !== safeInput.sessionId || cap.observedIdentity?.taskPin?.taskId !== safeInput.taskId) {
@@ -1475,6 +1730,9 @@ function resolveOutlineEvidence({ safeInput, capture, captures, request, originR
     const outlineDigests = {};
     const reviewRows = {};
     for (const target of targetPaths) {
+      if (!outlineGitTreeHasRegularBlob(seam.worktree.root, handoff.outline.tree, target)) {
+        return fail('outline-target-object-not-regular');
+      }
       const bytes = outlineGit(seam.worktree.root, ['show', `${handoff.outline.commit}:${target}`], true);
       outlineDigests[target] = outlineSha(bytes);
       const citation = parseOutlineCitation(bytes, target);
@@ -1527,9 +1785,44 @@ function resolveOutlineEvidence({ safeInput, capture, captures, request, originR
       && item.event === 'SubagentStart' && item.ref !== worker.ref && sameCanonicalPath(item.cwd, workerRoot)
       && !stoppedBeforeDispatch(item) && !startedAfterWorkerStop(item));
     if (competingStarts.length) return fail('outline-competing-writer-start');
-    const unattributedWriters = (Array.isArray(captures) ? captures : []).filter(item => possibleWriterCapture(item)
-      && (item.agent_id !== worker.agent_id || !sameCanonicalPath(item.cwd, workerRoot)));
+    // Reviewer lifecycle is exactly one Start and one Stop for its identity; a duplicate or missing record withholds credit.
+    const reviewerLifecycle = event => journal.filter(item => recordOf(item) && item.event === event
+      && item.agent_id === review.reviewerPrincipal).length;
+    if (reviewerLifecycle('SubagentStart') !== 1 || reviewerLifecycle('SubagentStop') !== 1) {
+      return fail('outline-review-result-missing-or-ambiguous');
+    }
+    // The O the reviewer recorded at launch must still be the O dispatch and the handoff name (#341 step 1).
+    const identityNow = validateOutlineIdentity({ handoff, captures });
+    if (identityNow.state !== 'accepted' || identityNow.identityDigest !== seam.outlineIdentityDigest) {
+      return fail(identityNow.reason || 'outline-identity-mismatch');
+    }
+    // Review window: the reviewer's first record (or its launch result) through its SubagentStop.
+    const reviewLaunchIds = new Set(journal.filter(item => recordOf(item) && item.event === 'PostToolUse'
+      && ['Task', 'Agent'].includes(item.tool_name) && item.agent_id === review.reviewerPrincipal && textOf(item.tool_use_id))
+      .map(item => item.tool_use_id));
+    const writerWindow = {
+      sessionId: safeInput.sessionId, root: taskState.baseline.root, targets: targetPaths, worker, workerRoot,
+      captures: journal,
+      reviewStartIndex: journal.findIndex(item => recordOf(item) && (item.agent_id === review.reviewerPrincipal
+        || (textOf(item.tool_use_id) && reviewLaunchIds.has(item.tool_use_id)))),
+      reviewStopIndex: journal.indexOf(review.review), dispatchIndex, workerStopIndex: journal.indexOf(correlation.stop),
+    };
+    const unattributedWriters = journal.filter((item, index) => possibleWriterCapture(item)
+      && !outlineWriterAllowed(item, { ...writerWindow, index }));
     if (unattributedWriters.length) return fail('outline-writer-activity-ambiguous');
+    // The B→O commit is accepted only if O changes exactly the pinned target(s) relative to B.
+    const oChanged = outlineGit(seam.worktree.root, ['diff', '--name-only', '--no-renames', '-z', taskState.baseline.commit,
+      handoff.outline.commit]).split('\0').filter(Boolean).sort(compareKeys);
+    if (captureJson(oChanged) !== captureJson([...targetPaths].sort(compareKeys))) return fail('outline-commit-scope-invalid');
+    // The cumulative diff hides content committed then reverted inside B..O, so every commit (merges too, per parent) must touch only the targets.
+    const targetSet = new Set(targetPaths);
+    const rangeCommits = outlineGit(seam.worktree.root, ['rev-list', `${taskState.baseline.commit}..${handoff.outline.commit}`])
+      .split('\n').filter(Boolean);
+    for (const commit of rangeCommits) {
+      const touched = outlineGit(seam.worktree.root, ['diff-tree', '-r', '--root', '-m', '--no-commit-id', '--name-only',
+        '--no-renames', '-z', commit]).split('\0').filter(Boolean);
+      if (touched.some(file => !targetSet.has(file))) return fail('outline-commit-scope-invalid');
+    }
 
     let candidateRoot;
     try { candidateRoot = canonicalOutlineRoot(safeInput.workspaceRoot); }
@@ -2227,12 +2520,40 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
     responseDigest: captureDigest(toolResponse),
     responseRef: `host-payload/${event}/${captureId}`,
   };
+  const parsedWriterCommand = event === 'PreToolUse' && payload.tool_name === 'Bash'
+    ? safeTokenize(record.command.trim()) : null;
+  const writerMayNeedCwd = OUTLINE_WRITE_TOOLS.includes(payload.tool_name)
+    || (parsedWriterCommand?.ok && parsedWriterCommand.tokens[0] === 'git'
+      && ['add', 'commit'].includes(parsedWriterCommand.tokens[1]));
   if (typeof payload.cwd === 'string' && payload.cwd) record.cwd = payload.cwd;
-  else if (!['SubagentStart', 'SubagentStop'].includes(event) && typeof workspaceRoot === 'string' && workspaceRoot) record.cwd = workspaceRoot;
+  else if (!writerMayNeedCwd && !['SubagentStart', 'SubagentStop'].includes(event)
+    && typeof workspaceRoot === 'string' && workspaceRoot) record.cwd = workspaceRoot;
   if (payload.prompt_id !== undefined) record.prompt_id = payload.prompt_id;
   if (payload.parent_tool_use_id !== undefined) record.parent_tool_use_id = payload.parent_tool_use_id;
   // The launch tool name separates the Agent/Task result surface and the subagent launch from executed tools (F4/F5).
   if (typeof payload.tool_name === 'string') record.tool_name = payload.tool_name;
+  // The write target and its PreToolUse topology snapshot are path evidence for W1/W2; absent for other tools.
+  if (OUTLINE_WRITE_TOOLS.includes(payload.tool_name)) record.writeTargets = writeTargetsOf(payload.tool_name, payload.tool_input);
+  // shortcut: this snapshot cannot close capture-to-operation races; upgrade if the host can bind path proof atomically.
+  if (event === 'PreToolUse') {
+    let topologyTargets = OUTLINE_WRITE_TOOLS.includes(payload.tool_name) ? record.writeTargets : null;
+    let allowMissing = OUTLINE_WRITE_TOOLS.includes(payload.tool_name);
+    if (payload.tool_name === 'Bash') {
+      const parsed = safeTokenize(record.command.trim());
+      if (parsed.ok && parsed.tokens[0] === 'git' && parsed.tokens[1] === 'add') {
+        const args = parsed.tokens.slice(2);
+        topologyTargets = args[0] === '--' ? args.slice(1) : args;
+        allowMissing = false;
+      }
+    }
+    if (Array.isArray(topologyTargets)) {
+      record.outlineWriteTopology = topologyTargets.map(target => {
+        const recognized = recognizeOutlineTarget(target, { root: workspaceRoot, cwd: record.cwd, toolName: payload.tool_name });
+        return recognized ? outlineFilesystemProof(workspaceRoot, record.cwd, recognized.candidate, allowMissing)
+          : { path: null, state: 'unresolved' };
+      });
+    }
+  }
   if (outlinePre) {
     if (Object.prototype.hasOwnProperty.call(toolInput, 'run_in_background')) record.run_in_background = toolInput.run_in_background;
     record.isolationSet = Object.prototype.hasOwnProperty.call(toolInput, 'isolation');
@@ -2317,6 +2638,8 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
 // Each capture is one event file, created exclusively and never rewritten by this code. The compatibility journal
 // `doc-reconciliation-capture.json` is rebuilt from those files, and readers compare the two. This detects accidental and
 // journal-only edits. It does not stop the local agent from rewriting event files, which the owner's bound accepts (F13).
+// F13 includes rewriting the reviewer Start event's W2 `outlineIdentity`; W2 revalidation assumes authentic captured
+// events and does not authenticate locally rewritten capture state.
 const EVENT_DIR = 'doc-reconciliation-capture';
 const JOURNAL_FILE = 'doc-reconciliation-capture.json';
 const EVENT_NAME = /^\d{8}\.json$/;
@@ -2410,8 +2733,9 @@ function reviewRecordIndependent(cap, captures, principals) {
 module.exports = { createClaudeOriginProvider, createOpencodeOriginProvider, buildCaptureRecord, resolveDocCheckInvocation,
   registeredInstalledCheck: resolveDocCheckInvocation, installedDocCheck,
   fileDigest, SHIPPED_DOC_CHECK_DIGEST, trustRisk, journalExecutors, reviewRecordIndependent,
-  captureOutlineDispatch, writeImmutableEvent, rebuildJournalView, readCaptureView, readOpencodeCaptureView, observedIdentityFor,
-  _internals: { captureJson, captureDigest, digestText, canonicalCapture, parseOutlineDispatchPrompt,
+  captureOutlineDispatch, captureOutlineStartIdentity, writeImmutableEvent, rebuildJournalView, readCaptureView,
+  readOpencodeCaptureView, observedIdentityFor,
+  _internals: { validateOutlineIdentity, captureJson, captureDigest, digestText, canonicalCapture, parseOutlineDispatchPrompt,
     parseInventoryPinRows, validateOutlineInventoryPin, resolveInventoryRow, parseOutlineCitation, resolveOutlineAttempt,
     captureOutlineDispatch, resolveOutlineEvidence, verifyOutlineMergeCorrespondence, validateOutlineCaptureQualification,
     outlineCaptureMappingValid, correlateOutlineDispatch, OUTLINE_CAPTURE_MAPPING, OUTLINE_INVENTORY_PIN } };
