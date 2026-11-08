@@ -1,4 +1,5 @@
 name: CI
+# Post-merge positive control for PR #419: unrelated CI comment only.
 
 on:
   push:
