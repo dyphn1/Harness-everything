@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.48.0](https://github.com/dyphn1/Harness-everything/compare/v0.47.5...v0.48.0) (2026-11-07)
+
+### Features
+
+* **doc-reconciliation:** owner-approved dependency-artifact inventory scope ([#396](https://github.com/dyphn1/Harness-everything/issues/396)) ([f571ec6](https://github.com/dyphn1/Harness-everything/commit/f571ec68519a6af46a7bef6230cbb639152ff950)), closes [#325](https://github.com/dyphn1/Harness-everything/issues/325) [#341](https://github.com/dyphn1/Harness-everything/issues/341)
+
 ## [Unreleased]
 
 ### Bug Fixes
