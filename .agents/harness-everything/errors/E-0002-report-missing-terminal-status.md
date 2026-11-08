@@ -35,6 +35,15 @@ episodes:
         change: "Moved the single `STATUS: DONE` back to the last line"
         review: coordinator
         result: "One column-zero terminal STATUS line"
+  - episode: 341-e1-writer-contract-review11
+    feature: "#412 E1 writer contract, OpenCode review-11"
+    date: 2026-11-07
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "The reviewer's last line was `` `STATUS: DONE` from reading only; ... `` (leading backtick and trailing prose), so no column-zero STATUS line existed; the run was treated as failed and re-dispatched fresh with the exact last-line format stated as an acceptance condition"
 ---
 
 ## Cue
