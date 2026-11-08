@@ -17,15 +17,19 @@ const TRUST_SURFACE_PATHS = [
   'plugins/harness-everything/skills/harness-everything/scripts/project-docs-resolver.js',
   '.agents/harness-everything/project-docs.json',
   '.agents/harness-everything/document-inventory.json',
-  '.github/workflows/ci.yml',
+  '.agents/harness-everything/errors/README.md',
+  '.github/workflows/doc-governance.yml',
   'package.json',
   'self-evolve/scripts/self-regression.js',
   'ci/mechanism-test.js',
   'ci/mutation-check.js',
   'ci/lib/isolated-test-process.js',
   'ci/test-helper.js',
+  'scripts/errors-sync.js',
   'scripts/verify-all.js'
 ];
+const MEMBERSHIP_ONLY_PATHS = ['AGENTS.md', 'SECURITY.md', 'CODE_OF_CONDUCT.md', 'PRIVACY.md', 'TERMS.md', 'docs/document-lifecycle.md'];
+const MEMBERSHIP_ONLY_PREFIXES = ['docs/policy/', 'docs/prd/'];
 const TRUST_SURFACE_PREFIXES = ['ci/fixtures/doc-lifecycle/scenarios/'];
 
 function sha256(bytes) {
@@ -207,9 +211,25 @@ function sameIdentity(left, right) {
   return stable(identity(left)) === stable(identity(right));
 }
 
+function sameMembership(left, right) {
+  if (!left || !right) return left === right;
+  return regularBlob(left) && regularBlob(right) && left.mode === right.mode;
+}
+
 function trustSurfacePaths(baseTree, candidateTree) {
   const fixed = TRUST_SURFACE_PATHS.map(relativePath => ({ key: pathKey(relativePath), path: relativePath }));
-  const fixedKeys = new Set(fixed.map(item => item.key));
+  const membershipPaths = new Map(MEMBERSHIP_ONLY_PATHS.map(relativePath => [pathKey(relativePath), relativePath]));
+  for (const sourceTree of [baseTree, candidateTree]) {
+    for (const [key, entry] of sourceTree) {
+      if (MEMBERSHIP_ONLY_PREFIXES.some(prefix => entry.pathBytes.subarray(0, Buffer.byteLength(prefix)).equals(Buffer.from(prefix)))) {
+        membershipPaths.set(key, pathText(entry.pathBytes));
+      }
+    }
+  }
+  const membership = [...membershipPaths]
+    .sort(([left], [right]) => Buffer.compare(Buffer.from(left, 'base64'), Buffer.from(right, 'base64')))
+    .map(([key, path]) => ({ key, path, membershipOnly: true }));
+  const fixedKeys = new Set([...fixed, ...membership].map(item => item.key));
   const fixtureEntries = new Map();
   for (const sourceTree of [baseTree, candidateTree]) {
     for (const [key, entry] of sourceTree) {
@@ -220,7 +240,7 @@ function trustSurfacePaths(baseTree, candidateTree) {
   const fixtures = [...fixtureEntries]
     .sort(([left], [right]) => Buffer.compare(Buffer.from(left, 'base64'), Buffer.from(right, 'base64')))
     .map(([key, path]) => ({ key, path }));
-  return [...fixed, ...fixtures];
+  return [...fixed, ...membership, ...fixtures];
 }
 
 function documentPath(pathBytes) {
@@ -278,7 +298,7 @@ function checkConfiguredPaths(baseTree, candidateTree, config) {
         const after = candidateMembers.get(key) || null;
         const entry = before || after;
         const sameRegularMode = regularBlob(before) && regularBlob(after) && before.mode === after.mode;
-        const revised = kind === 'governed' && sameRegularMode && before.oid !== after.oid;
+        const revised = sameRegularMode && before.oid !== after.oid;
         const identityPreserved = sameRegularMode && before.oid === after.oid;
         const memberPath = pathText(entry.pathBytes);
         details.push({
@@ -286,10 +306,12 @@ function checkConfiguredPaths(baseTree, candidateTree, config) {
           ...(glob ? { pattern: record.path } : {}),
           path: memberPath,
           ...(memberPath === null ? { pathBase64: key } : {}),
-          state: revised ? 'revised' : identityPreserved ? 'pass' : 'review_required',
+          state: kind === 'derived' ? 'pass' : revised ? 'revised' : identityPreserved ? 'pass' : 'review_required',
           base: identity(before),
           candidate: identity(after),
-          ...(revised ? { reason: 'Content revisions are tracked by Git identity but are not semantically validated by the guard.' } : {})
+          ...(kind === 'derived' && !sameIdentity(before, after)
+            ? { reason: 'Generated-view changes are left to ordinary regenerate-equals CI.' }
+            : revised ? { reason: 'Content revisions are tracked by Git identity but are not semantically validated by the guard.' } : {})
         });
       }
     }
@@ -373,10 +395,11 @@ function run(argv) {
     report.policyPreservation.state = [report.policyPreservation.governed, report.policyPreservation.derived, report.policyPreservation.configuredPaths]
       .some(item => item.state !== 'pass') ? 'review_required' : 'pass';
 
-    report.trustSurface.paths = trustSurfacePaths(baseTree, candidateTree).map(({ key, path }) => {
+    report.trustSurface.paths = trustSurfacePaths(baseTree, candidateTree).map(({ key, path, membershipOnly }) => {
       const before = baseTree.get(key);
       const after = candidateTree.get(key);
-      return { path, ...(path === null ? { pathBase64: key } : {}), base: identity(before), candidate: identity(after), changed: !sameIdentity(before, after) };
+      const changed = membershipOnly ? !sameMembership(before, after) : !sameIdentity(before, after);
+      return { path, ...(path === null ? { pathBase64: key } : {}), base: identity(before), candidate: identity(after), changed };
     });
     report.trustSurface.changed = report.trustSurface.paths.filter(item => item.changed);
     report.trustSurface.state = report.trustSurface.changed.length ? 'review_required' : 'pass';

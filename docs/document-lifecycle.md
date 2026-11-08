@@ -4,6 +4,25 @@ Contract for the documentation family: project docs configuration (D5), document
 
 Documentation is a **consumer** of the #320 workflow/obligation abstractions. Nothing here is a second router, a standing maintenance loop or a cognitive lock: every check is a pure function that reports diagnostics.
 
+## Governance tiers and placement (#401)
+
+```mermaid
+flowchart TD
+  A["Document or path change"] --> B{"T1 scope?"}
+  B -->|membership, policy or guard implementation| C["REVIEW_REQUIRED"]
+  B -->|ordinary content revision| D["No U5; run lifecycle, conflict and link checks"]
+  B -->|no| E{"T3 evidence or notes?"}
+  E -->|yes| F["No document-governance verdict; ordinary CI still applies"]
+  E -->|no| G["T2: ordinary CI; generated views use regenerate-equals"]
+```
+
+| Tier or convention | Scope and handling |
+| --- | --- |
+| **T1 — strict** | ADRs, `docs/policy/`, future `docs/prd/`, named authoritative docs, root `AGENTS.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `PRIVACY.md` and `TERMS.md`, the guard workflow, guard/doc-check/lifecycle/resolver code, policy JSON, the error-ledger schema/generator, `package.json`, generic runners/helpers and policy-bearing fixtures. Membership, delete/rename, policy-map and governance-implementation changes require review. Ordinary content revisions do not require U5; normal lifecycle, conflict and link checks still apply. Root files are membership-only. |
+| **T2 — ordinary CI** | Other docs and skills, plus generated views checked by regenerate-equals. No document-governance verdict. |
+| **T3 — records** | Benchmark/evidence payloads, non-policy fixtures, error-ledger records, `CHANGELOG.md` and notes receive no document-governance verdict; ordinary CI, security and provenance checks still apply. The ledger schema/generator and policy-bearing fixtures remain T1. |
+| **Placement** | Put new authoritative docs in `docs/adr/`, `docs/policy/` or future `docs/prd/`; put observations in `docs/records/`. Keep existing authoritative files such as `docs/architecture.md`, `docs/doc-workflow-reconciliation.md` and this contract as named exceptions. No existing files move in this slice. |
+
 ## Scope of this slice (original 2026-10-20 checkpoint; Phase 3b/3c status updated 2026-10-25)
 
 This table distinguishes merged mechanism code from end-to-end workflow integration. The last reviewed `main` commit is `29b1d65b398e2622af97bf067078373b7fa76b26` (v0.36.2). That release commit carries `[skip ci]` and only bumps package/distribution versions on top of `e5d22584e243d5b5e587ee0279625e97a9033160`, whose full-gate `CI` run [39374474269](https://github.com/dyphn1/Harness-everything/actions/runs/39374474269) completed with every job succeeded. The historical Windows System One resident teardown (`S1-RS15`) was observed in attempt 1 of [run 39175240370](https://github.com/dyphn1/Harness-everything/actions/runs/39175240370) on `main@75e04359ae5bf11a41739f8eb04d25a76ee8f3a7`; that run completed successfully on attempt 2 and says nothing about `29b1d65`. Treat the resident teardown as a known platform limitation only when a current run on the exact SHA reproduces it, and require an all-green full-gate run for that SHA before calling any baseline green.

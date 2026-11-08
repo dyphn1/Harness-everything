@@ -20,6 +20,7 @@ This page is generated from checked-in runtime and workflow sources. Do not edit
 | --- | --- | --- | --- |
 | `behavioral-evals.yml` | 24 | schedule, workflow_dispatch | n/a |
 | `ci.yml` | 22, 24 | workflow_call | `test`, `test:mutations`, `test:release:semantics`, `waza:check`, `test:consistency`, `test:references`, `test:release`, `test:collision`, `test:plugin:openai`, `test:plugin:submission`, `test:platform:compatibility`, `test:portability` |
+| `doc-governance.yml` | 24 | workflow_call | n/a |
 | `release.yml` | 24 | workflow_dispatch | n/a |
 
 ## Drift prevention
