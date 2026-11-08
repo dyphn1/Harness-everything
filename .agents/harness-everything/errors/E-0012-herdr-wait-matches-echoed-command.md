@@ -7,7 +7,7 @@ sites:
   - "coordinator Herdr pane dispatch (`herdr pane wait-output`)"
 violates: "unknown"
 scope: in
-status: open
+status: lesson
 mechanism_ref: null
 episodes:
   - episode: 396-review8-herdr-wait-echo
@@ -36,6 +36,8 @@ The wait pattern appeared in the command line the pane echoed, so the match fire
 ## Lesson
 
 The match text must not appear in the command itself. Match a value only the finished command prints, for example `--regex 'DONE9 [0-9]+'`.
+
+The episode was corrected per run; the reusable lesson is to match completion output that cannot match the echoed command. No shared prevention mechanism has been implemented.
 
 ## Evidence
 

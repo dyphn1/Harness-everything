@@ -52,6 +52,19 @@ episodes:
         change: null
         review: "review-5, review-6, review-7"
         result: "Read-only reviewer: fixture `mkdtemp` and report write failed with EPERM, so the fixture tests were unrunnable (review-5/6/7 are repeated observations of this one missing capability). Worker: workflow-state write failed with EPERM, so metadata was not recorded; implementation and tests remained usable."
+  - episode: 412-review11d-stdin-hang
+    feature: "#412 review-11d (codex exec luna)"
+    date: 2026-11-08
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "review-11d was launched without `< /dev/null`; the log ended at `Reading additional input from stdin...` and the run hung about 6 hours with no report (the stdin lesson from episode 1 was re-violated)"
+      - round: 1
+        change: "re-dispatched fresh as review-11e with `< /dev/null`"
+        review: coordinator
+        result: "review-11e delivered in 15 minutes with `STATUS: DONE`"
 ---
 
 ## Cue
@@ -64,6 +77,7 @@ Dispatch one-shot `codex exec` with a TMPDIR outside every repository and stdin 
 
 - Grant the pattern the packet's verification needs (e.g. `Bash(node ci/*)`), not only the listed commands.
 - Free reviewer models can stop on quota or end without a report: ping the model first, and after one failed delivery prefer a paid runner over a third free attempt.
+- Re-violated 2026-11-08: the stdin rule lives only in prose; a dispatch wrapper that always closes stdin would make it a mechanism (not built).
 
 ## Stage 2 read-only review scratch (#396, 2026-11-07)
 
