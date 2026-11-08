@@ -47,6 +47,15 @@ function symlinkUnavailable(type) {
   }
 }
 
+function symlinkCitationPrecondition(linkText, expectedText, target, parse = internals.parseOutlineCitation) {
+  if (linkText !== expectedText) {
+    return { unchecked: `symlink text differs from fixture citation bytes: expected ${JSON.stringify(expectedText)}, actual ${JSON.stringify(linkText)}` };
+  }
+  assert.strictEqual(parse(Buffer.from(linkText), target).state, 'accepted',
+    'citation-looking symlink link text must remain a positive control');
+  return null;
+}
+
 test('explicitly unchecked controls do not also report PASS', () => {
   const output = [];
   const log = console.log;
@@ -55,6 +64,12 @@ test('explicitly unchecked controls do not also report PASS', () => {
     test('fixture precondition', () => ({ unchecked: 'EPERM' }));
   } finally { console.log = log; }
   assert.deepStrictEqual(output, ['UNCHECKED fixture precondition: EPERM']);
+});
+
+test('matching symlink citation bytes fail closed when the parser rejects them', () => {
+  const expectedText = outlineText();
+  assert.throws(() => symlinkCitationPrecondition(expectedText, expectedText, 'docs/adr/DOCS-001.md', () => ({ state: 'unresolved' })),
+    /citation-looking symlink link text must remain a positive control/);
 });
 
 function sha(value) {
@@ -2012,10 +2027,7 @@ test('pinned O symlink with citation-looking link text gets no outline credit wh
   const fixture = createOutlineFixture({ realHook: true, symlinkOutlineObject: true });
   try {
     const linkText = fs.readlinkSync(path.join(fixture.root, fixture.target));
-    const linkTextCitation = internals.parseOutlineCitation(Buffer.from(linkText), fixture.target);
-    if (linkTextCitation.state !== 'accepted') {
-      assert.strictEqual(process.platform, 'win32', 'citation-looking symlink link text must remain a positive control');
-    }
+    const citationPrecondition = symlinkCitationPrecondition(linkText, fixture.outlineBytes.toString('utf8'), fixture.target);
     const completed = fixture.finishDraft({ runPilot: true });
     const outline = completed.pilot?.report?.outlineEvidence;
     const codes = [...(completed.result.diagnostics || []), ...(outline?.diagnostics || [])]
@@ -2025,7 +2037,7 @@ test('pinned O symlink with citation-looking link text gets no outline credit wh
     assert.ok(codes.includes('outline-target-object-not-regular'),
       `expected pinned O mode rejection before citation acceptance; got ${codes.join(', ')}`);
     assert.ok(fs.statSync(path.join(fixture.root, fixture.target)).isFile(), 'D leaves a regular worktree target after O');
-    if (linkTextCitation.state !== 'accepted') return { unchecked: 'Windows symlink link text did not preserve the citation bytes required by this precondition' };
+    if (citationPrecondition) return citationPrecondition;
   } finally { fixture.cleanup(); }
 });
 
