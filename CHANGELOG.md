@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.50.0](https://github.com/dyphn1/Harness-everything/compare/v0.49.0...v0.50.0) (2026-11-09)
+
+### Features
+
+* **governance:** split the guard workflow and protect only authoritative doc membership ([5a46e67](https://github.com/dyphn1/Harness-everything/commit/5a46e673525a28f9df770b8eefe2dce4bf7ae9e8))
+
+### Bug Fixes
+
+* **governance:** keep the extracted guard job in the release gate ([24c3b10](https://github.com/dyphn1/Harness-everything/commit/24c3b10a6530dd33fff22788a2219bd36ceb1447))
+
 ## [0.49.0](https://github.com/dyphn1/Harness-everything/compare/v0.48.0...v0.49.0) (2026-11-08)
 
 ### Features
