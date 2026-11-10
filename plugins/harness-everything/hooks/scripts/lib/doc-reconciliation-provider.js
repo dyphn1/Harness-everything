@@ -1647,6 +1647,88 @@ function validRow17Task(workflow, root, expectedBaseline) {
     && (!expectedBaseline || (baseline?.commit === expectedBaseline.head && baseline?.tree === expectedBaseline.tree));
 }
 
+function taskScopedFinalReviewBoundary(captures, review, taskId, dispositionPre = null) {
+  const journal = Array.isArray(captures) ? captures : [];
+  const fail = reason => ({ scoped: true, accepted: false, reason });
+  if (!textOf(taskId)) return { scoped: false, accepted: true };
+  const dispatches = journal.filter(item => recordOf(item) && item.event === 'PreToolUse'
+    && ['Agent', 'Task'].includes(item.tool_name) && item.outlineDispatch?.state === 'accepted'
+    && item.outlineDispatch.taskId === taskId);
+  if (!dispatches.length) return { scoped: false, accepted: true };
+  if (dispatches.length !== 1) return fail('outline-worker-dispatch-missing-or-ambiguous');
+  const dispatchPre = dispatches[0];
+  const dispatchIndex = journal.indexOf(dispatchPre);
+  const reviewIndex = journal.indexOf(review);
+  if (dispatchIndex < 0 || reviewIndex < 0) return fail('final-review-journal-position-unavailable');
+  if (reviewIndex < dispatchIndex) return { scoped: false, accepted: true };
+  const worker = correlateOutlineDispatch(journal, dispatchPre);
+  if (worker.state !== 'accepted') return fail(worker.reason || 'outline-worker-completion-unresolved');
+  const workerStopIndex = journal.indexOf(worker.stop);
+  const workerResultIndex = journal.indexOf(worker.result);
+  if (workerStopIndex < 0 || workerResultIndex < 0) return fail('outline-worker-journal-position-unavailable');
+  // Stop and Agent result are independent host callbacks; require both before the next phase without ordering them.
+  const workerClosed = Math.max(workerStopIndex, workerResultIndex);
+  const reviewer = review?.agent_id;
+  if (!textOf(reviewer) || review.event !== 'SubagentStop' || review.agent_type !== 'reviewer') {
+    return fail('final-review-principal-missing-or-invalid');
+  }
+  const results = journal.filter(item => recordOf(item) && item.event === 'PostToolUse'
+    && ['Agent', 'Task'].includes(item.tool_name) && item.session_id === dispatchPre.session_id && item.agent_id === reviewer);
+  const starts = journal.filter(item => recordOf(item) && item.event === 'SubagentStart'
+    && item.session_id === dispatchPre.session_id && item.agent_id === reviewer);
+  const stops = journal.filter(item => recordOf(item) && item.event === 'SubagentStop'
+    && item.session_id === dispatchPre.session_id && item.agent_id === reviewer);
+  if (results.length !== 1 || starts.length !== 1 || stops.length !== 1 || stops[0] !== review
+    || starts[0].agent_type !== 'reviewer' || results[0].interrupted !== false
+    || outlineResultStatus(results[0]).value !== 'completed' || !textOf(results[0].tool_use_id)) {
+    return fail('final-review-lifecycle-missing-or-ambiguous');
+  }
+  const result = results[0];
+  const launchPres = journal.filter(item => recordOf(item) && item.event === 'PreToolUse'
+    && ['Agent', 'Task'].includes(item.tool_name) && item.tool_use_id === result.tool_use_id);
+  if (launchPres.length > 1 || (launchPres.length === 1 && launchPres[0].session_id !== dispatchPre.session_id)) {
+    return fail('final-review-launch-missing-or-ambiguous');
+  }
+  const launchPre = launchPres[0] || null;
+  const expectedIdentity = dispatchPre.observedIdentity;
+  if (!recordOf(expectedIdentity) || !recordOf(expectedIdentity.taskPin)
+    || expectedIdentity.taskPin.taskId !== taskId) return fail('final-review-task-identity-unavailable');
+  const sameTask = item => item?.session_id === dispatchPre.session_id && recordOf(item.observedIdentity)
+    && item.observedIdentity.workflowId === expectedIdentity.workflowId
+    && item.observedIdentity.workflowRevision === expectedIdentity.workflowRevision
+    && sameOutlineTaskBinding(item.observedIdentity.taskPin, expectedIdentity.taskPin)
+    && item.observedIdentity.baselinePin?.commit === expectedIdentity.baselinePin?.commit
+    && samePathKey(item.observedIdentity.baselinePin?.root, expectedIdentity.baselinePin?.root);
+  if (![review, result, starts[0], ...(launchPre ? [launchPre] : [])].every(sameTask)) {
+    return fail('final-review-task-correlation-mismatch');
+  }
+  const reviewRoot = launchPre?.cwd || starts[0].cwd;
+  if (!textOf(reviewRoot) || !path.isAbsolute(reviewRoot)
+    || !samePathKey(reviewRoot, dispatchPre.cwd)
+    || ![review, result, starts[0], ...(launchPre ? [launchPre] : [])]
+      .every(item => textOf(item.cwd) && path.isAbsolute(item.cwd) && samePathKey(item.cwd, reviewRoot))) {
+    return fail('final-review-root-correlation-mismatch');
+  }
+  const startIndex = journal.indexOf(starts[0]);
+  const resultIndex = journal.indexOf(result);
+  if (startIndex <= workerClosed || resultIndex <= startIndex || reviewIndex <= startIndex) {
+    return fail('final-review-before-worker-closure');
+  }
+  if (launchPre) {
+    const launchPreIndex = journal.indexOf(launchPre);
+    if (launchPre.tool_name !== result.tool_name || launchPreIndex < 0 || launchPreIndex >= startIndex
+      || launchPreIndex <= workerClosed) return fail('final-review-before-worker-closure');
+  }
+  const reviewClosed = Math.max(resultIndex, reviewIndex);
+  if (dispositionPre) {
+    const dispositionIndex = journal.indexOf(dispositionPre);
+    if (dispositionIndex <= reviewClosed || dispositionPre.session_id !== dispatchPre.session_id
+      || !samePathKey(dispositionPre.cwd, dispatchPre.cwd)
+      || dispositionPre.stateOperation?.taskId !== taskId) return fail('final-review-not-closed-before-disposition');
+  }
+  return { scoped: true, accepted: true, workerClosed, reviewClosed, dispatchPre, worker };
+}
+
 function validW6Phase(operation, captures, pre, requireCompletePath = false) {
   const index = captures.indexOf(pre);
   const outliner = captures.find(item => recordOf(item) && item.event === 'SubagentStop'
@@ -1657,28 +1739,16 @@ function validW6Phase(operation, captures, pre, requireCompletePath = false) {
   const outlineStartIndex = outlineStart ? captures.indexOf(outlineStart) : -1;
   const dispatchIndex = captures.findIndex(item => recordOf(item) && item.event === 'PreToolUse'
     && ['Agent', 'Task'].includes(item.tool_name) && item.outlineDispatch?.state === 'accepted');
-  const workerStop = captures.find(item => recordOf(item) && item.event === 'SubagentStop' && item.agent_type === 'worker');
-  const workerResult = captures.find(item => recordOf(item) && item.event === 'PostToolUse'
-    && ['Agent', 'Task'].includes(item.tool_name) && item.agent_id === workerStop?.agent_id
-    && item.interrupted === false);
-  const workerStopIndex = workerStop ? captures.indexOf(workerStop) : -1;
-  const finalReviews = captures.filter(item => recordOf(item) && item.event === 'SubagentStop' && item.agent_type === 'reviewer'
-    && item.reviewVerdict === 'approve' && item.agent_id !== outliner?.agent_id && item.agent_id !== workerStop?.agent_id)
-    .filter(item => {
-      const start = captures.findIndex(record => record?.event === 'SubagentStart' && record.agent_id === item.agent_id);
-      const result = captures.findIndex(record => record?.event === 'PostToolUse' && ['Task', 'Agent'].includes(record.tool_name)
-        && record.agent_id === item.agent_id && record.interrupted === false);
-      return workerStopIndex >= 0 && start > workerStopIndex && result > workerStopIndex && captures.indexOf(item) > workerStopIndex;
-    });
-  const finalReviewIndex = finalReviews.length === 1 ? captures.indexOf(finalReviews[0]) : -1;
-  const finalReview = finalReviews.length === 1 ? finalReviews[0] : null;
-  const finalReviewStarts = finalReview ? captures.filter(item => item?.event === 'SubagentStart' && item.agent_id === finalReview.agent_id) : [];
-  const finalReviewResults = finalReview ? captures.filter(item => item?.event === 'PostToolUse'
-    && ['Task', 'Agent'].includes(item.tool_name) && item.agent_id === finalReview.agent_id && item.interrupted === false) : [];
+  const taskId = pre?.stateOperation?.taskId;
+  const finalReviewCandidates = captures.filter(item => recordOf(item) && item.event === 'SubagentStop' && item.agent_type === 'reviewer'
+    && item.reviewVerdict === 'approve' && item.agent_id !== outliner?.agent_id);
+  const taskReviews = finalReviewCandidates.map(review => ({ review,
+    boundary: taskScopedFinalReviewBoundary(captures, review, taskId, pre) })).filter(item => item.boundary.scoped);
+  const finalReview = taskReviews.length === 1 && taskReviews[0].boundary.accepted ? taskReviews[0].review : null;
+  const finalReviewBoundary = taskReviews.length === 1 ? taskReviews[0].boundary : null;
+  const finalReviewIndex = finalReview ? captures.indexOf(finalReview) : -1;
   const finalReviewPaths = finalReview ? Object.keys(finalReview.reviewedArtifactDigests || {}) : [];
-  const finalReviewValid = Boolean(finalReview && finalReviewStarts.length === 1 && finalReviewResults.length === 1
-    && captures.indexOf(finalReviewStarts[0]) < captures.indexOf(finalReviewResults[0])
-    && captures.indexOf(finalReviewResults[0]) < finalReviewIndex && finalReviewPaths.length === 1
+  const finalReviewValid = Boolean(finalReview && finalReviewBoundary?.accepted && finalReviewPaths.length === 1
     && validOutlineTarget(finalReviewPaths[0])
     && (() => {
       try { return shaBytes(fs.readFileSync(path.join(pre.cwd, ...finalReviewPaths[0].split('/')))) === finalReview.reviewedArtifactDigests[finalReviewPaths[0]]
@@ -1693,7 +1763,7 @@ function validW6Phase(operation, captures, pre, requireCompletePath = false) {
   }
   if (operation === 'seal') return outlineIndex >= 0 && index > outlineIndex
     && (requireCompletePath ? index < dispatchIndex : dispatchIndex < 0);
-  return finalReviewValid && finalReviewIndex >= 0 && index > workerStopIndex && index > finalReviewIndex;
+  return finalReviewValid && finalReviewIndex >= 0 && index > finalReviewBoundary.reviewClosed;
 }
 
 function allowedW6SnapshotChanges(operation, destinations) {
@@ -2778,6 +2848,13 @@ const createClaudeOriginProvider = input => {
       // An approval needs its own correlated Agent/Task result surface, never a bare SubagentStop (F5).
       if (!agentResultSurface(captures, reviewer)) {
         return rejected('agent-result-missing', 'no correlated Agent/Task result names this reviewer agent_id; without that surface the review is not approved');
+      }
+      if (capability === 'quality-review') {
+        const taskId = safeInput.taskBinding?.taskId || safeInput.taskId;
+        const boundary = taskScopedFinalReviewBoundary(captures, cap, taskId);
+        if (boundary.scoped && !boundary.accepted) {
+          return rejected('final-review-before-worker-closure', 'an outline-backed final review must launch after the correlated worker Stop and completed Agent result');
+        }
       }
       if (!HEX64.test(String(cap.reviewDigest === undefined ? '' : cap.reviewDigest))) {
         return rejected('review-digest-missing', 'SubagentStop without a bound final review artifact digest cannot close a review');

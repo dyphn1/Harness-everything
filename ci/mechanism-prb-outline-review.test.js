@@ -676,6 +676,8 @@ function createOutlineFixture(options = {}) {
     omitWorkerStart = false, omitWorkerResult = false, omitWorkerStop = false, tamperHandoff = false,
     providerSessionId = sessionId, providerTaskId = taskId, providerBaseline = { root, commit: baselineCommit },
     runPilot = false, handAuthoredCapture = false, removeSeam = false, mutateAfterFinalReview = false,
+    workerCompletionOrder = 'result-stop', workerResultAfterFinalReview = false, workerStopAfterFinalReview = false,
+    finalReviewCompletionOrder = 'result-stop', reviewLaunchBeforeWorkerClosure = false,
     postWorkerCaptures = [], afterWorkerStop = [] } = {}) {
     if (draft) {
       if (options.w6Producer) {
@@ -742,35 +744,62 @@ function createOutlineFixture(options = {}) {
       changed.outline.tree = 'f'.repeat(40);
       writeJson(handoffFile, changed);
     }
+    const workerResultPayload = {
+      session_id: sessionId, cwd: root, hook_event_name: 'PostToolUse', tool_name: 'Task',
+      tool_use_id: capture.tool_use_id, tool_input: { command: 'Task' },
+      tool_response: { agentId: options.workerPrincipal || 'draft-worker', interrupted: false, status: 'completed' },
+    };
+    const workerStopPayload = {
+      session_id: sessionId, cwd: root, hook_event_name: 'SubagentStop',
+      agent_id: options.workerPrincipal || 'draft-worker', agent_type: 'worker',
+    };
+    const finalReviewer = 'final-reviewer';
+    const finalReviewPrePayload = {
+      session_id: sessionId, cwd: root, hook_event_name: 'PreToolUse', tool_name: 'Task',
+      tool_use_id: 'final-review-dispatch', tool_input: { prompt: 'Review the final ADR.' },
+    };
+    const finalReviewStartPayload = { session_id: sessionId, cwd: root, hook_event_name: 'SubagentStart',
+      agent_id: finalReviewer, agent_type: 'reviewer' };
+    const finalResultPayload = {
+      session_id: sessionId, cwd: root, hook_event_name: 'PostToolUse', tool_name: 'Task',
+      tool_use_id: 'final-review-dispatch', tool_input: { command: 'Task' },
+      tool_response: { agentId: finalReviewer, interrupted: false, status: 'completed' },
+    };
+    const finalStopPayload = {
+      session_id: sessionId, cwd: root, hook_event_name: 'SubagentStop', agent_id: finalReviewer,
+      agent_type: 'reviewer',
+      last_assistant_message: `Review verdict: approve\nReviewed artifact: ${target} sha256:${sha(draftBytes)}\nSummary: Final candidate reviewed.`,
+    };
+    let finalReviewPreCaptured = false;
     if (options.realHook) {
-      if (!omitWorkerResult) runHook({
-        session_id: sessionId, cwd: root, hook_event_name: 'PostToolUse', tool_name: 'Task',
-        tool_use_id: capture.tool_use_id, tool_input: { command: 'Task' },
-        tool_response: { agentId: options.workerPrincipal || 'draft-worker', interrupted: false, status: 'completed' },
-      });
-      if (!omitWorkerStop) runHook({
-        session_id: sessionId, cwd: root, hook_event_name: 'SubagentStop',
-        agent_id: options.workerPrincipal || 'draft-worker', agent_type: 'worker',
-      });
+      if (finalReview && reviewLaunchBeforeWorkerClosure) {
+        runHook(finalReviewPrePayload);
+        finalReviewPreCaptured = true;
+      }
+      if (workerResultAfterFinalReview) {
+        if (!omitWorkerStop) runHook(workerStopPayload);
+      } else if (workerStopAfterFinalReview) {
+        if (!omitWorkerResult) runHook(workerResultPayload);
+      } else if (workerCompletionOrder === 'stop-result') {
+        if (!omitWorkerStop) runHook(workerStopPayload);
+        if (!omitWorkerResult) runHook(workerResultPayload);
+      } else {
+        if (!omitWorkerResult) runHook(workerResultPayload);
+        if (!omitWorkerStop) runHook(workerStopPayload);
+      }
       for (const make of afterWorkerStop) runHook(make({ root, sessionId, target }));
     }
     if (finalReview) {
-      const finalReviewer = 'final-reviewer';
-      const finalResultPayload = {
-        session_id: sessionId, cwd: root, hook_event_name: 'PostToolUse', tool_name: 'Task',
-        tool_use_id: 'final-review-dispatch', tool_input: { command: 'Task' },
-        tool_response: { agentId: finalReviewer, interrupted: false, status: 'completed' },
-      };
-      const finalStopPayload = {
-        session_id: sessionId, cwd: root, hook_event_name: 'SubagentStop', agent_id: finalReviewer,
-        agent_type: 'reviewer',
-        last_assistant_message: `Review verdict: approve\nReviewed artifact: ${target} sha256:${sha(draftBytes)}\nSummary: Final candidate reviewed.`,
-      };
       if (options.realHook) {
-        runReviewCapture({ session_id: sessionId, cwd: root, hook_event_name: 'SubagentStart',
-          agent_id: finalReviewer, agent_type: 'reviewer' });
-        runHook(finalResultPayload);
-        runHook(finalStopPayload);
+        if (!finalReviewPreCaptured) runHook(finalReviewPrePayload);
+        runReviewCapture(finalReviewStartPayload);
+        if (finalReviewCompletionOrder === 'stop-result') {
+          runHook(finalStopPayload);
+          runHook(finalResultPayload);
+        } else {
+          runHook(finalResultPayload);
+          runHook(finalStopPayload);
+        }
       } else {
         const finalResult = runtimeProvider.buildCaptureRecord(finalResultPayload, 'PostToolUse', root);
         const finalStop = runtimeProvider.buildCaptureRecord(finalStopPayload, 'SubagentStop', root);
@@ -779,6 +808,8 @@ function createOutlineFixture(options = {}) {
         extraCaptures.push(finalResult, finalStop);
       }
     }
+    if (options.realHook && workerResultAfterFinalReview && !omitWorkerResult) runHook(workerResultPayload);
+    if (options.realHook && workerStopAfterFinalReview && !omitWorkerStop) runHook(workerStopPayload);
     if (completeWorkflow) {
       runWorkflowOperation('step-adr', ['step', '--session-id', sessionId, '--step-id', 'adr-evid',
         '--disposition', 'pass', '--evidence', 'Independent final ADR review completed']);
@@ -2021,12 +2052,17 @@ test('overwriting a dispatched predecessor handoff invalidates the retained atte
 });
 
 test('W6 whole row-17 path accepts captured state operations through source and packaged producers', () => {
-  for (const runtimeLayout of ['source', 'packaged']) {
+  const completionOrders = [
+    { runtimeLayout: 'source', workerCompletionOrder: 'result-stop', finalReviewCompletionOrder: 'result-stop' },
+    { runtimeLayout: 'packaged', workerCompletionOrder: 'stop-result', finalReviewCompletionOrder: 'stop-result' },
+  ];
+  for (const { runtimeLayout, workerCompletionOrder, finalReviewCompletionOrder } of completionOrders) {
     const fixture = createOutlineFixture({ realHook: true, retainedInventory: true, workflowCli: true, w6Producer: true,
       runtimeLayout, sessionId: `w6-${runtimeLayout}`, preOutlineOperation: 'write', capturedOutlineCommit: true });
     try {
       assert.strictEqual(fixture.inventoryOperation?.operation, 'inventory', `${runtimeLayout}: actual inventory producer ran at B`);
-      const completed = fixture.finishDraft({ finalReview: true, completeWorkflow: true, runPilot: true });
+      const completed = fixture.finishDraft({ finalReview: true, completeWorkflow: true, runPilot: true,
+        workerCompletionOrder, finalReviewCompletionOrder });
       assert.strictEqual(completed.result.status, 'accepted',
         `${runtimeLayout}: captured row-17 state writers retain outline credit: ${JSON.stringify(completed.result.diagnostics)}`);
       assert.strictEqual(completed.pilot?.report?.pilotCredit, true,
@@ -2049,6 +2085,12 @@ test('W6 whole row-17 path accepts captured state operations through source and 
       `${runtimeLayout}: retained journal keeps every bounded operation in phase order`);
       const decision = provider._internals.evaluateW6StateOperations(captures, fixture.sessionDir);
       assert.strictEqual(decision.complete, true, `${runtimeLayout}: shared validator accepts the complete operation sequence`);
+      assert.ok(decision.results.length > 0 && decision.results.every(item => item.accepted),
+        `${runtimeLayout}: every captured writer disposition is accepted`);
+      const finalReviewStop = captures.find(item => item.event === 'SubagentStop' && item.agent_id === 'final-reviewer');
+      assert.ok(finalReviewStop, `${runtimeLayout}: final reviewer Stop was captured`);
+      assert.strictEqual(completed.origin.resolveEvent({ reference: `${finalReviewStop.ref}#quality-review`, identity: completed.identity }).status,
+        'accepted', `${runtimeLayout}: final quality review remains independently accepted`);
       const verifyState = fixture.workflowOperationWitnesses.find(item => item.name === 'step-verify');
       assert.ok(verifyState?.before && verifyState?.after, `${runtimeLayout}: verify disposition has host state before and after`);
       for (const field of ['lastEditAt', 'lastVerifyAt', 'lastGenericVerifyAt', 'lastDocVerifyAt']) {
@@ -2069,6 +2111,96 @@ test('W6 whole row-17 path accepts captured state operations through source and 
       assert.strictEqual(report.pilotCredit, true, `${runtimeLayout}: completed host operation results earn final pilot credit`);
     } finally { fixture.cleanup(); }
   }
+});
+
+test('W6 rejects final-review launch before both correlated worker completion surfaces', () => {
+  for (const scenario of [
+    { name: 'worker result', options: { workerResultAfterFinalReview: true } },
+    { name: 'worker Stop', options: { workerStopAfterFinalReview: true } },
+  ]) {
+    const fixture = createOutlineFixture({ realHook: true, retainedInventory: true, workflowCli: true, w6Producer: true,
+      runtimeLayout: 'source', sessionId: `w6-late-${scenario.name.replace(' ', '-')}`, preOutlineOperation: 'write', capturedOutlineCommit: true });
+    try {
+      const completed = fixture.finishDraft({ finalReview: true, completeWorkflow: true, ...scenario.options,
+        finalReviewCompletionOrder: 'stop-result', allowDispositionFailure: true, runPilot: true });
+      assert.notStrictEqual(completed.result.status, 'accepted',
+        `late ${scenario.name} cannot authorize W6 outline credit: ${JSON.stringify(completed.result)}`);
+      assert.notStrictEqual(completed.pilot?.report?.outlineEvidence?.outcome, 'pass',
+        `the final consumer withholds outline credit after the late ${scenario.name}`);
+      const captures = fixture.runtimeProvider.readCaptureView(fixture.sessionDir).records;
+      const decision = fixture.runtimeProvider._internals.evaluateW6StateOperations(captures, fixture.sessionDir);
+      assert.strictEqual(decision.complete, false, `late ${scenario.name} cannot complete the W6 writer disposition`);
+      const finalReviewStop = captures.find(item => item.event === 'SubagentStop' && item.agent_id === 'final-reviewer');
+      const finalReview = completed.origin.resolveEvent({ reference: `${finalReviewStop.ref}#quality-review`, identity: completed.identity });
+      assert.notStrictEqual(finalReview.status, 'accepted', 'task-scoped final quality review is not eligible');
+      assert.strictEqual(completed.pilot?.report?.pilotCredit, false, 'pilot credit stays withheld');
+    } finally { fixture.cleanup(); }
+  }
+});
+
+test('outline-backed no-W6 task rejects final quality review launched before worker result', () => {
+  const fixture = createOutlineFixture({ realHook: true, runtimeLayout: 'source', sessionId: 'no-w6-late-worker-result' });
+  try {
+    const completed = fixture.finishDraft({ finalReview: true, workerResultAfterFinalReview: true,
+      finalReviewCompletionOrder: 'stop-result', runPilot: true });
+    const finalReviewStop = completed.captures.find(item => item.event === 'SubagentStop' && item.agent_id === 'final-reviewer');
+    const finalReview = completed.origin.resolveEvent({ reference: `${finalReviewStop.ref}#quality-review`, identity: completed.identity });
+    assert.notStrictEqual(finalReview.status, 'accepted',
+      `the outline-backed sibling lane must share worker closure eligibility: ${JSON.stringify(finalReview)}`);
+    assert.strictEqual(completed.pilot?.report?.outlineEvidence?.outcome, 'pass',
+      'the earlier O review remains a separate accepted outline result');
+    assert.ok(!completed.pilot?.report?.acceptedRefs?.some(ref => ref === `${finalReviewStop.ref}#quality-review`),
+      'the early final review is absent from accepted pilot evidence');
+    assert.strictEqual(completed.pilot?.report?.pilotCredit, false,
+      'the sibling lane cannot use an early final review for pilot credit');
+  } finally { fixture.cleanup(); }
+});
+
+test('outline-backed no-W6 positive final review accepts both callback orders through source and package', () => {
+  const completionOrders = [
+    { runtimeLayout: 'source', workerCompletionOrder: 'result-stop', finalReviewCompletionOrder: 'stop-result' },
+    { runtimeLayout: 'packaged', workerCompletionOrder: 'stop-result', finalReviewCompletionOrder: 'result-stop' },
+  ];
+  for (const { runtimeLayout, workerCompletionOrder, finalReviewCompletionOrder } of completionOrders) {
+    const fixture = createOutlineFixture({ realHook: true, runtimeLayout, sessionId: `no-w6-${runtimeLayout}` });
+    try {
+      const completed = fixture.finishDraft({ finalReview: true, workerCompletionOrder, finalReviewCompletionOrder, runPilot: true });
+      const finalReviewStop = completed.captures.find(item => item.event === 'SubagentStop' && item.agent_id === 'final-reviewer');
+      const finalReview = completed.origin.resolveEvent({ reference: `${finalReviewStop.ref}#quality-review`, identity: completed.identity });
+      assert.strictEqual(finalReview.status, 'accepted', `${runtimeLayout}: completed task-scoped final review is eligible`);
+      assert.strictEqual(completed.pilot?.report?.outlineEvidence?.outcome, 'pass', `${runtimeLayout}: O review remains accepted`);
+      assert.ok(completed.pilot?.report?.acceptedRefs?.includes(`${finalReviewStop.ref}#quality-review`),
+        `${runtimeLayout}: the final review reaches the no-W6 pilot seam`);
+      assert.strictEqual(completed.pilot?.report?.pilotCredit, false,
+        `${runtimeLayout}: unrelated outstanding MUSTs still withhold full pilot credit`);
+    } finally { fixture.cleanup(); }
+  }
+});
+
+test('outline-backed no-W6 final review rejects a worker Stop that arrives after launch', () => {
+  const fixture = createOutlineFixture({ realHook: true, runtimeLayout: 'source', sessionId: 'no-w6-late-worker-stop' });
+  try {
+    const completed = fixture.finishDraft({ finalReview: true, workerStopAfterFinalReview: true,
+      finalReviewCompletionOrder: 'stop-result', runPilot: true });
+    const finalReviewStop = completed.captures.find(item => item.event === 'SubagentStop' && item.agent_id === 'final-reviewer');
+    const finalReview = completed.origin.resolveEvent({ reference: `${finalReviewStop.ref}#quality-review`, identity: completed.identity });
+    assert.notStrictEqual(finalReview.status, 'accepted', 'a late worker Stop cannot retroactively authorize the launch');
+    assert.ok(!completed.pilot?.report?.acceptedRefs?.includes(`${finalReviewStop.ref}#quality-review`));
+    assert.strictEqual(completed.pilot?.report?.pilotCredit, false);
+  } finally { fixture.cleanup(); }
+});
+
+test('W6 requires a captured final-review launch to follow worker closure even when its Start is later', () => {
+  const fixture = createOutlineFixture({ realHook: true, retainedInventory: true, workflowCli: true, w6Producer: true,
+    runtimeLayout: 'source', sessionId: 'w6-early-review-pre', preOutlineOperation: 'write', capturedOutlineCommit: true });
+  try {
+    const completed = fixture.finishDraft({ finalReview: true, completeWorkflow: true,
+      reviewLaunchBeforeWorkerClosure: true, allowDispositionFailure: true, runPilot: true });
+    assert.notStrictEqual(completed.result.status, 'accepted',
+      'a late SubagentStart cannot hide a final-review PreToolUse captured before worker closure');
+    assert.notStrictEqual(completed.pilot?.report?.outlineEvidence?.outcome, 'pass');
+    assert.strictEqual(completed.pilot?.report?.pilotCredit, false);
+  } finally { fixture.cleanup(); }
 });
 
 test('W6 state operation identity, phase, schema, and destination drift withhold pilot credit', () => {
