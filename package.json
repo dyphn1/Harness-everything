@@ -23,7 +23,7 @@
     "test:docs:capabilities": "node ci/doc-capability-consistency.test.js",
     "test:references": "node ci/reference-check.js",
     "test:portability": "node ci/portability-lint.js",
-    "test:release": "node ci/release-consistency-check.js && node ci/release-consistency-check.test.js && node ci/mechanism-2x-release-automation.test.js && node ci/mechanism-2x-release-commit-message.test.js && node ci/mechanism-2ap-sbom.test.js",
+    "test:release": "node ci/release-consistency-check.js && node ci/release-consistency-check.test.js && node ci/mechanism-2x-release-automation.test.js && node ci/mechanism-2x-release-commit-message.test.js && node ci/mechanism-2ap-sbom.test.js && node ci/changelog-unreleased.test.js",
     "test:release:semantics": "node ci/semantic-release-analyzer.test.mjs",
     "test:install": "node scripts/verify-install.js",
     "system-one:install": "node harness-everything/scripts/system-one/install.js",
