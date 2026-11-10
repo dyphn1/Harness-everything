@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Features
+
+* **doc-reconciliation:** credit only correlated, bounded workflow-state operations for the approved row-17 outline cycle
+
 ## [0.50.0](https://github.com/dyphn1/Harness-everything/compare/v0.49.0...v0.50.0) (2026-11-09)
 
 ### Features
@@ -19,6 +25,8 @@ All notable changes to this project are documented in this file.
 * **doc-reconciliation:** attribute outline writers by phase under the approved e1 contract ([fe1a3e0](https://github.com/dyphn1/Harness-everything/commit/fe1a3e0bc2f73ab7789615d116ea27696d55860f)), closes [#341](https://github.com/dyphn1/Harness-everything/issues/341) [#341](https://github.com/dyphn1/Harness-everything/issues/341)
 * **doc-reconciliation:** honor an owner-approved dependency-artifact inventory scope ([9c08c8a](https://github.com/dyphn1/Harness-everything/commit/9c08c8aa16cf876522afd554320e9b39e7db3bcb))
 
+* **doc-reconciliation:** replace the blanket outline writer rule with a phase-aware policy: a coordinator write or git add/commit of the pinned target before review earns credit, and every other captured writer stays ambiguous (#341)
+
 ### Bug Fixes
 
 * **doc-reconciliation:** bind b-to-o git add to pinned targets and allow only simple commits ([20128c3](https://github.com/dyphn1/Harness-everything/commit/20128c353e545ca3070b70048678e6a4b02df36f))
@@ -31,22 +39,15 @@ All notable changes to this project are documented in this file.
 * **doc-reconciliation:** resolve absolute selectors against the workspace root ([0a1c8b1](https://github.com/dyphn1/Harness-everything/commit/0a1c8b130c6c9c6d66383c69218c20133dd30f10))
 * **doc-reconciliation:** treat brace, bracket and dot-dot selectors as overlapping ([59037db](https://github.com/dyphn1/Harness-everything/commit/59037db846ca3b3a93f8bbf8c373b03b275015dd)), closes [#341](https://github.com/dyphn1/Harness-everything/issues/341) [#396](https://github.com/dyphn1/Harness-everything/issues/396)
 
+* **doc-reconciliation:** keep outline approvals durable and detect dependency-root selector overlaps conservatively, including unsupported glob syntax and parent traversal
+
 ## [0.48.0](https://github.com/dyphn1/Harness-everything/compare/v0.47.5...v0.48.0) (2026-11-07)
 
 ### Features
 
 * **doc-reconciliation:** owner-approved dependency-artifact inventory scope ([#396](https://github.com/dyphn1/Harness-everything/issues/396)) ([f571ec6](https://github.com/dyphn1/Harness-everything/commit/f571ec68519a6af46a7bef6230cbb639152ff950)), closes [#325](https://github.com/dyphn1/Harness-everything/issues/325) [#341](https://github.com/dyphn1/Harness-everything/issues/341)
 
-## [Unreleased]
-
-### Features
-
-* **doc-reconciliation:** credit only correlated, bounded workflow-state operations for the approved row-17 outline cycle
-
-### Bug Fixes
-
-* **doc-reconciliation:** keep outline approvals durable and detect dependency-root selector overlaps conservatively, including unsupported glob syntax and parent traversal
-* **doc-reconciliation:** replace the blanket outline writer rule with a phase-aware policy: a coordinator write or git add/commit of the pinned target before review earns credit, and every other captured writer stays ambiguous (#341)
+* **doc-reconciliation:** support a baseline-pinned, opt-in inventory exclusion for untracked artifacts under `node_modules` and `.husky/_`, with overlap guards that resolve absolute selectors against the workspace while ignoring task-pin identity metadata.
 
 ## [0.47.5](https://github.com/dyphn1/Harness-everything/compare/v0.47.4...v0.47.5) (2026-11-03)
 
@@ -62,6 +63,10 @@ All notable changes to this project are documented in this file.
 * **tdd:** require quoted assertion evidence for source conflict claims ([e9e1ab9](https://github.com/dyphn1/Harness-everything/commit/e9e1ab9b8170054a1ecf57b440b18124b4f99108)), closes [#312](https://github.com/dyphn1/Harness-everything/issues/312)
 * **tdd:** require same-subject assertions for SOURCE_CONFLICT evidence ([d0ab25f](https://github.com/dyphn1/Harness-everything/commit/d0ab25fb810f390921acc9f38584eead95f18214))
 * **tdd:** verify sourceEvidence expected values against quoted literals ([77a8ba6](https://github.com/dyphn1/Harness-everything/commit/77a8ba690de69db9852371270e86c063d30b77ed))
+
+* **code-review:** add evidence-gate counterexamples (claimed vs observed, select then judge, one witness per rule, comparable subjects and honest labels) for reviewers and author self-review.
+
+* **zoom-out:** the author applying review fixes counts repair-loop rounds too; a decision class repeated from the previous round triggers Phase 2 before editing.
 
 ## [0.47.4](https://github.com/dyphn1/Harness-everything/compare/v0.47.3...v0.47.4) (2026-11-03)
 
@@ -103,6 +108,8 @@ All notable changes to this project are documented in this file.
 
 * **doc-reconciliation:** qualify claude outline dispatch from flat run8 capture ([dc524e5](https://github.com/dyphn1/Harness-everything/commit/dc524e50596429e9b9d504e11fb5584a5b75805c))
 
+* **doc-reconciliation:** qualify the retained Claude Code 2.1.312 run8 outline mapping only; OpenCode, Codex, other Claude versions and E1 remain unqualified.
+
 ### Bug Fixes
 
 * **doc-reconciliation:** give derived-regenerate a registered production producer ([a070b65](https://github.com/dyphn1/Harness-everything/commit/a070b6562f6d0c3931d014abfdb3a6f23aa3cfc9))
@@ -110,18 +117,11 @@ All notable changes to this project are documented in this file.
 * **doc-reconciliation:** map pinned evid rows and select only verdict reviews ([ecf907d](https://github.com/dyphn1/Harness-everything/commit/ecf907d46827aaff3f4fc645f9a7b1547e26b146))
 * **doc-reconciliation:** sanitize outline dispatch tokens and test the derived seam end to end ([c30b20b](https://github.com/dyphn1/Harness-everything/commit/c30b20ba6d5899805a6f6e6468fe68b04a71ef31))
 
-## [Unreleased]
-
-### Added
-
-* **doc-reconciliation:** support a baseline-pinned, opt-in inventory exclusion for untracked artifacts under `node_modules` and `.husky/_`, with overlap guards that resolve absolute selectors against the workspace while ignoring task-pin identity metadata.
-
-### Bug Fixes
-
-* **code-review:** add evidence-gate counterexamples (claimed vs observed, select then judge, one witness per rule, comparable subjects and honest labels) for reviewers and author self-review.
-* **zoom-out:** the author applying review fixes counts repair-loop rounds too; a decision class repeated from the previous round triggers Phase 2 before editing.
 * **doc-reconciliation:** pin the owner-approved VERI-to-EVID row mapping and exclude ordinary SubagentStop completions from quality-review candidates.
+
 * **doc-reconciliation:** allow uniquely identified same-root reviewers that start after the correlated draft worker stops.
+
+- **doc-reconciliation:** add registered derived-view checks that bind in-memory lifecycle-index generation to the unchanged source corpus, config and target bytes.
 
 ## [0.46.3](https://github.com/dyphn1/Harness-everything/compare/v0.46.2...v0.46.3) (2026-10-28)
 
@@ -142,11 +142,15 @@ All notable changes to this project are documented in this file.
 
 * **doc-reconciliation:** correlate outline dispatch by observed agent result ([c63e1ef](https://github.com/dyphn1/Harness-everything/commit/c63e1efa299496283bffb1019983b0dd54595f64))
 
+- **doc-reconciliation:** correlate outline dispatches through completed Agent/Task results and unique worker start/stop events while keeping live credit gated.
+
 ## [0.46.0](https://github.com/dyphn1/Harness-everything/compare/v0.45.0...v0.46.0) (2026-10-28)
 
 ### Features
 
 * **doc-reconciliation:** add pre-draft outline review evidence lane ([ac41562](https://github.com/dyphn1/Harness-everything/commit/ac415627369fa0ecadcb19c265d7fe1052d291e1)), closes [#325](https://github.com/dyphn1/Harness-everything/issues/325)
+
+* **doc-reconciliation:** add a dedicated pre-draft outline review lane bound to the pinned inventory and exact O→D Git cycle.
 
 ### Bug Fixes
 
@@ -154,11 +158,17 @@ All notable changes to this project are documented in this file.
 * **doc-reconciliation:** keep legacy session-dir keying on the raw workspace root ([f39f533](https://github.com/dyphn1/Harness-everything/commit/f39f53332435e58beb2bb5b01fff3e1707dd18a2))
 * **doc-reconciliation:** observe file-tool writers and deny seal-only retries ([9cbe0ea](https://github.com/dyphn1/Harness-everything/commit/9cbe0ea6b1af7bfadc2be954a6f8337be11eac0c)), closes [#325](https://github.com/dyphn1/Harness-everything/issues/325)
 
+### Added
+
+- **doc-governance:** declare six ADR domains (ROUTE, GATE, EVID, SONE, DOCS, DIST) and record the eight DOCS ADRs (DOCS-001 to DOCS-008) for already-in-effect document-lifecycle mechanisms.
+
 ## [0.45.0](https://github.com/dyphn1/Harness-everything/compare/v0.44.0...v0.45.0) (2026-10-27)
 
 ### Features
 
 * **doc-lifecycle:** produce conflict-check from a full-corpus assessment ([ec596e0](https://github.com/dyphn1/Harness-everything/commit/ec596e02de554f14778f7790551b6990a50dd0b6)), closes [#325](https://github.com/dyphn1/Harness-everything/issues/325)
+
+* **doc-lifecycle:** add complete full-corpus conflict-check evidence with snapshot-bound scope and corpus identity.
 
 ## [0.44.0](https://github.com/dyphn1/Harness-everything/compare/v0.43.1...v0.44.0) (2026-10-27)
 
@@ -166,29 +176,13 @@ All notable changes to this project are documented in this file.
 
 * **governance:** accept git-aware globs in the base-owned guard ([674a96d](https://github.com/dyphn1/Harness-everything/commit/674a96d7295555926ab3bb1b8ca0204cf59dbad5)), closes [#325](https://github.com/dyphn1/Harness-everything/issues/325)
 
+- **doc-governance:** allow regular governed-content revisions and expand base-owned governed/derived globs against Git trees, while retaining review for membership, structural, policy, trust-surface, fixture, and derived-output changes; run the guard in its own CI job.
+
 ## [0.43.1](https://github.com/dyphn1/Harness-everything/compare/v0.43.0...v0.43.1) (2026-10-27)
 
 ### Bug Fixes
 
 * **governance:** let the guard pass governed content revisions ([31af03d](https://github.com/dyphn1/Harness-everything/commit/31af03d02475e150210cc6b5ba0e5b90fea0163e))
-
-## [Unreleased]
-
-### Added
-
-- **doc-governance:** declare six ADR domains (ROUTE, GATE, EVID, SONE, DOCS, DIST) and record the eight DOCS ADRs (DOCS-001 to DOCS-008) for already-in-effect document-lifecycle mechanisms.
-- **doc-reconciliation:** add registered derived-view checks that bind in-memory lifecycle-index generation to the unchanged source corpus, config and target bytes.
-
-### Features
-
-* **doc-lifecycle:** add complete full-corpus conflict-check evidence with snapshot-bound scope and corpus identity.
-* **doc-reconciliation:** add a dedicated pre-draft outline review lane bound to the pinned inventory and exact O→D Git cycle.
-* **doc-reconciliation:** qualify the retained Claude Code 2.1.312 run8 outline mapping only; OpenCode, Codex, other Claude versions and E1 remain unqualified.
-
-### Fixed
-
-- **doc-reconciliation:** correlate outline dispatches through completed Agent/Task results and unique worker start/stop events while keeping live credit gated.
-- **doc-governance:** allow regular governed-content revisions and expand base-owned governed/derived globs against Git trees, while retaining review for membership, structural, policy, trust-surface, fixture, and derived-output changes; run the guard in its own CI job.
 
 ## [0.43.0](https://github.com/dyphn1/Harness-everything/compare/v0.42.2...v0.43.0) (2026-10-27)
 
@@ -216,6 +210,8 @@ All notable changes to this project are documented in this file.
 * **action-gate:** prevent codex pr mutation descriptor downgrades ([e9344de](https://github.com/dyphn1/Harness-everything/commit/e9344deb0ae38a6414944db51b2b2c40b2132c34))
 * **action-gate:** retain codex pr tool identity during classification ([c170a96](https://github.com/dyphn1/Harness-everything/commit/c170a96cf856295200d2d1a62c15a552c3cb2b37))
 
+- Codex PR title/body-only updates defer to native task scope and permissions after exact operation and argument checks; required Gate hints and high-risk fields remain gated.
+
 ## [0.42.0](https://github.com/dyphn1/Harness-everything/compare/v0.41.3...v0.42.0) (2026-10-25)
 
 ### Features
@@ -239,6 +235,8 @@ All notable changes to this project are documented in this file.
 ### Bug Fixes
 
 * **hooks:** stop counting a recorded workflow step as an edit ([#365](https://github.com/dyphn1/Harness-everything/issues/365)) ([b1beefe](https://github.com/dyphn1/Harness-everything/commit/b1beefe55f3f2b794901a4bad4fe3d0310de6745))
+
+- Keep successful installed workflow step dispositions from advancing verification freshness while unknown workflow commands and mutations remain tracked (#365).
 
 ## [0.41.0](https://github.com/dyphn1/Harness-everything/compare/v0.40.0...v0.41.0) (2026-10-23)
 
@@ -277,6 +275,12 @@ All notable changes to this project are documented in this file.
 * **doc-lifecycle:** treat only explicit command targets as doc-check candidates ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([fd3833e](https://github.com/dyphn1/Harness-everything/commit/fd3833e23e931e8a07da6689317ec32af893c45e))
 * **opencode:** default-export a v2 plugin definition so opencode 2 loads the adapter ([1a8595e](https://github.com/dyphn1/Harness-everything/commit/1a8595ed90c9777e0bb1b39f78b9b9593b7b4811)), closes [#362](https://github.com/dyphn1/Harness-everything/issues/362)
 
+- Accept an interior `~` in unquoted installed doc-check path tokens, and reject `%VAR%` expansion before identity and digest checks.
+
+- Preserve Windows path separators while classifying installed doc-check commands, and make the OpenCode workspace-key fixture match the plugin's Windows case normalization.
+
+- Port the OpenCode adapter to the OpenCode 2 plugin contract: the module now default-exports `{ id: "harness.enforcement", setup(ctx) }` that registers `ctx.tool.hook("execute.before|after")` and `ctx.event.subscribe()` over the OpenCode 2 domains, while keeping the named V1 `HarnessEnforcement` factory for OpenCode 1.x hosts. OpenCode 2 fails to load named-export-only plugins with `Plugin must export a default definition with an id and an effect or setup function`; the V2 load was verified live on OpenCode 2.1.3 after a global-install reload.
+
 ## [0.40.0](https://github.com/dyphn1/Harness-everything/compare/v0.39.0...v0.40.0) (2026-10-23)
 
 ### Features
@@ -290,6 +294,8 @@ All notable changes to this project are documented in this file.
 
 * **doc-lifecycle:** add s2a document evidence producer and reconciliation core ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([7d54802](https://github.com/dyphn1/Harness-everything/commit/7d5480292891f4cbac126bfa4ed6dc43be9173f2))
 
+- Ship the unwired S2a document evidence producer and reconciliation core (snapshot capture, captured config, accepted-origin adapter, expected-set reconciliation); S1 stays no-credit until S2b host integration.
+
 ### Bug Fixes
 
 * **doc-lifecycle:** bind captured origin pin to the s2a baseline ([#353](https://github.com/dyphn1/Harness-everything/issues/353)) ([59421f4](https://github.com/dyphn1/Harness-everything/commit/59421f41a8ce2b00250c96634a4a43ae0ba782bf))
@@ -300,31 +306,6 @@ All notable changes to this project are documented in this file.
 * **doc-lifecycle:** resolve s2a workspace identity with native realpath on windows ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([c663fd8](https://github.com/dyphn1/Harness-everything/commit/c663fd8479869d6a3c7930bd47a067d4323cb6c9)), closes [#353](https://github.com/dyphn1/Harness-everything/issues/353)
 * **doc-lifecycle:** revalidate the s2a start pin at event acceptance ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([2cf466d](https://github.com/dyphn1/Harness-everything/commit/2cf466d04e52dd92f8df2b7263348287f9eef2da))
 
-## [0.38.0](https://github.com/dyphn1/Harness-everything/compare/v0.37.0...v0.38.0) (2026-10-21)
-
-### Features
-
-* **doc-lifecycle:** add default-off s1 document reconciliation gate ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([8903435](https://github.com/dyphn1/Harness-everything/commit/8903435efa04e0e142a70d26caa9c0c4b78a7834)), closes [#341](https://github.com/dyphn1/Harness-everything/issues/341)
-
-### Bug Fixes
-
-* **doc-lifecycle:** keep the stop decision when the session store is unwritable ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([8c8d6fa](https://github.com/dyphn1/Harness-everything/commit/8c8d6faa7a3fc9b239dbe520981b69f99d0b6c90))
-* **doc-lifecycle:** scope stop persistence recovery to an actual withheld pilot run ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([0f766ef](https://github.com/dyphn1/Harness-everything/commit/0f766efe67a76606144ae97ad703e0789ab4bce8))
-* **doc-lifecycle:** withhold on config scope change and failed withholding writes ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([dc04db8](https://github.com/dyphn1/Harness-everything/commit/dc04db8d573339604f32a28ec1a8a65fcffe10a1))
-
-## [Unreleased]
-
-### Fixed
-- Codex PR title/body-only updates defer to native task scope and permissions after exact operation and argument checks; required Gate hints and high-risk fields remain gated.
-
-- Keep successful installed workflow step dispositions from advancing verification freshness while unknown workflow commands and mutations remain tracked (#365).
-
-- Accept an interior `~` in unquoted installed doc-check path tokens, and reject `%VAR%` expansion before identity and digest checks.
-
-- Preserve Windows path separators while classifying installed doc-check commands, and make the OpenCode workspace-key fixture match the plugin's Windows case normalization.
-
-- Port the OpenCode adapter to the OpenCode 2 plugin contract: the module now default-exports `{ id: "harness.enforcement", setup(ctx) }` that registers `ctx.tool.hook("execute.before|after")` and `ctx.event.subscribe()` over the OpenCode 2 domains, while keeping the named V1 `HarnessEnforcement` factory for OpenCode 1.x hosts. OpenCode 2 fails to load named-export-only plugins with `Plugin must export a default definition with an id and an effect or setup function`; the V2 load was verified live on OpenCode 2.1.3 after a global-install reload.
-
 - Reject root-level `__proto__` files in S2a snapshot capture and validation instead of silently dropping their document obligations (#353).
 
 - Bind the S2a captured origin identity to the snapshot identity (workspace, session, workflow, revision, task), the captured plan and the selected active host, so a jointly substituted origin context and provider context cannot earn credit in either reconciliation mode; bind the captured config bytes to the captured inventory (#353).
@@ -333,8 +314,19 @@ All notable changes to this project are documented in this file.
 
 - Reject S2a document evidence when the captured origin commit disagrees with the hashed baseline, including joint provider/context commit replacement; also reject inconsistent roots within the snapshot (#353).
 
-- Ship the unwired S2a document evidence producer and reconciliation core (snapshot capture, captured config, accepted-origin adapter, expected-set reconciliation); S1 stays no-credit until S2b host integration.
+## [0.38.0](https://github.com/dyphn1/Harness-everything/compare/v0.37.0...v0.38.0) (2026-10-21)
+
+### Features
+
+* **doc-lifecycle:** add default-off s1 document reconciliation gate ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([8903435](https://github.com/dyphn1/Harness-everything/commit/8903435efa04e0e142a70d26caa9c0c4b78a7834)), closes [#341](https://github.com/dyphn1/Harness-everything/issues/341)
+
 - Ship default-OFF Phase 3b S1 scope assessment and no-credit runtime gate (opt in with `HARNESS_DOC_RECONCILIATION_PILOT=1`); S2 pending (S3 shipped in 0.37.0), E1 not started.
+
+### Bug Fixes
+
+* **doc-lifecycle:** keep the stop decision when the session store is unwritable ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([8c8d6fa](https://github.com/dyphn1/Harness-everything/commit/8c8d6faa7a3fc9b239dbe520981b69f99d0b6c90))
+* **doc-lifecycle:** scope stop persistence recovery to an actual withheld pilot run ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([0f766ef](https://github.com/dyphn1/Harness-everything/commit/0f766efe67a76606144ae97ad703e0789ab4bce8))
+* **doc-lifecycle:** withhold on config scope change and failed withholding writes ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([dc04db8](https://github.com/dyphn1/Harness-everything/commit/dc04db8d573339604f32a28ec1a8a65fcffe10a1))
 
 ## [0.37.0](https://github.com/dyphn1/Harness-everything/compare/v0.36.4...v0.37.0) (2026-10-21)
 
@@ -342,7 +334,21 @@ All notable changes to this project are documented in this file.
 
 * **doc-lifecycle:** add pure advisory doc provider suggestions ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([cffe1d2](https://github.com/dyphn1/Harness-everything/commit/cffe1d277375adc318f3d0d52267e94d3f3253f0))
 
+- Ship the S3 pure advisory provider suggestion function (`suggestDocProviders`) with strict validation and active-step filtering; it is not wired into workflow integration yet.
+
 ## [0.36.4](https://github.com/dyphn1/Harness-everything/compare/v0.36.3...v0.36.4) (2026-10-21)
+
+### Documentation
+
+* **doc-evidence:** define role-scoped read consistency, compatibility traces, and Phase 0 conformance limits
+
+* **doc-evidence:** document the Phase 0C read-boundary enforcement method (isolation checks plus an AST structural supplement), its scope and its named compatibility exceptions
+
+* **doc-workflow:** document #325 Phase 3b preparation contracts and fingerprint-qualified expected-RED fixtures; runtime remains gated on #341 E0
+
+### Bug Fixes
+
+* **doc-evidence:** isolate selected boundary controls from unrelated sensitivity subprocesses, use disposable checker/input snapshots to avoid pipe handoff stalls, and retain control failure assertions and exception details
 
 ## [0.36.3](https://github.com/dyphn1/Harness-everything/compare/v0.36.2...v0.36.3) (2026-10-20)
 
@@ -358,6 +364,12 @@ All notable changes to this project are documented in this file.
 * **doc-lifecycle:** honor poisoned shared destinations inside metadata ([2c69247](https://github.com/dyphn1/Harness-everything/commit/2c69247c3a2e108df945fc91c68fb060ac04e058)), closes [#340](https://github.com/dyphn1/Harness-everything/issues/340)
 * **doc-lifecycle:** keep rejected destination snapshots single-read ([f49b253](https://github.com/dyphn1/Harness-everything/commit/f49b25318f4022d241d91051e1daa51ef61cdff2)), closes [#340](https://github.com/dyphn1/Harness-everything/issues/340)
 * **doc-lifecycle:** single-read the whole-baseline and destination digests ([063a00b](https://github.com/dyphn1/Harness-everything/commit/063a00b4f97c147299a63d7b9b82fc2cbae87bc0)), closes [#340](https://github.com/dyphn1/Harness-everything/issues/340)
+
+* **doc-evidence:** keep rejected rename destination snapshots single-read, so a throwing or unusable destination digest getter is never re-read and its later values never reach the capture or audit identity, including shared destinations where a poisoned destination is honored inside metadata validation and wins in the audit
+
+* **doc-evidence:** restrict the validated source-absence audit shortcut to applicable obligations and require every accepted entry sharing a rename destination to agree on the validated own digest, so inapplicable audit identity keeps the legacy read and contradictory shared-destination snapshots fail closed
+
+* **doc-evidence:** read the whole-baseline `baseline.digest` and the rename destination's own digest exactly once and validate that captured scalar, so a stateful getter cannot pass validation as one value while evidence binds its later value; identity and destination inspection failures fail closed as structured metadata errors instead of escaping the checker
 
 ## [0.36.1](https://github.com/dyphn1/Harness-everything/compare/v0.36.0...v0.36.1) (2026-10-20)
 
@@ -376,6 +388,22 @@ All notable changes to this project are documented in this file.
 * **doc-lifecycle:** reject non-plain candidate inventories for baseline evidence ([e3cd088](https://github.com/dyphn1/Harness-everything/commit/e3cd0880a90130c612e1b63ceb79ac0f7a5517ba)), closes [#335](https://github.com/dyphn1/Harness-everything/issues/335)
 * **doc-lifecycle:** reject unknown candidate inventories for baseline evidence ([2d8a501](https://github.com/dyphn1/Harness-everything/commit/2d8a501b0d3a8935e346bc88ea45535f040451c7)), closes [#335](https://github.com/dyphn1/Harness-everything/issues/335)
 * **doc-lifecycle:** require own-key baseline evidence and scoped rename targets ([a464414](https://github.com/dyphn1/Harness-everything/commit/a464414a6f7cd15276c37130fca6f9499364ff97))
+
+* **doc-evidence:** bind deleted and renamed baseline paths to trusted per-path digest evidence while keeping candidate paths exact
+
+* **doc-evidence:** reject absent, malformed, or non-plain-object top-level candidate inventories for baseline-only obligations while keeping explicit empty and null-prototype inventories valid
+
+* **doc-evidence:** defer the candidate-inventory prototype check to applicable baseline-only obligations and treat a throwing prototype trap as unknown inventory, so unrelated obligations are never aborted
+
+* **doc-evidence:** bind baseline-annotated mixed scopes and rename destinations to the captured candidate snapshot for evidence binding, the audit identity, and stale diagnostics, so a later-throwing or later-changing digest accessor cannot disagree with the digest that bound evidence
+
+* **doc-evidence:** carry the metadata-validated rename destination digest and baseline-path source-absence proof through capture and binding, so a candidate inventory that answers consistently during validation is never re-inspected and cannot abort the check or drift the audit key
+
+* **doc-evidence:** gate the rename destination snapshot on applicability and guard baselinePaths entry inspection, so inapplicable audit identity reports the first legacy digest value and a throwing entry getter or descriptor trap fails the entry closed instead of escaping the checker
+
+* **doc-evidence:** capture the validated per-path baseline digest during metadata and drive the audit mirror, stale-baseline diagnostics, and binding from that snapshot, so a stateful baseline getter cannot bind a record against a value it started returning only after validation and a throwing inspection is a metadata error instead of an escape
+
+* **doc-evidence:** key the baseline audit mirror by the metadata-validated path snapshot instead of re-reading `baselinePaths[].path`, so a stateful path accessor read during validation can never make a passing result describe a different baseline identity
 
 ## [0.36.0](https://github.com/dyphn1/Harness-everything/compare/v0.35.0...v0.36.0) (2026-10-18)
 
@@ -409,36 +437,15 @@ All notable changes to this project are documented in this file.
 * **doc-lifecycle:** preserve requirement resolution and trigger scope ([352ceb3](https://github.com/dyphn1/Harness-everything/commit/352ceb31a28cda92f88a0d7ab64381aa907c2ee3))
 * **doc-lifecycle:** retain changed citations and decision obligations ([c68cf40](https://github.com/dyphn1/Harness-everything/commit/c68cf40a4b188169a98cbb66d511a2c5561cdde4))
 
-## [Unreleased]
-
-- Ship the S3 pure advisory provider suggestion function (`suggestDocProviders`) with strict validation and active-step filtering; it is not wired into workflow integration yet.
-
-### Documentation
-
-* **doc-evidence:** define role-scoped read consistency, compatibility traces, and Phase 0 conformance limits
-* **doc-evidence:** document the Phase 0C read-boundary enforcement method (isolation checks plus an AST structural supplement), its scope and its named compatibility exceptions
-* **doc-workflow:** document #325 Phase 3b preparation contracts and fingerprint-qualified expected-RED fixtures; runtime remains gated on #341 E0
-
-### Bug Fixes
-
-* **doc-evidence:** isolate selected boundary controls from unrelated sensitivity subprocesses, use disposable checker/input snapshots to avoid pipe handoff stalls, and retain control failure assertions and exception details
-
 * **doc-obligations:** keep changed REQ citations in unknown sync scope and recognize indented Decision headings
+
 * **doc-obligations:** keep title-only REQ test edits out of new-test and assertion scope
+
 * **doc-obligations:** reject PRD revision identities not chained to the base declaration
+
 * **doc-obligations:** keep unrelated REQ-citing tests out of requirement-sync scope
+
 * **doc-evidence:** keep unresolved requirement identities out of observed requirement-sync failures
-* **doc-evidence:** bind deleted and renamed baseline paths to trusted per-path digest evidence while keeping candidate paths exact
-* **doc-evidence:** reject absent, malformed, or non-plain-object top-level candidate inventories for baseline-only obligations while keeping explicit empty and null-prototype inventories valid
-* **doc-evidence:** defer the candidate-inventory prototype check to applicable baseline-only obligations and treat a throwing prototype trap as unknown inventory, so unrelated obligations are never aborted
-* **doc-evidence:** bind baseline-annotated mixed scopes and rename destinations to the captured candidate snapshot for evidence binding, the audit identity, and stale diagnostics, so a later-throwing or later-changing digest accessor cannot disagree with the digest that bound evidence
-* **doc-evidence:** carry the metadata-validated rename destination digest and baseline-path source-absence proof through capture and binding, so a candidate inventory that answers consistently during validation is never re-inspected and cannot abort the check or drift the audit key
-* **doc-evidence:** keep rejected rename destination snapshots single-read, so a throwing or unusable destination digest getter is never re-read and its later values never reach the capture or audit identity, including shared destinations where a poisoned destination is honored inside metadata validation and wins in the audit
-* **doc-evidence:** restrict the validated source-absence audit shortcut to applicable obligations and require every accepted entry sharing a rename destination to agree on the validated own digest, so inapplicable audit identity keeps the legacy read and contradictory shared-destination snapshots fail closed
-* **doc-evidence:** gate the rename destination snapshot on applicability and guard baselinePaths entry inspection, so inapplicable audit identity reports the first legacy digest value and a throwing entry getter or descriptor trap fails the entry closed instead of escaping the checker
-* **doc-evidence:** capture the validated per-path baseline digest during metadata and drive the audit mirror, stale-baseline diagnostics, and binding from that snapshot, so a stateful baseline getter cannot bind a record against a value it started returning only after validation and a throwing inspection is a metadata error instead of an escape
-* **doc-evidence:** key the baseline audit mirror by the metadata-validated path snapshot instead of re-reading `baselinePaths[].path`, so a stateful path accessor read during validation can never make a passing result describe a different baseline identity
-* **doc-evidence:** read the whole-baseline `baseline.digest` and the rename destination's own digest exactly once and validate that captured scalar, so a stateful getter cannot pass validation as one value while evidence binds its later value; identity and destination inspection failures fail closed as structured metadata errors instead of escaping the checker
 
 ## [0.34.0](https://github.com/dyphn1/Harness-everything/compare/v0.33.0...v0.34.0) (2026-10-17)
 
@@ -494,11 +501,31 @@ All notable changes to this project are documented in this file.
 * **codex:** scope source guards and isolate test runner homes ([c9cf30b](https://github.com/dyphn1/Harness-everything/commit/c9cf30b6bb1a336f4eff03037de0e08ab7bf49e7))
 * **codex:** serialize compat installs on an owner lock ([b67e1c0](https://github.com/dyphn1/Harness-everything/commit/b67e1c0b95f16d0eae37485ab23ae4dfb1dc954a)), closes [#323](https://github.com/dyphn1/Harness-everything/issues/323) [#323](https://github.com/dyphn1/Harness-everything/issues/323)
 
+- Codex source guards ignore unrelated repository dirtiness and untracked packaged copies; test runners isolate child HOME and CODEX_HOME directories (#323).
+
+- Codex compatibility runtimes copy only Git-tracked plugin files, so ignored files cannot enter the runtime and do not block installs; `codex-hooks status` reports a missing or modified previous runtime as unhealthy, and the mechanism test fixture uses a portable Git config on Windows (#323).
+
+- Codex compatibility install/update/uninstall serialize on an owner lock so concurrent installs cannot garbage-collect each other's current runtime; stale-lock recovery is guarded and token-checked so it cannot remove a live holder's lock (#323).
+
+- Codex compatibility updates retain the current and previous runtime, reject unreleased checkout sources without explicit opt-in, and isolate plugin-sync tests from the real user hook installation (#323).
+
+### Documentation
+
+* **workflow:** document blocked Fable recovery by revising the stage map while retaining approved requirements (#316).
+
+* **fable:** align execution phases with correlated workflow stages and scope the legacy/manual path (#317).
+
 ## [0.31.2](https://github.com/dyphn1/Harness-everything/compare/v0.31.1...v0.31.2) (2026-10-15)
 
 ### Bug Fixes
 
 * **cli:** support successful workflow disposition help ([2bf55f9](https://github.com/dyphn1/Harness-everything/commit/2bf55f92d9a6ffab5e41152dfb38a5ef01659f05)), closes [#310](https://github.com/dyphn1/Harness-everything/issues/310) [#310](https://github.com/dyphn1/Harness-everything/issues/310)
+
+* **workflow:** make `workflow-disposition --help` and `-h` print usage successfully (#310).
+
+### Security
+
+* **deps:** update the locked `fast-uri` transitive dependency to patched version 3.1.8 (#309).
 
 ## [0.31.1](https://github.com/dyphn1/Harness-everything/compare/v0.31.0...v0.31.1) (2026-10-13)
 
@@ -507,11 +534,15 @@ All notable changes to this project are documented in this file.
 * **verify:** pin wrapped checks to stable cd targets and declared cwd ([527b746](https://github.com/dyphn1/Harness-everything/commit/527b746d09db0db1a0b9310f1831bcaf312b1bf0)), closes [#307](https://github.com/dyphn1/Harness-everything/issues/307) [#306](https://github.com/dyphn1/Harness-everything/issues/306)
 * **verify:** recognize safe host cwd wrappers as verification evidence ([de7953f](https://github.com/dyphn1/Harness-everything/commit/de7953f9562bf4d31984cecf053725e1b4219eb2)), closes [#306](https://github.com/dyphn1/Harness-everything/issues/306)
 
+* **verify:** recognize a validated in-root host `cd <workspace> && <check>` prelude (Claude Code Windows Bash) as verification evidence for exactly one plain check; chaining, redirection, substitution, and out-of-root targets still never count, and verification evidence now requires a confirmed `PostToolUse` or zero exit (#306). Only CDPATH-stable `cd` targets (absolute or explicit `./`/`../`) are accepted, and a declared `.harness/verify.json` check counts only when run in its declared `cwd` (#307 review).
+
 ## [0.31.0](https://github.com/dyphn1/Harness-everything/compare/v0.30.10...v0.31.0) (2026-10-13)
 
 ### Features
 
 * **workflow:** bind knowledge to active steps ([cc673fc](https://github.com/dyphn1/Harness-everything/commit/cc673fc3d580e4e4d6d9017b59846ea85da3c489)), closes [#297](https://github.com/dyphn1/Harness-everything/issues/297)
+
+* **workflow:** replace topology-wide skill/reference pushes with ordered active-step bindings; carry the same contract through dependency-ready Fable stages while keeping hooks and Stop fail-open (#297).
 
 ### Bug Fixes
 
@@ -519,34 +550,15 @@ All notable changes to this project are documented in this file.
 * **workflow:** resolve binding availability against real files ([d65f34d](https://github.com/dyphn1/Harness-everything/commit/d65f34d597f60c9bf01f5feabb9b1b26c754e221)), closes [#303](https://github.com/dyphn1/Harness-everything/issues/303)
 * **workflow:** scope workspace bindings and keep signals on recompose ([8ad41ac](https://github.com/dyphn1/Harness-everything/commit/8ad41ac28aec84ab1373e305aeb35c3bf5423291)), closes [#303](https://github.com/dyphn1/Harness-everything/issues/303)
 
-## [Unreleased]
+* **router:** emit normalized knowledge signals as requirement-composition inputs and preserve bounded Fable lookup behavior across #294–#296.
 
-### Fixed
+* **workflow:** resolve step/stage binding availability against real files (workspace references stay workspace-scoped; only recognized Harness bindings search installed plugin layouts); preserve knowledge signals across strategy recomposition; keep self-evolved manifest skills discoverable as metadata-only ids; positive skill evals assert skill-specific candidate bindings (#303 review).
 
-- Codex source guards ignore unrelated repository dirtiness and untracked packaged copies; test runners isolate child HOME and CODEX_HOME directories (#323).
-- Codex compatibility runtimes copy only Git-tracked plugin files, so ignored files cannot enter the runtime and do not block installs; `codex-hooks status` reports a missing or modified previous runtime as unhealthy, and the mechanism test fixture uses a portable Git config on Windows (#323).
-- Codex compatibility install/update/uninstall serialize on an owner lock so concurrent installs cannot garbage-collect each other's current runtime; stale-lock recovery is guarded and token-checked so it cannot remove a live holder's lock (#323).
-- Codex compatibility updates retain the current and previous runtime, reject unreleased checkout sources without explicit opt-in, and isolate plugin-sync tests from the real user hook installation (#323).
+* **workflow:** reject present non-array required/optional binding declarations before accepting a requirement plan, preserving workflow state on invalid input (#303 review).
 
 ### Changes
 
-* **workflow:** replace topology-wide skill/reference pushes with ordered active-step bindings; carry the same contract through dependency-ready Fable stages while keeping hooks and Stop fail-open (#297).
-* **router:** emit normalized knowledge signals as requirement-composition inputs and preserve bounded Fable lookup behavior across #294–#296.
-* **workflow:** resolve step/stage binding availability against real files (workspace references stay workspace-scoped; only recognized Harness bindings search installed plugin layouts); preserve knowledge signals across strategy recomposition; keep self-evolved manifest skills discoverable as metadata-only ids; positive skill evals assert skill-specific candidate bindings (#303 review).
-* **workflow:** reject present non-array required/optional binding declarations before accepting a requirement plan, preserving workflow state on invalid input (#303 review).
 * **test:** isolate verification fixtures from an inherited project-check recursion guard while preserving explicit guard coverage.
-* **workflow:** document blocked Fable recovery by revising the stage map while retaining approved requirements (#316).
-* **fable:** align execution phases with correlated workflow stages and scope the legacy/manual path (#317).
-
-### Security
-
-* **deps:** update the locked `fast-uri` transitive dependency to patched version 3.1.8 (#309).
-
-### Bug Fixes
-
-* **workflow:** make `workflow-disposition --help` and `-h` print usage successfully (#310).
-* **codex:** keep compatibility hooks and session labels in sync
-* **verify:** recognize a validated in-root host `cd <workspace> && <check>` prelude (Claude Code Windows Bash) as verification evidence for exactly one plain check; chaining, redirection, substitution, and out-of-root targets still never count, and verification evidence now requires a confirmed `PostToolUse` or zero exit (#306). Only CDPATH-stable `cd` targets (absolute or explicit `./`/`../`) are accepted, and a declared `.harness/verify.json` check counts only when run in its declared `cwd` (#307 review).
 
 ## [0.30.10](https://github.com/dyphn1/Harness-everything/compare/v0.30.9...v0.30.10) (2026-10-13)
 
@@ -555,6 +567,8 @@ All notable changes to this project are documented in this file.
 * **codex:** address observation review findings ([b869cfb](https://github.com/dyphn1/Harness-everything/commit/b869cfbdb44172ee88ad6ae3f76e29c8da6e9da8))
 * **codex:** sync hooks and recover turn labels ([d29112e](https://github.com/dyphn1/Harness-everything/commit/d29112e15ac255c5ded6fcf2aab3a21c710b3def)), closes [#304](https://github.com/dyphn1/Harness-everything/issues/304)
 * **codex:** validate sources and report import failures ([3f57b8b](https://github.com/dyphn1/Harness-everything/commit/3f57b8b376bfd437c8cff6ddbe4ddbf036380198)), closes [#304](https://github.com/dyphn1/Harness-everything/issues/304)
+
+* **codex:** keep compatibility hooks and session labels in sync
 
 ## [0.30.9](https://github.com/dyphn1/Harness-everything/compare/v0.30.8...v0.30.9) (2026-10-08)
 
@@ -630,12 +644,12 @@ All notable changes to this project are documented in this file.
 * **router:** scope fable lookup negations to their own list ([032b52b](https://github.com/dyphn1/Harness-everything/commit/032b52bba809237c4b891e44fc7ee7b082262ddb)), closes [#290](https://github.com/dyphn1/Harness-everything/issues/290)
 * **router:** select bounded Fable profile lookups before staged topology ([0d6fdac](https://github.com/dyphn1/Harness-everything/commit/0d6fdac675a9225f9425fcb699444992032371a3)), closes [#290](https://github.com/dyphn1/Harness-everything/issues/290)
 
-## [Unreleased]
-
 ### Fixed
 
 - Select a bounded Fable profile lookup before loading staged workflow references; preserve execution topology and required obligations (#290).
+
 - Validate entire Fable lookup clauses so same-clause execution keeps its obligations, while canonical JSON field lists remain bounded lookups (#294).
+
 - Scope lookup negations to their own noun list so an un-negated action after a negation keeps execution routing (#294).
 
 ## [0.30.5](https://github.com/dyphn1/Harness-everything/compare/v0.30.4...v0.30.5) (2026-10-06)
@@ -792,10 +806,6 @@ All notable changes to this project are documented in this file.
 * **verify:** Require runnable commit hooks ([735790e](https://github.com/dyphn1/Harness-everything/commit/735790ea0fc39603f0e68f160f9bd20f49636095))
 * **verify:** route shell evidence through shared classifier ([e205319](https://github.com/dyphn1/Harness-everything/commit/e205319011fb8cfef4e43310e550b2725d41bacb))
 * **verify:** sync fail-closed verification classifier ([cfe1eb2](https://github.com/dyphn1/Harness-everything/commit/cfe1eb221686edac554f545637925e7c37002057))
-
-## [Unreleased]
-
-### Bug Fixes
 
 * **verify:** discover and execute project verification contracts across npm and non-npm repositories, with multi-root structured evidence and aligned hook recognition (#242)
 
@@ -1308,12 +1318,12 @@ All notable changes to this project are documented in this file.
 * **workflow:** Normalize Windows worktree paths ([18ee645](https://github.com/dyphn1/Harness-everything/commit/18ee645a1a7165d01d60a964947082ad0108b93c)), closes [#131](https://github.com/dyphn1/Harness-everything/issues/131)
 * **workflow:** require worktree isolation for major mutations ([9ba0098](https://github.com/dyphn1/Harness-everything/commit/9ba0098adc94fe141fca2c03f07d0883d9a56b9b))
 
-## [Unreleased]
-
 ### Fixed
 
 - Make selected workflows persist across follow-up prompts, bind Fable runs to workflow/session identities, and require correlated stage evidence before completion (#131, #142).
+
 - Enforce major-workflow Git worktree isolation at supported mutation hooks, check direct/patch targets and explicit shell paths, and retain isolation across scoped escape and blocked states.
+
 - Provide bounded run entry/replan and per-stage escape commands; expose unsupported hosts and shell-sandbox limits without upgrading live-host evidence.
 
 ## [0.8.0](https://github.com/dyphn1/Harness-everything/compare/v0.7.0...v0.8.0) (2026-09-17)
@@ -1528,6 +1538,10 @@ All notable changes to this project are documented in this file.
 * **workspace:** keep skill contract compact and references explicit ([cce02bc](https://github.com/dyphn1/Harness-everything/commit/cce02bc4a1273428eae4dad586ab0a42eda2b2a7))
 * **workspace:** preserve state mutation contract wording ([4cc11be](https://github.com/dyphn1/Harness-everything/commit/4cc11be2b8d94c7388320af4421e568ca51857d2))
 
+### Changed
+
+- **Action gate defers to Claude Code permission modes** (#107): on Claude Code, a matched destructive command no longer returns a forced `permissionDecision: "ask"`, which prompted even in auto mode. The gate returns no decision, so the session's permission mode, rules and auto-mode classifier decide. It still records the matched rule and the command SHA-256 (`deferred-to-host`, then `executed` or `rejected`). An internal error on Claude also defers and shows a `systemMessage` warning. `HARNESS_ACTION_GATE_POLICY=always-ask` restores the forced prompt. Hosts without an ask decision keep the exit-2 block.
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -1536,11 +1550,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
-
-## [Unreleased]
-
-### Changed
-- **Action gate defers to Claude Code permission modes** (#107): on Claude Code, a matched destructive command no longer returns a forced `permissionDecision: "ask"`, which prompted even in auto mode. The gate returns no decision, so the session's permission mode, rules and auto-mode classifier decide. It still records the matched rule and the command SHA-256 (`deferred-to-host`, then `executed` or `rejected`). An internal error on Claude also defers and shows a `systemMessage` warning. `HARNESS_ACTION_GATE_POLICY=always-ask` restores the forced prompt. Hosts without an ask decision keep the exit-2 block.
 
 ## [0.3.7-beta] - Unreleased
 
