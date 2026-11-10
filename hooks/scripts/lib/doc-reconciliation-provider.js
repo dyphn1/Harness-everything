@@ -733,6 +733,20 @@ function agentResultSurface(captures, reviewer) {
     && (item.tool_name === 'Agent' || item.tool_name === 'Task') && item.agent_id === reviewer);
 }
 
+function finalReviewResultDecision(captures, reviewer, sessionId) {
+  const journal = Array.isArray(captures) ? captures : [];
+  const results = journal.filter(item => recordOf(item) && item.event === 'PostToolUse'
+    && ['Agent', 'Task'].includes(item.tool_name) && item.session_id === sessionId && item.agent_id === reviewer);
+  if (results.length !== 1) return { accepted: false, reason: 'missing-or-ambiguous' };
+  const result = results[0];
+  if (!textOf(result.session_id) || !textOf(result.tool_use_id)) return { accepted: false, result, reason: 'missing-or-ambiguous' };
+  if (journal.some(item => recordOf(item) && item.event === 'PostToolUseFailure'
+    && item.session_id === result.session_id && item.tool_use_id === result.tool_use_id)) {
+    return { accepted: false, result, reason: 'matching-failure' };
+  }
+  return { accepted: true, result };
+}
+
 // A reviewed path must be a relative governed path; its digest must be a sha256 of the observed bytes.
 function reviewedDigestsValid(digests) {
   return recordOf(digests) && Object.keys(digests).length > 0
@@ -1672,18 +1686,18 @@ function taskScopedFinalReviewBoundary(captures, review, taskId, dispositionPre 
   if (!textOf(reviewer) || review.event !== 'SubagentStop' || review.agent_type !== 'reviewer') {
     return fail('final-review-principal-missing-or-invalid');
   }
-  const results = journal.filter(item => recordOf(item) && item.event === 'PostToolUse'
-    && ['Agent', 'Task'].includes(item.tool_name) && item.session_id === dispatchPre.session_id && item.agent_id === reviewer);
+  const resultDecision = finalReviewResultDecision(journal, reviewer, dispatchPre.session_id);
+  const result = resultDecision.result;
   const starts = journal.filter(item => recordOf(item) && item.event === 'SubagentStart'
     && item.session_id === dispatchPre.session_id && item.agent_id === reviewer);
   const stops = journal.filter(item => recordOf(item) && item.event === 'SubagentStop'
     && item.session_id === dispatchPre.session_id && item.agent_id === reviewer);
-  if (results.length !== 1 || starts.length !== 1 || stops.length !== 1 || stops[0] !== review
-    || starts[0].agent_type !== 'reviewer' || results[0].interrupted !== false
-    || outlineResultStatus(results[0]).value !== 'completed' || !textOf(results[0].tool_use_id)) {
+  if (!resultDecision.accepted || !result || starts.length !== 1 || stops.length !== 1 || stops[0] !== review
+    || starts[0].agent_type !== 'reviewer' || result.interrupted !== false
+    || outlineResultStatus(result).value !== 'completed') {
+    if (resultDecision.reason === 'matching-failure') return fail('final-review-result-failed');
     return fail('final-review-lifecycle-missing-or-ambiguous');
   }
-  const result = results[0];
   const launchPres = journal.filter(item => recordOf(item) && item.event === 'PreToolUse'
     && ['Agent', 'Task'].includes(item.tool_name) && item.tool_use_id === result.tool_use_id);
   if (launchPres.length > 1 || (launchPres.length === 1 && launchPres[0].session_id !== dispatchPre.session_id)) {
@@ -2846,8 +2860,10 @@ const createClaudeOriginProvider = input => {
         return rejected('reviewer-not-independent', 'the reviewer agent_id equals an executor principal; not independent');
       }
       // An approval needs its own correlated Agent/Task result surface, never a bare SubagentStop (F5).
-      if (!agentResultSurface(captures, reviewer)) {
-        return rejected('agent-result-missing', 'no correlated Agent/Task result names this reviewer agent_id; without that surface the review is not approved');
+      const resultDecision = finalReviewResultDecision(captures, reviewer, cap.session_id);
+      if (!resultDecision.accepted) {
+        const code = resultDecision.reason === 'matching-failure' ? 'agent-result-failed' : 'agent-result-missing';
+        return rejected(code, 'a correlated Agent/Task result for this review session must exist without a matching launch failure');
       }
       if (capability === 'quality-review') {
         const taskId = safeInput.taskBinding?.taskId || safeInput.taskId;

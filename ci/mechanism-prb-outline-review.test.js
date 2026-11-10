@@ -231,6 +231,9 @@ function createOutlineFixture(options = {}) {
       });
     } catch { return []; }
   }
+  function capturedRecordsAcrossSessions() {
+    return actualCaptureSessionDirs().flatMap(dir => runtimeProvider.readCaptureView(dir).records);
+  }
   function logReviewHookDiagnostics() {
     console.error('REVIEW-HOOK-CAPTURE-DIAGNOSTICS ' + JSON.stringify({
       expectedSessionDir: sessionDir,
@@ -677,7 +680,7 @@ function createOutlineFixture(options = {}) {
     providerSessionId = sessionId, providerTaskId = taskId, providerBaseline = { root, commit: baselineCommit },
     runPilot = false, handAuthoredCapture = false, removeSeam = false, mutateAfterFinalReview = false,
     workerCompletionOrder = 'result-stop', workerResultAfterFinalReview = false, workerStopAfterFinalReview = false,
-    finalReviewCompletionOrder = 'result-stop', reviewLaunchBeforeWorkerClosure = false,
+    finalReviewCompletionOrder = 'result-stop', finalReviewFailure = null, reviewLaunchBeforeWorkerClosure = false,
     postWorkerCaptures = [], afterWorkerStop = [] } = {}) {
     if (draft) {
       if (options.w6Producer) {
@@ -770,6 +773,14 @@ function createOutlineFixture(options = {}) {
       agent_type: 'reviewer',
       last_assistant_message: `Review verdict: approve\nReviewed artifact: ${target} sha256:${sha(draftBytes)}\nSummary: Final candidate reviewed.`,
     };
+    const finalFailurePayload = finalReviewFailure && {
+      session_id: finalReviewFailure.sessionId || sessionId, cwd: root, hook_event_name: 'PostToolUseFailure', tool_name: 'Task',
+      tool_use_id: finalReviewFailure.toolUseId || 'final-review-dispatch', tool_input: { command: 'Task' },
+      is_interrupt: false, error: 'injected final-review failure', tool_response: { exitCode: 1, interrupted: false, status: 'failed' },
+    };
+    if (finalReviewFailure) assert.ok(['before-success', 'after-success'].includes(finalReviewFailure.order),
+      'final-review failure fixture must declare its order relative to success');
+    const emitFinalReviewFailure = () => { if (finalFailurePayload) runHook(finalFailurePayload); };
     let finalReviewPreCaptured = false;
     if (options.realHook) {
       if (finalReview && reviewLaunchBeforeWorkerClosure) {
@@ -793,6 +804,7 @@ function createOutlineFixture(options = {}) {
       if (options.realHook) {
         if (!finalReviewPreCaptured) runHook(finalReviewPrePayload);
         runReviewCapture(finalReviewStartPayload);
+        if (finalReviewFailure?.order === 'before-success') emitFinalReviewFailure();
         if (finalReviewCompletionOrder === 'stop-result') {
           runHook(finalStopPayload);
           runHook(finalResultPayload);
@@ -800,6 +812,7 @@ function createOutlineFixture(options = {}) {
           runHook(finalResultPayload);
           runHook(finalStopPayload);
         }
+        if (finalReviewFailure?.order === 'after-success') emitFinalReviewFailure();
       } else {
         const finalResult = runtimeProvider.buildCaptureRecord(finalResultPayload, 'PostToolUse', root);
         const finalStop = runtimeProvider.buildCaptureRecord(finalStopPayload, 'SubagentStop', root);
@@ -886,7 +899,7 @@ function createOutlineFixture(options = {}) {
     baselineCommit, baselineTree, outlineCommit, outlineTree, outlineBlob, outlineBytes, configDigest,
     indexAfterCapturedAdd, indexAfterOutlineCommit,
     expectedPin, taskBinding, attemptDir, handoff, payload, capture, reviewCaptures, workerStart,
-    extraCaptures, dispatchAgain, finishDraft, runHook, stateHome, inventoryOperation, workflowOperationWitnesses,
+    extraCaptures, dispatchAgain, finishDraft, runHook, capturedRecordsAcrossSessions, stateHome, inventoryOperation, workflowOperationWitnesses,
     runtimeProvider, runtimePilot, outsideInventoryPath,
     faultMarker: path.join(stateHome, 'prb-partial-dispatch-faults-used'),
     cleanup: () => {
@@ -2173,6 +2186,83 @@ test('outline-backed no-W6 positive final review accepts both callback orders th
         `${runtimeLayout}: the final review reaches the no-W6 pilot seam`);
       assert.strictEqual(completed.pilot?.report?.pilotCredit, false,
         `${runtimeLayout}: unrelated outstanding MUSTs still withhold full pilot credit`);
+    } finally { fixture.cleanup(); }
+  }
+});
+
+test('matching final-review failures veto W6 eligibility and disposition in either callback order', () => {
+  const observations = [];
+  for (const { order, runtimeLayout } of [
+    { order: 'before-success', runtimeLayout: 'source' },
+    { order: 'after-success', runtimeLayout: 'packaged' },
+  ]) {
+    const fixture = createOutlineFixture({ realHook: true, retainedInventory: true, workflowCli: true, w6Producer: true,
+      runtimeLayout, sessionId: `w6-failure-${order}`, preOutlineOperation: 'write', capturedOutlineCommit: true });
+    try {
+      const completed = fixture.finishDraft({ finalReview: true, completeWorkflow: true, runPilot: true,
+        allowDispositionFailure: true, finalReviewFailure: { order }, finalReviewCompletionOrder: 'result-stop' });
+      const finalReviewStop = completed.captures.find(item => item.event === 'SubagentStop' && item.agent_id === 'final-reviewer');
+      const finalReview = completed.origin.resolveEvent({ reference: `${finalReviewStop.ref}#quality-review`, identity: completed.identity });
+      const failure = completed.captures.find(item => item.event === 'PostToolUseFailure'
+        && item.session_id === fixture.sessionId && item.tool_use_id === 'final-review-dispatch');
+      assert.ok(failure, `${runtimeLayout}/${order}: failure was captured through state-persist`);
+      assert.strictEqual(failure.agent_id, undefined, `${runtimeLayout}/${order}: failure-side agent_id is absent`);
+      observations.push({ runtimeLayout, order, finalReviewStatus: finalReview.status,
+        outlineOutcome: completed.pilot?.report?.outlineEvidence?.outcome, pilotCredit: completed.pilot?.report?.pilotCredit });
+    } finally { fixture.cleanup(); }
+  }
+  assert.ok(observations.every(item => item.finalReviewStatus !== 'accepted'
+    && item.outlineOutcome !== 'pass' && item.pilotCredit === false),
+  `matching failure before/after success must veto final-review eligibility, outline outcome and pilot credit: ${JSON.stringify(observations)}`);
+});
+
+test('matching final-review failures veto the no-W6 final review in either callback order', () => {
+  const observations = [];
+  for (const { order, runtimeLayout } of [
+    { order: 'before-success', runtimeLayout: 'packaged' },
+    { order: 'after-success', runtimeLayout: 'source' },
+  ]) {
+    const fixture = createOutlineFixture({ realHook: true, runtimeLayout, sessionId: `no-w6-failure-${order}` });
+    try {
+      const completed = fixture.finishDraft({ finalReview: true, runPilot: true,
+        finalReviewFailure: { order }, finalReviewCompletionOrder: 'stop-result' });
+      const finalReviewStop = completed.captures.find(item => item.event === 'SubagentStop' && item.agent_id === 'final-reviewer');
+      const finalReview = completed.origin.resolveEvent({ reference: `${finalReviewStop.ref}#quality-review`, identity: completed.identity });
+      const failure = completed.captures.find(item => item.event === 'PostToolUseFailure'
+        && item.session_id === fixture.sessionId && item.tool_use_id === 'final-review-dispatch');
+      assert.ok(failure, `${runtimeLayout}/${order}: failure was captured through state-persist`);
+      assert.strictEqual(failure.agent_id, undefined, `${runtimeLayout}/${order}: failure-side agent_id is absent`);
+      observations.push({ runtimeLayout, order, finalReviewStatus: finalReview.status,
+        outlineOutcome: completed.pilot?.report?.outlineEvidence?.outcome, pilotCredit: completed.pilot?.report?.pilotCredit });
+    } finally { fixture.cleanup(); }
+  }
+  assert.ok(observations.every(item => item.finalReviewStatus !== 'accepted'
+    && item.outlineOutcome === 'pass' && item.pilotCredit === false),
+  `matching failure before/after success must veto final review while retaining the separate O outcome: ${JSON.stringify(observations)}`);
+});
+
+test('unmatched final-review failures do not poison a valid W6 launch', () => {
+  for (const scenario of [
+    { name: 'other session', runtimeLayout: 'source', failure: { sessionId: 'unrelated-review-session' } },
+    { name: 'other tool-use ID', runtimeLayout: 'packaged', failure: { toolUseId: 'unrelated-review-tool' } },
+  ]) {
+    const fixture = createOutlineFixture({ realHook: true, retainedInventory: true, workflowCli: true, w6Producer: true,
+      runtimeLayout: scenario.runtimeLayout, sessionId: `w6-unmatched-${scenario.name.replaceAll(' ', '-')}`,
+      preOutlineOperation: 'write', capturedOutlineCommit: true });
+    try {
+      const completed = fixture.finishDraft({ finalReview: true, completeWorkflow: true, runPilot: true,
+        finalReviewFailure: { order: 'after-success', ...scenario.failure } });
+      const finalReviewStop = completed.captures.find(item => item.event === 'SubagentStop' && item.agent_id === 'final-reviewer');
+      const finalReview = completed.origin.resolveEvent({ reference: `${finalReviewStop.ref}#quality-review`, identity: completed.identity });
+      const failure = fixture.capturedRecordsAcrossSessions().find(item => item.event === 'PostToolUseFailure'
+        && item.session_id === (scenario.failure.sessionId || fixture.sessionId)
+        && item.tool_use_id === (scenario.failure.toolUseId || 'final-review-dispatch'));
+      assert.ok(failure, `${scenario.name}: unmatched failure was captured through state-persist`);
+      assert.strictEqual(failure.agent_id, undefined, `${scenario.name}: failure-side agent_id is absent`);
+      assert.strictEqual(finalReview.status, 'accepted', `${scenario.name}: valid final review remains eligible`);
+      assert.strictEqual(completed.result.status, 'accepted', `${scenario.name}: outline result remains accepted`);
+      assert.strictEqual(completed.pilot?.report?.outlineEvidence?.outcome, 'pass', `${scenario.name}: outline outcome remains pass`);
+      assert.strictEqual(completed.pilot?.report?.pilotCredit, true, `${scenario.name}: valid launch retains pilot credit`);
     } finally { fixture.cleanup(); }
   }
 });
