@@ -668,10 +668,14 @@ function updateStep(context, stepId, disposition, options = {}) {
       throw new Error('resolve active-step bindings before passing the step: ' + ids.join(', '));
     }
   }
-  if (disposition === 'pass' && step.stepType === 'verification'
-      && require('./doc-reconciliation-pilot').assess(context, loaded.set).withhold) {
-    withholdPilotVerification(context, loaded.set);
-    throw new Error('document verification pending: S1 grants no document credit');
+  if (disposition === 'pass' && step.stepType === 'verification') {
+    const inFlightW6ToolUseId = require('./doc-reconciliation-provider').pendingW6VerificationInvocation(context);
+    const assessment = require('./doc-reconciliation-pilot').assess(context, loaded.set,
+      inFlightW6ToolUseId ? { allowInFlightW6ToolUseId: inFlightW6ToolUseId } : {});
+    if (assessment.withhold) {
+      withholdPilotVerification(context, loaded.set);
+      throw new Error('document verification pending: S1 grants no document credit');
+    }
   }
   // Review-mode refusal (pilot ON only): a self-authored or non-independent review PASS stays pending.
   if (disposition === 'pass' && step.stepType === 'review') {

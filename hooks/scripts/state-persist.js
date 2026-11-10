@@ -86,6 +86,8 @@ function processState(payload) {
     const isSuccessEvent = hookEvent === 'PostToolUse';
     const isFailed = hookEvent === 'PostToolUseFailure' || (exitCode !== undefined && exitCode !== 0) || (!isSuccessEvent && exitCode === undefined && stderrSignal);
     const toolName = payload.tool_name || payload.tool || 'command';
+    let editAfterCapture = false;
+    let stateOnlyCandidate = false;
     if (isFailed) {
       let output = (stderrSignal ? stderr : stdout) || payload.output || '';
       if (output.length > 500) output = '...' + output.slice(-500);
@@ -99,20 +101,26 @@ function processState(payload) {
     const command = (payload.tool_input && payload.tool_input.command) || '';
     if (isShell) {
       const commandClass = classifyShell(command);
-      const metadataStep = !isFailed && (isSuccessEvent || exitCode === 0)
+      const pilotEnabled = process.env.HARNESS_DOC_RECONCILIATION_PILOT === '1';
+      const docCheck = pilotEnabled ? require('./lib/doc-reconciliation-provider') : null;
+      stateOnlyCandidate = Boolean(docCheck && typeof payload.cwd === 'string' && payload.cwd
+        && docCheck.isW6StateCommand(command, payload.cwd, root,
+        { toolName, sessionId, agentId: payload.agent_id }));
+      const metadataStep = !stateOnlyCandidate && !isFailed && (isSuccessEvent || exitCode === 0)
         && isSuccessfulMetadataStep(command, cwdOf(payload, root));
-      if (!metadataStep && commandClass !== 'read-only' && commandClass !== 'worktree-setup') state.lastEditAt = Date.now();
+      if (!metadataStep && commandClass !== 'read-only' && commandClass !== 'worktree-setup') {
+        if (stateOnlyCandidate) editAfterCapture = true;
+        else state.lastEditAt = Date.now();
+      }
       // Verification evidence needs a confirmed success: a PostToolUse event or an explicit zero exit.
       // Pilot ON only: a registered, argv-validated doc-check that resolves to this install's own runtime is the document
       // verification evidence, and only at the shipped pin (R3-02). Any other path earns no verification evidence. OFF stays legacy.
-      const pilotEnabled = process.env.HARNESS_DOC_RECONCILIATION_PILOT === '1';
-      const docCheck = pilotEnabled ? require('./lib/doc-reconciliation-provider') : null;
       const installedCheck = docCheck && docCheck.registeredInstalledCheck(command, cwdOf(payload, root));
       const docCheckCandidate = installedCheck && installedCheck.kind !== 'not-candidate';
       const pinCheckable = installedCheck && installedCheck.installed
         && (installedCheck.kind === 'accepted' || installedCheck.reason === 'implementation-pin-mismatch');
       // A non-candidate that is compound or names the checker is not generic verification (trustRisk); the scanner miss does not clear it.
-      const verifies = docCheckCandidate
+      const verifies = stateOnlyCandidate ? false : docCheckCandidate
         ? Boolean(pinCheckable) && docCheck.fileDigest(installedCheck.installed) === docCheck.SHIPPED_DOC_CHECK_DIGEST
         : !(pilotEnabled && docCheck.trustRisk(command)) && isVerificationShell(command, { cwd: cwdOf(payload, root), root });
       if (!isFailed && (isSuccessEvent || exitCode === 0) && verifies) {
@@ -130,6 +138,17 @@ function processState(payload) {
     fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
     observeTool(payload);
     persistPilotCapture(payload, captureEventName, sessionId, root);
+    if (editAfterCapture) {
+      const pilotEnabled = process.env.HARNESS_DOC_RECONCILIATION_PILOT === '1';
+      const docCheck = pilotEnabled ? require('./lib/doc-reconciliation-provider') : null;
+      const captures = docCheck && docCheck.readCaptureView(getSessionDir(root, sessionId));
+      const verifiedStateOnly = stateOnlyCandidate && docCheck && captures && !captures.tampered
+        && docCheck.isVerifiedW6StateOperation(captures.records, getSessionDir(root, sessionId), payload.tool_use_id);
+      if (!verifiedStateOnly) {
+        state.lastEditAt = Date.now();
+        fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
+      }
+    }
   } catch (_) {}
   process.exit(0);
 }
@@ -142,9 +161,9 @@ function persistPilotCapture(payload, eventName, sessionId, root) {
     if (!payload || process.env.HARNESS_DOC_RECONCILIATION_PILOT !== '1') return;
     if (PILOT_CAPTURE_EVENT_NAMES.indexOf(eventName) === -1) return;
     const provider = require('./lib/doc-reconciliation-provider');
-    const entry = provider.buildCaptureRecord(payload, eventName, root);
-    if (!entry) return;
     const sessionDir = getSessionDir(root, sessionId);
+    const entry = provider.buildCaptureRecord(payload, eventName, root, { sessionDir });
+    if (!entry) return;
     // Observation-time identity: the workflow and pin in force when the host event was captured.
     const observed = provider.observedIdentityFor(sessionDir);
     if (observed) entry.observedIdentity = observed;

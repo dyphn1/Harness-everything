@@ -39,6 +39,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Features
+
+* **doc-reconciliation:** credit only correlated, bounded workflow-state operations for the approved row-17 outline cycle
+
 ### Bug Fixes
 
 * **doc-reconciliation:** keep outline approvals durable and detect dependency-root selector overlaps conservatively, including unsupported glob syntax and parent traversal

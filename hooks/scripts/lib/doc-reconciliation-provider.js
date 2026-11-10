@@ -68,6 +68,7 @@ const OUTLINE_CAPTURE_MAPPING = Object.freeze({
 const OUTLINE_SEAM_SCHEMA = 'harness.outline-dispatch-seam.v1';
 const OUTLINE_HANDOFF_SCHEMA = 'harness.outline-handoff.v1';
 const OUTLINE_LEASE_SCHEMA = 'harness.outline-writer-lease.v1';
+const W6_STATE_OPERATION_SCHEMA = 'harness.w6-state-operation.v1';
 const OUTLINE_WRITE_TOOLS = ['Write', 'Edit', 'apply_patch'];
 const OUTLINE_INVENTORY_SOURCE = '/Users/daniel.chang/Desktop/Skills/Harness-everything/.worktrees/packets/adr-e1-2026-10-27/report-inv.md';
 const OUTLINE_INVENTORY_SHA256 = '2741bd4514d2cd68f57d93a2b3ce94cbe597ca62d30e26f0ca58e882df5b03c6';
@@ -81,6 +82,14 @@ const OUTLINE_INVENTORY_PIN = Object.freeze({
     sourceDomain: 'VERI', domain: 'EVID', approvalRef: 'https://github.com/dyphn1/Harness-everything/issues/325#issuecomment-6706805112' })]),
   retainedArtifactPath: `inventory/${OUTLINE_INVENTORY_SHA256}.md`,
 });
+const W6_ROW17_REQUIREMENTS = Object.freeze([
+  Object.freeze({ id: 'adr-evid', stepType: 'doc-change',
+    summary: 'Draft the row-17 EVID-001 verification-evidence ADR.',
+    acceptance: 'A real proposed O is independently reviewed before the draft D; D is a strict descendant of O and changes only the ADR.' }),
+  Object.freeze({ id: 'verify-row17', stepType: 'verification',
+    summary: 'Generate the governed index and verify the final ADR through one combined registered check and independent review.',
+    acceptance: 'All four combined-check capabilities and the ADR-only final review are captured before normal Stop reconciliation.' }),
+]);
 const OUTLINE_MARKER = 'HARNESS_OUTLINE_DISPATCH_V1';
 const OUTLINE_TASK_ID = /^task-[A-Za-z0-9][A-Za-z0-9+._-]{0,127}$/;
 const OUTLINE_ATTEMPT_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
@@ -187,6 +196,169 @@ function safeTokenize(command) {
   if (quote) return { ok: false, reason: 'unclosed-quote' };
   push();
   return { ok: true, tokens };
+}
+
+function stateSnapshot(sessionDir) {
+  const files = {};
+  const ignored = new Set(['doc-reconciliation-capture', 'doc-reconciliation-capture.json', 'handoff-state.json']);
+  function visit(directory, relative = '') {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true }).sort((a, b) => compareKeys(a.name, b.name))) {
+      const rel = relative ? `${relative}/${entry.name}` : entry.name;
+      if (!relative && ignored.has(entry.name)) continue;
+      const full = path.join(directory, entry.name);
+      const stat = fs.lstatSync(full);
+      if (stat.isSymbolicLink()) files[rel] = { kind: 'symlink', digest: digestText(fs.readlinkSync(full)) };
+      else if (stat.isDirectory()) { files[rel] = { kind: 'directory' }; visit(full, rel); }
+      else if (stat.isFile()) {
+        const bytes = fs.readFileSync(full);
+        const item = { kind: 'file', digest: crypto.createHash('sha256').update(bytes).digest('hex') };
+        if (['workflow-run.json', 'workflow-obligations.json', 'doc-reconciliation-pilot.json',
+          'inventory-pin.json', 'handoff.json', 'writer-lease.json'].includes(path.posix.basename(rel))
+          && bytes.length <= 1024 * 1024) {
+          try { item.json = JSON.parse(bytes.toString('utf8')); } catch { item.jsonInvalid = true; }
+        }
+        if (rel.startsWith('doc-reconciliation/outline-confirmation/inventory/') && rel.endsWith('.md')) {
+          item.content = bytes.toString('base64');
+        }
+        files[rel] = item;
+      } else files[rel] = { kind: 'other' };
+    }
+  }
+  try { visit(sessionDir); } catch { return null; }
+  return files;
+}
+
+function stateGitSnapshot(root) {
+  try {
+    const run = args => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    const head = run(['rev-parse', '--verify', 'HEAD^{commit}']).trim();
+    const tree = run(['rev-parse', '--verify', 'HEAD^{tree}']).trim();
+    const status = execFileSync('git', ['-C', root, 'status', '--porcelain=v1', '-z', '--untracked-files=all'], {
+      encoding: null, stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const indexPath = run(['rev-parse', '--git-path', 'index']).trim();
+    const resolvedIndex = path.resolve(root, indexPath);
+    const indexDigest = fs.existsSync(resolvedIndex) ? crypto.createHash('sha256').update(fs.readFileSync(resolvedIndex)).digest('hex') : null;
+    return { head, tree, statusDigest: crypto.createHash('sha256').update(status).digest('hex'), indexDigest };
+  } catch { return null; }
+}
+
+function w6AttemptId(reviewRef) { return 'attempt-' + digestText(reviewRef).slice(0, 16); }
+
+function outlineReviewCandidates(captures, inventoryPath) {
+  return (Array.isArray(captures) ? captures : []).filter(item => recordOf(item) && item.event === 'SubagentStop'
+    && item.agent_type === 'reviewer' && item.reviewVerdict === 'approve' && textOf(item.ref)
+    && Object.prototype.hasOwnProperty.call(item.reviewedArtifactDigests || {}, inventoryPath)
+    && Object.keys(item.reviewedArtifactDigests || {}).filter(relative => relative !== inventoryPath).length === 1);
+}
+
+function parseW6StateCommand(item, root, captures = []) {
+  const { getSessionDir } = require('./harness-state');
+  if (!recordOf(item) || !['Bash', 'PowerShell'].includes(item.tool_name) || !textOf(item.session_id)
+    || textOf(item.agent_id) || !textOf(item.cwd)) return null;
+  let cwd;
+  try { cwd = canonicalPath(item.cwd); } catch { return null; }
+  if (cwd !== canonicalPath(root)) return null;
+  const parsed = safeTokenize(item.command);
+  if (!parsed.ok || parsed.tokens.length < 3 || parsed.tokens[0] !== 'node') return null;
+  let script;
+  try { script = canonicalPath(path.resolve(cwd, parsed.tokens[1])); } catch { return null; }
+  const controller = canonicalPath(path.resolve(__dirname, '..', 'workflow-disposition.js'));
+  const producer = canonicalPath(path.resolve(__dirname, '..', 'w6-state-operations.js'));
+  const tokens = parsed.tokens;
+  let operation;
+  let arguments_ = {};
+  let destinations = [];
+  if (script === controller && tokens[2] === 'plan' && tokens.length === 11
+      && tokens[3] === '--session-id' && tokens[5] === '--strategy' && tokens[6] === 'iterative-single'
+      && tokens[7] === '--requirements-json' && tokens[9] === '--evidence' && textOf(tokens[10])) {
+    let requirements;
+    try { requirements = JSON.parse(tokens[8]); } catch { return null; }
+    if (captureJson(requirements) !== captureJson(W6_ROW17_REQUIREMENTS)) return null;
+    operation = 'plan'; arguments_ = { sessionId: tokens[4], evidence: tokens[10] };
+    destinations = ['workflow-run.json', 'workflow-obligations.json'];
+  } else if (script === controller && tokens[2] === 'start' && tokens.length === 5
+      && tokens[3] === '--session-id') {
+    operation = 'start'; arguments_ = { sessionId: tokens[4] };
+    destinations = ['workflow-run.json', 'workflow-obligations.json'];
+  } else if (script === controller && tokens[2] === 'binding' && tokens.length === 13
+      && tokens[3] === '--session-id' && tokens[5] === '--step-id' && tokens[6] === 'verify-row17'
+      && tokens[7] === '--binding-id' && tokens[8] === 'verification-loop'
+      && tokens[9] === '--disposition' && tokens[10] === 'loaded'
+      && tokens[11] === '--evidence' && textOf(tokens[12])) {
+    operation = 'binding-verify'; arguments_ = { sessionId: tokens[4], evidence: tokens[12] };
+    destinations = ['workflow-obligations.json'];
+  } else if (script === controller && tokens[2] === 'step' && tokens.length === 11
+      && tokens[3] === '--session-id' && tokens[5] === '--step-id'
+      && ['adr-evid', 'verify-row17'].includes(tokens[6])
+      && tokens[7] === '--disposition' && tokens[8] === 'pass'
+      && tokens[9] === '--evidence' && textOf(tokens[10])) {
+    operation = tokens[6] === 'adr-evid' ? 'step-adr' : 'step-verify';
+    arguments_ = { sessionId: tokens[4], stepId: tokens[6], evidence: tokens[10] };
+    destinations = ['workflow-obligations.json', ...(operation === 'step-verify' ? ['doc-reconciliation-pilot.json'] : [])];
+  } else if (script === producer && ['inventory', 'seal'].includes(tokens[2]) && tokens.length === 5
+      && tokens[3] === '--session-id') {
+    operation = tokens[2]; arguments_ = { sessionId: tokens[4] };
+    if (operation === 'inventory') {
+      destinations = [
+        `doc-reconciliation/outline-confirmation/inventory/${path.posix.basename(OUTLINE_INVENTORY_PIN.retainedArtifactPath)}`,
+        'doc-reconciliation/outline-confirmation/inventory/inventory-pin.json',
+      ];
+    } else {
+      const inventoryPath = `doc-reconciliation/outline-confirmation/inventory/${path.posix.basename(OUTLINE_INVENTORY_PIN.retainedArtifactPath)}`;
+      const reviews = outlineReviewCandidates(captures, inventoryPath);
+      if (reviews.length === 1) {
+        const taskId = (() => {
+          try { return JSON.parse(fs.readFileSync(path.join(getSessionDir(cwd, item.session_id), 'workflow-run.json'), 'utf8')).docReconciliationTask?.taskId; }
+          catch { return null; }
+        })();
+        if (taskId) {
+          const attemptId = w6AttemptId(reviews[0].ref);
+          const attemptRoot = `doc-reconciliation/outline-confirmation/${taskId}/attempts/${attemptId}`;
+          destinations = [`${attemptRoot}/writer-lease.json`, `${attemptRoot}/handoff.json`];
+        }
+      }
+    }
+  } else return null;
+  if (arguments_.sessionId !== item.session_id) return null;
+  const sessionDir = getSessionDir(cwd, item.session_id);
+  let workflow = null;
+  try { workflow = JSON.parse(fs.readFileSync(path.join(sessionDir, 'workflow-run.json'), 'utf8')); } catch { /* identity stays absent */ }
+  return {
+    schema: W6_STATE_OPERATION_SCHEMA, operation, invocationId: item.tool_use_id || '', commandDigest: digestText(item.command),
+    sessionId: item.session_id, principalId: item.session_id, workspaceRoot: cwd, cwd,
+    workflowId: workflow?.workflowId || null, workflowRevision: Number.isInteger(workflow?.revision) ? workflow.revision : null,
+    taskId: workflow?.docReconciliationTask?.taskId || null,
+    phase: ['plan', 'start', 'inventory'].includes(operation) ? 'before-o'
+      : operation === 'seal' ? 'review-to-dispatch' : 'post-final-review',
+    destinations, arguments: arguments_,
+  };
+}
+
+function isW6StateCommand(command, cwd, root, context = {}) {
+  if (typeof cwd !== 'string' || !cwd || !textOf(context.sessionId)) return false;
+  return Boolean(parseW6StateCommand({ tool_name: context.toolName || 'Bash', session_id: context.sessionId,
+    agent_id: context.agentId, cwd, command }, root, []));
+}
+
+function captureW6StateOperation(payload, eventName, record, sessionDir, workspaceRoot) {
+  if (!sessionDir || !workspaceRoot || !payload || !payload.tool_use_id || !payload.session_id
+    || typeof payload.cwd !== 'string' || !payload.cwd) return null;
+  const candidate = parseW6StateCommand({ ...record, event: eventName }, workspaceRoot, readCaptureView(sessionDir).records);
+  if (!candidate) return null;
+  const snapshot = stateSnapshot(sessionDir);
+  const git = stateGitSnapshot(workspaceRoot);
+  if (eventName === 'PreToolUse') return { ...candidate, state: 'pre', ref: record.ref, snapshot, git };
+  const records = readCaptureView(sessionDir).records;
+  const pres = records.filter(item => item && item.event === 'PreToolUse' && item.tool_use_id === record.tool_use_id
+    && item.session_id === record.session_id && item.command === record.command && item.cwd === record.cwd
+    && item.stateOperation?.schema === W6_STATE_OPERATION_SCHEMA);
+  if (pres.length !== 1) return { ...candidate, state: 'unresolved', preRef: null, snapshotAfter: snapshot, gitAfter: git };
+  const pre = pres[0];
+  return { ...pre.stateOperation, state: 'post', preRef: pre.ref, postRef: record.ref,
+    snapshotAfter: snapshot, gitAfter: git,
+    hostResult: { event: eventName, interrupted: record.interrupted, exitCode: record.exitCode,
+      failureDisposition: record.failureDisposition || null } };
 }
 
 function skipHereDocBodies(command, newlineIndex, hereDocs) {
@@ -1444,6 +1616,296 @@ function possibleWriterCapture(item) {
   return !['read-only', 'worktree-setup'].includes(classifyShell(item.command));
 }
 
+function stateJson(snapshot, relative) {
+  const item = recordOf(snapshot) && snapshot[relative];
+  return item?.kind === 'file' && recordOf(item.json) ? item.json : null;
+}
+
+function row17RequirementsValid(set) {
+  if (!recordOf(set) || !Array.isArray(set.requirements) || set.requirements.length !== 2) return false;
+  const [adr, verify] = set.requirements;
+  return adr.id === 'adr-evid' && adr.stepType === 'doc-change' && adr.status === 'pending'
+    && Array.isArray(adr.requiredBindings) && adr.requiredBindings.length === 0
+    && verify.id === 'verify-row17' && verify.stepType === 'verification' && verify.status === 'pending'
+    && Array.isArray(verify.requiredBindings) && verify.requiredBindings.length === 1
+    && verify.requiredBindings[0].id === 'verification-loop' && verify.requiredBindings[0].required === true
+    && verify.requiredBindings[0].path === 'verification-loop/SKILL.md';
+}
+
+function validRow17Task(workflow, root, expectedBaseline) {
+  const task = workflow?.docReconciliationTask;
+  const baseline = workflow?.docReconciliationBaseline;
+  return recordOf(task) && task.schema === 'harness.doc-reconciliation-task-pin.v1'
+    && captureJson(task.requirementIds) === captureJson(['adr-evid', 'verify-row17'])
+    && task.taskId === 'task-adr-evid+verify-row17'
+    && task.requirementDigest === digestText(JSON.stringify(['adr-evid', 'verify-row17']))
+    && task.sessionId === workflow.sessionId && task.workflowId === workflow.workflowId
+    && task.baselineCommit === baseline?.commit && samePathKey(task.baselineRoot, baseline?.root)
+    && task.workflowId === workflow.workflowId && task.workspaceId === outlineWorkspaceId(root)
+    && HEX64.test(String(task.configDigest || ''))
+    && samePathKey(baseline?.root, root)
+    && (!expectedBaseline || (baseline?.commit === expectedBaseline.head && baseline?.tree === expectedBaseline.tree));
+}
+
+function validW6Phase(operation, captures, pre, requireCompletePath = false) {
+  const index = captures.indexOf(pre);
+  const outliner = captures.find(item => recordOf(item) && item.event === 'SubagentStop'
+    && item.agent_type === 'reviewer' && item.reviewVerdict === 'approve'
+    && Object.keys(item.reviewedArtifactDigests || {}).some(target => target !== `doc-reconciliation/outline-confirmation/inventory/${path.posix.basename(OUTLINE_INVENTORY_PIN.retainedArtifactPath)}`));
+  const outlineStart = outliner && captures.find(item => item.event === 'SubagentStart' && item.agent_id === outliner.agent_id);
+  const outlineIndex = outliner ? captures.indexOf(outliner) : -1;
+  const outlineStartIndex = outlineStart ? captures.indexOf(outlineStart) : -1;
+  const dispatchIndex = captures.findIndex(item => recordOf(item) && item.event === 'PreToolUse'
+    && ['Agent', 'Task'].includes(item.tool_name) && item.outlineDispatch?.state === 'accepted');
+  const workerStop = captures.find(item => recordOf(item) && item.event === 'SubagentStop' && item.agent_type === 'worker');
+  const workerResult = captures.find(item => recordOf(item) && item.event === 'PostToolUse'
+    && ['Agent', 'Task'].includes(item.tool_name) && item.agent_id === workerStop?.agent_id
+    && item.interrupted === false);
+  const workerStopIndex = workerStop ? captures.indexOf(workerStop) : -1;
+  const finalReviews = captures.filter(item => recordOf(item) && item.event === 'SubagentStop' && item.agent_type === 'reviewer'
+    && item.reviewVerdict === 'approve' && item.agent_id !== outliner?.agent_id && item.agent_id !== workerStop?.agent_id)
+    .filter(item => {
+      const start = captures.findIndex(record => record?.event === 'SubagentStart' && record.agent_id === item.agent_id);
+      const result = captures.findIndex(record => record?.event === 'PostToolUse' && ['Task', 'Agent'].includes(record.tool_name)
+        && record.agent_id === item.agent_id && record.interrupted === false);
+      return workerStopIndex >= 0 && start > workerStopIndex && result > workerStopIndex && captures.indexOf(item) > workerStopIndex;
+    });
+  const finalReviewIndex = finalReviews.length === 1 ? captures.indexOf(finalReviews[0]) : -1;
+  const finalReview = finalReviews.length === 1 ? finalReviews[0] : null;
+  const finalReviewStarts = finalReview ? captures.filter(item => item?.event === 'SubagentStart' && item.agent_id === finalReview.agent_id) : [];
+  const finalReviewResults = finalReview ? captures.filter(item => item?.event === 'PostToolUse'
+    && ['Task', 'Agent'].includes(item.tool_name) && item.agent_id === finalReview.agent_id && item.interrupted === false) : [];
+  const finalReviewPaths = finalReview ? Object.keys(finalReview.reviewedArtifactDigests || {}) : [];
+  const finalReviewValid = Boolean(finalReview && finalReviewStarts.length === 1 && finalReviewResults.length === 1
+    && captures.indexOf(finalReviewStarts[0]) < captures.indexOf(finalReviewResults[0])
+    && captures.indexOf(finalReviewResults[0]) < finalReviewIndex && finalReviewPaths.length === 1
+    && validOutlineTarget(finalReviewPaths[0])
+    && (() => {
+      try { return shaBytes(fs.readFileSync(path.join(pre.cwd, ...finalReviewPaths[0].split('/')))) === finalReview.reviewedArtifactDigests[finalReviewPaths[0]]
+        && reviewRecordIndependent(finalReview, captures, { author: pre.session_id,
+          executors: journalExecutors(captures, pre.session_id) }); }
+      catch { return false; }
+    })());
+  if (['plan', 'start', 'inventory'].includes(operation)) {
+    return index >= 0 && (requireCompletePath
+      ? outlineStartIndex > index && dispatchIndex > outlineIndex
+      : outlineStartIndex < 0 && dispatchIndex < 0);
+  }
+  if (operation === 'seal') return outlineIndex >= 0 && index > outlineIndex
+    && (requireCompletePath ? index < dispatchIndex : dispatchIndex < 0);
+  return finalReviewValid && finalReviewIndex >= 0 && index > workerStopIndex && index > finalReviewIndex;
+}
+
+function allowedW6SnapshotChanges(operation, destinations) {
+  const allowed = new Set();
+  for (const destination of destinations) {
+    allowed.add(destination);
+    const parts = destination.split('/');
+    while (parts.length > 1) { parts.pop(); allowed.add(parts.join('/')); }
+  }
+  if (operation === 'step-verify') allowed.add('doc-reconciliation-pilot.json');
+  return allowed;
+}
+
+function snapshotChanges(before, after) {
+  if (!recordOf(before) || !recordOf(after)) return null;
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  return [...keys].filter(relative => captureJson(before[relative] ?? null) !== captureJson(after[relative] ?? null)).sort(compareKeys);
+}
+
+function operationTransitionValid(operation, preOp, postOp, preCapture, sessionDir, root) {
+  const before = preOp.snapshot;
+  const after = postOp.snapshotAfter;
+  const preWorkflow = stateJson(before, 'workflow-run.json');
+  const postWorkflow = stateJson(after, 'workflow-run.json');
+  const preSet = stateJson(before, 'workflow-obligations.json');
+  const postSet = stateJson(after, 'workflow-obligations.json');
+  const preTask = preWorkflow?.docReconciliationTask;
+  const postTask = postWorkflow?.docReconciliationTask;
+  const changed = snapshotChanges(before, after);
+  if (!changed) return false;
+  const allowed = allowedW6SnapshotChanges(operation, preOp.destinations);
+  if (changed.some(relative => !allowed.has(relative)) || preOp.destinations.some(relative => !changed.includes(relative))) return false;
+  if (operation !== 'plan' && !validRow17Task(preWorkflow, root)) return false;
+  if (!postWorkflow || postWorkflow.sessionId !== preCapture.session_id
+    || postWorkflow.workflowId !== preOp.workflowId) return false;
+
+  if (operation === 'plan') {
+    const expected = preOp.git;
+    return ['pending', 'active'].includes(preWorkflow?.state)
+      && !preTask
+      && textOf(preWorkflow.workflowPlan?.strategy)
+      && postWorkflow.pendingPlan?.strategy === 'iterative-single'
+      && postWorkflow.sessionId === preCapture.session_id
+      && postTask?.taskId === 'task-adr-evid+verify-row17'
+      && validRow17Task(postWorkflow, root, expected)
+      && row17RequirementsValid(postSet)
+      && !postWorkflow.workflowStages?.length;
+  }
+  if (operation === 'start') {
+    return preWorkflow?.state !== 'running' && postWorkflow.state === 'running'
+      && postWorkflow.revision === preWorkflow.revision + 1
+      && postWorkflow.workflowPlan?.strategy === 'iterative-single' && !postWorkflow.pendingPlan
+      && validRow17Task(postWorkflow, root, preOp.git)
+      && row17RequirementsValid({ ...postSet, requirements: postSet?.requirements?.map(item => ({ ...item, status: 'pending' })) });
+  }
+  if (operation === 'inventory') {
+    const expectedPin = OUTLINE_INVENTORY_PIN;
+    const pinRel = 'doc-reconciliation/outline-confirmation/inventory/inventory-pin.json';
+    const artifactRel = `doc-reconciliation/outline-confirmation/inventory/${path.posix.basename(expectedPin.retainedArtifactPath)}`;
+    const pin = stateJson(after, pinRel);
+    const artifact = after[artifactRel];
+    const bytes = artifact?.content ? Buffer.from(artifact.content, 'base64') : null;
+    const validated = bytes && validateOutlineInventoryPin({ bytes, pin, expectedPin });
+    return validRow17Task(preWorkflow, root) && preWorkflow.state === 'running'
+      && preOp.git?.head === preTask?.baselineCommit && preOp.git?.tree === preWorkflow.docReconciliationBaseline?.tree
+      && captureJson(pin) === captureJson(expectedPin) && validated?.state === 'accepted'
+      && resolveInventoryRow(validated, '17').row?.domain === 'EVID';
+  }
+  if (operation === 'seal') {
+    const handoffRel = preOp.destinations.find(relative => relative.endsWith('/handoff.json'));
+    const leaseRel = preOp.destinations.find(relative => relative.endsWith('/writer-lease.json'));
+    const handoff = stateJson(after, handoffRel);
+    const lease = stateJson(after, leaseRel);
+    const inventoryRel = `doc-reconciliation/outline-confirmation/inventory/${path.posix.basename(OUTLINE_INVENTORY_PIN.retainedArtifactPath)}`;
+    const pinRel = 'doc-reconciliation/outline-confirmation/inventory/inventory-pin.json';
+    const inventoryBytes = after[inventoryRel]?.content && Buffer.from(after[inventoryRel].content, 'base64');
+    const inventory = inventoryBytes && validateOutlineInventoryPin({ bytes: inventoryBytes, pin: stateJson(after, pinRel), expectedPin: OUTLINE_INVENTORY_PIN });
+    const attemptDir = handoffRel && path.posix.dirname(handoffRel);
+    const expectedReview = outlineReviewCandidates(capturesFromSnapshotContext(preCapture, sessionDir), inventoryRel);
+    const review = expectedReview.length === 1 ? expectedReview[0] : null;
+    const target = handoff?.targetPaths?.[0];
+    let targetBytes = null;
+    try { if (target) targetBytes = outlineGit(root, ['show', `${handoff.outline.commit}:${target}`], true); } catch { /* fail closed below */ }
+    return Boolean(handoff && lease && review && inventory?.state === 'accepted'
+      && handoff.schema === OUTLINE_HANDOFF_SCHEMA && handoff.taskId === postTask?.taskId
+      && handoff.attemptId === path.posix.basename(attemptDir) && handoff.workflowId === postWorkflow.workflowId
+      && handoff.workflowRevision === postWorkflow.revision && handoff.sessionId === preCapture.session_id
+      && handoff.baseline?.commit === preWorkflow.docReconciliationBaseline?.commit
+      && handoff.baseline?.tree === preWorkflow.docReconciliationBaseline?.tree
+      && handoff.outline?.commit === preOp.git?.head && handoff.outline?.tree === preOp.git?.tree
+      && handoff.reviewCaptureRef === review.ref && handoff.reviewDigest === review.reviewDigest
+      && handoff.reviewCaptureDigest === captureDigest(review) && lease.schema === OUTLINE_LEASE_SCHEMA
+      && lease.taskId === handoff.taskId && lease.attemptId === handoff.attemptId && lease.principalId === preCapture.session_id
+      && lease.exclusive === true && lease.active === true && sameCanonicalPath(lease.root, root)
+      && targetBytes && shaBytes(targetBytes) === handoff.outline.targetBlobs?.[target]?.storedBytesSha256
+      && captureJson(handoff.targetPaths) === captureJson([target]));
+  }
+  if (operation === 'binding-verify') {
+    const beforeVerify = preSet?.requirements?.find(item => item.id === 'verify-row17');
+    const afterVerify = postSet?.requirements?.find(item => item.id === 'verify-row17');
+    return postWorkflow.state === 'running' && beforeVerify?.status === 'pending'
+      && preSet?.requirements?.[0]?.status === 'pass'
+      && afterVerify?.status === 'pending' && afterVerify.requiredBindings?.length === 1
+      && afterVerify.requiredBindings[0].id === 'verification-loop'
+      && afterVerify.requiredBindings[0].status === 'loaded'
+      && afterVerify.requiredBindings[0].availability === 'available'
+      && afterVerify.requiredBindings[0].path === 'verification-loop/SKILL.md';
+  }
+  if (operation === 'step-adr' || operation === 'step-verify') {
+    const stepId = operation === 'step-adr' ? 'adr-evid' : 'verify-row17';
+    const beforeStep = preSet?.requirements?.find(item => item.id === stepId);
+    const afterStep = postSet?.requirements?.find(item => item.id === stepId);
+    const report = operation === 'step-verify' ? stateJson(after, 'doc-reconciliation-pilot.json') : null;
+    return postWorkflow.state === 'running' && beforeStep?.status === 'pending' && afterStep?.status === 'pass'
+      && textOf(afterStep.evidence) && (operation === 'step-adr'
+        ? postSet.requirements.find(item => item.id === 'verify-row17')?.status === 'pending'
+        : preSet.requirements.find(item => item.id === 'adr-evid')?.status === 'pass'
+          && preSet.requirements.find(item => item.id === 'verify-row17')?.requiredBindings?.[0]?.status === 'loaded'
+          && report?.pilotCredit === false && report?.pilotStatus === 'pending');
+  }
+  return false;
+}
+
+function capturesFromSnapshotContext(preCapture, sessionDir) {
+  return readCaptureView(sessionDir).records.filter(item => item.ref && item.ref !== preCapture.ref);
+}
+
+function shaBytes(bytes) { return crypto.createHash('sha256').update(bytes).digest('hex'); }
+
+function validateW6StateOperationPair(captures, pre, sessionDir, options = {}) {
+  const op = pre?.stateOperation;
+  if (!recordOf(op) || op.schema !== W6_STATE_OPERATION_SCHEMA || op.state !== 'pre'
+    || pre.event !== 'PreToolUse' || !pre.tool_use_id || op.invocationId !== pre.tool_use_id
+    || pre.session_id !== op.sessionId || pre.session_id !== op.principalId || textOf(pre.agent_id)
+    || !sameCanonicalPath(pre.cwd, op.workspaceRoot)
+    || op.phase !== (['plan', 'start', 'inventory'].includes(op.operation) ? 'before-o'
+      : op.operation === 'seal' ? 'review-to-dispatch' : 'post-final-review')) return { accepted: false };
+  const pairPosts = captures.filter(item => recordOf(item) && item.event === 'PostToolUse'
+    && item.session_id === pre.session_id && item.tool_use_id === pre.tool_use_id);
+  const failures = captures.filter(item => recordOf(item) && item.event === 'PostToolUseFailure'
+    && item.session_id === pre.session_id && item.tool_use_id === pre.tool_use_id);
+  if (!pairPosts.length && !failures.length && options.allowInFlightToolUseId === pre.tool_use_id
+    && op.operation === 'step-verify' && validW6Phase(op.operation, captures, pre)
+    && stateJson(op.snapshot, 'workflow-obligations.json')?.requirements?.find(item => item.id === 'verify-row17')?.status === 'pending') {
+    return { accepted: true, inFlight: true, operation: op.operation, pre, toolUseId: pre.tool_use_id };
+  }
+  if (pairPosts.length !== 1 || failures.length || pairPosts[0].stateOperation?.schema !== W6_STATE_OPERATION_SCHEMA
+    || pairPosts[0].stateOperation.state !== 'post' || pairPosts[0].stateOperation.preRef !== pre.ref
+    || pairPosts[0].stateOperation.operation !== op.operation || pairPosts[0].tool_name !== pre.tool_name
+    || pairPosts[0].command !== pre.command || pairPosts[0].cwd !== pre.cwd
+    || pairPosts[0].interrupted !== false || (pairPosts[0].exitCode !== undefined && pairPosts[0].exitCode !== 0)) {
+    return { accepted: false, operation: op.operation, pre, reason: 'host-result-incomplete' };
+  }
+  const postOp = pairPosts[0].stateOperation;
+  if (postOp.workflowId !== op.workflowId || postOp.workspaceRoot !== op.workspaceRoot
+    || postOp.workflowRevision !== op.workflowRevision || postOp.taskId !== op.taskId
+    || !Array.isArray(postOp.destinations) || captureJson(postOp.destinations) !== captureJson(op.destinations)
+    || captureJson(postOp.arguments) !== captureJson(op.arguments)
+    || !postOp.snapshotAfter || !postOp.gitAfter || captureJson(op.git) !== captureJson(postOp.gitAfter)
+    || postOp.git?.head !== op.git?.head || postOp.git?.tree !== op.git?.tree
+    || !validW6Phase(op.operation, captures, pre, options.requireCompletePath === true)
+    || !operationTransitionValid(op.operation, op, postOp, pre, sessionDir, op.workspaceRoot)) {
+    return { accepted: false, operation: op.operation, pre, post: pairPosts[0], reason: 'state-transition-invalid' };
+  }
+  return { accepted: true, operation: op.operation, pre, post: pairPosts[0], toolUseId: pre.tool_use_id };
+}
+
+function evaluateW6StateOperations(captures, sessionDir, options = {}) {
+  const records = Array.isArray(captures) ? captures : [];
+  const taskState = outlineTaskState(sessionDir);
+  const required = taskState.state === 'accepted'
+    && captureJson(taskState.taskBinding.requirementIds) === captureJson(['adr-evid', 'verify-row17']);
+  if (!required) return { required: false, acceptedToolUseIds: new Set(), operations: [], complete: true };
+  const candidates = records.filter(item => recordOf(item) && item.event === 'PreToolUse'
+    && item.stateOperation?.schema === W6_STATE_OPERATION_SCHEMA);
+  const results = candidates.map(pre => validateW6StateOperationPair(records, pre, sessionDir,
+    { ...options, requireCompletePath: true }));
+  const accepted = results.filter(item => item.accepted);
+  const byOperation = operation => accepted.filter(item => item.operation === operation);
+  const expected = ['plan', 'start', 'inventory', 'seal', 'step-adr', 'binding-verify', 'step-verify'];
+  const countsValid = expected.every(operation => byOperation(operation).length === 1)
+    && accepted.length === expected.length;
+  const ordered = expected.map(operation => byOperation(operation)[0]).filter(Boolean);
+  const orderValid = ordered.every((item, index) => index === 0 || records.indexOf(ordered[index - 1].pre) < records.indexOf(item.pre));
+  const inFlightAllowed = options.allowInFlightToolUseId
+    && results.some(item => item.accepted && item.inFlight && item.toolUseId === options.allowInFlightToolUseId);
+  const complete = countsValid && orderValid && !accepted.some(item => item.inFlight);
+  return { required: true, complete, inFlightAllowed: Boolean(inFlightAllowed),
+    readyForAssessment: countsValid && orderValid && (complete || Boolean(inFlightAllowed)), operations: accepted,
+    acceptedToolUseIds: new Set(accepted.map(item => item.toolUseId)), results };
+}
+
+function isVerifiedW6StateOperation(captures, sessionDir, toolUseId) {
+  const records = Array.isArray(captures) ? captures : [];
+  const pre = records.find(item => item?.event === 'PreToolUse' && item.tool_use_id === toolUseId
+    && item.stateOperation?.schema === W6_STATE_OPERATION_SCHEMA);
+  return Boolean(pre && validateW6StateOperationPair(records, pre, sessionDir).accepted);
+}
+
+function pendingW6VerificationInvocation(context) {
+  const captures = readCaptureView(context.sessionDir);
+  if (captures.tampered) return null;
+  const records = captures.records;
+  const pending = records.filter(item => item?.event === 'PreToolUse' && item.stateOperation?.schema === W6_STATE_OPERATION_SCHEMA
+    && item.stateOperation.operation === 'step-verify' && item.stateOperation.state === 'pre');
+  if (pending.length !== 1) return null;
+  const checked = validateW6StateOperationPair(records, pending[0], context.sessionDir, {
+    allowInFlightToolUseId: pending[0].tool_use_id,
+  });
+  return checked.accepted && checked.inFlight ? checked.toolUseId : null;
+}
+
 function writeTargetsOf(toolName, toolInput) {
   if (toolName === 'apply_patch') {
     const patch = typeof toolInput === 'string' ? toolInput : (recordOf(toolInput) ? String(toolInput.patch || toolInput.input || '') : '');
@@ -1611,7 +2073,10 @@ function outlineGitTreeHasRegularBlob(root, tree, target) {
 // target-bound git add or simple git commit before review; the correlated draft worker
 // between dispatch and its Stop. Everything else, including any coordinator state write after review, stays ambiguous.
 function outlineWriterAllowed(item, { index, sessionId, root, targets, worker, workerRoot, reviewStartIndex, reviewStopIndex,
-  dispatchIndex, workerStopIndex, captures }) {
+  dispatchIndex, workerStopIndex, captures, stateOperationToolUseIds = new Set() }) {
+  if (item?.stateOperation?.schema === W6_STATE_OPERATION_SCHEMA
+    && stateOperationToolUseIds.has(item.tool_use_id) && item.session_id === sessionId && !textOf(item.agent_id)
+    && ['PreToolUse', 'PostToolUse'].includes(item.event) && sameCanonicalPath(item.cwd, root)) return true;
   const phase = index < reviewStartIndex ? 'b-to-o' : index <= reviewStopIndex ? 'review'
     : index < dispatchIndex ? 'review-to-dispatch' : index <= workerStopIndex ? 'dispatch-to-draft' : 'after-draft';
   if (phase === 'dispatch-to-draft') return item.agent_id === worker.agent_id && sameCanonicalPath(item.cwd, workerRoot);
@@ -1807,6 +2272,11 @@ function resolveOutlineEvidence({ safeInput, capture, captures, request, originR
         || (textOf(item.tool_use_id) && reviewLaunchIds.has(item.tool_use_id)))),
       reviewStopIndex: journal.indexOf(review.review), dispatchIndex, workerStopIndex: journal.indexOf(correlation.stop),
     };
+    const stateOperations = evaluateW6StateOperations(journal, sessionDir, {
+      allowInFlightToolUseId: safeInput.allowInFlightW6ToolUseId,
+    });
+    if (stateOperations.required && !stateOperations.readyForAssessment) return fail('outline-state-operation-unresolved');
+    writerWindow.stateOperationToolUseIds = stateOperations.required ? stateOperations.acceptedToolUseIds : new Set();
     const unattributedWriters = journal.filter((item, index) => possibleWriterCapture(item)
       && !outlineWriterAllowed(item, { ...writerWindow, index }));
     if (unattributedWriters.length) return fail('outline-writer-activity-ambiguous');
@@ -2493,7 +2963,7 @@ const createOpencodeOriginProvider = input => {
 //   supported capture event.
 let captureSequence = 0;
 
-function buildCaptureRecord(payload, eventName, workspaceRoot) {
+function buildCaptureRecord(payload, eventName, workspaceRoot, options = {}) {
   if (!recordOf(payload)) return null;
   const event = typeof eventName === 'string' ? eventName : (payload.hook_event_name || payload.hookEventName || '');
   if (['PreToolUse', 'PostToolUse', 'PostToolUseFailure', 'SubagentStart', 'SubagentStop'].indexOf(event) === -1) return null;
@@ -2501,6 +2971,7 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
   if (event === 'PreToolUse' && PRE_CAPTURE_TOOLS.indexOf(payload.tool_name) === -1) return null;
   const toolInput = recordOf(payload.tool_input) ? payload.tool_input : {};
   const toolResponse = payload.tool_response;
+  const rawExitCode = recordOf(toolResponse) ? (toolResponse.exitCode ?? toolResponse.exit_code) : payload.exitCode;
   const outlinePre = event === 'PreToolUse' && ['Task', 'Agent'].includes(payload.tool_name);
   const outlineResult = event === 'PostToolUse' && ['Task', 'Agent'].includes(payload.tool_name);
   // Demonstrated alias mapping (doc: "Host result aliases such as agentId
@@ -2520,6 +2991,7 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
     responseDigest: captureDigest(toolResponse),
     responseRef: `host-payload/${event}/${captureId}`,
   };
+  if (typeof rawExitCode === 'number') record.exitCode = rawExitCode;
   const parsedWriterCommand = event === 'PreToolUse' && payload.tool_name === 'Bash'
     ? safeTokenize(record.command.trim()) : null;
   const writerMayNeedCwd = OUTLINE_WRITE_TOOLS.includes(payload.tool_name)
@@ -2631,6 +3103,8 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
     record.reviewedArtifactDigests = verdict ? verdict.reviewedArtifactDigests : {};
     if (payload.agent_transcript_path !== undefined) record.agentTranscriptPath = payload.agent_transcript_path;
   }
+  const stateOperation = captureW6StateOperation(payload, event, record, options.sessionDir, workspaceRoot);
+  if (stateOperation) record.stateOperation = stateOperation;
   return record;
 }
 
@@ -2734,8 +3208,10 @@ module.exports = { createClaudeOriginProvider, createOpencodeOriginProvider, bui
   registeredInstalledCheck: resolveDocCheckInvocation, installedDocCheck,
   fileDigest, SHIPPED_DOC_CHECK_DIGEST, trustRisk, journalExecutors, reviewRecordIndependent,
   captureOutlineDispatch, captureOutlineStartIdentity, writeImmutableEvent, rebuildJournalView, readCaptureView,
-  readOpencodeCaptureView, observedIdentityFor,
-  _internals: { validateOutlineIdentity, captureJson, captureDigest, digestText, canonicalCapture, parseOutlineDispatchPrompt,
+  readOpencodeCaptureView, observedIdentityFor, isW6StateCommand, isVerifiedW6StateOperation, pendingW6VerificationInvocation,
+  _internals: { validateOutlineIdentity, captureJson, captureDigest, digestText, canonicalCapture, safeTokenize, parseOutlineDispatchPrompt,
     parseInventoryPinRows, validateOutlineInventoryPin, resolveInventoryRow, parseOutlineCitation, resolveOutlineAttempt,
+    validateOutlineReview,
     captureOutlineDispatch, resolveOutlineEvidence, verifyOutlineMergeCorrespondence, validateOutlineCaptureQualification,
-    outlineCaptureMappingValid, correlateOutlineDispatch, OUTLINE_CAPTURE_MAPPING, OUTLINE_INVENTORY_PIN } };
+    outlineCaptureMappingValid, correlateOutlineDispatch, evaluateW6StateOperations, validateW6StateOperationPair,
+    OUTLINE_CAPTURE_MAPPING, OUTLINE_INVENTORY_PIN, W6_STATE_OPERATION_SCHEMA, W6_ROW17_REQUIREMENTS } };
