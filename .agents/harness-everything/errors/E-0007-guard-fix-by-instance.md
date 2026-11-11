@@ -68,6 +68,19 @@ episodes:
         change: "Commit `22dc944a`: one exact-spelling recognizer for capture and all writer surfaces, built from pinned targets and the captured/canonical root, applied before normalization; advisor-gated sweep of nine families × four surfaces"
         review: "review-14 (independent family sweep, executed)"
         result: "no actionable findings; episode closed"
+  - episode: 425-w6-outcome-correlation-caller-inventory
+    feature: "#425 W6 outcome-correlation repair"
+    date: 2026-11-11
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "review round 2"
+        result: "The repair packet for \"final-review failure is ignored when a success exists\" named two seams of the shared helper `agentResultSurface()` instead of requiring a caller inventory; fix `2fbcaa4f` closed exactly those two"
+      - round: 1
+        change: "Commit `c6dab126`: third caller `reviewRecordIndependent()` fixed"
+        review: "coordinator gates"
+        result: "`agentResultSurface()` had 0 callers; episode closed"
 ---
 
 ## Cue
@@ -79,6 +92,8 @@ A guard produces a false positive on real input and the fix names the one field 
 Before writing the fix, replay the guard over the complete real live input and list every hit; fix the predicate that misclassifies the whole class, and put that real input in the test fixture. Enumerate the class (supported transformations plus unknown syntax) before the first fix, not one spelling per round. Re-check that the class fix does not open the opposite hole (here: wildcard syntax after relativizing).
 
 Re-violated 2026-11-08 (#412): after the second round on the same decision, switching to an advisor-gated class invariant plus a family sweep closed it in one round.
+
+Re-violated 2026-11-11 (#425): the same class on a repair packet — it named two seams instead of the class. Lesson addition: a repair packet for a decision class must require a pre/post caller inventory of the shared helper, pasted in the report.
 
 ## Status and promotion
 
