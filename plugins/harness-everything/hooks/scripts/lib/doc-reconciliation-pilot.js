@@ -197,6 +197,7 @@ function creditChain(context, set, dependencies = {}) {
     principals,
     baseline,
     captures,
+    allowInFlightW6ToolUseId: dependencies.allowInFlightW6ToolUseId || null,
   };
   const originProvider = dependencies.originProvider || createOriginProvider(providerInput);
   const produced = produceDocSnapshot({
@@ -456,6 +457,17 @@ function assess(context, set, dependencies = {}) {
       report.diagnostics.push(reason);
       report.unsatisfied.push({ obligationId: 'doc-change:scope', state: 'unavailable', reasonCode: reason });
     }
+  }
+  if (!withhold && dependencies.allowInFlightW6ToolUseId) {
+    report.pilotCredit = false;
+    report.pilotStatus = 'pending';
+    report.creditedCapabilities = [];
+    report.acceptedRefs = [];
+    report.outlineEvidence = { status: 'pending', outcome: 'none', observation: 'pending',
+      acceptedRefs: [], recordRefs: [], diagnostics: [{ code: 'state-operation-in-flight',
+        message: 'the verification state operation has not completed its host result', obligationId: null }] };
+    report.diagnostics.push({ code: 'state-operation-in-flight',
+      message: 'the verification state operation has not completed its host result', obligationId: null });
   }
   report.diagnostics = report.diagnostics.map(diagnosticOf);
   try { atomicWriteJson(path.join(context.sessionDir, 'doc-reconciliation-pilot.json'), report); }

@@ -1240,21 +1240,26 @@ Status: **implemented behind the existing pilot switch; mechanism and package ch
 
 ```mermaid
 flowchart LR
-  B["Original baseline B<br/>task and config pinned"] --> O["Proposed outline O<br/>new target absent at B"]
-  I["Coordinator-pinned inventory"] --> R["Independent review<br/>exact O + cited row"]
-  O --> R
-  R --> H["Immutable handoff +<br/>exclusive writer lease"]
-  H --> P["Task/Agent PreToolUse<br/>exact prompt marker"]
-  P --> S["Synchronous seam<br/>clean worker root at O<br/>one-use token consumed"]
-  S --> W["Correlated worker start/result"]
-  W --> D["Final candidate D<br/>strict descendant of O"]
-  D --> A["Outline result and<br/>aggregate B→D MUSTs"]
+  B["Original baseline B<br/>task and config pinned"] --> PL["Plan + start<br/>W6 state operations"]
+  PL --> INV["Pinned inventory<br/>W6 producer"]
+  INV --> O
+  INV --> REV["Independent review<br/>exact O + cited row"]
+  O --> REV
+  REV --> HAND["Seal handoff +<br/>exclusive writer lease<br/>W3/W6"]
+  HAND --> DISP["Task/Agent PreToolUse<br/>exact prompt marker"]
+  DISP --> SEAM["Synchronous seam<br/>clean worker root at O<br/>one-use token consumed"]
+  SEAM --> WORK["Correlated worker start/result"]
+  WORK --> D["Final candidate D<br/>strict descendant of O"]
+  D --> C["Completed worker result<br/>and Stop"]
+  C --> F["Independent final review"]
+  F --> Q["Ordered dispositions<br/>W6 state operations"]
+  Q --> A["Outline result and<br/>aggregate B→D MUSTs"]
 ```
 
 | Evidence | Required binding |
 |---|---|
 | B and task | Keep the workflow-start B commit/root/tree and ordered requirement IDs for every attempt. Config scope must still match B. An attempt cannot reset B to O. |
-| Inventory | The coordinator supplies exact bytes and `inventory-pin.json` outside the candidate tree. The pinned source is `report-inv.md`, SHA-256 `2741bd4514d2cd68f57d93a2b3ce94cbe597ca62d30e26f0ca58e882df5b03c6`, run `e1-inv-1`, input SHA `0ef0541c6cae550e8269ba712e03797e0e987dfb`, approval `#325` comment `6436207729`, decision 1. The trusted pin also records the owner-approved `VERI`→`EVID` mapping for rows 15–18 by reference to `../e1-feasibility-2026-10-28/owner-decision-veri-evid.md`; inventory bytes and digest stay unchanged. The provider rehashes the bytes and compares every pin field before resolving one row and domain. Missing, stale, duplicate, ambiguous, wrong-target or unavailable evidence is unresolved with no fallback. Synthetic test pins prove parser/mechanism binding only. |
+| Inventory | The coordinator supplies exact bytes and `inventory-pin.json` outside the candidate tree. The pinned source is `report-inv.md`, SHA-256 `2741bd4514d2cd68f57d93a2b3ce94cbe597ca62d30e26f0ca58e882df5b03c6`, run `e1-inv-1`, input SHA `0ef0541c6cae550e8269ba712e03797e0e987dfb`, approval `#325` comment `6436207729`, decision 1. The trusted pin records the owner-approved `VERI`→`EVID` mapping for rows 15–18, approved at [#325 comment 6706805112](https://github.com/dyphn1/Harness-everything/issues/325#issuecomment-6706805112); inventory bytes and digest stay unchanged. The provider rehashes the bytes and compares every pin field before resolving one row and domain. Missing, stale, duplicate, ambiguous, wrong-target or unavailable evidence is unresolved with no fallback. Synthetic test pins prove parser/mechanism binding only. |
 | O and review | O is bound to its commit, tree, target blobs and stored-byte digests. Its `proposed` ADR frontmatter cites one `Inventory row: <id>`, target and domain, with `id` equal to the target basename, and contains no completed Decision text. A host-captured `SubagentStop` review must approve those exact O bytes and the pinned inventory, with a distinct host `agent_id` and correlated Agent/Task result. |
 | Handoff and dispatch | One immutable attempt handoff binds B, O, scope, inventory, accepted review, coordinator principal, lease and one-use token. Agent/Task dispatch accepts exactly one `HARNESS_OUTLINE_DISPATCH_V1` block in `tool_input.prompt`, whose token must equal the handoff token; it does not search free-form text or use another field or cwd as a fallback. The outline anchor also requires explicit `run_in_background === false` and absence of any `isolation` key, including null or empty values. Before worker start, PreToolUse verifies the handoff, review, pin, exclusive lease, canonical root, HEAD/tree at O and clean index/worktree including untracked files; it creates a write-once handoff-digest seal, stores validation digests/reasons, then consumes the token by exclusive creation. Every predecessor seal, seam and token remains bound to the original handoff bytes, so an overwritten predecessor invalidates the chain. |
 | Worker and D | The dispatch key is `(session_id, tool_use_id)`. Exactly one matching Task/Agent result must carry `tool_response.status === 'completed'`; its observed `tool_response.agentId` must map to exactly one `SubagentStart` and one `SubagentStop` with the same `session_id` and `agent_id`. Require PreToolUse < SubagentStart < SubagentStop in journal order, but do not order the completed result against Stop. Both worker events need exact canonical `cwd === workerRoot`. `prompt_id` and `parent_tool_use_id` are not correlation keys; `interrupted` is not completion proof. Async launches, failures, cancellation, missing/duplicate events, replayed IDs, worktree isolation and root mismatch stay unresolved. D is checked against the current candidate separately from O. O must be a strict ancestor of D. A squash may retain the cycle only when a coordinator correspondence record proves identical target blobs between retained pre-merge D and the merged tree; changed bytes need fresh final quality review. |
@@ -1269,24 +1274,29 @@ Each captured writer record is decided by principal × phase × operation × tar
 ```mermaid
 flowchart LR
   R["captured writer record"] --> P{"journal phase"}
-  P -->|"before reviewer launch"| B["B→O: coordinator writes or git add/commit of the pinned target"]
+  P -->|"before reviewer launch"| B["B→O target writes, plus W6 plan/start/inventory"]
   P -->|"reviewer launch to its Stop"| V["review: no writer"]
-  P -->|"review Stop to dispatch"| H["review→dispatch: no writer (W3 unverifiable)"]
+  P -->|"review Stop to dispatch"| H["review→dispatch: W3 seal only"]
   P -->|"dispatch to worker Stop"| D["draft: correlated worker in its root"]
-  P -->|"after worker Stop"| A["after D: no writer"]
+  P -->|"after final review"| A["three ordered W6 dispositions only"]
   B --> S["O commit must change exactly the pinned target(s) against B"]
 ```
 
 | Phase | Principal | Operation and target | Result |
 |---|---|---|---|
+| Before O | Coordinator: no `agent_id`, author `session_id` | Installed `workflow-disposition.js plan` for the row-17 `adr-evid` / `verify-row17` requirements and `iterative-single` topology | Allowed only for the existing planning transitions at clean B |
+| Before O | Coordinator: no `agent_id`, author `session_id` | Installed `workflow-disposition.js start` for the same pending plan | Allowed only for the existing pending-to-running transition at clean B |
+| Before O | Coordinator: no `agent_id`, author `session_id` | Installed `w6-state-operations.js inventory` | Allowed only for the unchanged inventory bytes, exact pin, and two pinned inventory destinations |
 | Before reviewer launch | Coordinator: no `agent_id`, author `session_id` | `Write`, `Edit` or `apply_patch` whose every path is a pinned target | Allowed |
 | Before reviewer launch | Coordinator | `git add [--] <literal pinned file>...` or `git commit -m <message>`; R11-1 (b): record before review, validate at dispatch; uncaptured/pre-B index effects are UNCHECKED | Allowed only under this grammar; unbound or unverified index effects receive no credit |
 | Before reviewer launch | Any | Any other write, chained or unknown shell command, or a path that is not the target | `outline-writer-activity-ambiguous` |
 | Review | Reviewer or any other agent | Any writer | Ambiguous |
-| Review to dispatch | Coordinator | Any write, including handoff, lease, pin and merge-correspondence files | Ambiguous |
+| Review to dispatch | Coordinator: no `agent_id`, author `session_id` | One installed `w6-state-operations.js seal` after the approved O review and before dispatch | Allowed only for this attempt's validated lease and handoff |
+| Review to dispatch | Coordinator | Any other write, including a caller-selected destination, pin change or merge-correspondence file | `outline-writer-activity-ambiguous` |
 | Dispatch to worker Stop | Correlated worker, `cwd` equal to the worker root | Any writer | Allowed |
 | Dispatch to worker Stop | Other agent or coordinator | Any writer | Ambiguous; an overlapping same-root start is `outline-competing-writer-start` |
-| After worker Stop | Any | Any writer | Ambiguous |
+| After worker Stop and completed independent final review | Coordinator: no `agent_id`, author `session_id` | `step adr-evid pass`, then `binding verify-row17 verification-loop loaded`, then `step verify-row17 pass` | Allowed only in this order and with current evidence |
+| After worker Stop | Any | Any other writer or disposition | Ambiguous |
 
 - The reviewer launch is the first journal record that is the reviewer's own, or the launch result sharing its `tool_use_id`. The review ends at the reviewer's `SubagentStop`.
 - Write-family records carry `writeTargets` (the `file_path`, or the `apply_patch` headers). A record without a target is ambiguous.
@@ -1304,7 +1314,10 @@ flowchart LR
 ```
 
 - Suggested contract wording (owner, #341 comment 6708822276): "Exact task and target-path binding, captured writer operations, and immutable Outline O Git commit/tree/artifact identity validated before independent review and revalidated at dispatch."
-- **W3 stays rejected.** Handoff, lease, pin and merge-correspondence files are written outside capture and their content is not bound at capture time, so no coordinator state write is verifiable from evidence yet. The dispatch seam still validates those bytes; the writes themselves are rejected.
+- **W3/W6 are bounded state operations, not a coordinator exemption.** Every admitted operation has a correlated `tool_use_id`, session, canonical task root, workflow/revision, principal, phase, schema, and exact state destinations observed by the real Pre/Post hooks. Each capture carries `harness.w6-state-operation.v1` evidence with before/after session-state snapshots and Git identity. The shared provider validates the state transition and destination set; extra changed paths, symlink escapes, stale or failed results, missing correlation, replay, compound shell and unsupported commands withhold credit. State-only calls do not change `lastEditAt` or create a verification timestamp.
+- Before O, `plan` accepts only the row-17 `adr-evid` and `verify-row17` requirement set on `iterative-single`; `start` only materializes that plan. The installed `inventory` operation copies the unchanged pinned inventory bytes and pin after checking SHA-256 `2741bd4514d2cd68f57d93a2b3ce94cbe597ca62d30e26f0ca58e882df5b03c6`, row 17's `VERI`→`EVID` mapping, and durable approval [#325 comment 6706805112](https://github.com/dyphn1/Harness-everything/issues/325#issuecomment-6706805112). These transitions write only `workflow-run.json`, `workflow-obligations.json`, or the two pinned inventory files beneath the session state root.
+- After the approved O review and before dispatch, the installed `seal` operation derives the current task/attempt from the captured reviewer lifecycle and clean O, reuses the existing pin/review validators, and creates only `writer-lease.json` and `handoff.json` for that attempt. No caller-selected path, old-attempt rewrite, review substitution, or task-tree/Git write is accepted.
+- After the worker's completed result and unique Stop, and after an independent final review, only the ordered ADR pass, verification-loop binding, and verification pass are admitted. The verification `step` calls `pilot.assess()` synchronously before its own PostToolUse event; that internal report is marked pending with no retained credit. Final credit requires the completed host result and is recomputed by ordinary Stop reconciliation.
 - **W4 is unchanged.** Outline credit still needs a host-captured `SubagentStop` review and a correlated Task/Agent result from an agent distinct from the coordinator and worker. Only the Claude Code host is captured for outline credit; OpenCode and other reviewer providers are not.
 - Negative controls: the mechanism file injects each rejected case through the real hook, provider and `pilot.assess()` (`writer-policy negative controls`, `pre-review writer positive controls`).
 

@@ -123,24 +123,52 @@ function outlineText({ id = null, complete = false, decisionPlaceholder = false,
 function createOutlineFixture(options = {}) {
   const generatedRoot = fs.mkdtempSync(path.join(options.rootDirectory || os.tmpdir(), 'prb-outline-fixture-'));
   const root = options.preserveRootSpelling ? generatedRoot : canonical(generatedRoot);
+  const runtimeBase = options.runtimeLayout === 'packaged' ? path.join(ROOT, 'plugins/harness-everything') : ROOT;
+  const runtimeProvider = require(path.join(runtimeBase, 'hooks/scripts/lib/doc-reconciliation-provider.js'));
+  const runtimePilot = require(path.join(runtimeBase, 'hooks/scripts/lib/doc-reconciliation-pilot.js'));
   const workspaceRoot = canonical(root);
   const retainedInventory = options.retainedInventory === true;
   const target = options.target || (retainedInventory ? 'docs/adr/EVID-001.md' : 'docs/adr/DOCS-001.md');
   const rowId = options.rowId || (retainedInventory ? '17' : '20');
   const domain = options.domain || (retainedInventory ? 'EVID' : 'DOCS');
-  const taskId = options.taskId || 'task-prb';
-  const attemptId = options.attemptId || 'attempt-1';
+  let taskId = options.taskId || 'task-prb';
+  let attemptId = options.attemptId || 'attempt-1';
   const sessionId = options.sessionId || 'author-session';
   const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), 'prb-outline-state-'));
   const workerRoot = options.workerRootAlias
     ? `${root}${path.sep}..${path.sep}${path.basename(root)}` : root;
-  const workflowId = 'workflow-prb';
-  const workflowRevision = 2;
-  const config = JSON.stringify({ governed: [{ path: options.governedPattern || 'docs/adr/*.md', role: 'adr' }], domains: [domain], derived: [] }, null, 2) + '\n';
-  const configDigest = sha(config);
+  let workflowId = 'workflow-prb';
+  let workflowRevision = 2;
+  const configValue = options.w6Producer
+    ? { governed: [{ path: 'docs/adr/*.md', role: 'adr' }], domains: ['EVID'],
+      derived: [{ path: 'docs/governed-index.md', generator: 'node harness-everything/scripts/doc-lifecycle.js index --workspace . --config .agents/harness-everything/project-docs.json --all' }] }
+    : { governed: [{ path: options.governedPattern || 'docs/adr/*.md', role: 'adr' }], domains: [domain], derived: [] };
+  const config = JSON.stringify(configValue, null, 2) + '\n';
+  let configDigest = sha(config);
+  const inventoryBytes = retainedInventory
+    ? fs.readFileSync(path.join(ROOT, 'benchmarks/results/live-host/claude-341-outline-dispatch-2026-10-28/inventory/2741bd4514d2cd68f57d93a2b3ce94cbe597ca62d30e26f0ca58e882df5b03c6.md'))
+    : Buffer.from(syntheticInventory);
+  const pinDigest = sha(inventoryBytes);
+  const expectedPin = retainedInventory ? internals.OUTLINE_INVENTORY_PIN : {
+    source: 'synthetic://approved-inventory', sha256: pinDigest, runId: 'synthetic-run', inputSha: 'abcdef012345',
+    approvalRef: { issue: 325, commentId: 'synthetic-comment', decision: 1 },
+    retainedArtifactPath: `inventory/${pinDigest}.md`,
+  };
+  if (retainedInventory) assert.strictEqual(pinDigest, expectedPin.sha256, 'retained inventory bytes must match the pinned digest');
   fs.mkdirSync(path.join(root, '.agents/harness-everything'), { recursive: true });
   fs.mkdirSync(path.dirname(path.join(root, target)), { recursive: true });
   fs.writeFileSync(path.join(root, '.agents/harness-everything/project-docs.json'), config);
+  if (options.w6Producer) {
+    const taskScripts = path.join(root, 'harness-everything/scripts');
+    fs.mkdirSync(taskScripts, { recursive: true });
+    for (const name of ['doc-lifecycle.js', 'project-docs-resolver.js']) {
+      fs.copyFileSync(path.join(ROOT, 'harness-everything/scripts', name), path.join(taskScripts, name));
+    }
+    const generated = spawnSync(process.execPath, [path.join(taskScripts, 'doc-lifecycle.js'), 'index', '--workspace', root,
+      '--config', '.agents/harness-everything/project-docs.json', '--all'], { cwd: root, encoding: 'utf8' });
+    assert.strictEqual(generated.status, 0, `row-17 baseline index generation: ${generated.stderr || generated.stdout}`);
+    fs.writeFileSync(path.join(root, 'docs/governed-index.md'), generated.stdout);
+  }
   if (options.targetExistsAtB) fs.writeFileSync(path.join(root, target),
     `---\nid: DOCS-001\nstatus: proposed\n---\n\n## Decision\nAn existing B document.\n`);
   if (options.unrelatedFileAtB) fs.writeFileSync(path.join(root, options.unrelatedFileAtB), 'unmodified at B\n');
@@ -165,15 +193,28 @@ function createOutlineFixture(options = {}) {
     finally { if (priorStateHome === undefined) delete process.env.HARNESS_STATE_HOME; else process.env.HARNESS_STATE_HOME = priorStateHome; }
   }
 
-  const requirementIds = ['prb'];
   const workspaceId = 'ws-' + internals.digestText(internals.captureJson({ workspaceRoot: canonical(root) }));
-  const taskBinding = { schema: 'harness.doc-reconciliation-task-pin.v1', taskId, requirementIds,
-    requirementDigest: sha(JSON.stringify(requirementIds)), baselineCommit, baselineRoot: root,
-    configDigest, sessionId, workflowId, workspaceId };
-  writeJson(path.join(sessionDir, 'workflow-run.json'), {
-    workflowId, revision: workflowRevision, docReconciliationBaseline: { root, commit: baselineCommit, tree: baselineTree },
-    docReconciliationTask: taskBinding,
-  });
+  let taskBinding = null;
+  const workflowOperationWitnesses = [];
+  if (options.workflowCli) {
+    const env = { ...process.env, HARNESS_STATE_HOME: stateHome, HARNESS_WORKSPACE_ROOT: root,
+      HARNESS_DOC_RECONCILIATION_PILOT: '1' };
+    const kernelRelative = runtimeBase === ROOT ? 'harness-everything/scripts/kernel-router.js' : 'skills/harness-everything/scripts/kernel-router.js';
+    const kernel = spawnSync(process.execPath, [path.join(runtimeBase, kernelRelative)], {
+      cwd: root, env, encoding: 'utf8', input: JSON.stringify({ session_id: sessionId, cwd: root,
+        prompt: 'Draft the row-17 EVID-001 verification-evidence ADR from an outline, generate the governed index, and verify both.' }),
+    });
+    assert.strictEqual(kernel.status, 0, `row-17 plan fixture route: ${kernel.stderr || kernel.stdout}`);
+  } else {
+    const requirementIds = ['prb'];
+    taskBinding = { schema: 'harness.doc-reconciliation-task-pin.v1', taskId, requirementIds,
+      requirementDigest: sha(JSON.stringify(requirementIds)), baselineCommit, baselineRoot: root,
+      configDigest, sessionId, workflowId, workspaceId };
+    writeJson(path.join(sessionDir, 'workflow-run.json'), {
+      workflowId, revision: workflowRevision, docReconciliationBaseline: { root, commit: baselineCommit, tree: baselineTree },
+      docReconciliationTask: taskBinding,
+    });
+  }
 
   let hookPreloader = null;
   const hookDiagnostics = [];
@@ -190,6 +231,9 @@ function createOutlineFixture(options = {}) {
       });
     } catch { return []; }
   }
+  function capturedRecordsAcrossSessions() {
+    return actualCaptureSessionDirs().flatMap(dir => runtimeProvider.readCaptureView(dir).records);
+  }
   function logReviewHookDiagnostics() {
     console.error('REVIEW-HOOK-CAPTURE-DIAGNOSTICS ' + JSON.stringify({
       expectedSessionDir: sessionDir,
@@ -201,7 +245,7 @@ function createOutlineFixture(options = {}) {
     if (!options.realHook) throw new Error('real state-persist capture was not enabled for this fixture');
     if (usePreload && !hookPreloader) {
       hookPreloader = path.join(stateHome, 'outline-test-preload.js');
-      const providerPath = path.join(ROOT, 'hooks/scripts/lib/doc-reconciliation-provider.js');
+      const providerPath = path.join(runtimeBase, 'hooks/scripts/lib/doc-reconciliation-provider.js');
       fs.writeFileSync(hookPreloader, [
         ...(options.failPartialDispatchStorage ? [
           "const fs=require('fs');",
@@ -224,7 +268,7 @@ function createOutlineFixture(options = {}) {
         '}',
       ].join('\n'));
     }
-    const child = spawnSync(process.execPath, [...(usePreload ? ['--require', hookPreloader] : []), path.join(ROOT, 'hooks/scripts/state-persist.js')], {
+    const child = spawnSync(process.execPath, [...(usePreload ? ['--require', hookPreloader] : []), path.join(runtimeBase, 'hooks/scripts/state-persist.js')], {
       cwd: root, encoding: 'utf8', input: JSON.stringify(payload),
       env: { ...process.env, HARNESS_STATE_HOME: stateHome, HARNESS_WORKSPACE_ROOT: root,
         HARNESS_DOC_RECONCILIATION_PILOT: pilotEnabled ? '1' : '0' },
@@ -241,8 +285,112 @@ function createOutlineFixture(options = {}) {
       if (payload.agent_type === 'reviewer' || payload.tool_use_id === 'review-dispatch') logReviewHookDiagnostics();
       throw new Error(`state-persist failed open contract: ${child.stderr || child.stdout || child.status}`);
     }
-    return provider.readCaptureView(sessionDir).records;
+    return runtimeProvider.readCaptureView(sessionDir).records;
   }
+
+  function runWorkflowOperation(name, args, allowFailure = false) {
+    const controller = path.join(runtimeBase, 'hooks/scripts/workflow-disposition.js');
+    const handoffStateFile = path.join(sessionDir, 'handoff-state.json');
+    const beforeHandoffState = fs.existsSync(handoffStateFile) ? JSON.parse(fs.readFileSync(handoffStateFile, 'utf8')) : null;
+    const toolUseId = `w6-${name}-${sessionId}`;
+    const command = `node "${controller}" ${args.map(value => /[\s'"\\]/.test(value)
+      ? `'${value.replace(/'/g, "'\\''")}'` : value).join(' ')}`;
+    const payload = { session_id: sessionId, cwd: root, hook_event_name: 'PreToolUse', tool_name: 'Bash',
+      tool_use_id: toolUseId, tool_input: { command } };
+    runHook(payload);
+    const child = spawnSync(process.execPath, [controller, ...args], { cwd: root,
+      env: { ...process.env, HARNESS_STATE_HOME: stateHome, HARNESS_WORKSPACE_ROOT: root,
+        HARNESS_DOC_RECONCILIATION_PILOT: '1' }, encoding: 'utf8' });
+    if (child.status !== 0 && allowFailure && name === 'step-verify') {
+      runHook({ ...payload, hook_event_name: 'PostToolUseFailure', is_interrupt: false,
+        error: child.stderr || child.stdout || `exit ${child.status}`, tool_response: { exitCode: child.status } });
+      const afterHandoffState = fs.existsSync(handoffStateFile) ? JSON.parse(fs.readFileSync(handoffStateFile, 'utf8')) : null;
+      workflowOperationWitnesses.push({ name, before: beforeHandoffState, after: afterHandoffState, exitCode: child.status });
+      return child.stdout;
+    }
+    assert.strictEqual(child.status, 0, `row-17 ${name}: ${child.stderr || child.stdout}`);
+    runHook({ ...payload, hook_event_name: 'PostToolUse',
+      tool_response: { exitCode: child.status, stdout: child.stdout, stderr: child.stderr, interrupted: false, status: 'completed' } });
+    const afterHandoffState = fs.existsSync(handoffStateFile) ? JSON.parse(fs.readFileSync(handoffStateFile, 'utf8')) : null;
+    workflowOperationWitnesses.push({ name, before: beforeHandoffState, after: afterHandoffState });
+    return child.stdout;
+  }
+
+  if (options.workflowCli) {
+    const requirements = [
+      { id: 'adr-evid', stepType: 'doc-change', summary: 'Draft the row-17 EVID-001 verification-evidence ADR.',
+        acceptance: 'A real proposed O is independently reviewed before the draft D; D is a strict descendant of O and changes only the ADR.' },
+      { id: 'verify-row17', stepType: 'verification',
+        summary: 'Generate the governed index and verify the final ADR through one combined registered check and independent review.',
+        acceptance: 'All four combined-check capabilities and the ADR-only final review are captured before normal Stop reconciliation.' },
+    ];
+    const operations = [
+      ['plan', ['plan', '--session-id', sessionId, '--strategy', 'iterative-single', '--requirements-json', JSON.stringify(requirements),
+        '--evidence', 'row17 baseline witness']],
+      ['start', ['start', '--session-id', sessionId]],
+    ];
+    for (const [name, args] of operations) {
+      runWorkflowOperation(name, args);
+    }
+    const workflow = JSON.parse(fs.readFileSync(path.join(sessionDir, 'workflow-run.json'), 'utf8'));
+    workflowId = workflow.workflowId;
+    workflowRevision = workflow.revision;
+    taskBinding = workflow.docReconciliationTask;
+    taskId = taskBinding.taskId;
+    configDigest = taskBinding.configDigest;
+    assert.deepStrictEqual(taskBinding.requirementIds, ['adr-evid', 'verify-row17'], 'plan/start must create the declared row-17 task pin');
+  }
+
+  function runW6Producer(operation) {
+    const producer = path.join(runtimeBase, 'hooks/scripts/w6-state-operations.js');
+    const toolUseId = `w6-${operation}-${sessionId}`;
+    const command = `node "${producer}" ${operation} --session-id "${sessionId}"`;
+    const payload = { session_id: sessionId, cwd: root, hook_event_name: 'PreToolUse', tool_name: 'Bash',
+      tool_use_id: toolUseId, tool_input: { command } };
+    runHook(payload);
+    const child = spawnSync(process.execPath, [producer, operation, '--session-id', sessionId], { cwd: root,
+      env: { ...process.env, HARNESS_STATE_HOME: stateHome, HARNESS_WORKSPACE_ROOT: root,
+        HARNESS_DOC_RECONCILIATION_PILOT: '1' }, encoding: 'utf8' });
+    if (child.status !== 0) {
+      runHook({ ...payload, hook_event_name: 'PostToolUseFailure', is_interrupt: false,
+        error: child.stderr || child.stdout || `exit ${child.status}`, tool_response: { exitCode: child.status } });
+      if (options.w6ExpectedProducerFailure) return { error: child.stderr || child.stdout || `exit ${child.status}`, exitCode: child.status };
+      throw new Error(`row-17 ${operation} producer: ${child.stderr || child.stdout}`);
+    }
+    if (operation === 'inventory' && options.w6ProducerFault === 'extra-state-destination') {
+      writeJson(path.join(sessionDir, 'unauthorized-state-change.json'), { operation: 'inventory' });
+    }
+    const post = { ...payload, hook_event_name: 'PostToolUse',
+      tool_response: { exitCode: child.status, stdout: child.stdout, stderr: child.stderr, interrupted: false, status: 'completed' } };
+    if (!(operation === 'inventory' && options.w6ProducerFault === 'missing-post')) runHook(post);
+    if (operation === 'inventory' && options.w6ProducerFault === 'duplicate-post') runHook(post);
+    return JSON.parse(child.stdout);
+  }
+
+  function runWorkerCommand(toolName, toolUseId, toolInput, command, execute) {
+    const payload = { session_id: sessionId, cwd: root, hook_event_name: 'PreToolUse', tool_name: toolName,
+      tool_use_id: toolUseId, agent_id: 'draft-worker', agent_type: 'worker', tool_input: toolInput };
+    runHook(payload);
+    const result = execute();
+    runHook({ ...payload, hook_event_name: 'PostToolUse', tool_response: {
+      exitCode: result.exitCode ?? 0, stdout: result.stdout || '', stderr: result.stderr || '', interrupted: false, status: 'completed',
+    } });
+    return result;
+  }
+
+  function runReviewCapture(payload) {
+    runHook(payload);
+  }
+  let inventoryOperation = null;
+  let outsideInventoryPath = null;
+  if (options.w6ProducerFault === 'inventory-symlink') {
+    const inventoryParent = path.join(sessionDir, 'doc-reconciliation/outline-confirmation');
+    fs.mkdirSync(inventoryParent, { recursive: true });
+    outsideInventoryPath = path.join(stateHome, 'outside-inventory', 'unexpected.md');
+    fs.mkdirSync(path.dirname(outsideInventoryPath), { recursive: true });
+    fs.symlinkSync(path.dirname(outsideInventoryPath), path.join(inventoryParent, 'inventory'), 'dir');
+  }
+  if (options.w6Producer) inventoryOperation = runW6Producer('inventory');
 
   const outlineBytes = Buffer.from(outlineText({
     id: options.targetId,
@@ -268,7 +416,7 @@ function createOutlineFixture(options = {}) {
     else output = execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' });
     const postPayload = { ...payload, hook_event_name: 'PostToolUse', tool_response: { exitCode: 0, stdout: output } };
     runHook(postPayload, true, false);
-    const records = provider.readCaptureView(sessionDir).records;
+    const records = runtimeProvider.readCaptureView(sessionDir).records;
     const pre = preRecords.find(item => item.event === 'PreToolUse' && item.tool_use_id === toolUseId);
     const post = records.find(item => item.event === 'PostToolUse' && item.tool_use_id === toolUseId);
     assert.ok(pre && post, operation + ' operation has real PreToolUse and successful PostToolUse captures');
@@ -335,21 +483,14 @@ function createOutlineFixture(options = {}) {
   let outlineTree = fixtureGit(root, ['rev-parse', 'HEAD^{tree}']);
   let outlineBlob = fixtureGit(root, ['rev-parse', `HEAD:${target}`]);
 
-  const inventoryBytes = retainedInventory
-    ? fs.readFileSync(path.join(ROOT, 'benchmarks/results/live-host/claude-341-outline-dispatch-2026-10-28/inventory/2741bd4514d2cd68f57d93a2b3ce94cbe597ca62d30e26f0ca58e882df5b03c6.md'))
-    : Buffer.from(syntheticInventory);
-  const pinDigest = sha(inventoryBytes);
-  const expectedPin = retainedInventory ? internals.OUTLINE_INVENTORY_PIN : {
-    source: 'synthetic://approved-inventory', sha256: pinDigest, runId: 'synthetic-run', inputSha: 'abcdef012345',
-    approvalRef: { issue: 325, commentId: 'synthetic-comment', decision: 1 },
-    retainedArtifactPath: `inventory/${pinDigest}.md`,
-  };
-  if (retainedInventory) assert.strictEqual(pinDigest, expectedPin.sha256, 'retained inventory bytes must match the pinned digest');
   const outlineRoot = path.join(sessionDir, 'doc-reconciliation/outline-confirmation');
   const inventoryDir = path.join(outlineRoot, 'inventory');
-  fs.mkdirSync(inventoryDir, { recursive: true });
-  fs.writeFileSync(path.join(inventoryDir, `${pinDigest}.md`), inventoryBytes);
-  writeJson(path.join(inventoryDir, 'inventory-pin.json'), expectedPin);
+  if (!options.w6Producer || !inventoryOperation?.operation) {
+    fs.rmSync(inventoryDir, { recursive: true, force: true });
+    fs.mkdirSync(inventoryDir, { recursive: true });
+    fs.writeFileSync(path.join(inventoryDir, `${pinDigest}.md`), inventoryBytes);
+    writeJson(path.join(inventoryDir, 'inventory-pin.json'), expectedPin);
+  }
 
 
   const inventoryPath = `doc-reconciliation/outline-confirmation/inventory/${pinDigest}.md`;
@@ -402,53 +543,64 @@ function createOutlineFixture(options = {}) {
       outlineBlob = fixtureGit(root, ['rev-parse', `HEAD:${target}`]);
     }
     runHook(reviewStopPayload);
-    const retained = provider.readCaptureView(sessionDir).records;
+    const retained = runtimeProvider.readCaptureView(sessionDir).records;
     reviewResult = retained.find(item => item.event === 'PostToolUse' && item.tool_use_id === 'review-dispatch');
     reviewStop = retained.find(item => item.event === 'SubagentStop' && item.agent_id === reviewerPrincipal);
   } else {
-    reviewResult = provider.buildCaptureRecord(reviewResultPayload, 'PostToolUse', root);
-    reviewStop = provider.buildCaptureRecord(reviewStopPayload, 'SubagentStop', root);
+    reviewResult = runtimeProvider.buildCaptureRecord(reviewResultPayload, 'PostToolUse', root);
+    reviewStop = runtimeProvider.buildCaptureRecord(reviewStopPayload, 'SubagentStop', root);
     reviewResult.observedIdentity = { workflowId, workflowRevision, baselinePin: { root, commit: baselineCommit }, taskPin: taskBinding };
     reviewStop.observedIdentity = { workflowId, workflowRevision, baselinePin: { root, commit: baselineCommit }, taskPin: taskBinding };
     if (!options.omitReviewerStart) {
-      reviewerStartRecord = provider.buildCaptureRecord(reviewerStartPayload, 'SubagentStart', root);
+      reviewerStartRecord = runtimeProvider.buildCaptureRecord(reviewerStartPayload, 'SubagentStart', root);
       reviewerStartRecord.observedIdentity = reviewStop.observedIdentity;
       // Same identity capture the hook applies at SubagentStart (state-persist persistPilotCapture).
-      reviewerStartRecord.outlineIdentity = provider.captureOutlineStartIdentity({ sessionDir });
+      reviewerStartRecord.outlineIdentity = runtimeProvider.captureOutlineStartIdentity({ sessionDir });
     }
   }
   if (!reviewStop || (!reviewResult && !options.omitReviewResult)) {
     if (options.realHook) logReviewHookDiagnostics();
     throw new Error('review hook captures were not retained');
   }
-  const reviewRecordDigest = provider._internals?.captureDigest
-    ? provider._internals.captureDigest(reviewStop)
+  const reviewRecordDigest = runtimeProvider._internals?.captureDigest
+    ? runtimeProvider._internals.captureDigest(reviewStop)
     : sha(JSON.stringify(reviewStop));
 
-  const attemptDir = path.join(outlineRoot, taskId, 'attempts', attemptId);
-  fs.mkdirSync(attemptDir, { recursive: true });
-  const lease = { schema: 'harness.outline-writer-lease.v1', id: 'lease-1', taskId, attemptId,
-    principalId: sessionId, root: workerRoot, exclusive: true, active: true,
-    ...(options.competingWriters ? { competingWriters: ['unknown-writer'] } : {}) };
-  writeJson(path.join(attemptDir, 'writer-lease.json'), lease);
-  const leaseDigest = sha(fs.readFileSync(path.join(attemptDir, 'writer-lease.json')));
-  const marker = `HARNESS_OUTLINE_DISPATCH_V1 taskId=${taskId} attemptId=${attemptId} token=${options.token || 'token-1'} workerRoot=${options.markerRoot || workerRoot}`;
-  const handoff = {
-    schema: 'harness.outline-handoff.v1', handoffId: 'handoff-1', taskId, attemptId,
-    supersedesAttemptId: options.supersedesAttemptId || null,
-    workspaceId,
-    workflowId, workflowRevision, sessionId, hostId: 'claude-code',
-    baseline: { root, commit: baselineCommit, tree: baselineTree, configDigest },
-    configDigest, targetPaths: [target], draftWorktreeRoot: workerRoot,
-    outline: { commit: outlineCommit, tree: options.handoffTreeOverride ? 'f'.repeat(40) : outlineTree,
-      targetBlobs: { [target]: { blobOid: outlineBlob, storedBytesSha256: sha(outlineBytes) } } },
-    inventory: { ...expectedPin, rowId, domain, targetPaths: [target] },
-    reviewCaptureRef: reviewStop.ref, reviewCaptureDigest: reviewRecordDigest, reviewDigest: reviewStop.reviewDigest,
-    coordinatorPrincipal: sessionId, writerLeaseId: lease.id, writerLeaseDigest: leaseDigest,
-    draftDispatchToken: options.token || 'token-1',
-    ...(options.handoffOverrides || {}),
-  };
-  if (!options.omitHandoff) writeJson(path.join(attemptDir, 'handoff.json'), handoff);
+  let attemptDir = path.join(outlineRoot, taskId, 'attempts', attemptId);
+  let lease;
+  let handoff;
+  if (options.w6Producer) {
+    const sealed = runW6Producer('seal');
+    attemptId = sealed.attemptId;
+    attemptDir = path.join(outlineRoot, taskId, 'attempts', attemptId);
+    lease = JSON.parse(fs.readFileSync(path.join(attemptDir, 'writer-lease.json'), 'utf8'));
+    handoff = JSON.parse(fs.readFileSync(path.join(attemptDir, 'handoff.json'), 'utf8'));
+  } else {
+    fs.mkdirSync(attemptDir, { recursive: true });
+    lease = { schema: 'harness.outline-writer-lease.v1', id: 'lease-1', taskId, attemptId,
+      principalId: sessionId, root: workerRoot, exclusive: true, active: true,
+      ...(options.competingWriters ? { competingWriters: ['unknown-writer'] } : {}) };
+    writeJson(path.join(attemptDir, 'writer-lease.json'), lease);
+    const leaseDigest = sha(fs.readFileSync(path.join(attemptDir, 'writer-lease.json')));
+    handoff = {
+      schema: 'harness.outline-handoff.v1', handoffId: 'handoff-1', taskId, attemptId,
+      supersedesAttemptId: options.supersedesAttemptId || null,
+      workspaceId,
+      workflowId, workflowRevision, sessionId, hostId: 'claude-code',
+      baseline: { root, commit: baselineCommit, tree: baselineTree, configDigest },
+      configDigest, targetPaths: [target], draftWorktreeRoot: workerRoot,
+      outline: { commit: outlineCommit, tree: options.handoffTreeOverride ? 'f'.repeat(40) : outlineTree,
+        targetBlobs: { [target]: { blobOid: outlineBlob, storedBytesSha256: sha(outlineBytes) } } },
+      inventory: { ...expectedPin, rowId, domain, targetPaths: [target] },
+      reviewCaptureRef: reviewStop.ref, reviewCaptureDigest: reviewRecordDigest, reviewDigest: reviewStop.reviewDigest,
+      coordinatorPrincipal: sessionId, writerLeaseId: lease.id, writerLeaseDigest: leaseDigest,
+      draftDispatchToken: options.token || 'token-1',
+      ...(options.handoffOverrides || {}),
+    };
+    if (!options.omitHandoff) writeJson(path.join(attemptDir, 'handoff.json'), handoff);
+  }
+  const dispatchToken = options.token || (options.w6Producer ? handoff.draftDispatchToken : 'token-1');
+  const marker = `HARNESS_OUTLINE_DISPATCH_V1 taskId=${taskId} attemptId=${attemptId} token=${dispatchToken} workerRoot=${options.markerRoot || workerRoot}`;
 
   const payload = {
     session_id: sessionId, cwd: root, hook_event_name: 'PreToolUse', tool_name: 'Task',
@@ -468,11 +620,11 @@ function createOutlineFixture(options = {}) {
     }
     runInterleaved(interleave.beforeDispatch);
     runHook(payload);
-    const retained = provider.readCaptureView(sessionDir).records;
+    const retained = runtimeProvider.readCaptureView(sessionDir).records;
     capture = retained.find(item => item.event === 'PreToolUse' && item.tool_use_id === payload.tool_use_id);
     reviewCaptures = retained.filter(item => item !== capture);
   } else {
-    capture = provider.buildCaptureRecord(payload, 'PreToolUse', root);
+    capture = runtimeProvider.buildCaptureRecord(payload, 'PreToolUse', root);
     capture.observedIdentity = { workflowId, workflowRevision, baselinePin: { root, commit: baselineCommit }, taskPin: taskBinding };
     reviewCaptures = options.omitReview ? [] : [...(reviewerStartRecord ? [reviewerStartRecord] : []), reviewResult, reviewStop];
   }
@@ -500,17 +652,17 @@ function createOutlineFixture(options = {}) {
   let workerStart;
   if (options.realHook) {
     runHook(workerStartPayload);
-    workerStart = provider.readCaptureView(sessionDir).records.find(item => item.event === 'SubagentStart'
+    workerStart = runtimeProvider.readCaptureView(sessionDir).records.find(item => item.event === 'SubagentStart'
       && item.agent_id === workerStartPayload.agent_id);
   } else {
-    workerStart = provider.buildCaptureRecord(workerStartPayload, 'SubagentStart', root);
+    workerStart = runtimeProvider.buildCaptureRecord(workerStartPayload, 'SubagentStart', root);
     workerStart.observedIdentity = capture.observedIdentity;
   }
   const extraCaptures = [];
 
   function dispatchAgain({ toolUseId = capture.tool_use_id, prompt = payload.tool_input.prompt } = {}) {
     const extraPayload = { ...payload, tool_use_id: toolUseId, tool_input: { prompt, run_in_background: false } };
-    const extra = provider.buildCaptureRecord(extraPayload, 'PreToolUse', root);
+    const extra = runtimeProvider.buildCaptureRecord(extraPayload, 'PreToolUse', root);
     extra.observedIdentity = capture.observedIdentity;
     if (internals.captureOutlineDispatch) {
       extra.outlineDispatch = internals.captureOutlineDispatch({
@@ -522,16 +674,62 @@ function createOutlineFixture(options = {}) {
     return extra;
   }
 
-  function finishDraft({ draft = true, nonDescendant = false, finalReview = false, baselineRoot = root,
+  function finishDraft({ draft = true, nonDescendant = false, finalReview = false, completeWorkflow = false,
+    allowDispositionFailure = false, baselineRoot = root,
     omitWorkerStart = false, omitWorkerResult = false, omitWorkerStop = false, tamperHandoff = false,
     providerSessionId = sessionId, providerTaskId = taskId, providerBaseline = { root, commit: baselineCommit },
     runPilot = false, handAuthoredCapture = false, removeSeam = false, mutateAfterFinalReview = false,
+    workerCompletionOrder = 'result-stop', workerResultAfterFinalReview = false, workerStopAfterFinalReview = false,
+    finalReviewCompletionOrder = 'result-stop', finalReviewFailure = null, reviewLaunchBeforeWorkerClosure = false,
     postWorkerCaptures = [], afterWorkerStop = [] } = {}) {
     if (draft) {
-      if (fs.lstatSync(path.join(root, target)).isSymbolicLink()) fs.unlinkSync(path.join(root, target));
-      fs.writeFileSync(path.join(root, target), `---\nid: ${domain}-001\nstatus: proposed\n---\n\n## Decision\nFinal D for row ${rowId}.\n`);
-      fixtureGit(root, ['add', '-A']);
-      fixtureGit(root, ['commit', '-q', '-m', 'D final draft']);
+      if (options.w6Producer) {
+        const finalAdr = `---\nid: ${domain}-001\nstatus: proposed\n---\n\n# ${domain}-001\n\n## Decision\nFinal evidence decision for row ${rowId}.\n`;
+        runWorkerCommand('Write', 'w6-draft-write', { file_path: path.join(root, target), content: finalAdr }, null, () => {
+          fs.writeFileSync(path.join(root, target), finalAdr);
+          return { exitCode: 0 };
+        });
+        const indexCommand = 'node harness-everything/scripts/doc-lifecycle.js index --workspace . --config .agents/harness-everything/project-docs.json --all > docs/governed-index.md';
+        runWorkerCommand('Bash', 'w6-index-generate', { command: indexCommand }, indexCommand, () => {
+          const generated = spawnSync(process.execPath, [path.join(root, 'harness-everything/scripts/doc-lifecycle.js'), 'index',
+            '--workspace', root, '--config', '.agents/harness-everything/project-docs.json', '--all'], { cwd: root, encoding: 'utf8' });
+          assert.strictEqual(generated.status, 0, `row-17 D index generation: ${generated.stderr || generated.stdout}`);
+          fs.writeFileSync(path.join(root, 'docs/governed-index.md'), generated.stdout);
+          return { exitCode: generated.status, stdout: '' };
+        });
+        const addCommand = `git add -- ${target} docs/governed-index.md`;
+        runWorkerCommand('Bash', 'w6-index-stage', { command: addCommand }, addCommand, () => {
+          fixtureGit(root, ['add', '--', target, 'docs/governed-index.md']);
+          return { exitCode: 0 };
+        });
+        const commitCommand = 'git commit -m "draft EVID ADR and index"';
+        runWorkerCommand('Bash', 'w6-index-commit', { command: commitCommand }, commitCommand, () => {
+          fixtureGit(root, ['commit', '-q', '-m', 'draft EVID ADR and index']);
+          return { exitCode: 0 };
+        });
+        const check = runtimeBase === ROOT ? path.join(runtimeBase, 'harness-everything/scripts/doc-check.js')
+          : path.join(runtimeBase, 'skills/harness-everything/scripts/doc-check.js');
+        const checkArgs = ['check', '--workspace', root, '--config', '.agents/harness-everything/project-docs.json',
+          '--changed-path', target, '--base', baselineCommit, '--derived-view', 'docs/governed-index.md', '--conflict-assessment'];
+        const checkCommand = `node ${shellWord(check)} ${checkArgs.map(value => shellWord(value)).join(' ')}`;
+        const resolvedCheck = runtimeProvider.resolveDocCheckInvocation(checkCommand, root);
+        assert.strictEqual(resolvedCheck.kind, 'accepted', `installed combined-check resolution: ${JSON.stringify({ checkCommand, resolvedCheck })}`);
+        const checked = runWorkerCommand('Bash', 'w6-combined-check', { command: checkCommand }, checkCommand, () => {
+          const result = spawnSync(process.execPath, [check, ...checkArgs], { cwd: root, encoding: 'utf8' });
+          assert.strictEqual(result.status, 0, `row-17 combined check: ${result.stderr || result.stdout}`);
+          const report = JSON.parse(result.stdout);
+          for (const capability of ['doc-lint', 'link-check', 'derived-regenerate', 'conflict-check']) {
+            assert.strictEqual(report.capabilities?.[capability]?.state, 'pass', `combined check ${capability} must pass`);
+          }
+          return { exitCode: result.status, stdout: result.stdout, stderr: result.stderr };
+        });
+        assert.ok(checked.stdout, 'combined check host result retains its real report');
+      } else {
+        if (fs.lstatSync(path.join(root, target)).isSymbolicLink()) fs.unlinkSync(path.join(root, target));
+        fs.writeFileSync(path.join(root, target), `---\nid: ${domain}-001\nstatus: proposed\n---\n\n## Decision\nFinal D for row ${rowId}.\n`);
+        fixtureGit(root, ['add', '-A']);
+        fixtureGit(root, ['commit', '-q', '-m', 'D final draft']);
+      }
     }
     if (nonDescendant) {
       fixtureGit(root, ['checkout', '--orphan', 'unrelated']);
@@ -549,39 +747,89 @@ function createOutlineFixture(options = {}) {
       changed.outline.tree = 'f'.repeat(40);
       writeJson(handoffFile, changed);
     }
+    const workerResultPayload = {
+      session_id: sessionId, cwd: root, hook_event_name: 'PostToolUse', tool_name: 'Task',
+      tool_use_id: capture.tool_use_id, tool_input: { command: 'Task' },
+      tool_response: { agentId: options.workerPrincipal || 'draft-worker', interrupted: false, status: 'completed' },
+    };
+    const workerStopPayload = {
+      session_id: sessionId, cwd: root, hook_event_name: 'SubagentStop',
+      agent_id: options.workerPrincipal || 'draft-worker', agent_type: 'worker',
+    };
+    const finalReviewer = 'final-reviewer';
+    const finalReviewPrePayload = {
+      session_id: sessionId, cwd: root, hook_event_name: 'PreToolUse', tool_name: 'Task',
+      tool_use_id: 'final-review-dispatch', tool_input: { prompt: 'Review the final ADR.' },
+    };
+    const finalReviewStartPayload = { session_id: sessionId, cwd: root, hook_event_name: 'SubagentStart',
+      agent_id: finalReviewer, agent_type: 'reviewer' };
+    const finalResultPayload = {
+      session_id: sessionId, cwd: root, hook_event_name: 'PostToolUse', tool_name: 'Task',
+      tool_use_id: 'final-review-dispatch', tool_input: { command: 'Task' },
+      tool_response: { agentId: finalReviewer, interrupted: false, status: 'completed' },
+    };
+    const finalStopPayload = {
+      session_id: sessionId, cwd: root, hook_event_name: 'SubagentStop', agent_id: finalReviewer,
+      agent_type: 'reviewer',
+      last_assistant_message: `Review verdict: approve\nReviewed artifact: ${target} sha256:${sha(draftBytes)}\nSummary: Final candidate reviewed.`,
+    };
+    const finalFailurePayload = finalReviewFailure && {
+      session_id: finalReviewFailure.sessionId || sessionId, cwd: root, hook_event_name: 'PostToolUseFailure', tool_name: 'Task',
+      tool_use_id: finalReviewFailure.toolUseId || 'final-review-dispatch', tool_input: { command: 'Task' },
+      is_interrupt: false, error: 'injected final-review failure', tool_response: { exitCode: 1, interrupted: false, status: 'failed' },
+    };
+    if (finalReviewFailure) assert.ok(['before-success', 'after-success'].includes(finalReviewFailure.order),
+      'final-review failure fixture must declare its order relative to success');
+    const emitFinalReviewFailure = () => { if (finalFailurePayload) runHook(finalFailurePayload); };
+    let finalReviewPreCaptured = false;
     if (options.realHook) {
-      if (!omitWorkerResult) runHook({
-        session_id: sessionId, cwd: root, hook_event_name: 'PostToolUse', tool_name: 'Task',
-        tool_use_id: capture.tool_use_id, tool_input: { command: 'Task' },
-        tool_response: { agentId: options.workerPrincipal || 'draft-worker', interrupted: false, status: 'completed' },
-      });
-      if (!omitWorkerStop) runHook({
-        session_id: sessionId, cwd: root, hook_event_name: 'SubagentStop',
-        agent_id: options.workerPrincipal || 'draft-worker', agent_type: 'worker',
-      });
+      if (finalReview && reviewLaunchBeforeWorkerClosure) {
+        runHook(finalReviewPrePayload);
+        finalReviewPreCaptured = true;
+      }
+      if (workerResultAfterFinalReview) {
+        if (!omitWorkerStop) runHook(workerStopPayload);
+      } else if (workerStopAfterFinalReview) {
+        if (!omitWorkerResult) runHook(workerResultPayload);
+      } else if (workerCompletionOrder === 'stop-result') {
+        if (!omitWorkerStop) runHook(workerStopPayload);
+        if (!omitWorkerResult) runHook(workerResultPayload);
+      } else {
+        if (!omitWorkerResult) runHook(workerResultPayload);
+        if (!omitWorkerStop) runHook(workerStopPayload);
+      }
       for (const make of afterWorkerStop) runHook(make({ root, sessionId, target }));
     }
     if (finalReview) {
-      const finalReviewer = 'final-reviewer';
-      const finalResultPayload = {
-        session_id: sessionId, cwd: root, hook_event_name: 'PostToolUse', tool_name: 'Task',
-        tool_use_id: 'final-review-dispatch', tool_input: { command: 'Task' },
-        tool_response: { agentId: finalReviewer, interrupted: false, status: 'completed' },
-      };
-      const finalStopPayload = {
-        session_id: sessionId, cwd: root, hook_event_name: 'SubagentStop', agent_id: finalReviewer,
-        last_assistant_message: `Review verdict: approve\nReviewed artifact: ${target} sha256:${sha(draftBytes)}\nSummary: Final candidate reviewed.`,
-      };
       if (options.realHook) {
-        runHook(finalResultPayload);
-        runHook(finalStopPayload);
+        if (!finalReviewPreCaptured) runHook(finalReviewPrePayload);
+        runReviewCapture(finalReviewStartPayload);
+        if (finalReviewFailure?.order === 'before-success') emitFinalReviewFailure();
+        if (finalReviewCompletionOrder === 'stop-result') {
+          runHook(finalStopPayload);
+          runHook(finalResultPayload);
+        } else {
+          runHook(finalResultPayload);
+          runHook(finalStopPayload);
+        }
+        if (finalReviewFailure?.order === 'after-success') emitFinalReviewFailure();
       } else {
-        const finalResult = provider.buildCaptureRecord(finalResultPayload, 'PostToolUse', root);
-        const finalStop = provider.buildCaptureRecord(finalStopPayload, 'SubagentStop', root);
+        const finalResult = runtimeProvider.buildCaptureRecord(finalResultPayload, 'PostToolUse', root);
+        const finalStop = runtimeProvider.buildCaptureRecord(finalStopPayload, 'SubagentStop', root);
         finalResult.observedIdentity = capture.observedIdentity;
         finalStop.observedIdentity = capture.observedIdentity;
         extraCaptures.push(finalResult, finalStop);
       }
+    }
+    if (options.realHook && workerResultAfterFinalReview && !omitWorkerResult) runHook(workerResultPayload);
+    if (options.realHook && workerStopAfterFinalReview && !omitWorkerStop) runHook(workerStopPayload);
+    if (completeWorkflow) {
+      runWorkflowOperation('step-adr', ['step', '--session-id', sessionId, '--step-id', 'adr-evid',
+        '--disposition', 'pass', '--evidence', 'Independent final ADR review completed']);
+      runWorkflowOperation('binding-verify', ['binding', '--session-id', sessionId, '--step-id', 'verify-row17',
+        '--binding-id', 'verification-loop', '--disposition', 'loaded', '--evidence', 'Read the verification-loop skill and ran the combined checker']);
+      runWorkflowOperation('step-verify', ['step', '--session-id', sessionId, '--step-id', 'verify-row17',
+        '--disposition', 'pass', '--evidence', 'Combined checker and independent final review completed'], allowDispositionFailure);
     }
     if (mutateAfterFinalReview) {
       fs.writeFileSync(path.join(root, target), `---\nid: DOCS-001\nstatus: proposed\n---\n\n## Decision\nChanged after final review.\n`);
@@ -591,12 +839,12 @@ function createOutlineFixture(options = {}) {
       draftBytes = fs.readFileSync(path.join(root, target));
     }
     const captures = options.realHook
-      ? provider.readCaptureView(sessionDir).records
-      : [...reviewCaptures, capture, ...extraCaptures, ...(!omitWorkerStart ? [workerStart] : []), ...(!omitWorkerResult ? [provider.buildCaptureRecord({
+      ? runtimeProvider.readCaptureView(sessionDir).records
+      : [...reviewCaptures, capture, ...extraCaptures, ...(!omitWorkerStart ? [workerStart] : []), ...(!omitWorkerResult ? [runtimeProvider.buildCaptureRecord({
         session_id: sessionId, cwd: root, hook_event_name: 'PostToolUse', tool_name: 'Task',
         tool_use_id: capture.tool_use_id, tool_input: { command: 'Task' },
         tool_response: { agentId: options.workerPrincipal || 'draft-worker', interrupted: false, status: 'completed' },
-      }, 'PostToolUse', root)] : []), ...(!omitWorkerStop ? [provider.buildCaptureRecord({
+      }, 'PostToolUse', root)] : []), ...(!omitWorkerStop ? [runtimeProvider.buildCaptureRecord({
         session_id: sessionId, cwd: root, hook_event_name: 'SubagentStop', agent_id: options.workerPrincipal || 'draft-worker', agent_type: 'worker',
       }, 'SubagentStop', root)] : []), ...postWorkerCaptures];
     const qualification = options.noFakeQualification ? undefined : { source: 'fake-test-fixture', faked: true, toolUseIdPopulated: true,
@@ -610,7 +858,7 @@ function createOutlineFixture(options = {}) {
         dispatchInputDigest: sha('candidate-authored') } };
       writeJson(path.join(sessionDir, 'doc-reconciliation-capture.json'), { version: 1, records: [forged] });
     }
-    const origin = provider.createClaudeOriginProvider({
+    const origin = runtimeProvider.createClaudeOriginProvider({
       hostId: 'claude-code', sessionId: providerSessionId, workspaceRoot: root, workflowId, workflowRevision, taskId: providerTaskId,
       principals: { author: providerSessionId, executors: [] }, baseline: providerBaseline,
       captures, sessionDir, taskBinding,
@@ -625,19 +873,21 @@ function createOutlineFixture(options = {}) {
     let pilotResult = null;
     if (runPilot) {
       const previousSwitch = process.env.HARNESS_DOC_RECONCILIATION_PILOT;
-      const previousFactory = provider.createClaudeOriginProvider;
-      provider.createClaudeOriginProvider = input => previousFactory({ ...input,
+      const previousFactory = runtimeProvider.createClaudeOriginProvider;
+      runtimeProvider.createClaudeOriginProvider = input => previousFactory({ ...input,
         ...(qualification ? { qualification, outlineFixture: { expectedPin } } : {}), taskBinding });
       process.env.HARNESS_DOC_RECONCILIATION_PILOT = '1';
-      const context = { root, sessionId, sessionDir, activeHost: 'claude-code', workflow: {
+      const actualWorkflow = options.workflowCli ? JSON.parse(fs.readFileSync(path.join(sessionDir, 'workflow-run.json'), 'utf8')) : null;
+      const actualSet = options.workflowCli ? JSON.parse(fs.readFileSync(path.join(sessionDir, 'workflow-obligations.json'), 'utf8')) : null;
+      const context = { root, sessionId, sessionDir, activeHost: 'claude-code', workflow: actualWorkflow || {
         workflowId, revision: workflowRevision, strategy: 'iterative-single', state: 'running',
         docReconciliationBaseline: { root: baselineRoot, commit: baselineCommit, tree: baselineTree }, docReconciliationTask: taskBinding,
       } };
       try {
-        pilotResult = pilot.assess(context, { strategy: 'iterative-single', stepBindingsEnabled: true,
+        pilotResult = runtimePilot.assess(context, actualSet || { strategy: 'iterative-single', stepBindingsEnabled: true,
           requirements: [{ id: 'prb', summary: 'produce an ADR', acceptance: 'outline review precedes drafting' }] });
       } finally {
-        provider.createClaudeOriginProvider = previousFactory;
+        runtimeProvider.createClaudeOriginProvider = previousFactory;
         if (previousSwitch === undefined) delete process.env.HARNESS_DOC_RECONCILIATION_PILOT;
         else process.env.HARNESS_DOC_RECONCILIATION_PILOT = previousSwitch;
       }
@@ -649,7 +899,8 @@ function createOutlineFixture(options = {}) {
     baselineCommit, baselineTree, outlineCommit, outlineTree, outlineBlob, outlineBytes, configDigest,
     indexAfterCapturedAdd, indexAfterOutlineCommit,
     expectedPin, taskBinding, attemptDir, handoff, payload, capture, reviewCaptures, workerStart,
-    extraCaptures, dispatchAgain, finishDraft, runHook, stateHome,
+    extraCaptures, dispatchAgain, finishDraft, runHook, capturedRecordsAcrossSessions, stateHome, inventoryOperation, workflowOperationWitnesses,
+    runtimeProvider, runtimePilot, outsideInventoryPath,
     faultMarker: path.join(stateHome, 'prb-partial-dispatch-faults-used'),
     cleanup: () => {
       fs.rmSync(root, { recursive: true, force: true });
@@ -784,6 +1035,77 @@ test('pilot offers structured SubagentStop reviews only and preserves drafter in
   assert.strictEqual(provider.reviewRecordIndependent(drafterApproval, withDrafterApproval,
     { author, executors: ['draft-worker'] }), false, 'a drafter cannot approve its own work');
   fs.rmSync(sessionDir, { recursive: true, force: true });
+});
+
+test('review-step rejects a correlated launch failure while keeping positive controls', () => {
+  const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), 'prb-review-step-'));
+  const previousStateHome = process.env.HARNESS_STATE_HOME;
+  const previousWorkspaceRoot = process.env.HARNESS_WORKSPACE_ROOT;
+  process.env.HARNESS_STATE_HOME = stateHome;
+  process.env.HARNESS_WORKSPACE_ROOT = ROOT;
+  const { getSessionDir } = require(path.join(ROOT, 'hooks/scripts/lib/harness-state.js'));
+  const kernel = path.join(ROOT, 'harness-everything/scripts/kernel-router.js');
+  const controller = path.join(ROOT, 'hooks/scripts/workflow-disposition.js');
+  const run = (script, args = [], input) => spawnSync(process.execPath, [script, ...args], {
+    cwd: ROOT, encoding: 'utf8', input,
+    env: { ...process.env, HARNESS_DOC_RECONCILIATION_PILOT: '1' },
+  });
+  function scenario(sessionId, failureToolUseId) {
+    const payload = { session_id: sessionId, cwd: ROOT, prompt: 'Fix this checkout bug and add a regression test.' };
+    assert.strictEqual(run(kernel, [], JSON.stringify(payload)).status, 0, 'route reaches the workflow controller');
+    const sessionDir = getSessionDir(ROOT, sessionId, payload);
+    const requirements = JSON.stringify([
+      { id: 'req-review', stepType: 'review', summary: 'Review the checkout change', acceptance: 'independent review is captured' },
+      { id: 'req-verify', stepType: 'verification', summary: 'Verify the review', acceptance: 'objective evidence exists' },
+    ]);
+    assert.strictEqual(run(controller, ['plan', '--session-id', sessionId, '--requirements-json', requirements,
+      '--strategy', 'iterative-single', '--evidence', 'review-step result-correlation fixture']).status, 0);
+    assert.strictEqual(run(controller, ['start', '--session-id', sessionId]).status, 0);
+    const workflow = JSON.parse(fs.readFileSync(path.join(sessionDir, 'workflow-run.json'), 'utf8'));
+    const observedIdentity = { workflowId: workflow.workflowId, workflowRevision: workflow.revision,
+      ...(workflow.docReconciliationBaseline ? { baselinePin: workflow.docReconciliationBaseline } : {}) };
+    const records = [
+      provider.buildCaptureRecord({ session_id: sessionId, cwd: ROOT, hook_event_name: 'PostToolUse', tool_name: 'Task',
+        tool_use_id: 'review-launch', tool_response: { agentId: 'independent-reviewer', interrupted: false, status: 'completed' } }, 'PostToolUse', ROOT),
+      provider.buildCaptureRecord({ session_id: sessionId, cwd: ROOT, hook_event_name: 'SubagentStop',
+        agent_id: 'independent-reviewer', agent_type: 'reviewer',
+        last_assistant_message: `Review verdict: approve\nReviewed artifact: README.md sha256:${'a'.repeat(64)}\nSummary: Independent review completed.` }, 'SubagentStop', ROOT),
+    ];
+    for (const record of records) {
+      record.observedIdentity = observedIdentity;
+      provider.writeImmutableEvent(sessionDir, record);
+    }
+    let failure;
+    if (failureToolUseId) {
+      failure = provider.buildCaptureRecord({ session_id: sessionId, cwd: ROOT, hook_event_name: 'PostToolUseFailure',
+        tool_name: 'Task', tool_use_id: failureToolUseId, tool_input: { command: 'Task' },
+        is_interrupt: false, error: 'injected launch failure' }, 'PostToolUseFailure', ROOT);
+      provider.writeImmutableEvent(sessionDir, failure);
+    }
+    provider.rebuildJournalView(sessionDir);
+    const result = run(controller, ['step', '--session-id', sessionId, '--step-id', 'req-review', '--disposition', 'pass',
+      '--evidence', 'independent review was captured']);
+    return { result, failure, state: JSON.parse(fs.readFileSync(path.join(sessionDir, 'workflow-obligations.json'), 'utf8')) };
+  }
+
+  try {
+    const matching = scenario('prb-review-matching-failure', 'review-launch');
+    assert.strictEqual(matching.failure.session_id, 'prb-review-matching-failure');
+    assert.strictEqual(matching.failure.tool_use_id, 'review-launch');
+    assert.strictEqual(matching.failure.agent_id, undefined, 'failure-side agent_id is absent');
+    assert.notStrictEqual(matching.result.status, 0, 'matching launch failure rejects review step PASS');
+    assert.match(matching.result.stderr, /review pending/);
+    assert.strictEqual(matching.state.activeStepId, 'req-review');
+    assert.strictEqual(scenario('prb-review-success-only', null).result.status, 0, 'success-only review remains accepted');
+    assert.strictEqual(scenario('prb-review-unmatched-failure', 'other-launch').result.status, 0,
+      'unmatched failure remains accepted');
+  } finally {
+    if (previousStateHome === undefined) delete process.env.HARNESS_STATE_HOME;
+    else process.env.HARNESS_STATE_HOME = previousStateHome;
+    if (previousWorkspaceRoot === undefined) delete process.env.HARNESS_WORKSPACE_ROOT;
+    else process.env.HARNESS_WORKSPACE_ROOT = previousWorkspaceRoot;
+    fs.rmSync(stateHome, { recursive: true, force: true });
+  }
 });
 
 test('generic successful execution or waiver cannot pass outline-confirmation', () => {
@@ -1813,6 +2135,360 @@ test('overwriting a dispatched predecessor handoff invalidates the retained atte
   } finally { fixture.cleanup(); }
 });
 
+test('W6 whole row-17 path accepts captured state operations through source and packaged producers', () => {
+  const completionOrders = [
+    { runtimeLayout: 'source', workerCompletionOrder: 'result-stop', finalReviewCompletionOrder: 'result-stop' },
+    { runtimeLayout: 'packaged', workerCompletionOrder: 'stop-result', finalReviewCompletionOrder: 'stop-result' },
+  ];
+  for (const { runtimeLayout, workerCompletionOrder, finalReviewCompletionOrder } of completionOrders) {
+    const fixture = createOutlineFixture({ realHook: true, retainedInventory: true, workflowCli: true, w6Producer: true,
+      runtimeLayout, sessionId: `w6-${runtimeLayout}`, preOutlineOperation: 'write', capturedOutlineCommit: true });
+    try {
+      assert.strictEqual(fixture.inventoryOperation?.operation, 'inventory', `${runtimeLayout}: actual inventory producer ran at B`);
+      const completed = fixture.finishDraft({ finalReview: true, completeWorkflow: true, runPilot: true,
+        workerCompletionOrder, finalReviewCompletionOrder });
+      assert.strictEqual(completed.result.status, 'accepted',
+        `${runtimeLayout}: captured row-17 state writers retain outline credit: ${JSON.stringify(completed.result.diagnostics)}`);
+      assert.strictEqual(completed.pilot?.report?.pilotCredit, true,
+        `${runtimeLayout}: post-operation pilot assessment is complete: ${JSON.stringify({
+          status: completed.pilot?.report?.pilotStatus, credit: completed.pilot?.report?.pilotCredit,
+          unsatisfied: completed.pilot?.report?.unsatisfied, diagnostics: completed.pilot?.report?.diagnostics,
+          outlineEvidence: completed.pilot?.report?.outlineEvidence,
+          workflow: JSON.parse(fs.readFileSync(path.join(fixture.sessionDir, 'workflow-run.json'), 'utf8')).state,
+          requirements: JSON.parse(fs.readFileSync(path.join(fixture.sessionDir, 'workflow-obligations.json'), 'utf8')).requirements.map(row => [row.id, row.status]),
+        })}`);
+      assert.strictEqual(completed.pilot?.report?.outlineEvidence?.outcome, 'pass');
+      assert.notStrictEqual(completed.draftCommit, fixture.outlineCommit, 'D is a strict descendant of O');
+      assert.deepStrictEqual(fixtureGit(fixture.root, ['diff-tree', '--no-commit-id', '--name-only', '-r', completed.draftCommit])
+        .split('\n').filter(Boolean).sort(), [fixture.target, 'docs/governed-index.md'].sort(),
+      'the correlated worker commits the ADR and generated index together');
+      const captures = provider.readCaptureView(fixture.sessionDir).records;
+      const stateCommands = captures.filter(item => item.event === 'PreToolUse' && item.stateOperation?.schema === 'harness.w6-state-operation.v1');
+      assert.deepStrictEqual(stateCommands.map(item => item.stateOperation.operation),
+        ['plan', 'start', 'inventory', 'seal', 'step-adr', 'binding-verify', 'step-verify'],
+      `${runtimeLayout}: retained journal keeps every bounded operation in phase order`);
+      const decision = provider._internals.evaluateW6StateOperations(captures, fixture.sessionDir);
+      assert.strictEqual(decision.complete, true, `${runtimeLayout}: shared validator accepts the complete operation sequence`);
+      assert.ok(decision.results.length > 0 && decision.results.every(item => item.accepted),
+        `${runtimeLayout}: every captured writer disposition is accepted`);
+      const finalReviewStop = captures.find(item => item.event === 'SubagentStop' && item.agent_id === 'final-reviewer');
+      assert.ok(finalReviewStop, `${runtimeLayout}: final reviewer Stop was captured`);
+      assert.strictEqual(completed.origin.resolveEvent({ reference: `${finalReviewStop.ref}#quality-review`, identity: completed.identity }).status,
+        'accepted', `${runtimeLayout}: final quality review remains independently accepted`);
+      const verifyState = fixture.workflowOperationWitnesses.find(item => item.name === 'step-verify');
+      assert.ok(verifyState?.before && verifyState?.after, `${runtimeLayout}: verify disposition has host state before and after`);
+      for (const field of ['lastEditAt', 'lastVerifyAt', 'lastGenericVerifyAt', 'lastDocVerifyAt']) {
+        assert.strictEqual(verifyState.before[field], verifyState.after[field], `${runtimeLayout}: state-only verification disposition preserves ${field}`);
+      }
+      const stop = spawnSync(process.execPath, [path.join(runtimeLayout === 'source' ? ROOT : path.join(ROOT, 'plugins/harness-everything'),
+        'hooks/scripts/workflow-stop-gate.js')], { cwd: fixture.root, encoding: 'utf8',
+        input: JSON.stringify({ session_id: fixture.sessionId, cwd: fixture.root, hook_event_name: 'Stop' }),
+        env: { ...process.env, HARNESS_STATE_HOME: fixture.stateHome, HARNESS_WORKSPACE_ROOT: fixture.root,
+          HARNESS_DOC_RECONCILIATION_PILOT: '1' } });
+      assert.strictEqual(stop.status, 0, `${runtimeLayout}: normal Stop stays fail-open: ${stop.stderr}`);
+      const workflow = JSON.parse(fs.readFileSync(path.join(fixture.sessionDir, 'workflow-run.json'), 'utf8'));
+      const report = JSON.parse(fs.readFileSync(path.join(fixture.sessionDir, 'doc-reconciliation-pilot.json'), 'utf8'));
+      assert.strictEqual(workflow.state, 'satisfied', `${runtimeLayout}: real Stop reconciliation resolves the workflow; unresolved=${JSON.stringify(workflow.unresolved)}; stop=${stop.stderr}; pilot=${JSON.stringify({
+        status: report.pilotStatus, credit: report.pilotCredit, unsatisfied: report.unsatisfied, diagnostics: report.diagnostics,
+      })}; editVerify=${JSON.stringify(fixture.workflowOperationWitnesses.map(item => ({ name: item.name,
+        before: [item.before?.lastEditAt, item.before?.lastVerifyAt], after: [item.after?.lastEditAt, item.after?.lastVerifyAt] })))}; final=${JSON.stringify(JSON.parse(fs.readFileSync(path.join(fixture.sessionDir, 'handoff-state.json'), 'utf8')))} `);
+      assert.strictEqual(report.pilotCredit, true, `${runtimeLayout}: completed host operation results earn final pilot credit`);
+    } finally { fixture.cleanup(); }
+  }
+});
+
+test('W6 rejects final-review launch before both correlated worker completion surfaces', () => {
+  for (const scenario of [
+    { name: 'worker result', options: { workerResultAfterFinalReview: true } },
+    { name: 'worker Stop', options: { workerStopAfterFinalReview: true } },
+  ]) {
+    const fixture = createOutlineFixture({ realHook: true, retainedInventory: true, workflowCli: true, w6Producer: true,
+      runtimeLayout: 'source', sessionId: `w6-late-${scenario.name.replace(' ', '-')}`, preOutlineOperation: 'write', capturedOutlineCommit: true });
+    try {
+      const completed = fixture.finishDraft({ finalReview: true, completeWorkflow: true, ...scenario.options,
+        finalReviewCompletionOrder: 'stop-result', allowDispositionFailure: true, runPilot: true });
+      assert.notStrictEqual(completed.result.status, 'accepted',
+        `late ${scenario.name} cannot authorize W6 outline credit: ${JSON.stringify(completed.result)}`);
+      assert.notStrictEqual(completed.pilot?.report?.outlineEvidence?.outcome, 'pass',
+        `the final consumer withholds outline credit after the late ${scenario.name}`);
+      const captures = fixture.runtimeProvider.readCaptureView(fixture.sessionDir).records;
+      const decision = fixture.runtimeProvider._internals.evaluateW6StateOperations(captures, fixture.sessionDir);
+      assert.strictEqual(decision.complete, false, `late ${scenario.name} cannot complete the W6 writer disposition`);
+      const finalReviewStop = captures.find(item => item.event === 'SubagentStop' && item.agent_id === 'final-reviewer');
+      const finalReview = completed.origin.resolveEvent({ reference: `${finalReviewStop.ref}#quality-review`, identity: completed.identity });
+      assert.notStrictEqual(finalReview.status, 'accepted', 'task-scoped final quality review is not eligible');
+      assert.strictEqual(completed.pilot?.report?.pilotCredit, false, 'pilot credit stays withheld');
+    } finally { fixture.cleanup(); }
+  }
+});
+
+test('outline-backed no-W6 task rejects final quality review launched before worker result', () => {
+  const fixture = createOutlineFixture({ realHook: true, runtimeLayout: 'source', sessionId: 'no-w6-late-worker-result' });
+  try {
+    const completed = fixture.finishDraft({ finalReview: true, workerResultAfterFinalReview: true,
+      finalReviewCompletionOrder: 'stop-result', runPilot: true });
+    const finalReviewStop = completed.captures.find(item => item.event === 'SubagentStop' && item.agent_id === 'final-reviewer');
+    const finalReview = completed.origin.resolveEvent({ reference: `${finalReviewStop.ref}#quality-review`, identity: completed.identity });
+    assert.notStrictEqual(finalReview.status, 'accepted',
+      `the outline-backed sibling lane must share worker closure eligibility: ${JSON.stringify(finalReview)}`);
+    assert.strictEqual(completed.pilot?.report?.outlineEvidence?.outcome, 'pass',
+      'the earlier O review remains a separate accepted outline result');
+    assert.ok(!completed.pilot?.report?.acceptedRefs?.some(ref => ref === `${finalReviewStop.ref}#quality-review`),
+      'the early final review is absent from accepted pilot evidence');
+    assert.strictEqual(completed.pilot?.report?.pilotCredit, false,
+      'the sibling lane cannot use an early final review for pilot credit');
+  } finally { fixture.cleanup(); }
+});
+
+test('outline-backed no-W6 positive final review accepts both callback orders through source and package', () => {
+  const completionOrders = [
+    { runtimeLayout: 'source', workerCompletionOrder: 'result-stop', finalReviewCompletionOrder: 'stop-result' },
+    { runtimeLayout: 'packaged', workerCompletionOrder: 'stop-result', finalReviewCompletionOrder: 'result-stop' },
+  ];
+  for (const { runtimeLayout, workerCompletionOrder, finalReviewCompletionOrder } of completionOrders) {
+    const fixture = createOutlineFixture({ realHook: true, runtimeLayout, sessionId: `no-w6-${runtimeLayout}` });
+    try {
+      const completed = fixture.finishDraft({ finalReview: true, workerCompletionOrder, finalReviewCompletionOrder, runPilot: true });
+      const finalReviewStop = completed.captures.find(item => item.event === 'SubagentStop' && item.agent_id === 'final-reviewer');
+      const finalReview = completed.origin.resolveEvent({ reference: `${finalReviewStop.ref}#quality-review`, identity: completed.identity });
+      assert.strictEqual(finalReview.status, 'accepted', `${runtimeLayout}: completed task-scoped final review is eligible`);
+      assert.strictEqual(completed.pilot?.report?.outlineEvidence?.outcome, 'pass', `${runtimeLayout}: O review remains accepted`);
+      assert.ok(completed.pilot?.report?.acceptedRefs?.includes(`${finalReviewStop.ref}#quality-review`),
+        `${runtimeLayout}: the final review reaches the no-W6 pilot seam`);
+      assert.strictEqual(completed.pilot?.report?.pilotCredit, false,
+        `${runtimeLayout}: unrelated outstanding MUSTs still withhold full pilot credit`);
+    } finally { fixture.cleanup(); }
+  }
+});
+
+test('matching final-review failures veto W6 eligibility and disposition in either callback order', () => {
+  const observations = [];
+  for (const { order, runtimeLayout } of [
+    { order: 'before-success', runtimeLayout: 'source' },
+    { order: 'after-success', runtimeLayout: 'packaged' },
+  ]) {
+    const fixture = createOutlineFixture({ realHook: true, retainedInventory: true, workflowCli: true, w6Producer: true,
+      runtimeLayout, sessionId: `w6-failure-${order}`, preOutlineOperation: 'write', capturedOutlineCommit: true });
+    try {
+      const completed = fixture.finishDraft({ finalReview: true, completeWorkflow: true, runPilot: true,
+        allowDispositionFailure: true, finalReviewFailure: { order }, finalReviewCompletionOrder: 'result-stop' });
+      const finalReviewStop = completed.captures.find(item => item.event === 'SubagentStop' && item.agent_id === 'final-reviewer');
+      const finalReview = completed.origin.resolveEvent({ reference: `${finalReviewStop.ref}#quality-review`, identity: completed.identity });
+      const failure = completed.captures.find(item => item.event === 'PostToolUseFailure'
+        && item.session_id === fixture.sessionId && item.tool_use_id === 'final-review-dispatch');
+      assert.ok(failure, `${runtimeLayout}/${order}: failure was captured through state-persist`);
+      assert.strictEqual(failure.agent_id, undefined, `${runtimeLayout}/${order}: failure-side agent_id is absent`);
+      observations.push({ runtimeLayout, order, finalReviewStatus: finalReview.status,
+        outlineOutcome: completed.pilot?.report?.outlineEvidence?.outcome, pilotCredit: completed.pilot?.report?.pilotCredit });
+    } finally { fixture.cleanup(); }
+  }
+  assert.ok(observations.every(item => item.finalReviewStatus !== 'accepted'
+    && item.outlineOutcome !== 'pass' && item.pilotCredit === false),
+  `matching failure before/after success must veto final-review eligibility, outline outcome and pilot credit: ${JSON.stringify(observations)}`);
+});
+
+test('matching final-review failures veto the no-W6 final review in either callback order', () => {
+  const observations = [];
+  for (const { order, runtimeLayout } of [
+    { order: 'before-success', runtimeLayout: 'packaged' },
+    { order: 'after-success', runtimeLayout: 'source' },
+  ]) {
+    const fixture = createOutlineFixture({ realHook: true, runtimeLayout, sessionId: `no-w6-failure-${order}` });
+    try {
+      const completed = fixture.finishDraft({ finalReview: true, runPilot: true,
+        finalReviewFailure: { order }, finalReviewCompletionOrder: 'stop-result' });
+      const finalReviewStop = completed.captures.find(item => item.event === 'SubagentStop' && item.agent_id === 'final-reviewer');
+      const finalReview = completed.origin.resolveEvent({ reference: `${finalReviewStop.ref}#quality-review`, identity: completed.identity });
+      const failure = completed.captures.find(item => item.event === 'PostToolUseFailure'
+        && item.session_id === fixture.sessionId && item.tool_use_id === 'final-review-dispatch');
+      assert.ok(failure, `${runtimeLayout}/${order}: failure was captured through state-persist`);
+      assert.strictEqual(failure.agent_id, undefined, `${runtimeLayout}/${order}: failure-side agent_id is absent`);
+      observations.push({ runtimeLayout, order, finalReviewStatus: finalReview.status,
+        outlineOutcome: completed.pilot?.report?.outlineEvidence?.outcome, pilotCredit: completed.pilot?.report?.pilotCredit });
+    } finally { fixture.cleanup(); }
+  }
+  assert.ok(observations.every(item => item.finalReviewStatus !== 'accepted'
+    && item.outlineOutcome === 'pass' && item.pilotCredit === false),
+  `matching failure before/after success must veto final review while retaining the separate O outcome: ${JSON.stringify(observations)}`);
+});
+
+test('unmatched final-review failures do not poison a valid W6 launch', () => {
+  for (const scenario of [
+    { name: 'other session', runtimeLayout: 'source', failure: { sessionId: 'unrelated-review-session' } },
+    { name: 'other tool-use ID', runtimeLayout: 'packaged', failure: { toolUseId: 'unrelated-review-tool' } },
+  ]) {
+    const fixture = createOutlineFixture({ realHook: true, retainedInventory: true, workflowCli: true, w6Producer: true,
+      runtimeLayout: scenario.runtimeLayout, sessionId: `w6-unmatched-${scenario.name.replaceAll(' ', '-')}`,
+      preOutlineOperation: 'write', capturedOutlineCommit: true });
+    try {
+      const completed = fixture.finishDraft({ finalReview: true, completeWorkflow: true, runPilot: true,
+        finalReviewFailure: { order: 'after-success', ...scenario.failure } });
+      const finalReviewStop = completed.captures.find(item => item.event === 'SubagentStop' && item.agent_id === 'final-reviewer');
+      const finalReview = completed.origin.resolveEvent({ reference: `${finalReviewStop.ref}#quality-review`, identity: completed.identity });
+      const failure = fixture.capturedRecordsAcrossSessions().find(item => item.event === 'PostToolUseFailure'
+        && item.session_id === (scenario.failure.sessionId || fixture.sessionId)
+        && item.tool_use_id === (scenario.failure.toolUseId || 'final-review-dispatch'));
+      assert.ok(failure, `${scenario.name}: unmatched failure was captured through state-persist`);
+      assert.strictEqual(failure.agent_id, undefined, `${scenario.name}: failure-side agent_id is absent`);
+      assert.strictEqual(finalReview.status, 'accepted', `${scenario.name}: valid final review remains eligible`);
+      assert.strictEqual(completed.result.status, 'accepted', `${scenario.name}: outline result remains accepted`);
+      assert.strictEqual(completed.pilot?.report?.outlineEvidence?.outcome, 'pass', `${scenario.name}: outline outcome remains pass`);
+      assert.strictEqual(completed.pilot?.report?.pilotCredit, true, `${scenario.name}: valid launch retains pilot credit`);
+    } finally { fixture.cleanup(); }
+  }
+});
+
+test('outline-backed no-W6 final review rejects a worker Stop that arrives after launch', () => {
+  const fixture = createOutlineFixture({ realHook: true, runtimeLayout: 'source', sessionId: 'no-w6-late-worker-stop' });
+  try {
+    const completed = fixture.finishDraft({ finalReview: true, workerStopAfterFinalReview: true,
+      finalReviewCompletionOrder: 'stop-result', runPilot: true });
+    const finalReviewStop = completed.captures.find(item => item.event === 'SubagentStop' && item.agent_id === 'final-reviewer');
+    const finalReview = completed.origin.resolveEvent({ reference: `${finalReviewStop.ref}#quality-review`, identity: completed.identity });
+    assert.notStrictEqual(finalReview.status, 'accepted', 'a late worker Stop cannot retroactively authorize the launch');
+    assert.ok(!completed.pilot?.report?.acceptedRefs?.includes(`${finalReviewStop.ref}#quality-review`));
+    assert.strictEqual(completed.pilot?.report?.pilotCredit, false);
+  } finally { fixture.cleanup(); }
+});
+
+test('W6 requires a captured final-review launch to follow worker closure even when its Start is later', () => {
+  const fixture = createOutlineFixture({ realHook: true, retainedInventory: true, workflowCli: true, w6Producer: true,
+    runtimeLayout: 'source', sessionId: 'w6-early-review-pre', preOutlineOperation: 'write', capturedOutlineCommit: true });
+  try {
+    const completed = fixture.finishDraft({ finalReview: true, completeWorkflow: true,
+      reviewLaunchBeforeWorkerClosure: true, allowDispositionFailure: true, runPilot: true });
+    assert.notStrictEqual(completed.result.status, 'accepted',
+      'a late SubagentStart cannot hide a final-review PreToolUse captured before worker closure');
+    assert.notStrictEqual(completed.pilot?.report?.outlineEvidence?.outcome, 'pass');
+    assert.strictEqual(completed.pilot?.report?.pilotCredit, false);
+  } finally { fixture.cleanup(); }
+});
+
+test('W6 state operation identity, phase, schema, and destination drift withhold pilot credit', () => {
+  const fixture = createOutlineFixture({ realHook: true, retainedInventory: true, workflowCli: true, w6Producer: true,
+    runtimeLayout: 'source', sessionId: 'w6-negative-identity', preOutlineOperation: 'write', capturedOutlineCommit: true });
+  const previousSwitch = process.env.HARNESS_DOC_RECONCILIATION_PILOT;
+  const originalFactory = fixture.runtimeProvider.createClaudeOriginProvider;
+  try {
+    const completed = fixture.finishDraft({ finalReview: true, completeWorkflow: true, runPilot: true });
+    assert.strictEqual(completed.pilot && completed.pilot.report.pilotCredit, true, 'positive control: exact captured operation fields credit');
+    fixture.runtimeProvider.createClaudeOriginProvider = input => originalFactory({ ...input,
+      qualification: { source: 'fake-test-fixture', faked: true, toolUseIdPopulated: true,
+        agentIdPopulated: true, outlineDispatchCaptureVerified: true }, outlineFixture: { expectedPin: fixture.expectedPin },
+      taskBinding: fixture.taskBinding });
+    process.env.HARNESS_DOC_RECONCILIATION_PILOT = '1';
+    const view = fixture.runtimeProvider.readCaptureView(fixture.sessionDir);
+    const inventoryPre = view.records.find(item => item.event === 'PreToolUse' && item.stateOperation && item.stateOperation.operation === 'inventory');
+    assert.ok(inventoryPre, 'real inventory PreToolUse capture exists');
+    const eventDir = path.join(fixture.sessionDir, 'doc-reconciliation-capture');
+    const eventFile = fs.readdirSync(eventDir).map(name => path.join(eventDir, name))
+      .find(file => JSON.parse(fs.readFileSync(file, 'utf8')).ref === inventoryPre.ref);
+    assert.ok(eventFile, 'inventory PreToolUse has an immutable event file');
+    const original = fs.readFileSync(eventFile);
+    const context = { root: fixture.root, sessionId: fixture.sessionId, sessionDir: fixture.sessionDir, activeHost: 'claude-code',
+      workflow: JSON.parse(fs.readFileSync(path.join(fixture.sessionDir, 'workflow-run.json'), 'utf8')) };
+    const set = JSON.parse(fs.readFileSync(path.join(fixture.sessionDir, 'workflow-obligations.json'), 'utf8'));
+    for (const [field, value] of [
+      ['principalId', 'draft-worker'],
+      ['sessionId', 'other-session'],
+      ['workflowId', 'other-workflow'],
+      ['phase', 'post-final-review'],
+      ['destinations', ['workflow-run.json']],
+      ['schema', 'harness.unrecognized-state-operation.v1'],
+    ]) {
+      const changed = JSON.parse(original.toString('utf8'));
+      changed.stateOperation[field] = value;
+      writeJson(eventFile, changed);
+      fixture.runtimeProvider.rebuildJournalView(fixture.sessionDir);
+      const assessment = fixture.runtimePilot.assess(context, set);
+      assert.strictEqual(assessment.withhold, true, 'changed ' + field + ' cannot authorize the captured operation');
+      assert.strictEqual(assessment.report.pilotCredit, false, 'changed ' + field + ' withholds pilot credit');
+      assert.notStrictEqual(assessment.report.outlineEvidence && assessment.report.outlineEvidence.outcome, 'pass',
+        'changed ' + field + ' withholds outline credit');
+      fs.writeFileSync(eventFile, original);
+      fixture.runtimeProvider.rebuildJournalView(fixture.sessionDir);
+    }
+    const restored = fixture.runtimePilot.assess(context, set);
+    assert.strictEqual(restored.withhold, false, 'restored positive control returns to the same production consumer');
+    assert.strictEqual(restored.report.pilotCredit, true, 'restored exact state-operation evidence credits');
+  } finally {
+    fixture.runtimeProvider.createClaudeOriginProvider = originalFactory;
+    if (previousSwitch === undefined) delete process.env.HARNESS_DOC_RECONCILIATION_PILOT;
+    else process.env.HARNESS_DOC_RECONCILIATION_PILOT = previousSwitch;
+    fixture.cleanup();
+  }
+});
+
+test('W6 rejects extra destinations, replayed results, and missing host completion', () => {
+  for (const fault of ['extra-state-destination', 'duplicate-post', 'missing-post', 'inventory-symlink']) {
+    if (fault === 'inventory-symlink') {
+      const unavailable = symlinkUnavailable('dir');
+      if (unavailable) return { unchecked: `directory symlink escape control unavailable (${unavailable})` };
+    }
+    const fixture = createOutlineFixture({ realHook: true, retainedInventory: true, workflowCli: true, w6Producer: true,
+      w6ProducerFault: fault, w6ExpectedProducerFailure: fault === 'inventory-symlink',
+      sessionId: 'w6-negative-' + fault, preOutlineOperation: 'write', capturedOutlineCommit: true });
+    try {
+      if (fault === 'inventory-symlink') {
+        assert.ok(fixture.inventoryOperation?.error, 'symlinked destination makes the producer fail before writing');
+        assert.strictEqual(fs.existsSync(fixture.outsideInventoryPath), false, 'the outside destination receives no file');
+      }
+      const completed = fixture.finishDraft({ finalReview: true, completeWorkflow: true, allowDispositionFailure: true, runPilot: true });
+      assert.notStrictEqual(completed.result.status, 'accepted', fault + ': unsupported operation effect cannot credit outline');
+      assert.notStrictEqual(completed.pilot && completed.pilot.report.outlineEvidence && completed.pilot.report.outlineEvidence.outcome,
+        'pass', fault + ': final consumer withholds outline credit');
+      const captures = fixture.runtimeProvider.readCaptureView(fixture.sessionDir).records;
+      const decision = fixture.runtimeProvider._internals.evaluateW6StateOperations(captures, fixture.sessionDir);
+      const inventory = decision.results.find(item => item.operation === 'inventory');
+      assert.strictEqual(inventory && inventory.accepted, false, fault + ': shared validator rejects inventory effect/result');
+    } finally { fixture.cleanup(); }
+  }
+});
+
+test('W6 shell boundary rejects compound writer activity even when the task tree is restored', () => {
+  const fixture = createOutlineFixture({ realHook: true, retainedInventory: true, workflowCli: true, w6Producer: true,
+    sessionId: 'w6-negative-compound', preOutlineOperation: 'write', capturedOutlineCommit: true });
+  try {
+    const helper = path.join(ROOT, 'hooks/scripts/w6-state-operations.js');
+    const plain = 'node "' + helper + '" seal --session-id "' + fixture.sessionId + '"';
+    const compound = plain + '; printf mutated > .agents/harness-everything/project-docs.json; git checkout -- .agents/harness-everything/project-docs.json';
+    const previousStateHome = process.env.HARNESS_STATE_HOME;
+    process.env.HARNESS_STATE_HOME = fixture.stateHome;
+    try {
+      assert.strictEqual(fixture.runtimeProvider.isW6StateCommand(plain, fixture.root, fixture.root,
+        { toolName: 'Bash', sessionId: fixture.sessionId }), true, 'positive control: exact installed producer resolves');
+      assert.strictEqual(fixture.runtimeProvider.isW6StateCommand(compound, fixture.root, fixture.root,
+        { toolName: 'Bash', sessionId: fixture.sessionId }), false, 'compound trailing work is outside the fixed operation');
+    } finally {
+      if (previousStateHome === undefined) delete process.env.HARNESS_STATE_HOME;
+      else process.env.HARNESS_STATE_HOME = previousStateHome;
+    }
+    const file = path.join(fixture.root, '.agents/harness-everything/project-docs.json');
+    const original = fs.readFileSync(file);
+    const payload = { session_id: fixture.sessionId, cwd: fixture.root, hook_event_name: 'PreToolUse', tool_name: 'Bash',
+      tool_use_id: 'w6-compound-writer', tool_input: { command: compound } };
+    fixture.runHook(payload);
+    const rejectedProducer = spawnSync(process.execPath, [helper, 'seal', '--session-id', fixture.sessionId], {
+      cwd: fixture.root, encoding: 'utf8', env: { ...process.env, HARNESS_STATE_HOME: fixture.stateHome,
+        HARNESS_WORKSPACE_ROOT: fixture.root, HARNESS_DOC_RECONCILIATION_PILOT: '1' },
+    });
+    assert.strictEqual(rejectedProducer.status, 2, 'the installed producer refuses a compound host command');
+    fs.writeFileSync(file, 'mutated\n');
+    fs.writeFileSync(file, original);
+    fixture.runHook({ ...payload, hook_event_name: 'PostToolUse',
+      tool_response: { exitCode: 0, stdout: '', interrupted: false, status: 'completed' } });
+    assert.deepStrictEqual(fs.readFileSync(file), original, 'the negative restores the exact task-tree bytes');
+    const writer = fixture.runtimeProvider.readCaptureView(fixture.sessionDir).records.find(item => item.tool_use_id === payload.tool_use_id);
+    assert.ok(writer && !writer.stateOperation, 'compound invocation receives no bounded operation record');
+    const completed = fixture.finishDraft({ finalReview: true, completeWorkflow: true,
+      allowDispositionFailure: true, runPilot: true });
+    assert.notStrictEqual(completed.result.status, 'accepted', 'an unrecognized compound writer cannot earn outline credit');
+    assert.ok(completed.result.diagnostics && completed.result.diagnostics.some(item =>
+      ['outline-writer-activity-ambiguous', 'outline-state-operation-unresolved'].includes(item.code)),
+    'unknown compound writer or missing bounded state path stays visible');
+  } finally { fixture.cleanup(); }
+});
+
 test('captured pre-O coordinator Write of the pinned target earns outline credit, like the paired read-only control', () => {
   const legs = [];
   for (const [name, operation, sessionId] of [
@@ -2144,8 +2820,8 @@ test('writer-policy negative controls withhold outline credit through the real h
       interleave: { beforeDispatch: [writerRecord({ toolUseId: 'pre-outline-write-coordinator-writer-session' })] } }, [WRITER_AMBIGUOUS]],
     ['reviewer writes during review', { interleave: { duringReview: [writerRecord({ toolUseId: 'nc-reviewer', agentId: 'outline-reviewer' })] } }, [WRITER_AMBIGUOUS]],
     ['reviewer is the coordinator', { reviewerPrincipal: 'author-session' }, [SEAM_UNRESOLVED]],
-    // The worker's own Task result names the same agent id, so the review-result surface is ambiguous before the identity check.
-    ['reviewer is the draft worker', { reviewerPrincipal: 'draft-worker' }, ['outline-review-result-missing-or-ambiguous']],
+    // Multiple launch results for the same reviewer make its independent result decision ambiguous.
+    ['reviewer is the draft worker', { reviewerPrincipal: 'draft-worker' }, ['outline-review-not-independent']],
     ['missing reviewer lifecycle', { omitReviewResult: true }, [SEAM_UNRESOLVED]],
     ['review digest mismatch at dispatch', { handoffOverrides: { reviewDigest: 'f'.repeat(64) } }, [SEAM_UNRESOLVED]],
     ['task mismatch at dispatch', { handoffOverrides: { taskId: 'task-other' } }, [SEAM_UNRESOLVED]],
