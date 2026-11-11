@@ -132,7 +132,13 @@ flowchart LR
   `hooks/scripts/reset-circuit-breaker.js`, [docs/enforcement-locks.md](../enforcement-locks.md)) is not
   modified in this cycle. Owner direction: no counting (that was tried and failed before); a hook hint is
   enough. This ADR does **not** claim the existing breaker conforms to A2; whether A2 requires a separate
-  change to it is a separate item outside this ADR, unresolved for its owner.
+  change to it is a separate item outside this ADR, unresolved for its owner. Host boundary, stated here
+  and kept consistent with the reading list and the known-inconsistencies entry below: this delivery
+  design covers only the selected Claude Code / Codex `UserPromptSubmit` path; the OpenCode plugin has its
+  own separate Rule-of-3 breaker (`opencode-plugin/index.mjs` — an independent counter, required
+  reflection, block on the covered edit tools), which this delivery neither uses nor modifies and which
+  this ADR does not claim conforms to A2. The OpenCode sources are reading-list evidence only: they do not
+  mean OpenCode was run and do not extend the hosts the lesson injection supports.
 - **Non-goals (from A2 and the ownership boundary):** the hook stays a context carrier, not a decision
   maker; this ADR does not duplicate #359 (Error Ledger), #394 (ledger context injection and
   agent-initiated zoom-out) or #141 (candidate creation/evaluation); candidate creation/evaluation
@@ -259,6 +265,15 @@ Decision rests on. One line each.
 | `evals/zoom-out/`, `evals/self-evolve/` | Routing evals for the two agent-initiated paths. |
 | `behavioral-evals/cases/baseline-error-handling.yaml`, `pressure-skip-error-handling.yaml`, `breaker-zoom-out-after-3.yaml`, `self-evolve-retrieval-recurrence.yaml` | Behavior cases covering error handling and retrieval recurrence. |
 | `plugins/harness-everything/skills/zoom-out/`, `plugins/harness-everything/skills/self-evolve/`, `plugins/harness-everything/hooks/hooks.json` | Packaged copies that must stay consistent with canonical sources if delivery ships. |
+| `docs/workflows/harness-everything.md` | The cross-workflow contract: its re-plan checklist requires `zoom-out` completed after 3 same-signature failures before resuming — the mandatory reflection owner this delivery must not replace. |
+| `docs/workflow-runtime.md` | Declares the two intentionally separate hard boundaries: Rule of 3 (the third matching failure pauses mutation until a zoom-out reflection is written) and user/host permission approval; a repeated cycle requests another reflection, not a permanent lock. |
+| `docs/architecture.md` | Names the two mechanisms that still hard-block on the Claude Code hook path — `action-gate.js` and the Rule-of-3 zoom-out boundary — both explicitly scoped out of #190's downgrade to reminders. |
+| `harness-everything/SKILL.md` | Invariants: zoom-out (MUST) after 3 same-signature failures; numeric planning never hard-stops — only Rule-of-3 reflection and explicit user/host permission boundaries may block. |
+| `harness-everything/references/triage-and-tiers.md` | Architecture rule: semantic MUSTs may be reminder-observed; only Rule-of-3 reflection and explicit permission boundaries may hard-block. |
+| `README.md` | States the one cognitive hard boundary (Rule of 3: three matching failures pause mutation for a zoom-out reflection), the guard's behavior, and the OpenCode plugin's breaker with its retained live-host limits. |
+| `VERIFICATION.md` | Verification recipes plus the invariant that only Rule-of-3 and explicit permission boundaries may block. |
+| `opencode-plugin/README.md` | The OpenCode plugin's own Rule-of-3 zoom-out boundary: the third matching verification failure forces a tokenized zoom-out report; a valid reflection resets the count; no permanent second-stage lock. |
+| `opencode-plugin/index.mjs` | Implements that OpenCode breaker independently: `tripBreaker` counts matching verification failures and on the third sets `reflectionPending`; `tool.execute.before` throws for `EDIT_TOOLS` (`edit`, `write`, `apply_patch`) operations that are not the reflection write, until a valid reflection exists. |
 | [#402](https://github.com/dyphn1/Harness-everything/issues/402) (comments 6785928296, 6786069987) | Scope anchor A1–A6: problem statement, context-carrier rule, ownership, cycle-B scope, design-not-retrospective; comment 6790477633 records the A7 rulings. |
 | [#394](https://github.com/dyphn1/Harness-everything/issues/394) | Ledger context injection and agent-initiated zoom-out ownership. |
 | [#359](https://github.com/dyphn1/Harness-everything/issues/359) | Error Ledger ownership. |
@@ -276,7 +291,9 @@ Decision rests on. One line each.
   [docs/enforcement-locks.md](../enforcement-locks.md) describe a generic three-failure mutation lock with
   a required reflection report; #402 prohibits exactly such mechanisms for ledger lesson handling. This
   ADR adds, extends, calls or depends on none of them and does not modify the breaker; whether A2 requires
-  a separate change to the existing breaker stays unresolved for its owner.
+  a separate change to the existing breaker stays unresolved for its owner. The OpenCode plugin's separate
+  breaker (`opencode-plugin/index.mjs`, [opencode-plugin/README.md](../../opencode-plugin/README.md)) is
+  likewise neither used nor modified by this delivery, and this ADR does not claim it conforms to A2.
 - **Ledger README lookup rule vs the owner's full-read standard:** the README says grep `index.jsonl` for
   the packet's write-set; the owner standard requires reading every record. Injecting one record does not
   change that operational standard for packets.
