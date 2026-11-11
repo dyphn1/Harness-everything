@@ -18,6 +18,7 @@ All notable changes to this project are documented in this file.
 
 ### Features
 
+* **CI:** Skip the three-platform Node 24 self-regression matrix for pull requests limited to approved documentation, benchmark results, error ledger, or changelog paths.
 * **doc-reconciliation:** credit only correlated, bounded workflow-state operations for the approved row-17 outline cycle
 
 ## [0.50.0](https://github.com/dyphn1/Harness-everything/compare/v0.49.0...v0.50.0) (2026-11-09)

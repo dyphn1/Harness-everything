@@ -21,7 +21,30 @@ jobs:
       - name: Verify pilot instrumentation, sanitizer and offline replay
         run: python3 benchmarks/issue290-pilot/check.py
 
+  ci-change-scope:
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    outputs:
+      scope: ${{ steps.scope.outputs.scope }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Classify the full pull request diff
+        id: scope
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          scope="$(node scripts/ci-change-scope.js "$GITHUB_EVENT_NAME" "$PR_BASE_SHA" "$PR_HEAD_SHA")"
+          printf 'scope=%s\n' "$scope" >> "$GITHUB_OUTPUT"
+
   self-regression:
+    needs: [ci-change-scope]
+    if: ${{ always() && (needs.ci-change-scope.result != 'success' || needs.ci-change-scope.outputs.scope != 'docs-only') }}
     strategy:
       fail-fast: false
       matrix:
