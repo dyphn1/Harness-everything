@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.51.0](https://github.com/dyphn1/Harness-everything/compare/v0.50.0...v0.51.0) (2026-11-11)
+
+### Features
+
+* **doc-reconciliation:** accept bounded e1 workflow-state writers (w6) ([7efe5f5](https://github.com/dyphn1/Harness-everything/commit/7efe5f597122141622de1d707ebe6bee3a0a54ef)), closes [#341](https://github.com/dyphn1/Harness-everything/issues/341)
+
+### Bug Fixes
+
+* **doc-reconciliation:** apply the failure veto to workflow review steps ([c6dab12](https://github.com/dyphn1/Harness-everything/commit/c6dab1269dfdc143da95edd7a52ab832d8d8e6a4)), closes [#341](https://github.com/dyphn1/Harness-everything/issues/341)
+* **doc-reconciliation:** let a matching failure veto final-review completion ([2fbcaa4](https://github.com/dyphn1/Harness-everything/commit/2fbcaa4fdb422da84d97c0b037a91a4fe1a5168d)), closes [#341](https://github.com/dyphn1/Harness-everything/issues/341)
+* **doc-reconciliation:** order final review after the correlated worker closes ([4aa016c](https://github.com/dyphn1/Harness-everything/commit/4aa016ccf11f7db129b9969d7594f9eb2bdb3c08)), closes [#341](https://github.com/dyphn1/Harness-everything/issues/341)
+
 ## [Unreleased]
 
 ### Features
