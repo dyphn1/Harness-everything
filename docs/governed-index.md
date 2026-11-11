@@ -12,6 +12,7 @@
 - `DOCS-006` — `docs/adr/DOCS-006-reconciliation-pilot.md` (role: adr; status: accepted)
 - `DOCS-007` — `docs/adr/DOCS-007-shared-doc-craft-derived-views.md` (role: adr; status: accepted)
 - `DOCS-008` — `docs/adr/DOCS-008-obligation-abstraction-bounded-consumer.md` (role: adr; status: accepted)
+- `EVID-001` — `docs/adr/EVID-001.md` (role: adr; status: proposed)
 - `ROUTE-001` — `docs/adr/ROUTE-001-error-lesson-delivery.md` (role: adr; status: proposed)
 
 ## PRD revision chains
