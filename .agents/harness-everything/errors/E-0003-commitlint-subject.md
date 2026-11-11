@@ -59,6 +59,19 @@ episodes:
         change: "header shortened to fit 100 characters"
         review: "commitlint"
         result: "commit accepted"
+  - episode: 423-changelog-subject-case
+    feature: "#423 CHANGELOG consolidation (coordinator commit)"
+    date: 2026-11-10
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: "commit-msg hook"
+        result: "subject `chore(changelog): keep one [Unreleased] heading and guard it` rejected for `subject-case` (capital letters inside the brackets); the push ran before checking that the commit succeeded, so the branch was pushed without the commit"
+      - round: 1
+        change: "lower-case subject, committed as `18d73323`"
+        review: unknown
+        result: "commit accepted"
 ---
 
 ## Cue
@@ -83,3 +96,7 @@ Check the subject line against both rules before committing: lower case (`subjec
 ## Episode 2 (2026-10-29, #341)
 
 The ledger already held this class, but no packet or coordinator step consulted it, so it repeated three times in one session: twice inside a live operator kit (each costing a full host run) and once on a coordinator commit. A permission-rule interaction is new: a message containing parentheses cannot be expressed as an exact `Bash(...)` allow rule. Lesson added: validate every planned commit message with `npx commitlint` before a live run, keep allowlisted messages free of parentheses, and check the header length before committing. Point-of-action injection of this entry is proposed in #394.
+
+## Episode 5 (2026-11-10, #423)
+
+New failure mode in the same class: the push ran before checking that the commit succeeded, so the rejected commit left the branch pushed without it. Lesson added: run commitlint on the message file **before** `git commit`, and check the commit exists before pushing.

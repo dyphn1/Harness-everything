@@ -74,6 +74,19 @@ episodes:
         change: null
         review: coordinator
         result: "fix-p2, fix-f1, fix-class, review-13 and review-14 (codex workspace-write) could not persist workflow plan/start state: its path is outside the writable roots (EPERM); each reported a degraded inline disposition"
+  - episode: 341-e1-kit-repin-and-425-w6
+    feature: "#341 E1 kit re-pin and #425 W6 workers"
+    date: 2026-11-10
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "`npm run verify:all` (fast and full) could not complete inside `codex exec -s workspace-write`: loopback bind EPERM in System One suites, npm cache EPERM, and workflow-state writes outside the writable roots EPERM; workers reported BLOCKED/UNCHECKED"
+      - round: 1
+        change: "coordinator ran `verify:all -- --fast` outside the sandbox; packets now say \"coordinator runs verify:all\""
+        review: coordinator
+        result: "5 PASS / 0 FAIL"
 ---
 
 ## Cue
@@ -87,6 +100,7 @@ Dispatch one-shot `codex exec` with a TMPDIR outside every repository and stdin 
 - Grant the pattern the packet's verification needs (e.g. `Bash(node ci/*)`), not only the listed commands.
 - Free reviewer models can stop on quota or end without a report: ping the model first, and after one failed delivery prefer a paid runner over a third free attempt.
 - Re-violated 2026-11-08: the stdin rule lives only in prose; a dispatch wrapper that always closes stdin would make it a mechanism (not built).
+- Recurred 2026-11-10/11 (#341 kit re-pin and #425 W6): `verify:all` fast and full both remain unrunnable inside `codex exec -s workspace-write`. Dispatch arrangement: packets say "coordinator runs verify:all" and workers report the sandbox-UNCHECKED/BLOCKED disposition instead of retrying inside the sandbox.
 
 ## Stage 2 read-only review scratch (#396, 2026-11-07)
 

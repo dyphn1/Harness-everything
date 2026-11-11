@@ -57,6 +57,15 @@ episodes:
         change: "packets state 'its last line must be the column-zero STATUS line, nothing after it'"
         review: coordinator
         result: "fix-class and review-14 ended with STATUS as the last line"
+  - episode: 425-review2-label-after-status
+    feature: "#425 review round 2, `-o` report"
+    date: 2026-11-11
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: "PR #425 review round 2"
+        result: "the `-o` report had a trailing `<!-- harness-label … -->` line after a column-zero `STATUS: DONE`; delivered but not terminal — the same rule conflict as episode 412-review13-label-after-status, recurring in a packet that did not state the terminal-line condition"
 ---
 
 ## Cue
