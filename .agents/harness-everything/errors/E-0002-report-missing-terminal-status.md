@@ -66,15 +66,24 @@ episodes:
         change: null
         review: "PR #425 review round 2"
         result: "the `-o` report had a trailing `<!-- harness-label … -->` line after a column-zero `STATUS: DONE`; delivered but not terminal — the same rule conflict as episode 412-review13-label-after-status, recurring in a packet that did not state the terminal-line condition"
-  - episode: 430-431-cycle-ab-label-after-status
-    feature: "#430 cycle A (EVID-001 ADR) and #431 cycle B (ROUTE-001 ADR), `codex exec -o` review reports"
+  - episode: 430-cycle-a-label-after-status
+    feature: "#430 cycle A (EVID-001 ADR), `codex exec -o` review reports"
     date: 2026-11-11
     closed: false
     rounds:
       - round: 0
         change: null
         review: coordinator
-        result: "One discovery across five `codex exec -o` reports (cycle A final review, cycle A re-check, cycle B final review, cycle B re-check, cycle B outline review 1). The first four each ended with a column-zero `STATUS: DONE` followed by a hidden harness-label line: delivered, not terminal. Cycle B outline review 1 also ended with a false `STATUS: BLOCKED` citing the label/STATUS rule conflict, then a label line. No corrective change happened between the reports. The packets stated the terminal-line condition, yet it did not hold for `-o` reports, because the `-o` report file is the final message."
+        result: "Two `codex exec -o` reports (cycle A final review, cycle A re-check) each ended with a column-zero `STATUS: DONE` followed by a hidden harness-label line: delivered, not terminal. No corrective change happened between them. The packets stated the terminal-line condition, yet it did not hold for `-o` reports, because the `-o` report file is the final message."
+  - episode: 431-cycle-b-label-after-status
+    feature: "#431 cycle B (ROUTE-001 ADR), `codex exec -o` review reports"
+    date: 2026-11-11
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "Three `codex exec -o` reports (cycle B final review, cycle B re-check, cycle B outline review 1). The first two each ended with a column-zero `STATUS: DONE` followed by a hidden harness-label line: delivered, not terminal. Cycle B outline review 1 ended with a false `STATUS: BLOCKED` citing the label/STATUS rule conflict, then a label line. No corrective change happened between the reports. The packets stated the terminal-line condition, yet it did not hold for `-o` reports, because the `-o` report file is the final message."
 ---
 
 ## Cue
@@ -102,4 +111,4 @@ The coordinator itself, not a dispatched agent, broke the rule by appending a se
 
 ## Episode 3 (2026-11-11, #430/#431)
 
-Five `codex exec -o` reports across cycles A (#430) and B (#431) ended with a harness-label line after the terminal `STATUS:` line. They are one discovery, recorded as a single round 0 because no corrective change happened between them. One of them also carried a false `STATUS: BLOCKED`. The owner ruling is recorded in `docs/adr/ROUTE-001-error-lesson-delivery.md`: a report file ends with the raw STATUS line, and the turn message ends with the label. The rule change to AGENTS.md and `docs/routing.md` is a follow-up, so this episode stays open.
+Five `codex exec -o` reports ended with a harness-label line after the terminal `STATUS:` line. They form two independent episodes on the same day with the same cause, one per feature, because each feature is an independent occurrence (see the README): cycle A (#430, 2 reports) and cycle B (#431, 3 reports). Each episode is recorded as a single round 0 because no corrective change happened between its reports. One cycle B report also carried a false `STATUS: BLOCKED`. The owner ruling is recorded in `docs/adr/ROUTE-001-error-lesson-delivery.md`: a report file ends with the raw STATUS line, and the turn message ends with the label. The rule change to AGENTS.md and `docs/routing.md` is a follow-up, so both episodes stay open.
