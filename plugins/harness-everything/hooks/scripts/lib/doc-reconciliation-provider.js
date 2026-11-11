@@ -727,12 +727,6 @@ function journalExecutors(captures, author) {
   return [...executors].sort(compareKeys);
 }
 
-// The Agent/Task result surface that names this reviewer: a PostToolUse of the launch tool whose agent_id is the reviewer.
-function agentResultSurface(captures, reviewer) {
-  return (Array.isArray(captures) ? captures : []).some(item => recordOf(item) && item.event === 'PostToolUse'
-    && (item.tool_name === 'Agent' || item.tool_name === 'Task') && item.agent_id === reviewer);
-}
-
 function finalReviewResultDecision(captures, reviewer, sessionId) {
   const journal = Array.isArray(captures) ? captures : [];
   const results = journal.filter(item => recordOf(item) && item.event === 'PostToolUse'
@@ -3290,7 +3284,7 @@ function reviewRecordIndependent(cap, captures, principals) {
   const executors = [...new Set([...(recordOf(principals) && Array.isArray(principals.executors) ? principals.executors : []),
     ...journalExecutors(captures, principals.author)])];
   if (cap.agent_id === principals.author || executors.includes(cap.agent_id)) return false;
-  if (!agentResultSurface(captures, cap.agent_id)) return false;
+  if (!finalReviewResultDecision(captures, cap.agent_id, cap.session_id).accepted) return false;
   if (!HEX64.test(String(cap.reviewDigest === undefined ? '' : cap.reviewDigest))) return false;
   if (!reviewedDigestsValid(cap.reviewedArtifactDigests)) return false;
   return cap.reviewVerdict === 'approve' && textOf(cap.reviewSummary);

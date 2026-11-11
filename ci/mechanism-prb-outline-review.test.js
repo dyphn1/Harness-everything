@@ -1037,6 +1037,77 @@ test('pilot offers structured SubagentStop reviews only and preserves drafter in
   fs.rmSync(sessionDir, { recursive: true, force: true });
 });
 
+test('review-step rejects a correlated launch failure while keeping positive controls', () => {
+  const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), 'prb-review-step-'));
+  const previousStateHome = process.env.HARNESS_STATE_HOME;
+  const previousWorkspaceRoot = process.env.HARNESS_WORKSPACE_ROOT;
+  process.env.HARNESS_STATE_HOME = stateHome;
+  process.env.HARNESS_WORKSPACE_ROOT = ROOT;
+  const { getSessionDir } = require(path.join(ROOT, 'hooks/scripts/lib/harness-state.js'));
+  const kernel = path.join(ROOT, 'harness-everything/scripts/kernel-router.js');
+  const controller = path.join(ROOT, 'hooks/scripts/workflow-disposition.js');
+  const run = (script, args = [], input) => spawnSync(process.execPath, [script, ...args], {
+    cwd: ROOT, encoding: 'utf8', input,
+    env: { ...process.env, HARNESS_DOC_RECONCILIATION_PILOT: '1' },
+  });
+  function scenario(sessionId, failureToolUseId) {
+    const payload = { session_id: sessionId, cwd: ROOT, prompt: 'Fix this checkout bug and add a regression test.' };
+    assert.strictEqual(run(kernel, [], JSON.stringify(payload)).status, 0, 'route reaches the workflow controller');
+    const sessionDir = getSessionDir(ROOT, sessionId, payload);
+    const requirements = JSON.stringify([
+      { id: 'req-review', stepType: 'review', summary: 'Review the checkout change', acceptance: 'independent review is captured' },
+      { id: 'req-verify', stepType: 'verification', summary: 'Verify the review', acceptance: 'objective evidence exists' },
+    ]);
+    assert.strictEqual(run(controller, ['plan', '--session-id', sessionId, '--requirements-json', requirements,
+      '--strategy', 'iterative-single', '--evidence', 'review-step result-correlation fixture']).status, 0);
+    assert.strictEqual(run(controller, ['start', '--session-id', sessionId]).status, 0);
+    const workflow = JSON.parse(fs.readFileSync(path.join(sessionDir, 'workflow-run.json'), 'utf8'));
+    const observedIdentity = { workflowId: workflow.workflowId, workflowRevision: workflow.revision,
+      ...(workflow.docReconciliationBaseline ? { baselinePin: workflow.docReconciliationBaseline } : {}) };
+    const records = [
+      provider.buildCaptureRecord({ session_id: sessionId, cwd: ROOT, hook_event_name: 'PostToolUse', tool_name: 'Task',
+        tool_use_id: 'review-launch', tool_response: { agentId: 'independent-reviewer', interrupted: false, status: 'completed' } }, 'PostToolUse', ROOT),
+      provider.buildCaptureRecord({ session_id: sessionId, cwd: ROOT, hook_event_name: 'SubagentStop',
+        agent_id: 'independent-reviewer', agent_type: 'reviewer',
+        last_assistant_message: `Review verdict: approve\nReviewed artifact: README.md sha256:${'a'.repeat(64)}\nSummary: Independent review completed.` }, 'SubagentStop', ROOT),
+    ];
+    for (const record of records) {
+      record.observedIdentity = observedIdentity;
+      provider.writeImmutableEvent(sessionDir, record);
+    }
+    let failure;
+    if (failureToolUseId) {
+      failure = provider.buildCaptureRecord({ session_id: sessionId, cwd: ROOT, hook_event_name: 'PostToolUseFailure',
+        tool_name: 'Task', tool_use_id: failureToolUseId, tool_input: { command: 'Task' },
+        is_interrupt: false, error: 'injected launch failure' }, 'PostToolUseFailure', ROOT);
+      provider.writeImmutableEvent(sessionDir, failure);
+    }
+    provider.rebuildJournalView(sessionDir);
+    const result = run(controller, ['step', '--session-id', sessionId, '--step-id', 'req-review', '--disposition', 'pass',
+      '--evidence', 'independent review was captured']);
+    return { result, failure, state: JSON.parse(fs.readFileSync(path.join(sessionDir, 'workflow-obligations.json'), 'utf8')) };
+  }
+
+  try {
+    const matching = scenario('prb-review-matching-failure', 'review-launch');
+    assert.strictEqual(matching.failure.session_id, 'prb-review-matching-failure');
+    assert.strictEqual(matching.failure.tool_use_id, 'review-launch');
+    assert.strictEqual(matching.failure.agent_id, undefined, 'failure-side agent_id is absent');
+    assert.notStrictEqual(matching.result.status, 0, 'matching launch failure rejects review step PASS');
+    assert.match(matching.result.stderr, /review pending/);
+    assert.strictEqual(matching.state.activeStepId, 'req-review');
+    assert.strictEqual(scenario('prb-review-success-only', null).result.status, 0, 'success-only review remains accepted');
+    assert.strictEqual(scenario('prb-review-unmatched-failure', 'other-launch').result.status, 0,
+      'unmatched failure remains accepted');
+  } finally {
+    if (previousStateHome === undefined) delete process.env.HARNESS_STATE_HOME;
+    else process.env.HARNESS_STATE_HOME = previousStateHome;
+    if (previousWorkspaceRoot === undefined) delete process.env.HARNESS_WORKSPACE_ROOT;
+    else process.env.HARNESS_WORKSPACE_ROOT = previousWorkspaceRoot;
+    fs.rmSync(stateHome, { recursive: true, force: true });
+  }
+});
+
 test('generic successful execution or waiver cannot pass outline-confirmation', () => {
   const target = 'docs/adr/DOCS-001.md';
   const digest = sha('final D bytes');
@@ -2749,8 +2820,8 @@ test('writer-policy negative controls withhold outline credit through the real h
       interleave: { beforeDispatch: [writerRecord({ toolUseId: 'pre-outline-write-coordinator-writer-session' })] } }, [WRITER_AMBIGUOUS]],
     ['reviewer writes during review', { interleave: { duringReview: [writerRecord({ toolUseId: 'nc-reviewer', agentId: 'outline-reviewer' })] } }, [WRITER_AMBIGUOUS]],
     ['reviewer is the coordinator', { reviewerPrincipal: 'author-session' }, [SEAM_UNRESOLVED]],
-    // The worker's own Task result names the same agent id, so the review-result surface is ambiguous before the identity check.
-    ['reviewer is the draft worker', { reviewerPrincipal: 'draft-worker' }, ['outline-review-result-missing-or-ambiguous']],
+    // Multiple launch results for the same reviewer make its independent result decision ambiguous.
+    ['reviewer is the draft worker', { reviewerPrincipal: 'draft-worker' }, ['outline-review-not-independent']],
     ['missing reviewer lifecycle', { omitReviewResult: true }, [SEAM_UNRESOLVED]],
     ['review digest mismatch at dispatch', { handoffOverrides: { reviewDigest: 'f'.repeat(64) } }, [SEAM_UNRESOLVED]],
     ['task mismatch at dispatch', { handoffOverrides: { taskId: 'task-other' } }, [SEAM_UNRESOLVED]],
