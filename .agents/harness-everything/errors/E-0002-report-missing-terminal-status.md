@@ -66,6 +66,15 @@ episodes:
         change: null
         review: "PR #425 review round 2"
         result: "the `-o` report had a trailing `<!-- harness-label … -->` line after a column-zero `STATUS: DONE`; delivered but not terminal — the same rule conflict as episode 412-review13-label-after-status, recurring in a packet that did not state the terminal-line condition"
+  - episode: 430-431-cycle-ab-label-after-status
+    feature: "#430 cycle A (EVID-001 ADR) and #431 cycle B (ROUTE-001 ADR), `codex exec -o` review reports"
+    date: 2026-11-11
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "One discovery across five `codex exec -o` reports (cycle A final review, cycle A re-check, cycle B final review, cycle B re-check, cycle B outline review 1). The first four each ended with a column-zero `STATUS: DONE` followed by a hidden harness-label line: delivered, not terminal. Cycle B outline review 1 also ended with a false `STATUS: BLOCKED` citing the label/STATUS rule conflict, then a label line. No corrective change happened between the reports. The packets stated the terminal-line condition, yet it did not hold for `-o` reports, because the `-o` report file is the final message."
 ---
 
 ## Cue
@@ -90,3 +99,7 @@ When a host rule also requires a trailing line, the packet must state which line
 ## Episode 2 (2026-10-29, #341)
 
 The coordinator itself, not a dispatched agent, broke the rule by appending a section after an existing terminal `STATUS:` line. Lesson: an addendum is inserted before the STATUS line, never appended to the file. Point-of-action injection is proposed in #394.
+
+## Episode 3 (2026-11-11, #430/#431)
+
+Five `codex exec -o` reports across cycles A (#430) and B (#431) ended with a harness-label line after the terminal `STATUS:` line. They are one discovery, recorded as a single round 0 because no corrective change happened between them. One of them also carried a false `STATUS: BLOCKED`. The owner ruling is recorded in `docs/adr/ROUTE-001-error-lesson-delivery.md`: a report file ends with the raw STATUS line, and the turn message ends with the label. The rule change to AGENTS.md and `docs/routing.md` is a follow-up, so this episode stays open.
