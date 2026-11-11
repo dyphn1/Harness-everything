@@ -44,7 +44,7 @@ jobs:
 
   self-regression:
     needs: [ci-change-scope]
-    if: ${{ always() && (needs.ci-change-scope.result != 'success' || needs.ci-change-scope.outputs.scope != 'docs-only') }}
+    if: ${{ !cancelled() && (needs.ci-change-scope.result != 'success' || needs.ci-change-scope.outputs.scope != 'docs-only') }}
     strategy:
       fail-fast: false
       matrix:

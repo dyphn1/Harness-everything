@@ -13,7 +13,7 @@ const ROOT = path.resolve(__dirname, '..');
 const SCRIPT = path.join(ROOT, 'scripts', 'ci-change-scope.js');
 const BASELINE_SHA = '71a8706061f2fdec657b1c2b348571aa6c40e877';
 const CHANGE_SCOPE_JOB = 'ci-change-scope';
-const SELF_REGRESSION_IF = "${{ always() && (needs.ci-change-scope.result != 'success' || needs.ci-change-scope.outputs.scope != 'docs-only') }}";
+const SELF_REGRESSION_IF = "${{ !cancelled() && (needs.ci-change-scope.result != 'success' || needs.ci-change-scope.outputs.scope != 'docs-only') }}";
 
 function nulPaths(paths) {
   return paths.length ? Buffer.from(`${paths.join('\0')}\0`) : Buffer.alloc(0);
@@ -47,8 +47,9 @@ function baselineFile(file) {
   return execFileSync('git', ['show', `${BASELINE_SHA}:${file}`], { cwd: ROOT, encoding: 'utf8' });
 }
 
-function shouldRunSelfRegression(result, scope) {
-  return result !== 'success' || scope !== 'docs-only';
+// This models the condition's truth table, not GitHub's scheduler.
+function shouldRunSelfRegression(workflowCancelled, result, scope) {
+  return !workflowCancelled && (result !== 'success' || scope !== 'docs-only');
 }
 
 test('each owner-approved path class and their combination classify as docs-only', () => {
@@ -220,20 +221,27 @@ test('the workflow gates only self-regression and fails open on every uncertain 
   assert.equal(scope.env.PR_HEAD_SHA, '${{ github.event.pull_request.head.sha }}');
   assert.match(scope.run, /node scripts\/ci-change-scope\.js "\$GITHUB_EVENT_NAME" "\$PR_BASE_SHA" "\$PR_HEAD_SHA"/);
   assert.match(scope.run, /printf 'scope=%s\\n' "\$scope" >> "\$GITHUB_OUTPUT"/);
-  assert.equal(workflow.jobs['self-regression'].if, SELF_REGRESSION_IF);
+  const selfRegressionIf = workflow.jobs['self-regression'].if;
+  assert.ok(selfRegressionIf.includes('!cancelled()'), 'workflow cancellation must disable self-regression');
+  assert.ok(!selfRegressionIf.includes('always()'), 'always() keeps self-regression eligible during cancellation');
+  assert.equal(selfRegressionIf, SELF_REGRESSION_IF, 'the full fallback predicate stays exact');
   assert.deepEqual(workflow.jobs['self-regression'].needs, [CHANGE_SCOPE_JOB]);
 
   const gateCases = [
-    ['successful docs-only classifier', 'success', 'docs-only', false],
-    ['successful full classifier', 'success', 'full', true],
-    ['partial producer output then failure', 'failure', 'docs-only', true],
-    ['missing job output', 'success', undefined, true],
-    ['malformed job output', 'success', 'docs_only', true],
-    ['failed classifier dependency', 'failure', undefined, true],
-    ['skipped classifier dependency', 'skipped', undefined, true],
+    ['successful docs-only classifier', false, 'success', 'docs-only', false],
+    ['successful full classifier', false, 'success', 'full', true],
+    ['partial producer output then failure', false, 'failure', 'docs-only', true],
+    ['missing job output', false, 'success', undefined, true],
+    ['malformed job output', false, 'success', 'docs_only', true],
+    ['failed classifier dependency', false, 'failure', undefined, true],
+    ['failed classifier with full output', false, 'failure', 'full', true],
+    ['skipped classifier dependency', false, 'skipped', undefined, true],
+    ['cancelled classifier dependency while workflow continues', false, 'cancelled', 'docs-only', true],
+    ['cancelled workflow with successful docs-only classifier', true, 'success', 'docs-only', false],
+    ['cancelled workflow with failed classifier', true, 'failure', 'full', false],
   ];
-  for (const [label, result, output, expected] of gateCases) {
-    assert.equal(shouldRunSelfRegression(result, output), expected, label);
+  for (const [label, workflowCancelled, result, output, expected] of gateCases) {
+    assert.equal(shouldRunSelfRegression(workflowCancelled, result, output), expected, label);
   }
 
   const releaseFile = '.github/workflows/release.yml';
