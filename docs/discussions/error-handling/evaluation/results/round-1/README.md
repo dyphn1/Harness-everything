@@ -41,7 +41,7 @@ Rubric cautions: #1 (recurrence) and #4 (View 2 looks like a flow) were confirme
 
 ## Design questions raised (recorded only, not readability)
 
-- The already-approved-tolerate retry path never writes to the ledger, so a Tolerate cap has nothing to count.
+- The already-approved-tolerate retry path never writes to the ledger (observed). Whether a cross-operation cap needs such a record is **unresolved**: the retry bound is operation-local and no owner requirement asks for a ledger counter.
 - `RETIRE → D` skips `C`: no occurrence record and no owner approval of a definition on that path.
 - HOLD / PENDING / DEFER / OPEN have no drawn re-entry.
 

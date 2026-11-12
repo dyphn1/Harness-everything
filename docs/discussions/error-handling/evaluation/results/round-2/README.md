@@ -59,3 +59,17 @@ Self-reported confidence did not rise with the scores (range 2–4 in both round
 ## Files
 
 `<model>-<role>.first-pass.md` and `<model>-<role>.second-pass.md` for each of the 12 cells, unedited.
+
+## Advisor check of the edit (after the fact)
+
+[advisor-check.md](./advisor-check.md) — source-traced review of `8e76b8d2` against the owner's "text only" bound.
+
+| Edit | Advisor disposition |
+|---|---|
+| 1–5 (titles, gate wording, `blocking only`, View 3 ids, alias note) | in-scope |
+| 6 (recurrence edges labelled, `G → D` added in View 2) | in-scope: makes existing README prose visible |
+| 7 (no-op `BLOCK` decision removed) | **CHANGES**: a node deletion is not text-only; acceptance is the owner's |
+| README "Existing boundaries" table, row B | **CHANGES**: still says Triage judges "whether main path is blocked", which the drawing now shows only after Identify |
+| `activity.puml` not synchronized | out-of-scope, known limit |
+
+Open owner decision: keep the `BLOCK` removal (and adjust the row B wording) or restore `BLOCK`.
