@@ -1,76 +1,86 @@
 @startuml error-handling-overview
-' Issue #437 / #402. Discussion-only UML activity source.
-' Seven Action names are retained; decisions and exits are control nodes.
+' Issue #437 / #402. Discussion-only UML Activity source.
+' ASSESS / RESPOND correspond to the same named blocks in Views 1 and 2.
+' Decide disposition is the Action expanded in View 3 (not a hyperlink).
 title Error Handling — overall UML Activity (draft)
 
 start
-:Capture;
-:Triage;
-if (Already-approved tolerate class?) then (yes)
-  :Retry this operation (at most 3);
-  if (Recovered?) then (yes)
-    :Resume interrupted work;
-  else (no)
-    :Mark step UNVERIFIED;
-    :Report; continue independent work only;
-  endif
-  stop
-else (no)
-  if (Real problem, according to reviewer?) then (yes)
-    if (Blocks the current main path?) then (yes)
-      :Mark for immediate treatment;
+partition "ASSESS (View 2)" {
+  :Capture;
+  :Triage;
+
+  if (Already-approved tolerate class?) then (yes)
+    :Retry this operation (at most 3);
+    if (Recovered?) then (yes)
+      :Resume interrupted work;
     else (no)
-      :Mark record-only / deferred;
+      :Mark step UNVERIFIED;
+      :Report; continue independent work only;
     endif
-    :Identify;
-    if (Existing class and signature?) then (yes)
-      :Record occurrence in existing ledger;
-    else (no)
-      if (Owner approves definition?) then (yes)
-        :Define class / signature in existing ledger;
-      else (no / pending)
-        :Hold item for decision;
+    stop
+  else (no)
+    if (Real problem, according to reviewer?) then (yes)
+      if (Blocks the current main path?) then (yes)
+        :Mark for immediate treatment;
+      else (no)
+        :Mark record-only / deferred;
+      endif
+      :Identify;
+      if (Existing class and signature?) then (yes)
+        :Record occurrence in existing ledger;
+      else (no)
+        if (Owner approves definition?) then (yes)
+          :Define class / signature in existing ledger;
+        else (no / pending)
+          :Hold item for decision;
+          stop
+        endif
+      endif
+      if (Immediate treatment needed?) then (no)
+        :Record only; defer treatment;
         stop
       endif
-    endif
-    if (Immediate treatment needed?) then (yes)
-      repeat
-        :Decide disposition;
-        if (Mechanical prevention feasible in budget?) then (yes)
-          if (Bounded review still finds new instances?) then (yes)
-            :Consider Avoid / Tolerate;
-          else (no)
-            :Converge;
-          endif
-        else (no)
-          :Consider Avoid / Tolerate;
-        endif
-        if (Avoid or Tolerate under consideration?) then (yes)
-          if (Can drop or restrict action?) then (yes)
-            :Avoid;
-          else (no)
-            if (Owner approves Tolerate?) then (yes)
-              :Tolerate;
-            else (no / pending)
-              :Remain unresolved;
-              stop
-            endif
-          endif
-        endif
-        :Treat;
-        :Deliver relevant context;
-        :Accept and retire;
-      repeat while (Later recurrence of same class / revisit?) is (yes) not (no)
-    else (no)
-      :Record only; defer treatment;
-    endif
-  else (no / unclear)
-    if (Reviewer cannot tell?) then (yes)
-      :Request owner decision; hold item;
-    else (no)
-      :Dismiss with reason;
+    else (no / unclear)
+      if (Reviewer cannot tell?) then (yes)
+        :Request owner decision; hold item;
+      else (no)
+        :Dismiss with reason;
+      endif
+      stop
     endif
   endif
-endif
+}
+
+partition "RESPOND (View 2)" {
+  repeat
+    :Decide disposition
+    <b>expanded in View 3</b>;
+    if (Mechanical prevention feasible in budget?) then (yes)
+      if (Bounded review still finds new instances?) then (yes)
+        :Consider Avoid / Tolerate;
+      else (no)
+        :Converge;
+      endif
+    else (no)
+      :Consider Avoid / Tolerate;
+    endif
+    if (Avoid or Tolerate under consideration?) then (yes)
+      if (Can drop or restrict action?) then (yes)
+        :Avoid;
+      else (no)
+        if (Owner approves Tolerate?) then (yes)
+          :Tolerate;
+        else (no / pending)
+          :Remain unresolved;
+          stop
+        endif
+      endif
+    endif
+    :Treat;
+    :Deliver relevant context;
+    :Accept and retire;
+  repeat while (Later recurrence of same class / revisit?) is (yes) not (no)
+}
+
 stop
 @enduml
