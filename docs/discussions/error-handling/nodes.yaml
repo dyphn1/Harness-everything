@@ -1,0 +1,34 @@
+# Discussion prototype for #437; not a production schema.
+# A-G are drawing-local aliases, NOT identity or ordered numbering.
+# IDs use creation category/date/UUIDv4. Names can change independently.
+schema: concept-v0
+scope: error-handling
+actions:
+  A:
+    identifier: ERR-20261112-a82f647f-c0b1-4c6c-b90b-fb2221fe66bd
+    name: Capture
+    status: proposed
+  B:
+    identifier: ERR-20261112-da72e7fa-a37c-48ab-81b9-a678673a7324
+    name: Triage
+    status: proposed
+  C:
+    identifier: ERR-20261112-ffbb1b17-edb3-4adb-92ff-df76ad8f101c
+    name: Identify
+    status: proposed
+  D:
+    identifier: ERR-20261112-cd6a0fd5-d354-4bcb-8d34-71fcc985e5e4
+    name: Decide disposition
+    status: proposed
+  E:
+    identifier: ERR-20261112-5349acf0-f23f-43dc-9a7b-c0ae49dbcfc9
+    name: Treat
+    status: proposed
+  F:
+    identifier: ERR-20261112-a1617b0f-e5a7-4d3d-8926-40cda9953b6a
+    name: Deliver relevant context
+    status: proposed
+  G:
+    identifier: ERR-20261112-5f7496e6-5e1a-4628-b818-5292dd011580
+    name: Accept and retire
+    status: proposed
