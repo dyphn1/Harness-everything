@@ -1,14 +1,15 @@
 @startuml error-handling-overview
-' Issue #437 / #402. Discussion-only UML Activity source.
-' ASSESS / RESPOND correspond to the same named blocks in Views 1 and 2.
-' Decide disposition is the Action expanded in View 3 (not a hyperlink).
-title Error Handling — overall UML Activity (draft)
+' Issue #437 / #402: discussion-only view of one Error Occurrence.
+' ASSESS / RESPOND correspond to Views 1 and 2.
+' Decide disposition is expanded by View 3, not a hyperlink.
+' Recurrence is a NEW occurrence entering at Capture, never a G feedback loop.
+title Error Handling — one occurrence (UML Activity draft)
 
 start
-partition "ASSESS (View 2)" {
+:New Error Occurrence;
+partition "ASSESS" {
   :Capture;
   :Triage;
-
   if (Already-approved tolerate class?) then (yes)
     :Retry this operation (at most 3);
     if (Recovered?) then (yes)
@@ -20,24 +21,13 @@ partition "ASSESS (View 2)" {
     stop
   else (no)
     if (Real problem, according to reviewer?) then (yes)
-      if (Blocks the current main path?) then (yes)
-        :Mark for immediate treatment;
-      else (no)
-        :Mark record-only / deferred;
-      endif
       :Identify;
-      if (Existing class and signature?) then (yes)
-        :Record occurrence in existing ledger;
-      else (no)
-        if (Owner approves definition?) then (yes)
-          :Define class / signature in existing ledger;
-        else (no / pending)
-          :Hold item for decision;
-          stop
-        endif
+      if (Identification complete?) then (no / owner decision pending)
+        :Hold pending identification decision;
+        stop
       endif
-      if (Immediate treatment needed?) then (no)
-        :Record only; defer treatment;
+      if (Blocking main path?) then (no)
+        :Record / defer treatment;
         stop
       endif
     else (no / unclear)
@@ -51,35 +41,42 @@ partition "ASSESS (View 2)" {
   endif
 }
 
-partition "RESPOND (View 2)" {
-  repeat
-    :Decide disposition
-    <b>expanded in View 3</b>;
-    if (Mechanical prevention feasible in budget?) then (yes)
-      if (Bounded review still finds new instances?) then (yes)
-        :Consider Avoid / Tolerate;
-      else (no)
-        :Converge;
-      endif
-    else (no)
+partition "RESPOND" {
+  :Decide disposition
+  <b>expanded in View 3</b>;
+  if (Mechanical prevention feasible within budget?) then (yes)
+    if (Same class still yields new instances in bounded review?) then (yes)
       :Consider Avoid / Tolerate;
+    else (no)
+      :Converge;
     endif
-    if (Avoid or Tolerate under consideration?) then (yes)
-      if (Can drop or restrict action?) then (yes)
-        :Avoid;
-      else (no)
-        if (Owner approves Tolerate?) then (yes)
-          :Tolerate;
-        else (no / pending)
-          :Remain unresolved;
-          stop
-        endif
+  else (no)
+    :Consider Avoid / Tolerate;
+  endif
+  if (Avoid or Tolerate under consideration?) then (yes)
+    if (Can drop or restrict action?) then (yes)
+      :Avoid;
+    else (no)
+      if (Owner approves Tolerate?) then (yes)
+        :Tolerate;
+      else (no / pending)
+        :Keep unresolved; do not bypass required checks;
+        stop
       endif
     endif
-    :Treat;
-    :Deliver relevant context;
-    :Accept and retire;
-  repeat while (Later recurrence of same class / revisit?) is (yes) not (no)
+  endif
+  :Treat (define acceptance first);
+  :Deliver relevant context;
+  :Accept and retire;
+  if (Converge / Avoid: acceptance met?) then (yes)
+    :Accept; retire unneeded lesson;
+  else (no)
+    if (Tolerate: cap and escalation recorded?) then (yes)
+      :Keep tolerate class active;
+    else (no)
+      :Keep open; report outstanding evidence;
+    endif
+  endif
 }
 
 stop
