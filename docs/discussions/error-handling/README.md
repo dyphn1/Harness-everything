@@ -6,11 +6,21 @@ An Overview contains **three distinct views**. Their responsibilities must not b
 
 | View | Purpose | What it must show |
 | --- | --- | --- |
-| **1. Overall UML Activity Diagram** | Explain the full Error Handling decision process | Actions, guards, early exits, branches, recurrence and return paths |
+| **1. Overall UML Activity Diagram** | Explain one Error Occurrence’s decision process | Actions, guards, early exits, branches and within-occurrence control flow |
 | **2. System architecture / composition** | Explain how Actions, sub-activities and existing capabilities fit together | Process grouping, owner/reviewer authority, reuse of existing ledger and delivery |
 | **3. Action Flowchart / Timeline** | Explain how one Action actually works | Inputs, decisions, outcomes, and handoff to the next Action |
 
 **Cross-view convention:** **ASSESS** and **RESPOND** group the same Actions in Views 1 and 2; Action **D · Decide disposition** is expanded in View 3. Node IDs are local to each diagram, and A–G are drawing-local aliases, not persistent identifiers. The seven Action IDs in `nodes.yaml` remain the only proposed persistent identities.
+
+## Decision — Error occurrence and recurrence boundary
+
+- **One activity execution handles one Error Occurrence.** A later recurrence, including one with the same root-cause class, is a **new Error Occurrence** starting at **Capture**, not a return from G to D or G to Capture.
+- **Level 1 controls the overall route only.** The decision about blocking versus deferring stays at the overall activity boundary; repeated-class detection, reuse of class/signature, association to past occurrences, and reuse of treatment history belong inside the relevant Action details (for example Identify and Decide disposition).
+- **Revisit is different from recurrence.** Resuming an unresolved or pending item is continuation of its original work, governed by the Action's own detail and status; it is not automatically a new Error Occurrence.
+- **Retry** remains operation-local inside the relevant Action; it is not a cross-occurrence return path and never implies that an UNVERIFIED result passed.
+- **No new graph edge taxonomy, persistent link, identifier, CLI action, or enforcement mechanism** is introduced by this decision.
+
+These rules settle the conceptual recurrence question raised in [Round 1](./evaluation/results/round-1/README.md) and [Round 2](./evaluation/results/round-2/README.md). Those evaluation artifacts are **historical frozen stimuli/results** and are intentionally **not edited** to retroactively match this updated design.
 
 ## View 1 — Overall UML Activity Diagram
 
@@ -18,7 +28,7 @@ An Overview contains **three distinct views**. Their responsibilities must not b
 
 ```mermaid
 flowchart TD
-    S((Start))
+    S((New Error Occurrence))
 
     subgraph ASSESS["ASSESS"]
         direction TB
@@ -33,14 +43,10 @@ flowchart TD
         REAL -->|No| DISMISS["Dismiss with reason"]
         REAL -->|Unclear| OWNER["Request owner decision; hold item"]
         REAL -->|Yes| C["C · Identify"]
-        C --> KNOWN{"Existing class / signature?"}
-        KNOWN -->|Yes| OCC["Record occurrence in existing ledger"]
-        KNOWN -->|No| APPROVAL{"Owner approves definition?"}
-        APPROVAL -->|No / pending| HOLD["Keep pending; no implicit new class"]
-        APPROVAL -->|Yes| DEF["Define class / signature in existing ledger"]
-        OCC --> NOW{"Blocking main path?"}
-        DEF --> NOW
-        NOW -->|No| DEFER["Record only; defer treatment"]
+        C --> READY{"Identification complete?"}
+        READY -->|No / owner decision pending| HOLD["Hold pending identification decision"]
+        READY -->|Yes| NOW{"Blocking main path?"}
+        NOW -->|No| DEFER["Record / defer treatment"]
     end
 
     subgraph RESPOND["RESPOND"]
@@ -67,7 +73,6 @@ flowchart TD
 
     S --> A
     NOW -->|Yes| D
-    RETIRE -. "Later recurrence of the SAME known class: re-evaluate disposition" .-> D
 
     RESUME --> Z((End))
     UNV --> Z
@@ -87,19 +92,19 @@ Reading notes:
 
 - **Diagram-level traceability**: Views 1 and 2 group the same Actions under `ASSESS` and `RESPOND`; `D · Decide disposition` in both diagrams is expanded in View 3. These groupings are organizational and do not change control flow.
 
-- The **primary blocking path** keeps exactly `Capture → Triage → Identify → Decide disposition → Treat → Deliver relevant context → Accept and retire`. A non-blocking item is identified/recorded, then deferred; it does not open an immediate fix cycle.
+- The **primary blocking path** keeps exactly `Capture → Triage → Identify → Decide disposition → Treat → Deliver relevant context → Accept and retire`. A non-blocking item completes identification and is recorded/deferred, without opening an immediate fix cycle.
 - **B / Triage**: an already-approved tolerate class can have a bounded per-operation retry (up to three); failure leaves that step UNVERIFIED and does not convert mandatory evidence into PASS. A reviewer decides whether a different finding is real; an unclear item goes to the owner.
-- **C / Identify**: reuse the existing root-cause class/signature when present. Creating an unknown class requires owner approval. Recording an occurrence is not a new ledger.
-- **D / Decide**: Converge / Avoid / Tolerate. The existing #437 budget suggestion is one correction plus one review; there is no global recurrence counter or forced Zoom-out.
-- **G / Accept**: Converge or Avoid can be accepted against defined conditions; a Tolerate class records retry/escalation conditions but is **not claimed to be rooted out**. A later observation may trigger re-evaluation. This is conceptual return flow, not an automatic additional PR review round.
+- **C / Identify**: Level 1 asks only whether identification is complete; unresolved cases are held for the required decision. Searching/reusing Error Class and recording a new occurrence are **Action-level responsibilities**, not extra Level 1 branches. Any new class still requires owner approval in the Identify detail.
+- **D / Decide**: Converge / Avoid / Tolerate. Reusing prior disposition history belongs inside the Action detail, not the top-level activity. The existing #437 budget suggestion is one correction plus one review; there is no global recurrence counter or forced Zoom-out.
+- **G / Accept**: Converge or Avoid can be accepted against defined conditions; a Tolerate class records retry/escalation conditions but is **not claimed to be rooted out**. G ends **this occurrence**; it never emits a cross-occurrence return arrow.
 
 ## View 2 — System architecture / composition
 
-This is deliberately a **structure/composition view, not a second executable flow specification**. Its two blocks have the **same names and action membership** as the regions in View 1. It shows the two process groupings and where existing components or authorities participate. Dotted lines are explanatory associations, not new graph edge types or a second dependency language.
+This is deliberately a **structure/composition view, not a second executable flow specification**. Its two blocks have the **same names and action membership** as the regions in View 1. It shows the two process groupings and where existing components or authorities participate. Dotted lines to external actors or existing capabilities are explanatory associations, not a second execution path or a new edge type.
 
 ```mermaid
 flowchart TB
-    INPUT["Agent failure / reviewer finding / later observation"] --> A
+    INPUT["New Error Occurrence<br/>(agent / reviewer / later observation)"] --> A
     subgraph EH["Error Handling — composed activity"]
         direction TB
         subgraph ASSESS["ASSESS"]
@@ -117,13 +122,11 @@ flowchart TB
     LEDGER[("Existing Error Ledger · #359")] -. "find / record" .-> C
     LEDGER -. "mechanism / disposition" .-> E
     HOOK["Existing bounded context delivery · #394"] -. "reuse" .-> F
-    G -. "unrelated NEW problem: re-enter at Capture" .-> INPUT
-    G -. "recurrence of the SAME known class: re-evaluate" .-> D
 ```
 
 Early exits and decisions are omitted in this view; see View 1.
 
-Each Action may later be detailed by its own Activity Diagram, Flowchart or Timeline. This Overview only shows which parts are composed together. Existing Error Ledger [#359](https://github.com/dyphn1/Harness-everything/issues/359) and bounded context delivery [#394](https://github.com/dyphn1/Harness-everything/issues/394) remain the established mechanisms; no new implementations are implied. An unrelated new problem re-enters at Capture, while a recognized recurrence may resume review of the existing disposition.
+Each Action may later be detailed by its own Activity Diagram, Flowchart or Timeline. This Overview only shows which parts are composed together. Existing Error Ledger [#359](https://github.com/dyphn1/Harness-everything/issues/359) and bounded context delivery [#394](https://github.com/dyphn1/Harness-everything/issues/394) remain existing design/implementation context; this discussion does not add machinery. Every **new** error observation enters through Capture. The diagram does not draw a feedback edge from G because one completed occurrence does not resume another occurrence.
 
 ## View 3 — Action working example (D: Decide disposition)
 
@@ -165,13 +168,13 @@ See [nodes.yaml](./nodes.yaml) for the same seven identities as in the initial b
 | Action | Responsibility |
 | --- | --- |
 | A Capture | Collect facts from agent failure, reviewer finding or later discovery |
-| B Triage | Judge real issue, permitted tolerance and whether main path is blocked |
-| C Identify | Classify root cause and find/create its ledger record |
-| D Decide disposition | Select Converge / Avoid / owner-approved Tolerate |
+| B Triage | Judge whether the observation is real or already covered by an approved tolerate path; route unclear cases for owner decision |
+| C Identify | Establish the error classification and occurrence record; class lookup/reuse and approval are internal to this Action |
+| D Decide disposition | Select Converge / Avoid / owner-approved Tolerate, informed by history as needed inside the Action |
 | E Treat | Define completion conditions, apply bounded response |
 | F Deliver relevant context | Deliver only relevant lessons that are not already mechanically prevented |
-| G Accept and retire | Check outcomes and retire lessons that are no longer required; observe recurrences |
+| G Accept and retire | Check the current occurrence outcome; retire lessons that are no longer required, without creating a cross-occurrence loop |
 
 No extra UML relation or `viewRef` field is introduced to represent the three views: they describe **one action hierarchy**, with grouping and the Action's existing name/identifier used for correlation.
 
-Open for discussion rather than implemented here: final UML notation/rendering choice, whether decision branches/early exits are located correctly, whether the two groupings are useful, what to expand next, and final ID/status lifecycle rules. Do not expand the CLI/schema/governance surface before these diagrams are accepted.
+Open for discussion rather than implemented here: final UML notation/rendering choice, whether remaining decision branches/early exits are located correctly, what to expand next, and final ID/status lifecycle rules. Recurrence as a new occurrence and non-looping Level 1 execution are decided. Do not expand the CLI/schema/governance surface before these diagrams are accepted.
