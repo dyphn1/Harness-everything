@@ -1,70 +1,156 @@
-# Error Handling — activity concept (discussion draft)
+# Error Handling — three-view overview (discussion draft)
 
-> **Proposal only.** This is a concrete discussion sketch for [#437](https://github.com/dyphn1/Harness-everything/issues/437), using the current Error Handling direction in [#402](https://github.com/dyphn1/Harness-everything/issues/402). It is not an approved contract or an implemented workflow. No CLI, hook, ledger, routing, or verification policy is changed.
+> **Discussion only.** This updates the conceptual sketch for [#437](https://github.com/dyphn1/Harness-everything/issues/437) and the first Error Handling subtree [#402](https://github.com/dyphn1/Harness-everything/issues/402). No implementation, CLI, governance policy, hook, or ledger behavior is changed. **The user-confirmed sequence of seven Actions remains unchanged.**
 
-## Level 1 — activity flow
+An Overview contains **three distinct views**. Their responsibilities must not be merged into a single linear picture:
 
-This is deliberately **simple UML Activity-style control flow**, with actions and an ordinary recurrence path. The Mermaid block is a GitHub-native preview; [activity.puml](./activity.puml) is the corresponding PlantUML activity-diagram source. Neither adds custom edge types.
-
-```mermaid
-flowchart LR
-    S((Start)) --> A["Capture"]
-    A --> B["Triage"]
-    B --> C["Identify"]
-    C --> D["Decide disposition"]
-    D --> E["Treat"]
-    E --> F["Deliver relevant context"]
-    F --> G["Accept and retire"]
-    G --> X((End))
-    G -. "recurrence / revisit" .-> D
-```
-
-| Action | Intent | Existing ownership / boundary |
+| View | Purpose | What it must show |
 | --- | --- | --- |
-| A — Capture | Collect observed failure, review finding, or later error; facts before judgment | Error capture; existing ledger in #359 |
-| B — Triage | Real problem? Already-approved tolerate class? Blocks the current main path? | Reviewer judges; owner resolves unclear cases |
-| C — Identify | Root-cause class and signature; reuse or define a record | Reuse existing Error Ledger, do not build a second registry |
-| D — Decide disposition | Choose **Converge**, **Avoid**, or owner-approved **Tolerate** | Strategy, not an additional router/lock |
-| E — Treat | Define done criteria first; apply bounded fix or avoid/retry policy | Do not widen the task into unrelated fixes |
-| F — Deliver | Supply only relevant and not-already-mechanically-enforced lessons | Reuse #394's scoped delivery, not a second hook mechanism |
-| G — Accept and retire | Check objective completion, stop delivering retired lessons; later recurrence returns to D | One PR review for the implemented slice; not proof of zero future recurrence |
+| **1. Overall UML Activity Diagram** | Explain the full Error Handling decision process | Actions, guards, early exits, branches, recurrence and return paths |
+| **2. System architecture / composition** | Explain how Actions, sub-activities and existing capabilities fit together | Process grouping, owner/reviewer authority, reuse of existing ledger and delivery |
+| **3. Action Flowchart / Timeline** | Explain how one Action actually works | Inputs, decisions, outcomes, and handoff to the next Action |
 
-**Main-path simplifications:** B may dismiss a non-problem, apply an approved tolerate/retry policy (at most three retries for that operation), or send non-blocking findings through C for record-only/deferred treatment. Unknown classifications and new tolerate classes require owner decisions. These exceptions are **not** drawn as additional permanent actions at Level 1.
+## View 1 — Overall UML Activity Diagram
 
-## Level 2 — D: decide disposition (example of an action decomposition)
+**This is the first, large diagram**, not just an A→G list. The Mermaid flowchart is a GitHub-renderable representation using normal UML Activity concepts (Action, Decision, Guard and control flow). The corresponding **PlantUML activity source** is [activity.puml](./activity.puml). Decisions are not additional persistent Actions.
 
 ```mermaid
 flowchart TD
-    I["Identified problem"] --> Q{"Can a mechanical check prevent it within the agreed budget?"}
-    Q -->|Yes| R{"Same class still finds new instances in bounded review?"}
-    R -->|No| C["Converge"]
-    R -->|Yes| O{"Can the problematic action be dropped or restricted?"}
-    Q -->|No| O
-    O -->|Yes| A["Avoid"]
-    O -->|No| T["Propose Tolerate — owner approval required"]
-    C --> E["Treat: define done criteria first"]
-    A --> E
-    T --> E
+    S((Start)) --> A["A · Capture"]
+    A --> B["B · Triage"]
+    B --> T{"Approved tolerate class?"}
+    T -->|Yes| R["Retry this operation (max 3)"]
+    R --> REC{"Recovered?"}
+    REC -->|Yes| RESUME["Resume interrupted work"]
+    REC -->|No| UNV["Mark this step UNVERIFIED; report; continue independent work only"]
+    RESUME --> Z((End))
+    UNV --> Z
+
+    T -->|No| REAL{"Real problem? (reviewer)"}
+    REAL -->|No| DISMISS["Dismiss with reason"]
+    REAL -->|Unclear| OWNER["Request owner decision; hold this item"]
+    DISMISS --> Z
+    OWNER --> Z
+
+    REAL -->|Yes| BLOCK{"Blocks the current main path?"}
+    BLOCK -->|Yes| C["C · Identify"]
+    BLOCK -->|No| C
+    C --> KNOWN{"Existing class / signature?"}
+    KNOWN -->|Yes| OCC["Record occurrence in existing ledger"]
+    KNOWN -->|No| APPROVAL{"Owner approves definition?"}
+    APPROVAL -->|No / pending| HOLD["Keep pending; no implicit new class"]
+    APPROVAL -->|Yes| DEF["Define class / signature in existing ledger"]
+    HOLD --> Z
+    OCC --> NOW{"Blocking main path?"}
+    DEF --> NOW
+    NOW -->|No| DEFER["Record only; defer treatment"]
+    DEFER --> Z
+    NOW -->|Yes| D["D · Decide disposition"]
+
+    D --> MECH{"Mechanical prevention feasible within budget?"}
+    MECH -->|Yes| RECHECK{"Same class still yields new instances in bounded review?"}
+    RECHECK -->|No| CONV["Converge"]
+    RECHECK -->|Yes| DROP{"Can action be dropped or restricted?"}
+    MECH -->|No| DROP
+    DROP -->|Yes| AVOID["Avoid"]
+    DROP -->|No| TOLAPP{"Owner approves Tolerate?"}
+    TOLAPP -->|No / pending| PENDING["Keep unresolved; do not bypass required checks"]
+    TOLAPP -->|Yes| TOL["Tolerate"]
+    PENDING --> Z
+
+    CONV --> E["E · Treat (define acceptance first)"]
+    AVOID --> E
+    TOL --> E
+    E --> F["F · Deliver relevant context"]
+    F --> G["G · Accept and retire"]
+    G --> RESULT{"Review the disposition outcome"}
+    RESULT -->|Converge / Avoid: met| RETIRE["Accept; retire unneeded lesson"]
+    RESULT -->|Tolerate: cap and escalation recorded| KEEP["Keep tolerate class active"]
+    RESULT -->|Not met / unverified| OPEN["Keep open; report outstanding evidence"]
+    KEEP --> Z
+    OPEN --> Z
+    RETIRE --> Z
+    RETIRE -. "Later recurrence of same class; re-evaluate" .-> D
 ```
 
-The budget in the current #437 proposal is **one correction plus one review**. A tolerate-class retry cap is **not** a global recurrence counter, automatic Zoom-out trigger, or permission to mark mandatory verification PASS. If the required check cannot run, retain **UNVERIFIED** and continue only independent work.
+Reading notes:
 
-## Action identity prototype
+- The **primary blocking path** keeps exactly `Capture → Triage → Identify → Decide disposition → Treat → Deliver relevant context → Accept and retire`. A non-blocking item is identified/recorded, then deferred; it does not open an immediate fix cycle.
+- **B / Triage**: an already-approved tolerate class can have a bounded per-operation retry (up to three); failure leaves that step UNVERIFIED and does not convert mandatory evidence into PASS. A reviewer decides whether a different finding is real; an unclear item goes to the owner.
+- **C / Identify**: reuse the existing root-cause class/signature when present. Creating an unknown class requires owner approval. Recording an occurrence is not a new ledger.
+- **D / Decide**: Converge / Avoid / Tolerate. The existing #437 budget suggestion is one correction plus one review; there is no global recurrence counter or forced Zoom-out.
+- **G / Accept**: Converge or Avoid can be accepted against defined conditions; a Tolerate class records retry/escalation conditions but is **not claimed to be rooted out**. A later observation may trigger re-evaluation. This is conceptual return flow, not an automatic additional PR review round.
 
-See [nodes.yaml](./nodes.yaml) for the seven **proposed** Action identities.
+## View 2 — System architecture / composition
 
-- `identifier` = `ERR-YYYYMMDD-UUIDv4`, generated for this draft; immutable once accepted, not derived from name, diagram order, or location.
-- `name` is human/agent-readable and may change independently; display names are shown in the diagram.
-- `status` is separate metadata, currently `proposed` for every Action. Lifecycle vocabulary is **not yet approved**.
-- `A`–`G` are only **diagram-local aliases** for reading the drawing, not the persistent identifiers.
-- Ordinary UML control-flow and guard semantics are sufficient; no custom contains/depends_on/references/supersedes edge ontology is introduced.
-- Only Actions that need document identity receive persistent identifiers in this prototype; decision diamonds, start/end, and arrows do not.
+This is deliberately a **structure/composition view, not a second executable flow specification**. It shows the two process groupings and where existing components or authorities participate. Dotted lines are explanatory associations, not new graph edge types or a second dependency language.
 
-**Not decided here:** whether a major Action split/merge reuses an ID, final status transitions, CLI commands, the map-to-diagram generator, or any implementation scope. Avoid adding those contracts until this diagram has been reviewed.
+```mermaid
+flowchart TB
+    INPUT["Agent failure / reviewer finding / later observation"] --> A
+    subgraph EH["Error Handling — composed activity"]
+        direction TB
+        subgraph ASSESS["Assess"]
+            direction LR
+            A["Capture"] --> B["Triage"] --> C["Identify"]
+        end
+        subgraph RESPOND["Respond"]
+            direction LR
+            D["Decide"] --> E["Treat"] --> F["Deliver"] --> G["Accept / retire"]
+        end
+        C --> D
+    end
+    REVIEW["Reviewer / Owner"] -. "judgement / approval" .-> B
+    REVIEW -. "approval" .-> D
+    LEDGER[("Existing Error Ledger · #359")] -. "find / record" .-> C
+    LEDGER -. "mechanism / disposition" .-> E
+    HOOK["Existing bounded context delivery · #394"] -. "reuse" .-> F
+    G -. "newly observed recurrence" .-> INPUT
+```
 
-## Discussion checkpoints
+Each Action may later be detailed by its own Activity Diagram, Flowchart or Timeline. This Overview only shows which parts are composed together. Existing Error Ledger [#359](https://github.com/dyphn1/Harness-everything/issues/359) and bounded context delivery [#394](https://github.com/dyphn1/Harness-everything/issues/394) remain the established mechanisms; no new implementations are implied. An unrelated new problem re-enters at Capture, while a recognized recurrence may resume review of the existing disposition.
 
-1. Are A–G the correct process boundaries? Is any Action missing, duplicated, or too broad?
-2. Is the recurrence path back to D correct, or should some cases return to C?
-3. Which node deserves the next Level-2 diagram after D?
-4. Is `Category + creation date + UUID` readable enough without showing long IDs on the graph?
+## View 3 — Action working example (D: Decide disposition)
+
+This **Flowchart is an Action-detail example**, not a replacement for View 1. A different Action may use a Timeline when timing / actor handoff is more important than decision branching.
+
+```mermaid
+flowchart TD
+    IN["C: identified class + evidence"] --> Q{"Mechanical prevention feasible within budget?"}
+    Q -->|Yes| R{"Bounded review still finds new instances?"}
+    R -->|No| C["Converge"]
+    R -->|Yes| A{"Can action be dropped / restricted?"}
+    Q -->|No| A
+    A -->|Yes| V["Avoid"]
+    A -->|No| T{"Owner approves tolerate class?"}
+    T -->|Yes| TOL["Tolerate"]
+    T -->|No / pending| WAIT["Unresolved; do not silently waive checks"]
+    C --> OUT["E: define acceptance, then treat"]
+    V --> OUT
+    TOL --> OUT
+```
+
+Inputs: an identified error class, evidence, current step, and budget. Output: the selected treatment direction (Converge / Avoid / owner-approved Tolerate) or unresolved decision. `Treat` owns the actual intervention and predeclared acceptance conditions; `Decide` does not silently implement fixes.
+
+## Action identity prototype (unchanged)
+
+See [nodes.yaml](./nodes.yaml) for the same seven identities as in the initial branch commit. **No existing identifier or name is regenerated by redrawing the diagrams.**
+
+- `identifier`: `ERR-YYYYMMDD-UUIDv4` (category at creation / creation date / UUID). Immutable once accepted; GUID supplies collision resistance; date and category are descriptive, not each a uniqueness guarantee.
+- `name`: separate human/agent-readable meaning; the diagrams show this instead of UUIDs.
+- `status`: separate metadata (`proposed` in this draft), without yet locking a lifecycle transition specification.
+- Drawing-local `A`–`G` labels are not persistent identifiers. Ordinary start/end, decision diamonds and arrows do not receive document identities.
+
+## Existing boundaries and decisions
+
+| Action | Responsibility |
+| --- | --- |
+| A Capture | Collect facts from agent failure, reviewer finding or later discovery |
+| B Triage | Judge real issue, permitted tolerance and whether main path is blocked |
+| C Identify | Classify root cause and find/create its ledger record |
+| D Decide disposition | Select Converge / Avoid / owner-approved Tolerate |
+| E Treat | Define completion conditions, apply bounded response |
+| F Deliver relevant context | Deliver only relevant lessons that are not already mechanically prevented |
+| G Accept and retire | Check outcomes and retire lessons that are no longer required; observe recurrences |
+
+Open for discussion rather than implemented here: final UML notation/rendering choice, whether decision branches/early exits are located correctly, whether the two groupings are useful, what to expand next, and final ID/status lifecycle rules. Do not expand the CLI/schema/governance surface before these diagrams are accepted.
