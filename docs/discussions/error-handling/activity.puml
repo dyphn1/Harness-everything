@@ -1,0 +1,18 @@
+@startuml error-handling-level1
+' Discussion-only sketch, issue #437 — not an implemented workflow.
+title Error Handling — Level 1 (UML activity concept)
+
+start
+:Capture;
+:Triage;
+:Identify;
+
+repeat
+    :Decide disposition;
+    :Treat;
+    :Deliver relevant context;
+    :Accept and retire;
+repeat while (Recurrence or revisit?) is (yes) not (no)
+
+stop
+@enduml
