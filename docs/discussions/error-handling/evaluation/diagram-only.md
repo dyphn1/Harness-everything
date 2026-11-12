@@ -1,17 +1,17 @@
 # Error Handling — blind diagram stimulus
 
-> Read **only the diagrams** below on your first pass. Do not read the parent README, Issue #437 / #402, previous comments, the evaluation rubric, or the other reviewer assignments. Source diagrams frozen at `33e1ef7842d1fdaf4aad29d7e8b38eb53cb17d31`.
+> Read **only the diagrams** below on your first pass. Do not read the parent README, Issue #437 / #402, previous comments, the evaluation rubric, or the other reviewer assignments. Diagrams are round 2, revised after round 1; source diagrams frozen at `8e76b8d24688148145437034a7995f3454837db1`.
 
-## Diagram 1
+## View 1 (Diagram 1)
 
 ```mermaid
 flowchart TD
     S((Start))
 
-    subgraph ASSESS["ASSESS · View 2 composition"]
+    subgraph ASSESS["ASSESS"]
         direction TB
         A["A · Capture"] --> B["B · Triage"]
-        B --> T{"Approved tolerate class?"}
+        B --> T{"Already-approved tolerate class?"}
         T -->|Yes| R["Retry this operation (max 3)"]
         R --> REC{"Recovered?"}
         REC -->|Yes| RESUME["Resume interrupted work"]
@@ -20,9 +20,7 @@ flowchart TD
         T -->|No| REAL{"Real problem? (reviewer)"}
         REAL -->|No| DISMISS["Dismiss with reason"]
         REAL -->|Unclear| OWNER["Request owner decision; hold item"]
-        REAL -->|Yes| BLOCK{"Blocks current main path?"}
-        BLOCK -->|Yes| C["C · Identify"]
-        BLOCK -->|No| C
+        REAL -->|Yes| C["C · Identify"]
         C --> KNOWN{"Existing class / signature?"}
         KNOWN -->|Yes| OCC["Record occurrence in existing ledger"]
         KNOWN -->|No| APPROVAL{"Owner approves definition?"}
@@ -33,7 +31,7 @@ flowchart TD
         NOW -->|No| DEFER["Record only; defer treatment"]
     end
 
-    subgraph RESPOND["RESPOND · View 2 composition"]
+    subgraph RESPOND["RESPOND"]
         direction TB
         D["D · Decide disposition<br/>«expanded in View 3»"] --> MECH{"Mechanical prevention feasible within budget?"}
         MECH -->|Yes| RECHECK{"Same class still yields new instances in bounded review?"}
@@ -57,7 +55,7 @@ flowchart TD
 
     S --> A
     NOW -->|Yes| D
-    RETIRE -. "Later recurrence of same class; re-evaluate" .-> D
+    RETIRE -. "Later recurrence of the SAME known class: re-evaluate disposition" .-> D
 
     RESUME --> Z((End))
     UNV --> Z
@@ -71,49 +69,54 @@ flowchart TD
     OPEN --> Z
 ```
 
-## Diagram 2
+A–G are drawing-local aliases, not persistent identifiers; node ids are local to each diagram.
+
+## View 2 (Diagram 2)
 
 ```mermaid
 flowchart TB
     INPUT["Agent failure / reviewer finding / later observation"] --> A
-    subgraph EH["Error Handling — composed activity (View 1)"]
+    subgraph EH["Error Handling — composed activity"]
         direction TB
-        subgraph ASSESS["ASSESS · same block in View 1"]
+        subgraph ASSESS["ASSESS"]
             direction LR
             A["A · Capture"] --> B["B · Triage"] --> C["C · Identify"]
         end
-        subgraph RESPOND["RESPOND · same block in View 1"]
+        subgraph RESPOND["RESPOND"]
             direction LR
             D["D · Decide disposition<br/>«expanded in View 3»"] --> E["E · Treat"] --> F["F · Deliver relevant context"] --> G["G · Accept and retire"]
         end
-        C --> D
+        C -->|"blocking only"| D
     end
     REVIEW["Reviewer / Owner"] -. "judgement / approval" .-> B
     REVIEW -. "approval" .-> D
     LEDGER[("Existing Error Ledger · #359")] -. "find / record" .-> C
     LEDGER -. "mechanism / disposition" .-> E
     HOOK["Existing bounded context delivery · #394"] -. "reuse" .-> F
-    G -. "newly observed recurrence" .-> INPUT
+    G -. "unrelated NEW problem: re-enter at Capture" .-> INPUT
+    G -. "recurrence of the SAME known class: re-evaluate" .-> D
 ```
 
-## Diagram 3
+Early exits and decisions are omitted in this view; see View 1.
+
+## View 3 (Diagram 3)
 
 ```mermaid
 flowchart TD
-    IN["C · Identify: class + evidence"] --> Q
+    IN["C · Identify: class + evidence"] --> MECH
     subgraph D_DETAIL["D · Decide disposition (expanded from Views 1–2)"]
         direction TB
-        Q{"Mechanical prevention feasible within budget?"}
-        Q -->|Yes| R{"Bounded review still finds new instances?"}
-        R -->|No| C["Converge"]
-        R -->|Yes| A{"Can action be dropped / restricted?"}
-        Q -->|No| A
-        A -->|Yes| V["Avoid"]
-        A -->|No| T{"Owner approves tolerate class?"}
-        T -->|Yes| TOL["Tolerate"]
-        T -->|No / pending| WAIT["Unresolved; do not silently waive checks"]
+        MECH{"Mechanical prevention feasible within budget?"}
+        MECH -->|Yes| RECHECK{"Bounded review still finds new instances?"}
+        RECHECK -->|No| CONV["Converge"]
+        RECHECK -->|Yes| DROP{"Can action be dropped / restricted?"}
+        MECH -->|No| DROP
+        DROP -->|Yes| AVOID["Avoid"]
+        DROP -->|No| TOLAPP{"Owner approves tolerate class?"}
+        TOLAPP -->|Yes| TOL["Tolerate"]
+        TOLAPP -->|No / pending| PENDING["Unresolved; do not silently waive checks"]
     end
-    C --> OUT["E · Treat: define acceptance, then act"]
-    V --> OUT
+    CONV --> OUT["E · Treat: define acceptance, then act"]
+    AVOID --> OUT
     TOL --> OUT
 ```
