@@ -1,0 +1,31 @@
+# Blind review — first pass
+
+## My reading
+
+The drawings describe an error-handling activity with an assessment stage and a response stage. In View 1, an already-approved tolerate class takes a special path at `T`: retry the current operation up to three times; on recovery, resume interrupted work; otherwise mark the step `UNVERIFIED`, report it, and continue only with independent work. Other findings are triaged as not real (dismiss with a reason), unclear (ask the owner and hold), or real (identify a class/signature and evidence).
+
+For a real finding, an existing class gets an occurrence recorded in the existing ledger. A new class requires owner approval before it is defined; a rejected or pending definition stays pending, with no implicit class. If the finding is not blocking, the diagram records it and defers treatment. A blocking finding enters disposition: attempt mechanical prevention if feasible and within budget, check whether bounded review still finds instances, then converge, avoid, tolerate with owner approval, or leave unresolved without bypassing checks. The result is accepted and retired only when the stated acceptance condition is met; a tolerated class remains active when its cap and escalation are recorded; unmet or unverified work remains open.
+
+## Diagram-to-diagram mapping
+
+- View 1 lays out the branches and early exits. View 2 compresses this into `Capture → Triage → Identify → Decide → Treat → Deliver → Accept and retire`, with only blocking findings flowing from `C` to `D`. Its note says early exits are omitted.
+- View 3 expands `D · Decide disposition` from Views 1–2. Its mechanical-feasibility, bounded-review, drop/restrict, approval, and pending branches match the corresponding portion of View 1. Its `C · Identify: class + evidence` input corresponds to View 1's `C` and View 2's `C`.
+- All three distinguish recording/identifying a problem from choosing and applying a disposition. View 1 and View 2 also draw a later recurrence of the same known class back to disposition. View 2 separately sends an unrelated new problem back to capture.
+
+## Unclear or potentially misleading
+
+- **Retry scope:** View 1 says “Retry this operation (max 3),” which supports an operation-local cap, not a global agent retry counter. The diagram does not say whether “max 3” means three total attempts or three retries after an initial attempt, or how the operation is identified across interruptions. Counterexample: the same step fails repeatedly across separate invocations; a reader may count each invocation as a fresh three-attempt allowance, or may count attempts globally, because reset/lifetime semantics are absent. The no-recovery branch does establish a safe visible outcome (`UNVERIFIED`, report, independent work only), but does not state what happens to dependent work.
+- **Class and approval safety:** A pending/rejected new-class definition goes to `HOLD` with no implicit class; unresolved or pending tolerate approval goes to `PENDING`, which says not to bypass required checks. An unclear reality assessment is held for an owner decision. These are safe-looking outcomes in the drawings. What constitutes the required checks, who can clear a hold, and whether unrelated independent work can continue from these holds are unknown. Counterexample: the reviewer cannot decide whether a failure is real; the shown path holds the item, but the duration and any later release condition are unspecified.
+- **Disposition terms:** The drawn outcomes are distinct: `Converge` follows feasible mechanical prevention when bounded review finds no new instances; `Avoid` follows an action that can be dropped or restricted; `Tolerate` requires owner approval when dropping/restricting is unavailable, and the result branch retains that class with cap and escalation recorded. However, these labels have no definitions beyond their surrounding branches. Counterexample: bounded review finds one new instance, and the action can be restricted; the path is `Avoid`, but the diagram does not specify what restriction is sufficient to count as accepted. An unclear acceptance condition leaves the result open, as drawn.
+- **Potential cross-view mismatch:** View 1 and View 2 condition entry into `D` on the issue blocking the main path. View 3 begins at `C · Identify: class + evidence` and proceeds directly to the disposition decision, without showing that blocking condition. Read alone, View 3 could suggest that every identified class needs disposition. This appears to be omitted context in the expanded view rather than a direct conflict, since its title says it expands `D` and Views 1–2 supply the entry condition. View 2 also omits the special already-approved-tolerate retry route and early exits; it labels those paths omitted, so they are not necessarily contradictory.
+- **Classification and recurrence:** The drawings distinguish an existing signature (record an occurrence) from an unrelated new problem (capture again), and a later recurrence of the same known class (re-evaluate disposition). They do not provide a matching rule for deciding whether a failure is the same class. Counterexample: a later failure shares one symptom with a retired class but has a different cause; without a matching rule, it might be routed as recurrence to `D` instead of captured and identified as new, or vice versa.
+
+## What I could not determine
+
+The drawings do not establish that any CLI command, ledger mechanism, hook, runtime check, or other implementation exists or has run. I cannot determine how classes/signatures are matched; how the retry count is stored or reset; what “within budget” or “bounded review” means quantitatively; the required checks, acceptance criteria, or escalation recipients; how holds are released; or how interrupted work and dependencies are represented. Whether a label names an implemented mechanism or only a proposed activity is unknown.
+
+## Confidence 0–5 with reasons
+
+**4/5.** The main branches and their stated outcomes are explicit, and the three views mostly map cleanly when View 3 is read as an expansion. Confidence is limited by undefined class matching, retry lifetime, acceptance criteria, and the fact that diagrams alone do not establish implementation or operational behavior.
+
+STATUS: DONE
