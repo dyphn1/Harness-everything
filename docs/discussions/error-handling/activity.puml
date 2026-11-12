@@ -22,12 +22,13 @@ partition "ASSESS" {
   else (no)
     if (Real problem, according to reviewer?) then (yes)
       :Identify;
-      if (Identification complete?) then (no / owner decision pending)
+      if (Identification complete?) then (yes)
+        if (Blocking main path?) then (no)
+          :Record / defer treatment;
+          stop
+        endif
+      else (no / owner decision pending)
         :Hold pending identification decision;
-        stop
-      endif
-      if (Blocking main path?) then (no)
-        :Record / defer treatment;
         stop
       endif
     else (no / unclear)
