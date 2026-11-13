@@ -35,23 +35,25 @@ sequenceDiagram
     participant L as Existing Error Ledger/Registry
     M->>T: Execute Tool(s) for active Workflow
     T-->>AH: completed(result) / error(error)
-    AH-->>M: Objective Evidence only (no verdict)
+    AH-->>M: Objective Evidence only (not verdict)
     M->>CH: Next Agent model request
-    CH-->>M: Minimal relevant context (request-scoped)
-    M->>M: Suspect error? Evaluate; no forced dispatch
-    opt Main Agent requests independent verification
-      M->>R: Subagent tool dispatch (claim as hypothesis + evidence refs + task)
+    CH-->>M: Relevant request-scoped context
+    M->>M: Problem observed -> Level 1 A Capture Evidence
+    M->>M: Level 1 B Triage; use approved Tolerate path if applicable
+    opt Main Agent dispatches Reviewer within Triage
+      M->>R: Review suspected issue + scoped Evidence and task
       R->>CH: Reviewer Agent model request (sessionID + agent)
-      CH->>L: Read relevant existing issue index (if reliable scope)
-      L-->>CH: Short related issue IDs / titles / descriptions / refs
-      CH-->>R: Reviewer instruction + evidence refs + issue summaries
-      R->>R: Independent investigation / counterexamples
-      R-->>M: Confirmed / Not confirmed / Inconclusive with evidence
+      CH->>L: Find related known issues (only if scope is reliable)
+      L-->>CH: Short issue IDs / titles / descriptions / refs
+      CH-->>R: Reviewer instructions + Evidence refs + issue summaries
+      R->>R: Independent investigation and counterexamples
+      R-->>M: Confirmed / Not confirmed / Inconclusive + Evidence
     end
-    opt Confirmed by Reviewer
-      M->>M: Level 1 → repair OR scoped Avoid/workaround OR approved Tolerate
-      M->>R: Independent outcome verification where applicable
-      R-->>M: Verified or Unresolved; no false PASS
+    opt Confirmed, identified and blocking
+      M->>M: Continue SAME L1 at C Identify → D Decide
+      M->>M: E Treat: Converge / scoped Avoid / approved Tolerate
+      Note over M: Level 2 local verification and correction<br/>does not restart Level 1
+      M->>M: F Deliver → G Accept, retire or report Unresolved
     end
 ```
 
@@ -61,22 +63,25 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    IN["Agent model request"] --> C["ctx.session.hook('context')<br/>event.sessionID + event.agent + messages"]
+    IN["Agent model request"] --> C["ctx.session.hook('context')<br/>sessionID + agent + messages"]
     S["Optional stable config switch"] --> C
-    C --> ROLE{"Reviewer agent / reliable scope?"}
-    ROLE -->|No| BASIC["Normal model request<br/>or applicable minimal non-reviewer cue"]
-    ROLE -->|Yes| F["Existing trusted dispatch packet / task features<br/>suspected claim + evidence refs"]
-    F --> E{"Enough trustworthy data?"}
-    E -->|No| SAFE["General Reviewer instructions only<br/>no fabricated Error ID/matches"]
-    E -->|Yes| SEL["CURRENT: deterministic matching<br/>existing Error Ledger / registry"]
-    SEL --> INDEX["Task-scoped list: ID / title / short description / link<br/>no full resolution or verdict"]
-    INDEX --> CUE["Construct only the needed request-scoped context"]
+    C --> ROLE{"Reviewer role and reliable task scope?"}
+    ROLE -->|No| BASIC["Normal request or relevant minimal cue"]
+    ROLE -->|Yes| F["Trusted dispatch info from Main Agent<br/>after A Capture and during B Triage"]
+    F --> E{"Enough trusted Evidence/task features?"}
+    E -->|No| SAFE["General Reviewer instructions only<br/>do not fabricate Error ID"]
+    E -->|Yes| SEL["CURRENT: deterministic lookup<br/>existing Error Ledger / registry"]
+    SEL --> INDEX["Task-scoped issue ID / title / short description / ref<br/>no full resolution or verdict"]
+    INDEX --> CUE["Construct request-scoped Reviewer context"]
     SAFE --> CUE
-    CUE --> SYSTEM["Append once to current request system parts<br/>do not change tools/permissions"]
-    SYSTEM --> REVIEW["Reviewer independently validates Evidence"]
+    CUE --> SYSTEM["Append once to THIS request's system parts"]
+    SYSTEM --> REVIEW["Reviewer independently judges suspicion in B Triage"]
     BASIC --> CONT["Continue Agent request"]
-    REVIEW --> FIND["Findings → Main Agent Level 1"]
-    NEXT["FUTURE: System One feature-based ranking / abstain<br/>#403/#233; not a runtime dependency"] -. "Optional ranking only, deterministic fallback" .-> SEL
+    REVIEW --> FIND{"Reviewer finding"}
+    FIND -->|Confirmed| NEXT["Main Agent continues SAME Level 1<br/>at C Identify → D Decide / E Treat"]
+    FIND -->|Not confirmed| DIS["Dismiss / resume"]
+    FIND -->|Inconclusive| HOLD["Hold / evidence / Owner decision"]
+    FUTURE["FUTURE: System One ranks candidates / abstains<br/>deterministic fallback"] -. "No verdict or policy override" .-> SEL
 ```
 
 ### Dispatch/context features
@@ -98,7 +103,7 @@ V2 `context` provides `sessionID`, `agent`, `messages`, `system`, `tools`, `mode
 ### Evidence → treatment boundary
 
 - `execute.after` gives **evidence**; status `error` is an execution failure signal, not proof of an Error Occurrence. Status `completed` can still include a test failure, policy failure or invalid report — Reviewer remains authoritative for determining actual problems.
-- Main Agent suspects and dispatches Reviewer; Reviewer independently confirms/rejects/inconclusive. Main Agent follows Level 1 only after a confirmed finding, loading L2 and L3 on demand.
+- After a problem is observed, Main Agent preserves Evidence at **Level 1 A Capture** and, during **B Triage**, dispatches Reviewer unless an approved Tolerate route applies. Reviewer independently confirms/rejects/inconclusive; on confirmation the Main Agent continues the **same Level 1 activity at C Identify** and loads L2/L3 only when needed.
 - If direct correction is infeasible, **Avoid** adjusts only the affected Workflow segment, retains original objectives and mandatory checks; independently verify. Approved **Tolerate** is a distinct L1 case. Otherwise remain **Unresolved**; no fabricated PASS.
 - Error Hook must **not** use V2 `execute.before` to block edits, alter `event.tools` permissions, synthesize extra prompts via `ctx.session.prompt`, run a forced review, force Zoom-out, count failures or reintroduce `reflectionPending` / lock. #394 owns retirement of obsolete Rule-of-3 paths.
 - If Hooks are absent, fail-open **advisory** context only; do not mark required verification/authorization as passed.
