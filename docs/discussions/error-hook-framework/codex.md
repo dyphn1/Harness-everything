@@ -16,23 +16,21 @@
 
 ```mermaid
 flowchart TD
-    M["Main Agent active Workflow"] --> SUS["Problem observed or suspected"]
-    SUS --> A["Level 1 A · Capture<br/>preserve raw Evidence without verdict"]
-    A --> B["Level 1 B · Triage<br/>decide whether independent review is needed"]
-    B --> DP["Dispatch Reviewer<br/>role + hypothesis + scoped Evidence + bounded features"]
-    DP --> HS["Codex SubagentStart Hook<br/>agent_type + trusted task reference if available"]
-    ENV["Optional stable mechanism enable/config switch"] --> HS
-    HS --> MATCH{"Relevant reviewer context available?"}
-    MATCH -->|No/unknown| STD["Default Reviewer instructions;<br/>no fabricated matches"]
-    MATCH -->|Yes| DET["CURRENT: deterministic relevant issue lookup<br/>existing Ledger/registry"]
-    DET --> SHORT["Reviewer context: instructions + Evidence<br/>known issue IDs / titles / brief summaries / refs"]
-    STD --> R["Independent Reviewer assesses current observation"]
-    SHORT --> R
-    F["FUTURE ONLY: System One<br/>rank context candidates or abstain"] -. "ranking only; not verdict" .-> DET
-    R --> OUT{"Reviewer finding"}
-    OUT -->|Not confirmed| DIS["Dismiss / return to Workflow"]
-    OUT -->|Inconclusive| HOLD["Hold / evidence / Owner decision"]
-    OUT -->|Confirmed| C["Continue Level 1 at C · Identify<br/>then D/E/F/G as applicable"]
+  EX["Executing Agent detects error<br/>L1 A Capture + B Triage"] --> OWN{"Self-correction or Main-dispatched review?"}
+  OWN -->|Self| SELF["Same Agent proceeds with SAME L1/L2/L3<br/>Hook cues orient, not adjudicate"]
+  OWN -->|Independent review| DP["Main dispatches Reviewer<br/>A/B progress + Evidence + hypothesis + bounded features"]
+  DP --> HS["Codex SubagentStart<br/>agent_type + trusted scoped context if available"]
+  ENV["Optional stable config switch"] --> HS
+  HS --> SELECT["Deterministic related issue lookup<br/>existing ledger and registry"]
+  S1["FUTURE System One ranks/abstains<br/>never a verdict"] -.-> SELECT
+  SELECT --> SHORT["Reviewer instructions + previous progress<br/>Evidence + related issue ID/title/summary/refs"]
+  SHORT --> REV["Reviewer resumes SAME Level 1 semantics<br/>re-checks prior facts independently"]
+  REV --> FIND{"Finding"}
+  FIND -->|Not confirmed| DIS["Dismiss"]
+  FIND -->|Inconclusive| HOLD["Hold / evidence"]
+  FIND -->|Confirmed| CONT["Continue SAME occurrence<br/>with verified finding"]
+  SELF --> CONT
+  CONT --> ACTION["L1 C/D/E/F/G as applicable<br/>L2 correction is local, not an L1 restart"]
 ```
 
 ### Alternative: dispatch-time environment inheritance (NOT recommended as default)
@@ -51,50 +49,34 @@ This is a **future cross-host candidate** also relevant to Claude/OpenCode; it d
 
 1. **`PostToolUse` = Evidence only.** Hook does not classify an Error Occurrence, announce a verified Error Class, prescribe correction, dispatch reviewers or modify the completed tool result. Provide only objectively available tool outcome evidence (or no duplicate cue if the original model-visible result is already sufficient). A failed tool is *a suspicion signal*, not proof that an Error Handling issue exists. Main Agent retains the raw evidence at **A Capture** before reviewer adjudication during **B Triage**.
 2. **`SubagentStart` = reviewer instructions AND relevant historical error index.** At the Reviewer entry, supply task/verification scope, the suspected claim and available evidence, and **a readable summary/list of related known error classes/problems** (IDs, names, one-line symptom/constraint, reference). Do not front-load complete issue bodies, prior solution steps, previous verdicts, full ledger entries or Level 2/3. The incremental tokens spent on useful orientation are preferable to a nearly empty pointer. Reviewer can open full references **on demand**.
-3. **Reviewer remains independent.** The historical issue list is a *candidate check list*, not a conclusion. Reviewer must evaluate the new evidence and counterexamples independently; `Confirmed`, `Not confirmed`, and `Inconclusive` are reviewer findings, not Hook decisions. Main Agent continues the same Level 1 activity at C Identify after a confirmed finding.
+3. **The executing Agent can self-correct. If Main dispatches Reviewer, that child uses the same Level 1/2/3 Actions with prior context and independently checks the suspect facts.** The historical issue list is a *candidate check list*, not a conclusion. Reviewer must evaluate the new evidence and counterexamples independently; `Confirmed`, `Not confirmed`, and `Inconclusive` are reviewer findings, not Hook decisions. Main Agent continues the same Level 1 activity at C Identify after a confirmed finding.
 4. **Recovery includes Avoid.** Attempt to converge where feasible; when direct resolution is not viable, replan **only the affected Workflow segment** using a valid workaround/avoidance while preserving original requirements and mandatory checks, then independently verify. If none works or proof is unavailable, report `Unresolved`. Approved `Tolerate` policy from #437 remains distinct from forcing Rule-of-3 runtime gates.
 
 ## Main process / hook boundaries
 
 ```mermaid
 flowchart TD
-    A["Codex Main Agent executes Workflow"] --> T["Tool Execution"]
-    T --> H["PostToolUse Hook"]
-    H --> EV["Objective Evidence only<br/>no Error Class verdict or auto dispatch"]
-    EV --> SUS{"Main Agent suspects a real problem?"}
-    SUS -->|No| A
-    SUS -->|Yes| CAP["Level 1 A · Capture<br/>raw Evidence / source / unknowns"]
-    CAP --> TRI["Level 1 B · Triage"]
-    TRI --> FAST{"Already-approved Tolerate?"}
-    FAST -->|Yes| OP["Bounded local retry / report UNVERIFIED if needed"]
-    FAST -->|No| DIS["Main Agent dispatches Reviewer during Triage"]
-    DIS --> SH["SubagentStart Hook"]
-    L[("Existing Error Ledger / registry")] --> SH
-    SH --> CTX["Reviewer instructions + scoped Evidence<br/>relevant known issue summaries, not verdicts"]
-    CTX --> RV["Reviewer independently tests claim and counterevidence"]
-    RV --> FIND{"Reviewer finding"}
-    FIND -->|Not confirmed| A
-    FIND -->|Inconclusive| HOLD["Hold / more Evidence / Owner decision"]
-    FIND -->|Confirmed| ID["C · Identify this Occurrence and Class"]
-    ID --> BL{"Identified and blocking?"}
-    BL -->|No, nonblocking| DEFER["Record and defer"]
-    BL -->|No, unidentified| HOLD
-    BL -->|Yes| D["D · Decide disposition"]
-    D --> PATH{"Allowed path"}
-    PATH -->|Converge| FIX["Direct repair"]
-    PATH -->|Avoid| ALT["Scoped Workflow replan<br/>preserve obligations"]
-    PATH -->|Approved Tolerate| PT["Approved bounded treatment"]
-    PATH -->|None| U["Unresolved / no false PASS"]
-    FIX --> E["E · Treat"]
-    ALT --> E
-    PT --> E
-    E --> LOCAL["Level 2 local correction + verification"]
-    LOCAL --> CHECK{"Result?"}
-    CHECK -->|Correctable inside Action and budget| LOCAL
-    CHECK -->|Complete or cannot resolve| FG["F Deliver → G Accept<br/>independent check and honest outcome"]
-    FG --> OUT{"Accepted?"}
-    OUT -->|Verified| A
-    OUT -->|Not verified| U
+  EX["Error-producing Agent executes Workflow"] --> TOOL["Tool Execution"]
+  TOOL --> HOOK["Codex PostToolUse Hook<br/>Evidence only"]
+  HOOK --> OBS{"Agent detects error?"}
+  OBS -->|No| EX
+  OBS -->|Yes| CAP["L1 A · Capture raw Evidence"]
+  CAP --> TRI["L1 B · Triage"]
+  TRI --> ROUTE{"Handling situation?"}
+  ROUTE -->|Self-correction| SELF["Executor follows same Level 1<br/>no mandatory Reviewer"]
+  ROUTE -->|Main requests investigation| PACK["Dispatch Reviewer with earlier A/B Context<br/>hypothesis + Evidence + issue list"]
+  PACK --> SUB["SubagentStart Hook: relevant Reviewer cue"]
+  SUB --> RV["Reviewer follows same L1 Actions<br/>independent examination"]
+  RV --> FIND{"Finding"}
+  FIND -->|Not confirmed| DIS["Dismiss / report"]
+  FIND -->|Inconclusive| HOLD["Hold / more evidence"]
+  FIND -->|Confirmed| CONT["Return verified finding to responsible Agent"]
+  SELF --> CONT
+  CONT --> C["C Identify → D Decide → E Treat"]
+  C --> LOCAL["L2 local correction / verification"]
+  LOCAL --> RE{"Correctable in Action?"}
+  RE -->|Yes| LOCAL
+  RE -->|Done or unresolved| FG["F Deliver → G Accept / Unresolved"]
 ```
 
 **Note:** The graph is the approved *logical behavior*, not a claim that the current Codex host automatically wires the `SubagentStart` event to a particular review request or the corresponding ledger item. Treatability, reviewer dispatch, Workaround and independent verification belong to Workflow/Agent decisions, not Hook control.
@@ -103,19 +85,17 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    OBS["Main Agent observes problem"] --> CAP["Level 1 A · Capture<br/>Evidence only"]
-    CAP --> TRI["B · Triage: dispatch Reviewer"]
-    TRI --> PKT["Dispatch packet<br/>hypothesis + scope + Evidence"]
-    PKT --> SEL["SubagentStart adapter<br/>reviewer agent_type matched"]
-    IDX[("Existing Ledger + registry<br/>candidate known issues")] --> SEL
-    SEL --> MIN["Reviewer entry context<br/>verify what, Evidence pointers,<br/>relevant issue ID / title / brief description"]
-    MIN --> REV["Independent Reviewer"]
-    REV --> MORE{"Need deeper history?"}
-    MORE -->|Yes| L2["Open relevant Level 2 reference"]
-    L2 --> L3["Level 3 Script/Skill if necessary"]
-    MORE -->|No| FIND["Finding with Evidence<br/>not a copy of historic verdict"]
-    L3 --> FIND
-    FIND --> NEXT["Confirmed → Level 1 C Identify<br/>Not confirmed → dismiss; inconclusive → hold"]
+  OBS["Executor already has suspected issue"] --> AB["L1 A/B progress + Evidence"]
+  AB --> DP["Main dispatches Reviewer<br/>same Error Handling flow"]
+  DP --> SELECT["Codex SubagentStart<br/>role + task-scoped correlation"]
+  LEDGER[("Existing Error Ledger/registry")] --> SELECT
+  SELECT --> CTX["Reviewer entry: prior Action progress<br/>Evidence + issue ID/title/short description"]
+  CTX --> R["Reviewer resumes relevant L1 Action<br/>independently checks inputs"]
+  R --> MORE{"Need deeper detail?"}
+  MORE -->|Yes| L2["Read relevant L2 / L3 on demand"]
+  MORE -->|No| F["Finding + evidence"]
+  L2 --> F
+  F --> OWNER["Responsible Agent continues same Occurrence<br/>or dismisses / holds"]
 ```
 
 Example **illustrative only** (not a mandated schema or a confirmed matching result):
