@@ -103,35 +103,42 @@ sequenceDiagram
 
 **Status:** Codex logical payload split and progressive-disclosure decision are recorded; implemented delivery and independent Reviewer outcomes remain **UNTESTED**. Current repo hook wiring is not proof of receipt. Reference: https://learn.chatgpt.com/docs/hooks.
 
-## 3. OpenCode — V1 and V2 are different plugin contracts
+## 3. OpenCode V2 — current target; V1 legacy maintenance only
+
+> **2026-11-13:** [Authoritative OpenCode V2 draft with Mermaid timing/Context diagrams](./opencode-v2.md). V1 receives critical fixes only per OpenCode maintainers; no V1 new Error Hook feature or parity gate. Keep legacy code compatibility notes and migration hazards in the existing repository. **Host timing is documented; V2 integration and child receipt are not live-verified.**
 
 ```mermaid
 flowchart TD
-    START["OpenCode session / active Agent"] --> VER{"Plugin runtime API"}
-    VER -->|V1| V1["Legacy plugin factory<br/>V1 context/system transformation<br/>only if implemented and verified"]
-    VER -->|V2| V2["ctx.session.hook('context')<br/>before Agent model request<br/>candidate for scoped Action cue"]
-    V1 --> SEL["Shared relevance selector"]
-    V2 --> SEL
-    SEL --> MATCH{"Relevant?"}
-    MATCH -->|No| QUIET["No context injection"]
-    MATCH -->|Yes| CTX["Inject small cue into model context<br/>at verified V1/V2 boundary"]
-    CTX --> AG["Agent selects tool / Script"]
-    QUIET --> AG
-    AG --> TOOL["V1 tool.execute.before/after<br/>or V2 ctx.tool.hook('execute.before/after')"]
-    TOOL --> OBS["Observe completion/error<br/>prepare next context if applicable"]
-    OBS -. "next supported model request, not guaranteed on same call" .-> SEL
+    M["Main Agent executes Workflow"] --> T["Tool"]
+    T --> E["V2 tool.hook('execute.after')<br/>Objective Evidence only"]
+    E --> Q["V2 session.hook('context')<br/>Before next Agent model request"]
+    Q --> S{"Main Agent suspects actual error?"}
+    S -->|No| M
+    S -->|Yes| R["Dispatch independent Reviewer subagent<br/>with scoped evidence/task"]
+    R --> C["Child session model request<br/>V2 context Hook with sessionID + agent"]
+    L["Existing Error Ledger / registry"] --> C
+    C --> P["Reviewer instructions + relevant issue summaries<br/>each request as needed, not full history"]
+    P --> V["Independent Reviewer verification"]
+    V --> F{"Finding"}
+    F -->|Not confirmed| M
+    F -->|Inconclusive| U["More evidence / Unresolved"]
+    F -->|Confirmed| H["Main Agent Level 1<br/>Converge / scoped Avoid / approved Tolerate"]
+    H --> O["Independent outcome verification"]
+    O -->|Pass| M
+    O -->|No proof| U
 ```
 
-| Responsibility | V1 path | V2 path / caveat |
+| Responsibility | Official V2 Host contract | Design boundary |
 | --- | --- | --- |
-| Model-visible cue | `experimental.chat.system.transform` / related V1 transform **only when host/version supports and repo registers it** | `ctx.session.hook("context")` on Agent model requests, including tool continuations |
-| Admission vs request | V1 `chat.message` / `chat.params` not necessarily request-every-time | V2 `ctx.session.hook("prompt")` is **prompt admission**, while `context` is **each relevant Agent model request**; not interchangeable |
-| Tool observation | `tool.execute.before` / `tool.execute.after` | `ctx.tool.hook("execute.before/after")` with V2 event shape; including error status |
-| Host integration | Legacy factory `HarnessEnforcement` | `opencode-plugin/index.mjs` currently provides `setup(ctx)` adapter for tool and event subscriptions but **does not register** `ctx.session.hook("context")` |
-| Superseded behavior | Existing source has `reflectionPending`, reflection report and tool-edit refusal | V2 adapter forwards these V1-enforcement semantics; remove under #394 rather than reproducing them in a new context hook |
-| Delivery mechanics | Do not use `session.prompt` to simulate a lesson when a context transformation is available | Do not call `ctx.session.prompt` merely to nudge; it can re-enter the Agent and differ from passive context disclosure |
+| Observe Tool outcome | `ctx.tool.hook("execute.after")` receives `status: "completed" | "error"`, plus result or error | Evidence only: completed Tool ≠ verified task PASS. Never replace result or decide Error Class |
+| Model-visible context | `ctx.session.hook("context")` before **each Agent loop request**, including tool continuations; `event.system` is mutable | **Request-scoped, not persistent.** Send necessary small context per relevant request; dedup only within the current assembled request |
+| Reviewer-specific instruction | Hook exposes `sessionID`, `agent`, `messages` with stored metadata | Native event does not guarantee access to full child dispatch packet/features. Match only trustworthy scoped references; otherwise generic Reviewer guidance |
+| Prompt/fork/compaction | Distinct `prompt`, `fork`, `compaction` lifecycle events | Do not treat fork/prompt as native SubagentStart. `context` does not cover auxiliary compaction/generate/title calls |
+| Optional session-keyed instruction | `ctx.session.instructions.entry` API | Possible update-on-change optimization; **different from** request-scoped `context` Hook, not required now |
+| Future System One | Feature scoring can rank Context candidates / abstain | Future only, deterministic fallback; never overrides Reviewer verdict / Kernel contract |
+| Current repo | V2 `setup(ctx)` adapter registers tool hooks + event subscription | No `ctx.session.hook("context")` registration yet; old forced-reflection behavior carried through V2 adapter requires separate #394 retirement |
 
-**No forced V1→V2 equivalence.** The V2 migration guide explicitly distinguishes the prompt admission and pre-model-request context hook, and warns some V1 experimental hooks have no direct analogue. Host version, export shape, events, and Plugin load success must be recorded separately.
+**V1 evidence:** legacy `HarnessEnforcement` factory/Hook map remains as a source/compatibility concern; V2 `setup(ctx)` is not an automatic alias. Official [Plugin migration guide](https://opencode.ai/docs/build/plugins/migrate-v1), [V2 server Hook reference](https://opencode.ai/docs/build/plugins/server/), and [maintainer critical-only statement](https://github.com/anomalyco/opencode/issues/47018).
 
 ## Delivery status is multi-dimensional
 
