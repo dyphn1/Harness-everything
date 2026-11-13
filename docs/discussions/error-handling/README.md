@@ -12,12 +12,20 @@ An Overview contains **three distinct views**. Their responsibilities must not b
 
 **Cross-view convention:** **ASSESS** and **RESPOND** group the same Actions in Views 1 and 2; Action **D · Decide disposition** is expanded in View 3. Node IDs are local to each diagram, and A–G are drawing-local aliases, not persistent identifiers. The seven Action IDs in `nodes.yaml` remain the only proposed persistent identities.
 
-## Level 2 Action drafts — E-0002 example: facts **and** executable treatment
+## Level 2 — E-0002 magnified Action Map (what the agent must do)
 
-- [A · Capture — observation and evidence](./actions/capture-e0002.md): what was observed, who/where it came from, raw report-file vs final-turn evidence. **No fixing or classification happens in Capture.**
-- [E · Treat — actionable report writer design](./actions/treat-e0002.md): **what the next agent should actually do** — prepare body and evidence-grounded status, call a proposed scoped report **write/check** CLI to produce a mechanically valid terminal STATUS, check the result, and preserve UNVERIFIED outcomes. Includes diagram, candidate command syntax and negative tests.
-- **Ownership:** D chooses treatment, E defines/applies it, F supplies the agent with the correct command at the relevant step, G validates the result. This prevents the same error by changing the operation, not just adding a lesson or another review.
-- The CLI is **proposed, not implemented**. These drafts do not change the accepted Level 1 sequence, IDs, current Error Ledger, hooks, or runtime.
+**Read [E-0002 — cross-action Level 2 map](./actions/e0002-action-map.md) after Level 1.** It zooms into the **same A–G lifecycle** instead of creating a separate Capture-only or Treat-only Level 2. For this example, detailed, distinctive actions are **A Capture → D Decide → E Treat → F Deliver → G Accept**; B Triage and C Identify reuse their existing decisions and remain visible in the sequence.
+
+The Action Map tells the agent **what to do**, including using a proposed scoped report writer/checker to prevent hand-authored terminal-STATUS errors. It never claims the tool already exists, that a clean report proves a correct task result, or that one correct run proves recurrence is eliminated.
+
+## Level 3 — supporting procedure, implementation contract and evidence
+
+Read these **only if the relevant Action requires the detail**:
+- [Capture evidence and artifact provenance](./details/e0002-capture-evidence.md) — report file vs final turn, raw endings, missing evidence.
+- [Treat report-writer CLI and validation contract](./details/e0002-report-writer.md) — candidate commands, atomic write/check, negatives, host `-o` boundaries.
+- [Existing E-0002 ledger](../../.agents/harness-everything/errors/E-0002-report-missing-terminal-status.md) and [ROUTE-001](../../adr/ROUTE-001-error-lesson-delivery.md) — existing evidence and delivery decision; not copied into the Action Map.
+
+**Hierarchy:** Level 1 = general route/Action ownership; Level 2 = case-specific **Action operations across the route**; Level 3 = detailed documents, tool contracts and evidence. Only the diagram/documentation hierarchy is adjusted here: the Level 1 flow, immutable Action identities, Error Ledger, hooks and runtime are unchanged.
 
 ## Decision — Error occurrence and recurrence boundary
 
