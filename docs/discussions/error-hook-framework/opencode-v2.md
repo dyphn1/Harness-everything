@@ -96,7 +96,7 @@ V2 `context` provides `sessionID`, `agent`, `messages`, `system`, `tools`, `mode
 
 ### Evidence → treatment boundary
 
-- `execute.after` gives **evidence**; status `error` is an execution failure signal, not proof of an Error Occurrence. Status `completed` can still include a test failure, policy failure or invalid report — Reviewer remains authoritative for determining actual problems.
+- `execute.after` gives **evidence**; status `error` is an execution failure signal, not proof of an Error Occurrence. Status `completed` can still include a test failure, policy failure or invalid report — A Main-dispatched Reviewer remains responsible for independent findings; the executing Agent may still self-correct from objective evidence without a compulsory review.
 - After a problem is observed, Main Agent preserves Evidence at **Level 1 A Capture** and, during **B Triage**, dispatches Reviewer unless an approved Tolerate route applies. Reviewer independently confirms/rejects/inconclusive; on confirmation the Main Agent continues the **same Level 1 activity at C Identify** and loads L2/L3 only when needed.
 - If direct correction is infeasible, **Avoid** adjusts only the affected Workflow segment, retains original objectives and mandatory checks; independently verify. Approved **Tolerate** is a distinct L1 case. Otherwise remain **Unresolved**; no fabricated PASS.
 - Error Hook must **not** use V2 `execute.before` to block edits, alter `event.tools` permissions, synthesize extra prompts via `ctx.session.prompt`, run a forced review, force Zoom-out, count failures or reintroduce `reflectionPending` / lock. #394 owns retirement of obsolete Rule-of-3 paths.
