@@ -12,20 +12,22 @@ An Overview contains **three distinct views**. Their responsibilities must not b
 
 **Cross-view convention:** **ASSESS** and **RESPOND** group the same Actions in Views 1 and 2; Action **D · Decide disposition** is expanded in View 3. Node IDs are local to each diagram, and A–G are drawing-local aliases, not persistent identifiers. The seven Action IDs in `nodes.yaml` remain the only proposed persistent identities.
 
-## Level 2 — E-0002 magnified Action Map (what the agent must do)
+## Level 2 — magnified behavior blocks (E-0002 example)
 
-**Read [E-0002 — cross-action Level 2 map](./actions/e0002-action-map.md) after Level 1.** It zooms into the **same A–G lifecycle** instead of creating a separate Capture-only or Treat-only Level 2. For this example, detailed, distinctive actions are **A Capture → D Decide → E Treat → F Deliver → G Accept**; B Triage and C Identify reuse their existing decisions and remain visible in the sequence.
+**Read [E-0002 — Level 2 behavior-block map](./actions/e0002-action-map.md) after Level 1.** Level 2 zooms into whichever **part of the Level 1 process** currently needs explanation: a single Action, a connected group of Actions, or a particular scenario. It is **not required** to reproduce each Level 1 Action as an independent mini-workflow or add a global rule for every local correction.
 
-The Action Map tells the agent **what to do**, including using a proposed scoped report writer/checker to prevent hand-authored terminal-STATUS errors. It never claims the tool already exists, that a clean report proves a correct task result, or that one correct run proves recurrence is eliminated.
+The E-0002 example expands two blocks: **ASSESS (A Capture, B Triage, C Identify)** and **RESPOND (D Decide, E Treat, F Deliver, G Accept)**. It retains Level 1's branching authority, including the distinction **unidentified → Hold** versus **identified/non-blocking → Defer**. Script/CLI return codes let Agent handle unmet constraints **inside the relevant block**; no extra Level 1 control loop is introduced. The Level 1 Action sequence and recurrence boundary remain authoritative.
 
-## Level 3 — supporting procedure, implementation contract and evidence
+**Action priority:** tell Agent what to do, not just how to document the last mistake. Here a proposed scoped writer/checker would take truthful content/status, consume `codex exec -o` **as script-mediated raw input**, write/check the final report, and return actionable failure codes. A failed treatment result still reaches the **Deliver and Accept** outcome for the current occurrence. Delivering a reusable command now and exposing it through Hook/Skill in a future relevant task are **different time contexts**, not contradictory Action ordering.
 
-Read these **only if the relevant Action requires the detail**:
-- [Capture evidence and artifact provenance](./details/e0002-capture-evidence.md) — report file vs final turn, raw endings, missing evidence.
-- [Treat report-writer CLI and validation contract](./details/e0002-report-writer.md) — candidate commands, atomic write/check, negatives, host `-o` boundaries.
-- [Existing E-0002 ledger](../../../.agents/harness-everything/errors/E-0002-report-missing-terminal-status.md) and [ROUTE-001](../../adr/ROUTE-001-error-lesson-delivery.md) — existing evidence and delivery decision; not copied into the Action Map.
+## Level 3 — optional procedure, CLI/Script contract and evidence
 
-**Hierarchy:** Level 1 = general route/Action ownership; Level 2 = case-specific **Action operations across the route**; Level 3 = detailed documents, tool contracts and evidence. Only the diagram/documentation hierarchy is adjusted here: the Level 1 flow, immutable Action identities, Error Ledger, hooks and runtime are unchanged.
+Read only the details required for the current Action/block:
+- [Capture evidence and artifact provenance](./details/e0002-capture-evidence.md): raw report vs final turn, source and unknowns.
+- [Treat report writer and `-o` script contract](./details/e0002-report-writer.md): candidate commands, deterministic validation, return codes, negative cases and host-boundary handling.
+- [Existing E-0002 ledger](../../../.agents/harness-everything/errors/E-0002-report-missing-terminal-status.md) and [ROUTE-001](../../adr/ROUTE-001-error-lesson-delivery.md): existing evidence and delivery background, not duplicated as another store.
+
+**Status:** this is a discussion draft. Level 1 activity / Action identity / Error Ledger / live Hooks are **unchanged**; the proposed CLI has **not** been implemented. A structural PASS from a script is not a substantive task PASS. The integrated Error Handling + Hook system must exist before measuring recurrence and total cost.
 
 ## Decision — Error occurrence and recurrence boundary
 
