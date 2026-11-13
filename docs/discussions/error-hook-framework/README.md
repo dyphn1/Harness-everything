@@ -140,7 +140,7 @@ flowchart LR
     L --> M["Agent: choose truthful body + status"]
     M --> S["Proposed Report Script<br/>codex -o raw input → final report<br/>write/check terminal STATUS"]
     S --> RC{"Return code / structural check"}
-    RC -->|0| OK["Report structure verified<br/>task truth separately reviewed"]
+    RC -->|0| OK["Report structure verified<br/>substantive task acceptance checked separately"]
     RC -->|nonzero| RET["Agent handles errors within active Action<br/>or records unresolved, no false PASS"]
 ```
 
