@@ -4,7 +4,7 @@
 
 ## Design closure: who decides what
 
-**Do not make the player also the referee.** An Error Hook is an observer and bounded context carrier. After an error is observed, the **error-producing Agent** can follow L1 A Capture → B Triage and self-correct within the same L1/L2/L3 flow. When Main requests an independent investigation, the Reviewer enters the **same flow** with existing A/B progress and Evidence, validates the relevant Action independently, and returns findings; Reviewer is not mandatory for every correction. The Reviewer, not the Main Agent (nor Hook), judges whether the suspected error is real; the Main Agent owns Workflow decisions inside Level 1. Reviewer receives previous Action progress rather than restarting the entire flow. Not every tool error requires a Reviewer.
+**Do not make the player also the referee.** An Error Hook is an observer and bounded context carrier. After an error is observed, the **error-producing Agent** can follow L1 A Capture → B Triage and self-correct within the same L1/L2/L3 flow. When Main requests an independent investigation, the Reviewer enters the **same flow** with existing A/B progress and Evidence, validates the relevant Action independently, and returns findings; Reviewer is not mandatory for every correction. When independently dispatched, the Reviewer judges the suspicious finding from evidence rather than accepting Main's premise. Self-correction by the error-producing Agent remains valid, but is not presented as independent adjudication; the responsible Agent owns Workflow decisions inside Level 1. Reviewer receives previous Action progress rather than restarting the entire flow. Not every tool error requires a Reviewer.
 
 - **Hook**: sees an officially supported event/payload, identifies relevance conservatively, optionally returns a *suspicion/evidence cue*; no automated verdict, correction, escalation, repeat counter or subagent dispatch.
 - **Main Agent**: can self-correct its own detected error using existing L1/L2/L3; requests independent Reviewer when a suspicious result warrants separate verification. The execution owner acts on independently verified findings as assigned.
@@ -19,7 +19,9 @@ flowchart TD
   OBS -->|No| EXEC
   OBS -->|Yes| A["L1 A · Capture<br/>raw facts / Evidence"]
   A --> B["L1 B · Triage"]
-  B --> WHO{"Handling situation?"}
+  B --> TOL{"Previously approved Tolerate class?"}
+  TOL -->|Yes| FAST["Bounded operation-local retry<br/>UNVERIFIED if not recovered"]
+  TOL -->|No| WHO{"Handling situation?"}
   WHO -->|Agent recognizes own error| SELF["Self-correction by executing Agent<br/>same L1 / L2 / L3"]
   WHO -->|Main asks for independent investigation| DP["Dispatch Reviewer with previous A/B context,<br/>Evidence, hypothesis, Workflow step, issue summaries"]
   DP --> REV["Reviewer uses SAME Level 1 Actions<br/>resume relevant step and independently recheck facts"]
@@ -29,9 +31,7 @@ flowchart TD
   FIND -->|Confirmed| BACK["Finding + updated Action context to executor"]
   BACK --> CONT["Continue current Occurrence"]
   SELF --> CONT
-  CONT --> TOL{"Approved Tolerate case?"}
-  TOL -->|Yes| FAST["Bounded operation-local retry<br/>UNVERIFIED if not recovered"]
-  TOL -->|No| C["L1 C · Identify"]
+  CONT --> C["L1 C · Identify"]
   C --> BL{"Identified and blocking?"}
   BL -->|Nonblocking| DEF["Record / Defer"]
   BL -->|Unidentified| HOLD
