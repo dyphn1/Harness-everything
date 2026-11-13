@@ -12,6 +12,14 @@ An Overview contains **three distinct views**. Their responsibilities must not b
 
 **Cross-view convention:** **ASSESS** and **RESPOND** group the same Actions in Views 1 and 2; Action **D · Decide disposition** is expanded in View 3. Node IDs are local to each diagram, and A–G are drawing-local aliases, not persistent identifiers. The seven Action IDs in `nodes.yaml` remain the only proposed persistent identities.
 
+## Final P2 decisions — preserve tested diagrams, use lightweight references
+
+- **P2-1 · View vs Level:** no confirmed defect. The diagram text was previously tested, and separate layered documents are intended to be read on demand. **Owner will verify agent comprehension experimentally.** Do not change Level 1 View labels, definitions, or control flow solely based on a hypothetical misunderstanding.
+- **P2-2 · Registry mapping:** use [the lightweight document/relationship registry](./registry.md) to relate Layer → Document → relevant detail while keeping the existing [Action identities](./nodes.yaml). Registry references are for **lookup/lazy loading**, not a second set of workflow arrows or Action IDs.
+- **P2-3 · Action handoff:** do **not** impose mandatory input/output schemas on general Actions or behavior blocks. An Action guides what to do and keeps legitimate Agent discretion; concrete Script/CLI/API boundaries document inputs, outputs and return codes only when required (see the E-0002 [Level 3 report writer contract](./details/e0002-report-writer.md)).
+
+This is a **discussion-only** mapping. No evidence yet establishes View/Level confusion; no new global validation gate, loader, governance process or runtime Script exists. Measure Error Handling effectiveness only after the full mechanism including Hook/Skill delivery is integrated.
+
 ## Level 2 — magnified behavior blocks (E-0002 example)
 
 **Read [E-0002 — Level 2 behavior-block map](./actions/e0002-action-map.md) after Level 1.** Level 2 zooms into whichever **part of the Level 1 process** currently needs explanation: a single Action, a connected group of Actions, or a particular scenario. It is **not required** to reproduce each Level 1 Action as an independent mini-workflow or add a global rule for every local correction.
