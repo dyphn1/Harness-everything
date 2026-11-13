@@ -24,6 +24,8 @@ flowchart TB
 
 ## 1. Claude Code — lifecycle command hooks
 
+> **Owner closure, 2026-11-13:** This section remains a preliminary host map. The newer [Claude-specific closure](./claude-code.md) supersedes its simplified single-Agent recovery sequence: Main Agent suspects → independent Reviewer confirms/rejects → Main Agent L1 treats → direct fix OR scoped Avoid/workaround → independent verification or Unresolved. `PostToolBatch` is an additional documented before-next-model batch context candidate. No automatic Reviewer dispatch by Hook. **Timing discussion closed, host implementation unverified.**
+
 ```mermaid
 sequenceDiagram
     autonumber
