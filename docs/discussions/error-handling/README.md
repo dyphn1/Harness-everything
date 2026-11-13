@@ -23,7 +23,7 @@ The Action Map tells the agent **what to do**, including using a proposed scoped
 Read these **only if the relevant Action requires the detail**:
 - [Capture evidence and artifact provenance](./details/e0002-capture-evidence.md) — report file vs final turn, raw endings, missing evidence.
 - [Treat report-writer CLI and validation contract](./details/e0002-report-writer.md) — candidate commands, atomic write/check, negatives, host `-o` boundaries.
-- [Existing E-0002 ledger](../../.agents/harness-everything/errors/E-0002-report-missing-terminal-status.md) and [ROUTE-001](../../adr/ROUTE-001-error-lesson-delivery.md) — existing evidence and delivery decision; not copied into the Action Map.
+- [Existing E-0002 ledger](../../../.agents/harness-everything/errors/E-0002-report-missing-terminal-status.md) and [ROUTE-001](../../adr/ROUTE-001-error-lesson-delivery.md) — existing evidence and delivery decision; not copied into the Action Map.
 
 **Hierarchy:** Level 1 = general route/Action ownership; Level 2 = case-specific **Action operations across the route**; Level 3 = detailed documents, tool contracts and evidence. Only the diagram/documentation hierarchy is adjusted here: the Level 1 flow, immutable Action identities, Error Ledger, hooks and runtime are unchanged.
 
