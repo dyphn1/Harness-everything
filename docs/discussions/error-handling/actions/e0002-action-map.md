@@ -4,6 +4,10 @@
 >
 > **Level 2 describes WHAT THE AGENT SHOULD DO within the magnified behavior block.** It can expand one Action or a connected group of Actions; it need not reproduce each internal step as a new global rule. Level 3 holds HOW (scripts, return-code details, evidence and document format). Agent discretion over tactics stays intact if the Level 1 contract is met.
 
+**Lookup:** [Registry table](../registry.md) locates this Level 2 behavior block and its Level 3 references. It maps *documents*, not control-flow arrows. The Level 1 Views are unchanged; whether their relationship to Levels confuses Agents will be tested by the owner rather than assumed.
+
+**Action-contract scope:** this map defines what to do, **not** a mandatory per-Action I/O schema. Only a concrete machine interface (such as the proposed Report Script/CLI in Level 3) requires explicit parameters, outputs and return-code behavior. Agent-chosen tactics are valid when Level 1's necessary conditions are met.
+
 ## Block 1 — ASSESS: capture, triage and identify this occurrence
 
 ```mermaid
