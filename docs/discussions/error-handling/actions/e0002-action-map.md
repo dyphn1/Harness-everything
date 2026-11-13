@@ -13,7 +13,7 @@
 ```mermaid
 flowchart TD
     START(["New occurrence from Level 1"]) --> A["A · Capture<br/>Retain observed report/turn evidence, source,<br/>raw ending and unknowns without editing it"]
-    A --> B["B · Triage<br/>Use Level 1 reviewer/tolerate decisions"]
+    A --> B["B · Triage<br/>Apply mode-dependent L1 path:<br/>Coordinator → Reviewer; Solo Main → evidence self-check"]
     B --> BF{"Triage result?"}
     BF -->|"Real finding"| C["C · Identify<br/>Compare evidence with existing E-0002<br/>signature/history for THIS new occurrence"]
     BF -->|"Dismiss / hold / approved tolerate"| BEXIT["Follow matching Level 1 exit;<br/>UNVERIFIED never means PASS"]
@@ -49,13 +49,17 @@ flowchart TD
     ERR -->|"correctable within budget"| E
     ERR -->|"unresolved"| F
     OK -->|"yes"| F["F · Deliver<br/>Hand off relevant operation/context<br/>and result (including failures)"]
-    F --> G["G · Accept<br/>Run applicable mechanical checks;<br/>review outcome and current evidence"]
-    G --> GOK{"Acceptance conditions met?"}
+    F --> G["G · Accept<br/>Verify objective obligations and outcome"]
+    G --> MODE{"Main Agent mode?"}
+    MODE -->|"Coordinator"| GR["Main dispatches read-only independent Reviewer<br/>for outcome/evidence verification"]
+    MODE -->|"Solo executing Main"| GS["Objective Script/CI/contract checks<br/>no independent review claim"]
+    GR --> GOK{"Acceptance conditions met?"}
+    GS --> GOK
     GOK -->|"yes"| DONE(["Accept current occurrence;<br/>retire unneeded lesson only"])
     GOK -->|"nonzero / incomplete"| OPEN(["Keep occurrence open / unresolved;<br/>return failure context for follow-up"])
 ```
 
-**Reading rules:** This is a magnification of the **RESPOND behavior block**, not a new global controller. In D, a script can reject unmet conditions using a nonzero return code; the agent can revise the decision locally rather than creating a new Level 1 approval/retry workflow. An Owner-required authorization still has to exist to pass validation; a script must never manufacture permission.
+**Reading rules:** This is a magnification of the **RESPOND behavior block**, not a new global controller. G inherits the same execution-mode distinction as Level 1: coordinated Main **must dispatch read-only independent Reviewer outcome verification**, while Solo Main uses objective checks and explicitly does not claim independent review. Reviewer is investigative by default and does not edit artifacts or run Treat; minor/trivial errors are not an automatic exemption. In D, a script can reject unmet conditions using a nonzero return code; the agent can revise the decision locally rather than creating a new Level 1 approval/retry workflow. An Owner-required authorization still has to exist to pass validation; a script must never manufacture permission.
 
 In E, scripts verify deterministic conditions and return actionable diagnostics; the agent chooses a suitable correction, constrained by the currently accepted disposition and budget. A failure that cannot be corrected still reaches **F (deliver result/evidence)** and **G (open/unresolved acceptance outcome)**, not an orphan endpoint. G's nonzero/incomplete outcome does **not** retire a needed instruction or silently claim success. Neither this path nor future recurrence creates a G → D or G → Capture loop.
 
@@ -68,7 +72,7 @@ In E, scripts verify deterministic conditions and return actionable diagnostics;
 | **D Decide (response block)** | Choose an applicable disposition. Validate approval, feasibility and required conditions through the applicable script/contract; a rejected choice returns to Agent for correction or unresolved handling. | Do not start E with an invalid choice. |
 | **E Treat (response block)** | Execute the accepted treatment, with agent-selected tactics. For **Converge**, Agent determines the truthful status and prepares content; script/CLI owns atomic report writing and structural validation. For **Avoid/Tolerate**, execute their distinct approved operations. | Nonzero return code returns control to Agent inside this block; if still unresolved, preserve result for F/G. |
 | **F Deliver (response block)** | Hand off the chosen procedure/available command and current outcome. Later, at **relevant** workflow steps, the Hook/Skill mechanism may expose the appropriate command; that future contextual exposure is *not another occurrence transition*. | No unsupported CLI is presented as installed; deliver failure evidence when unresolved. |
-| **G Accept (response block)** | Use deterministic checks for mechanical obligations; separately assess substantive task evidence. If check/acceptance fails, return explicit unmet conditions and keep open; retire only obsolete lesson prose, not a command still needed for routine work. | Only accepted outcomes may be reported as accepted; Tolerate remains bounded, not “fixed.” |
+| **G Accept (response block)** | Use deterministic checks for mechanical obligations and assess substantive Evidence. In Coordinator mode, Main dispatches independent read-only Reviewer for the treatment outcome before acceptance; in Solo Main mode use objective checks and disclose lack of independent review. If verification fails, return explicit unmet conditions and keep open; retire only obsolete lesson prose, not a command still needed for routine work. | Only accepted outcomes may be reported as accepted; Tolerate remains bounded, not “fixed.” |
 
 ## Mechanism and time boundary (the one-time response vs future use)
 
