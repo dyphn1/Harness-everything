@@ -4,7 +4,7 @@
 
 ## Finalized routing discussion — current design vs future System One
 
-**Owner agreement (2026-11-13):** Keep the proven/tractable Codex delivery path independent of System One. Separate *switch*, *role*, *task evidence*, and *relevance selection*. Do not implement a new agent controller or turn model predictions into findings.
+**Final owner ruling (2026-11-13):** Coordinator Main **must dispatch independent read-only Reviewer** for error investigation and G outcome verification; Solo Main executor may self-correct with objective checks and never claims independent review. Keep the Codex delivery path independent of System One. Separate *switch*, *role*, *task evidence*, and *relevance selection*. Do not implement a new agent controller or turn model predictions into findings.
 
 | Concern | Current intended input / owner | Boundary |
 | --- | --- | --- |
@@ -16,21 +16,27 @@
 
 ```mermaid
 flowchart TD
-  EX["Executing Agent detects error<br/>L1 A Capture + B Triage"] --> OWN{"Self-correction or Main-dispatched review?"}
-  OWN -->|Self| SELF["Same Agent proceeds with SAME L1/L2/L3<br/>Hook cues orient, not adjudicate"]
-  OWN -->|Independent review| DP["Main dispatches Reviewer<br/>A/B progress + Evidence + hypothesis + bounded features"]
-  DP --> HS["Codex SubagentStart<br/>agent_type + trusted scoped context if available"]
-  ENV["Optional stable config switch"] --> HS
-  HS --> SELECT["Deterministic related issue lookup<br/>existing ledger and registry"]
-  S1["FUTURE System One ranks/abstains<br/>never a verdict"] -.-> SELECT
-  SELECT --> SHORT["Reviewer instructions + previous progress<br/>Evidence + related issue ID/title/summary/refs"]
-  SHORT --> REV["Reviewer resumes SAME Level 1 semantics<br/>re-checks prior facts independently"]
-  REV --> FIND{"Finding"}
+  X["Execution error observed; L1 A Capture / B Triage"] --> MODE{"Main mode?"}
+  MODE -->|Coordinator| DP["Main dispatches read-only Reviewer<br/>previous Action progress + Evidence + hypothesis"]
+  MODE -->|Solo Main executor| SELF["Main uses Hook Evidence and objective checks<br/>self-correct; no independent review claim"]
+  DP --> SUB["Codex SubagentStart Hook<br/>role + trusted scoped context if available"]
+  ENV["Optional stable environment/config switch"] --> SUB
+  SUB --> MATCH["Deterministic matching from existing Ledger / Registry"]
+  S1["FUTURE System One context ranking only"] -.-> MATCH
+  MATCH --> CTX["Reviewer instructions + issue summaries<br/>ID / title / symptom / reference"]
+  CTX --> RV["Reviewer independently checks same L1 Action<br/>read-only; no correction"]
+  RV --> FIND{"Finding"}
   FIND -->|Not confirmed| DIS["Dismiss"]
-  FIND -->|Inconclusive| HOLD["Hold / evidence"]
-  FIND -->|Confirmed| CONT["Continue SAME occurrence<br/>with verified finding"]
-  SELF --> CONT
-  CONT --> ACTION["L1 C/D/E/F/G as applicable<br/>L2 correction is local, not an L1 restart"]
+  FIND -->|Inconclusive| HOLD["Hold / evidence / Owner"]
+  FIND -->|Confirmed| T["Continue same L1 C/D/E/F"]
+  SELF --> T
+  T --> ACCEPT{"G acceptance mode?"}
+  ACCEPT -->|Coordinator| A_RV["Main dispatches independent read-only Reviewer<br/>verify fix/workaround"]
+  ACCEPT -->|Solo Main| A_M["Objective Script/CI/contract verification<br/>no independent PASS claim"]
+  A_RV --> OUT{"Acceptance evidence sufficient?"}
+  A_M --> OUT
+  OUT -->|Yes| OK["Accept"]
+  OUT -->|No| UNR["Unresolved / UNVERIFIED"]
 ```
 
 ### Alternative: dispatch-time environment inheritance (NOT recommended as default)
@@ -47,36 +53,39 @@ This is a **future cross-host candidate** also relevant to Claude/OpenCode; it d
 
 ## Owner decisions
 
-1. **`PostToolUse` = Evidence only.** Hook does not classify an Error Occurrence, announce a verified Error Class, prescribe correction, dispatch reviewers or modify the completed tool result. Provide only objectively available tool outcome evidence (or no duplicate cue if the original model-visible result is already sufficient). A failed tool is *a suspicion signal*, not proof that an Error Handling issue exists. The **executing Agent** retains raw evidence at **A Capture**. Reviewer adjudication is **conditional**, when Main requests an independent investigation, and uses previously gathered Action context.
-2. **`SubagentStart` = reviewer instructions AND relevant historical error index.** At the Reviewer entry, supply task/verification scope, the suspected claim and available evidence, and **a readable summary/list of related known error classes/problems** (IDs, names, one-line symptom/constraint, reference). Do not front-load complete issue bodies, prior solution steps, previous verdicts, full ledger entries or Level 2/3. The incremental tokens spent on useful orientation are preferable to a nearly empty pointer. Reviewer can open full references **on demand**. **Reviewer treatment permissions beyond investigative findings are not yet adjudicated**; a Hook cannot grant them.
-3. **The executing Agent can self-correct. If Main dispatches Reviewer, that child uses the same Level 1/2/3 Actions with prior context and independently checks the suspect facts.** The historical issue list is a *candidate check list*, not a conclusion. Reviewer must evaluate the new evidence and counterexamples independently; `Confirmed`, `Not confirmed`, and `Inconclusive` are reviewer findings, not Hook decisions. When a Reviewer is dispatched, a confirmed finding returns to the responsible Agent, which resumes **the same L1 occurrence at the applicable Action** (typically Identify), rather than starting a new Level 1. Otherwise the executing Agent may self-correct using the same Actions.
-4. **Recovery includes Avoid.** Attempt to converge where feasible; when direct resolution is not viable, replan **only the affected Workflow segment** using a valid workaround/avoidance while preserving original requirements and mandatory checks, then perform the **applicable objective acceptance checks**; obtain independent verification when it is required by the task or requested by Main. If none works or proof is unavailable, report `Unresolved`. Approved `Tolerate` policy from #437 remains distinct from forcing Rule-of-3 runtime gates.
+1. **Execution-mode gate comes from Main responsibility, not Hook.** Coordinator Main must dispatch read-only Reviewer for diagnosis and acceptance; Solo executing Main can self-correct. A tiny error does not grant Reviewer write permission. Reviewer handoff uses prior A/B context and the same Level 1.
+2. **`PostToolUse` = Evidence only.** Hook does not classify an Error Occurrence, announce a verified Error Class, prescribe correction, dispatch reviewers or modify the completed tool result. Provide only objectively available tool outcome evidence (or no duplicate cue if the original model-visible result is already sufficient). A failed tool is *a suspicion signal*, not proof that an Error Handling issue exists. The **executing Agent** retains raw evidence at **A Capture**. Reviewer adjudication is **conditional**, when Main requests an independent investigation, and uses previously gathered Action context.
+3. **`SubagentStart` = reviewer instructions AND relevant historical error index.** At the Reviewer entry, supply task/verification scope, the suspected claim and available evidence, and **a readable summary/list of related known error classes/problems** (IDs, names, one-line symptom/constraint, reference). Do not front-load complete issue bodies, prior solution steps, previous verdicts, full ledger entries or Level 2/3. The incremental tokens spent on useful orientation are preferable to a nearly empty pointer. Reviewer can open full references **on demand**. **Reviewer is read-only by default** and may not edit or Treat, even for trivial errors. A future class-scoped exception needs explicit separate owner approval; a Hook cannot grant it.
+4. **In Coordinator mode Main always dispatches Reviewer; in Solo Main mode self-correction is permitted.** The historical issue list is a *candidate check list*, not a conclusion. Reviewer must evaluate the new evidence and counterexamples independently; `Confirmed`, `Not confirmed`, and `Inconclusive` are reviewer findings, not Hook decisions. When a Reviewer is dispatched, a confirmed finding returns to the responsible Agent, which resumes **the same L1 occurrence at the applicable Action** (typically Identify), rather than starting a new Level 1. Otherwise the executing Agent may self-correct using the same Actions.
+5. **Recovery includes Avoid.** Attempt to converge where feasible; when direct resolution is not viable, replan **only the affected Workflow segment** using a valid workaround/avoidance while preserving original requirements and mandatory checks, then perform applicable objective acceptance checks. **Coordinator Main must dispatch independent read-only Reviewer outcome verification**; Solo Main reports only its objective check results. If none works or proof is unavailable, report `Unresolved`. Approved `Tolerate` policy from #437 remains distinct from forcing Rule-of-3 runtime gates.
 
 ## Main process / hook boundaries
 
 ```mermaid
 flowchart TD
-  EX["Error-producing Agent executes Workflow"] --> TOOL["Tool Execution"]
-  TOOL --> HOOK["Codex PostToolUse Hook<br/>Evidence only"]
-  HOOK --> OBS{"Agent detects error?"}
-  OBS -->|No| EX
-  OBS -->|Yes| CAP["L1 A · Capture raw Evidence"]
-  CAP --> TRI["L1 B · Triage"]
-  TRI --> ROUTE{"Handling situation?"}
-  ROUTE -->|Self-correction| SELF["Executor follows same Level 1<br/>no mandatory Reviewer"]
-  ROUTE -->|Main requests investigation| PACK["Dispatch Reviewer with earlier A/B Context<br/>hypothesis + Evidence + issue list"]
-  PACK --> SUB["SubagentStart Hook: relevant Reviewer cue"]
-  SUB --> RV["Reviewer follows same L1 Actions<br/>independent examination"]
-  RV --> FIND{"Finding"}
-  FIND -->|Not confirmed| DIS["Dismiss / report"]
-  FIND -->|Inconclusive| HOLD["Hold / more evidence"]
-  FIND -->|Confirmed| CONT["Return verified finding to responsible Agent"]
-  SELF --> CONT
-  CONT --> C["C Identify → D Decide → E Treat"]
-  C --> LOCAL["L2 local correction / verification"]
-  LOCAL --> RE{"Correctable in Action?"}
-  RE -->|Yes| LOCAL
-  RE -->|Done or unresolved| FG["F Deliver → G Accept / Unresolved"]
+  TOOL["Executing Agent tool call"] --> HOOK["Codex PostToolUse: Evidence only"]
+  HOOK --> O["Observed error; L1 A Capture → B Triage"]
+  O --> MODE{"Main Agent mode?"}
+  MODE -->|Coordinator| PKT["Main dispatches Reviewer with prior Evidence<br/>and Action state"]
+  MODE -->|Solo Main| SELF["Solo Main applies same L1/L2 correction<br/>based on objective Evidence"]
+  PKT --> SUB["SubagentStart: Reviewer instructions<br/>and related historical issue list"]
+  SUB --> R["Independent read-only Reviewer<br/>same L1 semantics"]
+  R --> FIND{"Reviewer finding"}
+  FIND -->|Not confirmed| DIS["Dismiss"]
+  FIND -->|Inconclusive| HOLD["Hold / Owner / more evidence"]
+  FIND -->|Confirmed| C["C Identify / D Decide"]
+  SELF --> C
+  C --> E["E Treat: Converge / Avoid / approved Tolerate"]
+  E --> LOCAL["L2 local correction and Evidence checks"]
+  LOCAL --> F["F Deliver"]
+  F --> G["G Accept"]
+  G --> AM{"Main Agent mode?"}
+  AM -->|Coordinator| R2["Main dispatches independent read-only Reviewer<br/>outcome verification"]
+  AM -->|Solo Main| OBJ["Objective checks; no independent review claim"]
+  R2 --> END{"Evidence sufficient?"}
+  OBJ --> END
+  END -->|Yes| OK["Accept"]
+  END -->|No| U["Unresolved"]
 ```
 
 **Note:** The graph is the approved *logical behavior*, not a claim that the current Codex host automatically wires the `SubagentStart` event to a particular review request or the corresponding ledger item. Treatability, reviewer dispatch, Workaround and independent verification belong to Workflow/Agent decisions, not Hook control.
@@ -85,17 +94,14 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-  OBS["Executor already has suspected issue"] --> AB["L1 A/B progress + Evidence"]
-  AB --> DP["Main dispatches Reviewer<br/>same Error Handling flow"]
-  DP --> SELECT["Codex SubagentStart<br/>role + task-scoped correlation"]
-  LEDGER[("Existing Error Ledger/registry")] --> SELECT
-  SELECT --> CTX["Reviewer entry: prior Action progress<br/>Evidence + issue ID/title/short description"]
-  CTX --> R["Reviewer resumes relevant L1 Action<br/>independently checks inputs"]
-  R --> MORE{"Need deeper detail?"}
-  MORE -->|Yes| L2["Read relevant L2 / L3 on demand"]
-  MORE -->|No| F["Finding + evidence"]
-  L2 --> F
-  F --> OWNER["Responsible Agent continues same Occurrence<br/>or dismisses / holds"]
+  AB["Main Coordinator already has L1 A/B progress<br/>error hypothesis and original Evidence"] --> DP["Main dispatches read-only Reviewer"]
+  DP --> SUB["Codex SubagentStart / agent_type<br/>trusted task-scoped reference"]
+  LEDGER[("Existing Error Ledger / Registry")] --> SUB
+  SUB --> CONTEXT["Reviewer entry: prior Action state + Evidence<br/>issue ID / title / short symptom / reference"]
+  CONTEXT --> R["Reviewer follows same L1 Action semantics<br/>independently tests facts; no write"]
+  R --> FIND["Finding + Evidence"]
+  FIND --> MAIN["Main assigns correction to executing Agent"]
+  MAIN --> ACCEPT["Main dispatches read-only independent Reviewer<br/>to verify G Accept evidence"]
 ```
 
 Example **illustrative only** (not a mandated schema or a confirmed matching result):
@@ -151,4 +157,4 @@ The official Codex input for `SubagentStart` has `agent_id`, `agent_type`, `turn
 | No viable route | `Unresolved` reported, no false PASS |
 | Trust / async / multi-tool | Distinguish hook fired, emitted output, model receipt, reviewer used cue and outcome; no false assumption of global ordering |
 
-**Status:** Choices (1) and (2) are *owner-decided*. Codex host event capability is *officially documented*. Hook installation, child review dispatch linkage, model-visible history list and actual behavior are *unchecked*. Self-correction does not imply an independent Reviewer ran. [#394](https://github.com/dyphn1/Harness-everything/issues/394) owns implementation/validation. OpenCode V1 and V2 remain open in #439.
+**Status:** Choices (1) and (2) are *owner-decided*. Codex host event capability is *officially documented*. Hook installation, child review dispatch linkage, model-visible history list and actual behavior are *unchecked*. Solo self-correction does not imply an independent Reviewer ran. Coordinator mode requires Reviewer at investigation and outcome acceptance. [#394](https://github.com/dyphn1/Harness-everything/issues/394) owns implementation/validation. OpenCode V1 and V2 remain open in #439.
