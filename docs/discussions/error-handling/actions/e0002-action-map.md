@@ -29,16 +29,18 @@ flowchart TD
         D --> CHOOSE{"Mechanism feasible<br/>and accepted within budget?"}
         CHOOSE -->|"yes"| E["E · Treat<br/>Agent supplies body + evidence-grounded status;<br/>script writes the terminal STATUS and reads it back"]
         CHOOSE -->|"no"| ALT["D: consider Avoid;<br/>Tolerate requires Owner approval;<br/>never silently waive required verification"]
-        ALT --> E
+        ALT --> EALT["E · Treat the selected disposition<br/>restrict/drop the operation or apply<br/>approved tolerate retry/limit"]
+        EALT --> FALT["F · Deliver applicable guidance<br/>no unsupported writer command"]
         E --> CHECK{"Written report / evidence<br/>conforms to applicable contract?"}
         CHECK -->|"no / tool unavailable"| OPEN["Keep unresolved or UNVERIFIED;<br/>retain original evidence"]
         CHECK -->|"yes"| F["F · Deliver<br/>At report-required steps, tell the next agent<br/>which **available** writer/check command to use"]
-        F --> G["G · Accept and retire<br/>Independently distinguish structural compliance,<br/>task outcome, and observed prevention"]
+        F --> G["G · Accept and retire<br/>Check chosen disposition acceptance:<br/>structure, task outcome, prevention evidence"]
+        FALT --> G
         G --> END(["End current occurrence"])
     end
 ```
 
-**Important reading notes:** (1) B and C retain their existing Level 1/common-Action decision rules; they are not skipped because this diagram is an E-0002 example. (2) A records an *E-0002-like finding* without pre-deciding its Error Class; **C** establishes the ledger association. (3) The diagram follows the **blocking** path; detailed alternative exits belong to Level 1 and the relevant Action details. (4) A later recurrence is **another occurrence beginning at Capture**, never a G feedback edge.
+**Important reading notes:** In the Converge path, the proposed writer is the intended prevention mechanism; Avoid and owner-approved Tolerate are **different dispositions with different treatments**. Tolerate is not a claim that the class has been rooted out. (1) B and C retain their existing Level 1/common-Action decision rules; they are not skipped because this diagram is an E-0002 example. (2) A records an *E-0002-like finding* without pre-deciding its Error Class; **C** establishes the ledger association. (3) The diagram follows the **blocking** path; detailed alternative exits belong to Level 1 and the relevant Action details. (4) A later recurrence is **another occurrence beginning at Capture**, never a G feedback edge.
 
 ## What the agent actually does (action obligations, not a report template)
 
@@ -48,7 +50,7 @@ flowchart TD
 | **B · Triage** | Reviewer checks whether the observation is a real failure or an approved tolerate case; do not equate unreadable report with PASS. | Continue / defer / hold per Level 1 |
 | **C · Identify** | Match `E-0002` (`report-missing-terminal-status`) with the existing ledger by evidence and signature. Attach a **new** occurrence; if not a match, use normal class-approval path. | Identified occurrence and relevance/blocking context |
 | **D · Decide** | Select a treatment, preferably **Converge via mechanical report write/check** when feasible. Decide whether the output role (report vs final turn) is separable; leave unapproved alternatives unresolved. | Explicit treatment direction; no assumed CLI deployment |
-| **E · Treat** | **Agent produces content and selects DONE/BLOCKED from task evidence.** Use a scoped writer/check operation to create the terminal control line and verify the resulting file; do **not** hand-append after STATUS. If host `-o` captures a final turn, first stage raw output separately. | Format-correct artifact **or** explicit unresolved/unverified evidence |
+| **E · Treat** | For the **Converge** treatment, **Agent produces content and selects DONE/BLOCKED from task evidence**. Use a scoped writer/check operation to create terminal STATUS and verify the resulting file; do **not** hand-append. If host `-o` captures a final turn, stage raw output separately. For a different authorized disposition, follow its bounded operation instead. | Format-correct artifact **or** explicit unresolved/unverified evidence |
 | **F · Deliver** | Provide the agent at its actual report-writing step with **the available command and required parameters**, not merely a reminder that E-0002 happened. If no tool is deployed, label the operation *proposed*, not executable. | Step-relevant executable instruction or explicit capability gap |
 | **G · Accept** | Confirm report structure from the actual file, separately confirm the task/packet result, and observe whether the correct operation was used. Do not infer long-term prevention from a single clean report. | Accepted treatment outcome or open finding; lesson retired only if conditions are met |
 
