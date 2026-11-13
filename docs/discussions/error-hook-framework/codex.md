@@ -2,6 +2,46 @@
 
 > **#439 / 2026-11-13: the two design choices below are adjudicated; production integration remains UNVERIFIED.** Discussion-only artifact, no change to installed Hooks, Error Ledger, permissions or runtime. [Overall discussion #439](https://github.com/dyphn1/Harness-everything/issues/439) · [Claude Code closure](./claude-code.md) · [#394 implementation owner](https://github.com/dyphn1/Harness-everything/issues/394).
 
+## Finalized routing discussion — current design vs future System One
+
+**Owner agreement (2026-11-13):** Keep the proven/tractable Codex delivery path independent of System One. Separate *switch*, *role*, *task evidence*, and *relevance selection*. Do not implement a new agent controller or turn model predictions into findings.
+
+| Concern | Current intended input / owner | Boundary |
+| --- | --- | --- |
+| Enable/disable Error Reviewer reminder | Stable environment/config switch, e.g. conceptual `HARNESS_ERROR_REVIEW=1` | **Illustrative option, not installed configuration or mandatory variable name**; read by Hook adapter when available |
+| Identify which child is reviewing | Native `SubagentStart.agent_type` + explicitly selected agent profile | Host agent type/profile must be verified in live installation; cannot infer an automatic `error-reviewer` type exists |
+| Identify current suspect, task and evidence | Main Agent's **child dispatch packet** and any existing trusted task-scoped reference | Do not mistake global environment variable for task-scoped state; `SubagentStart` does not natively include the dispatch packet |
+| Relevant known issues | Deterministic selector reading existing Error Ledger/registry, given reliable scope | Lightweight **ID, title, short description, reference**; not full resolution/Level 2/3 or a verdict |
+| Long-term optimization | **System One** feature scoring to recommend ranked context candidates or abstain; kernel/policy/Reviewers retain authority | Not available as an integrated live Host path yet; separate evaluation required under #403/#233 |
+
+```mermaid
+flowchart TD
+    M["Main Agent: current Workflow step + evidence"] --> DP["Dispatch Reviewer<br/>role + suspect + evidence refs + bounded features"]
+    DP --> HS["Codex SubagentStart Hook<br/>agent_type + existing task-scoped context if available"]
+    ENV["Optional stable environment/config switch<br/>enable / disable reminder"] --> HS
+    HS --> MATCH{"Relevant review task and mechanism enabled?"}
+    MATCH -->|No/unknown| STD["Default Reviewer instructions<br/>do not fabricate matches"]
+    MATCH -->|Yes| DET["CURRENT: deterministic relevance selector<br/>existing Error Ledger/registry"]
+    DET --> SHORT["Reviewer entry: instructions + case evidence<br/>related issue IDs / titles / summaries / refs"]
+    SHORT --> R["Independent Reviewer: verify / countercheck"]
+    STD --> R
+    F["FUTURE ONLY: System One<br/>score candidate Context from dispatch features<br/>recommend/abstain"] -. "Optional replacement of ranking only;<br/>not an error judge" .-> DET
+    R --> OUT["Confirmed / Not confirmed / Inconclusive<br/>with independent evidence"]
+    OUT --> L1["Main Agent L1<br/>Converge / scoped Avoid / Tolerate-if-approved / Unresolved"]
+```
+
+### Alternative: dispatch-time environment inheritance (NOT recommended as default)
+
+For a **real OS child process**, a parent can pass a child-specific *environment snapshot* to the spawning operation; a single scoped environment override can work without shared global state. In a strictly serialized process, modifying and restoring the parent process environment may also appear workable, **but global mutable environment is race-prone**, especially across concurrent hooks/Reviewers. A shell executed by an already-running Codex Agent cannot retroactively mutate its host's environment.
+
+**Important:** A Codex **native subagent is not guaranteed to be spawned as a separate OS process**. Therefore there is no documented guarantee it inherits a per-dispatch environment override from the Main Agent, and the Hook's environment cannot be assumed to identify the dispatched Reviewer. Treat this as a *narrow compatibility fallback for demonstrably process-spawned workers*, not as general Codex design.
+
+### Future feature-based Context selection (architecture only)
+
+The dispatch may eventually carry a *small typed feature envelope* such as `role`, `intent`, `workflowStep`, `errorCandidates`, `evidenceRefs` and `constraints`. These are **hypotheses / task characteristics, not verified Error Class findings**. At Hook/context time, the host adapter may pass trusted, scoped features to System One; System One scores **which bounded instruction/related-issue summaries are useful**, or abstains. A deterministic selector continues to provide a usable default when System One is not ready, lacks features, times out, or abstains. Never put model-generated advice above Kernel constraints, permissions, or independent Reviewer evidence.
+
+This is a **future cross-host candidate** also relevant to Claude/OpenCode; it does not alter the accepted `PostToolUse = Evidence only` and `SubagentStart = reviewer instructions + related issue summaries` contract, and does **not** delay the #394 Error Hook implementation or claim an operating model integration. The retained local Harness Status/observation loop may provide later evidence for evaluating relevance quality, **not automatic training or policy mutation**. See [#403](https://github.com/dyphn1/Harness-everything/issues/403) and [#233](https://github.com/dyphn1/Harness-everything/issues/233).
+
 ## Owner decisions
 
 1. **`PostToolUse` = Evidence only.** Hook does not classify an Error Occurrence, announce a verified Error Class, prescribe correction, dispatch reviewers or modify the completed tool result. Provide only objectively available tool outcome evidence (or no duplicate cue if the original model-visible result is already sufficient). A failed tool is *a suspicion signal*, not proof that an Error Handling issue exists.
