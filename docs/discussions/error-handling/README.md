@@ -59,16 +59,16 @@ These rules settle the conceptual recurrence question raised in [Round 1](./eval
 flowchart TD
   OBS["Issue observed during execution"] --> A["L1 A · Capture: original Evidence"]
   A --> B["L1 B · Triage"]
-  B --> APPROVED{"Preapproved Tolerate?"}
-  APPROVED -->|Yes| FAST["Bounded local retry / UNVERIFIED if unresolved"]
-  APPROVED -->|No| MODE{"Main Agent mode?"}
+  B --> MODE{"Main Agent mode?"}
   MODE -->|Coordinator| REVIEW["Main dispatches independent read-only Reviewer<br/>with existing A/B context"]
   MODE -->|Solo Executor| SELF["Main self-checks objective Evidence<br/>and corrects if justified"]
   REVIEW --> FIND{"Reviewer finding"}
   FIND -->|Not confirmed| DIS["Dismiss with reason"]
   FIND -->|Inconclusive| HOLD["Hold / Owner decision"]
-  FIND -->|Confirmed| C["L1 C · Identify"]
-  SELF --> C
+  FIND -->|Confirmed| T{"Already-approved Tolerate?"}
+  SELF --> T
+  T -->|Yes| FAST["Bounded local retry / UNVERIFIED if unresolved"]
+  T -->|No| C["L1 C · Identify"]
   C --> D["D Decide → E Treat → F Deliver"]
   D --> G["L1 G · Accept"]
   G --> AMODE{"Execution mode?"}
@@ -93,23 +93,22 @@ flowchart TD
     subgraph ASSESS["ASSESS"]
         direction TB
         A["A · Capture"] --> B["B · Triage"]
-        B --> T{"Already-approved tolerate class?"}
+        B --> MODE{"Main Agent execution mode?"}
+        MODE -->|Coordinator: delegated execution| DELEGATE["Main dispatches read-only Reviewer<br/>with A/B progress, original Evidence, suspected issue"]
+        MODE -->|Solo: Main executes work itself| SELF["Main examines available objective Evidence<br/>and self-corrects if justified; no Reviewer available"]
+        DELEGATE --> RREAL{"Reviewer finding?"}
+        RREAL -->|Not confirmed| DISMISS["Dismiss with reason"]
+        RREAL -->|Inconclusive| OWNER["Request owner decision; hold item"]
+        SELF --> SREAL{"Observed problem supported by Evidence?"}
+        SREAL -->|No| DISMISS
+        SREAL -->|Unclear| OWNER
+        RREAL -->|Confirmed| T{"Already-approved tolerate class?"}
+        SREAL -->|Yes| T
         T -->|Yes| R["Retry this operation (max 3)"]
         R --> REC{"Recovered?"}
         REC -->|Yes| RESUME["Resume interrupted work"]
         REC -->|No| UNV["Mark step UNVERIFIED; report; continue independent work only"]
-
-        T -->|No| MODE{"Main Agent execution mode?"}
-        MODE -->|Coordinator: another agent executes| DELEGATE["Main dispatches read-only Reviewer<br/>with A/B context, original Evidence, suspected issue"]
-        MODE -->|Solo: Main executes work itself| SELF["Main independently checks available objective Evidence<br/>and self-corrects; no Reviewer available"]
-        DELEGATE --> RREAL{"Reviewer finding?"}
-        RREAL -->|Not confirmed| DISMISS["Dismiss with reason"]
-        RREAL -->|Inconclusive| OWNER["Request owner decision; hold item"]
-        RREAL -->|Confirmed| C["C · Identify"]
-        SELF --> SREAL{"Observed problem supported by Evidence?"}
-        SREAL -->|No| DISMISS
-        SREAL -->|Unclear| OWNER
-        SREAL -->|Yes| C
+        T -->|No| C["C · Identify"]
         C --> READY{"Identification complete?"}
         READY -->|No / owner decision pending| HOLD["Hold pending identification decision"]
         READY -->|Yes| NOW{"Blocking main path?"}
@@ -164,7 +163,7 @@ Reading notes:
 - **Diagram-level traceability**: Views 1 and 2 group the same Actions under `ASSESS` and `RESPOND`; `D · Decide disposition` in both diagrams is expanded in View 3. These groupings are organizational and do not change control flow.
 
 - The **primary blocking path** keeps exactly `Capture → Triage → Identify → Decide disposition → Treat → Deliver relevant context → Accept and retire`. A non-blocking item completes identification and is recorded/deferred, without opening an immediate fix cycle.
-- **B / Triage, mode-dependent:** an already-approved tolerate class retains bounded per-operation retry (up to three); failure leaves the step UNVERIFIED. Otherwise **Coordinator Main** dispatches an independent **read-only Reviewer** with prior A/B Evidence; **Solo executing Main** can identify/correct its own evident error when no separate Reviewer is available, using objective Evidence without claiming independent review. A disputed/inconclusive finding goes to Hold/Owner. This is one L1 activity, not an extra gate or new Occurrence.
+- **B / Triage, mode-dependent:** **Coordinator Main** always dispatches an independent **read-only Reviewer** for a newly observed suspected error, supplying prior A/B Evidence, even when the class already has an approved Tolerate treatment; the Reviewer may quickly validate the already-known signature. **Solo executing Main** can identify/correct its own evident error when no separate Reviewer is available, using objective Evidence without claiming independent review. Once an issue is recognized/confirmed, the already-approved Tolerate class retains bounded per-operation retry (up to three); failure leaves the step UNVERIFIED. A disputed/inconclusive finding goes to Hold/Owner. This is one L1 activity, not an extra gate or new Occurrence.
 - **C / Identify**: Level 1 asks only whether identification is complete; unresolved cases are held for the required decision. Searching/reusing Error Class and recording a new occurrence are **Action-level responsibilities**, not extra Level 1 branches. Any new class still requires owner approval in the Identify detail.
 - **D / Decide**: Converge / Avoid / Tolerate. Reusing prior disposition history belongs inside the Action detail, not the top-level activity. The existing #437 budget suggestion is one correction plus one review; there is no global recurrence counter or forced Zoom-out.
 - **G / Accept, mode-dependent:** for coordinated work, **Main dispatches independent read-only Reviewer verification of the proposed outcome**; the execution owner provides Evidence and implements any subsequent correction. For solo Main, objective Script/CI/contract checks may support acceptance where permitted, but **independent review is not claimed** and missing mandatory evidence cannot become PASS. Converge/Avoid are accepted only when defined conditions are met; Tolerate stays active and is not claimed rooted out. G ends **this occurrence**, never a cross-occurrence return arrow.
