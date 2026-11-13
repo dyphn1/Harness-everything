@@ -4,9 +4,9 @@
 
 ## Host-neutral invariant, host-specific timing
 
-**One Level 1 workflow, two entry situations:** the error-producing Agent may self-correct after receiving Hook Evidence; when Main requests an independent investigation, Reviewer receives prior Action progress and follows the same L1 flow from the relevant step. Role/context differs, not the Workflow.
+**One Level 1 workflow, two entry situations:** the error-producing Agent may self-correct after receiving Hook Evidence; when Main requests an independent investigation, Reviewer receives prior Action progress and follows the same L1 flow from the relevant step. Role/context differs, **not the Action identities, Occurrence, or an independent approval contract**.
 
-The *shared selection decision* may be reusable: **given active workflow step + bounded evidence, which Action cue/Skill reference is relevant?** The **hook that discovers the information, the point at which the Agent can read it, the tool result shape and the adapter** are **not shared**.
+The *shared relevance selection* may be reusable: **given active workflow step + bounded evidence, which Action cue/Skill reference is relevant?** The **hook that discovers the information, the point at which the Agent can read it, the tool result shape and the adapter** are **not shared**.
 
 ```mermaid
 flowchart TB
