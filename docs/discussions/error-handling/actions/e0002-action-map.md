@@ -1,78 +1,93 @@
-# E-0002 — Level 2 Action Map (magnified Level 1)
+# E-0002 — Level 2 Action Map (magnifying Level 1 behavior blocks)
 
-> **Diagram-first discussion draft — not implemented.** This is the **E-0002 lens** over the accepted [Level 1 Error Handling](../README.md) process for [#437](https://github.com/dyphn1/Harness-everything/issues/437) / [#402](https://github.com/dyphn1/Harness-everything/issues/402). The Level 1 Action identities, order, early exits, and recurrence boundary remain authoritative.
+> **Diagram-first design draft; not implemented.** This is the E-0002 lens over the [Level 1 Error Handling process](../README.md) for [#437](https://github.com/dyphn1/Harness-everything/issues/437) / [#402](https://github.com/dyphn1/Harness-everything/issues/402). Level 1 remains the authority for Action sequence, guards, exits, authority and one-Error-Occurrence boundary. A–G are drawing-local aliases, not new identities.
 >
-> **Level 2 answers: What must the agent do at each Action for this concrete case?** Optional procedural details, CLI interface and evidence/reference documentation belong to Level 3. This is not a second standalone lifecycle, and no CLI or host change is claimed as shipped.
+> **Level 2 describes WHAT THE AGENT SHOULD DO within the magnified behavior block.** It can expand one Action or a connected group of Actions; it need not reproduce each internal step as a new global rule. Level 3 holds HOW (scripts, return-code details, evidence and document format). Agent discretion over tactics stays intact if the Level 1 contract is met.
 
-## Zoom in: E-0002 across the Level 1 Actions
+## Block 1 — ASSESS: capture, triage and identify this occurrence
 
 ```mermaid
 flowchart TD
-    S(["Level 1: new Error Occurrence"]) --> A
-
-    subgraph ASSESS["ASSESS · Level 1 Actions, E-0002 lens"]
-        direction TB
-        A["A · Capture<br/>Keep the original report or turn output<br/>and raw terminal lines, source and host context"]
-        B["B · Triage (reuse common Action)<br/>Reviewer checks whether finding is real<br/>or an already-approved tolerate case"]
-        C["C · Identify (reuse common Action)<br/>Look up existing E-0002 signature<br/>and associate this NEW occurrence if it matches"]
-        A --> B
-        B -->|"real finding"| C
-        B -->|"dismiss / pending / approved tolerate"| EXIT["Apply Level 1 early exit;<br/>no implicit success"]
-    end
-
-    C -->|"identified and blocking"| D
-    C -->|"unknown / non-blocking"| DEFER["Follow Level 1 hold/defer path;<br/>do not force an immediate correction"]
-
-    subgraph RESPOND["RESPOND · Actions specialized for E-0002"]
-        direction TB
-        D["D · Decide disposition<br/>Prefer Converge if a scoped mechanical<br/>report writer can prevent repeat formatting mistakes"]
-        D --> CHOOSE{"Mechanism feasible<br/>and accepted within budget?"}
-        CHOOSE -->|"yes"| E["E · Treat<br/>Agent supplies body + evidence-grounded status;<br/>script writes the terminal STATUS and reads it back"]
-        CHOOSE -->|"no"| ALT["D: consider Avoid;<br/>Tolerate requires Owner approval;<br/>never silently waive required verification"]
-        ALT --> EALT["E · Treat the selected disposition<br/>restrict/drop the operation or apply<br/>approved tolerate retry/limit"]
-        EALT --> FALT["F · Deliver applicable guidance<br/>no unsupported writer command"]
-        E --> CHECK{"Written report / evidence<br/>conforms to applicable contract?"}
-        CHECK -->|"no / tool unavailable"| OPEN["Keep unresolved or UNVERIFIED;<br/>retain original evidence"]
-        CHECK -->|"yes"| F["F · Deliver<br/>At report-required steps, tell the next agent<br/>which **available** writer/check command to use"]
-        F --> G["G · Accept and retire<br/>Check chosen disposition acceptance:<br/>structure, task outcome, prevention evidence"]
-        FALT --> G
-        G --> END(["End current occurrence"])
-    end
+    START(["New occurrence from Level 1"]) --> A["A · Capture<br/>Retain observed report/turn evidence, source,<br/>raw ending and unknowns without editing it"]
+    A --> B["B · Triage<br/>Use Level 1 reviewer/tolerate decisions"]
+    B --> BF{"Triage result?"}
+    BF -->|"Real finding"| C["C · Identify<br/>Compare evidence with existing E-0002<br/>signature/history for THIS new occurrence"]
+    BF -->|"Dismiss / hold / approved tolerate"| BEXIT["Follow matching Level 1 exit;<br/>UNVERIFIED never means PASS"]
+    C --> ID{"Identification complete?"}
+    ID -->|"No / approval pending"| HOLD["Hold: identification incomplete<br/>owner decision where required"]
+    ID -->|"Yes"| BLOCK{"Blocking main path?"}
+    BLOCK -->|"No"| DEFER["Record and defer treatment<br/>identified but non-blocking"]
+    BLOCK -->|"Yes"| NEXT(["Hand off to RESPOND block"])
 ```
 
-**Important reading notes:** In the Converge path, the proposed writer is the intended prevention mechanism; Avoid and owner-approved Tolerate are **different dispositions with different treatments**. Tolerate is not a claim that the class has been rooted out. (1) B and C retain their existing Level 1/common-Action decision rules; they are not skipped because this diagram is an E-0002 example. (2) A records an *E-0002-like finding* without pre-deciding its Error Class; **C** establishes the ledger association. (3) The diagram follows the **blocking** path; detailed alternative exits belong to Level 1 and the relevant Action details. (4) A later recurrence is **another occurrence beginning at Capture**, never a G feedback edge.
+**P1-1 boundary:** *unidentified / pending class approval* leads to **Hold**, whereas *identified but non-blocking* leads to **Defer**. They are distinct Level 1 outcomes. Recognizing E-0002-like evidence at Capture does not automatically classify the case: formal classification and reusing history belong to Identify. A future recurrence is a new occurrence starting at Capture.
 
-## What the agent actually does (action obligations, not a report template)
+## Block 2 — RESPOND: decide, act, deliver and accept
 
-| Level 1 Action | E-0002-specific instruction | Handoff or observable result |
+```mermaid
+flowchart TD
+    IN(["Blocking, identified E-0002<br/>from ASSESS"]) --> D["D · Decide<br/>Choose Converge / Avoid / Tolerate<br/>from evidence and available capability"]
+    D --> V["Validate selection using the relevant<br/>script/contract, including required approval"]
+    V --> VR{"Conditions satisfied?"}
+    VR -->|"nonzero / unmet"| DR["Return error and unmet condition to agent;<br/>revise within Decide, or keep unresolved"]
+    DR -->|"can revise within budget"| D
+    DR -->|"cannot satisfy"| DEXIT["Follow Level 1 unresolved exit;<br/>no Treat on invalid disposition"]
+    VR -->|"yes"| E["E · Treat<br/>Perform the selected bounded operation"]
+    E --> ET{"Selected treatment?"}
+    ET -->|"Converge"| WR["Agent prepares truthful content/status;<br/>feed codex -o raw output through script;<br/>script writes/checks final report"]
+    ET -->|"Avoid"| AV["Restrict or omit unnecessary action<br/>per validated disposition"]
+    ET -->|"Owner-approved Tolerate"| TO["Use approved bound / retry / escalation;<br/>no implied verification PASS"]
+    WR --> RC["Check return code and actual artifact"]
+    AV --> RC
+    TO --> RC
+    RC --> OK{"Treatment contract met?"}
+    OK -->|"nonzero / failed"| ERR["Agent handles return code,<br/>corrects within the same Treat block<br/>or preserves unresolved evidence"]
+    ERR -->|"correctable within budget"| E
+    ERR -->|"unresolved"| F
+    OK -->|"yes"| F["F · Deliver<br/>Hand off relevant operation/context<br/>and result (including failures)"]
+    F --> G["G · Accept<br/>Run applicable mechanical checks;<br/>review outcome and current evidence"]
+    G --> GOK{"Acceptance conditions met?"}
+    GOK -->|"yes"| DONE(["Accept current occurrence;<br/>retire unneeded lesson only"])
+    GOK -->|"nonzero / incomplete"| OPEN(["Keep occurrence open / unresolved;<br/>return failure context for follow-up"])
+```
+
+**Reading rules:** This is a magnification of the **RESPOND behavior block**, not a new global controller. In D, a script can reject unmet conditions using a nonzero return code; the agent can revise the decision locally rather than creating a new Level 1 approval/retry workflow. An Owner-required authorization still has to exist to pass validation; a script must never manufacture permission.
+
+In E, scripts verify deterministic conditions and return actionable diagnostics; the agent chooses a suitable correction, constrained by the currently accepted disposition and budget. A failure that cannot be corrected still reaches **F (deliver result/evidence)** and **G (open/unresolved acceptance outcome)**, not an orphan endpoint. G's nonzero/incomplete outcome does **not** retire a needed instruction or silently claim success. Neither this path nor future recurrence creates a G → D or G → Capture loop.
+
+## E-0002 instructions by behavior block
+
+| Scope from Level 1 | What the agent should do (Level 2) | Handoff/condition |
 | --- | --- | --- |
-| **A · Capture** | Retain actual report bytes / final lines and distinguish **report file**, **turn message**, or a shared `-o` artifact. Preserve evidence unchanged. | Evidence + source and unknowns; **no classification** |
-| **B · Triage** | Reviewer checks whether the observation is a real failure or an approved tolerate case; do not equate unreadable report with PASS. | Continue / defer / hold per Level 1 |
-| **C · Identify** | Match `E-0002` (`report-missing-terminal-status`) with the existing ledger by evidence and signature. Attach a **new** occurrence; if not a match, use normal class-approval path. | Identified occurrence and relevance/blocking context |
-| **D · Decide** | Select a treatment, preferably **Converge via mechanical report write/check** when feasible. Decide whether the output role (report vs final turn) is separable; leave unapproved alternatives unresolved. | Explicit treatment direction; no assumed CLI deployment |
-| **E · Treat** | For the **Converge** treatment, **Agent produces content and selects DONE/BLOCKED from task evidence**. Use a scoped writer/check operation to create terminal STATUS and verify the resulting file; do **not** hand-append. If host `-o` captures a final turn, stage raw output separately. For a different authorized disposition, follow its bounded operation instead. | Format-correct artifact **or** explicit unresolved/unverified evidence |
-| **F · Deliver** | Provide the agent at its actual report-writing step with **the available command and required parameters**, not merely a reminder that E-0002 happened. If no tool is deployed, label the operation *proposed*, not executable. | Step-relevant executable instruction or explicit capability gap |
-| **G · Accept** | Confirm report structure from the actual file, separately confirm the task/packet result, and observe whether the correct operation was used. Do not infer long-term prevention from a single clean report. | Accepted treatment outcome or open finding; lesson retired only if conditions are met |
+| **A Capture** | Preserve original report/turn data, the exact terminal lines and whether `-o` is involved; do not modify evidence. | Give B evidence plus explicit unknowns. |
+| **B Triage → C Identify** | Apply common Triage guards, then identify using actual evidence and the existing E-0002 class. **Unidentified → Hold; identified non-blocking → Defer.** | Only identified, blocking observations proceed to D. |
+| **D Decide (response block)** | Choose an applicable disposition. Validate approval, feasibility and required conditions through the applicable script/contract; a rejected choice returns to Agent for correction or unresolved handling. | Do not start E with an invalid choice. |
+| **E Treat (response block)** | Execute the accepted treatment, with agent-selected tactics. For **Converge**, Agent determines the truthful status and prepares content; script/CLI owns atomic report writing and structural validation. For **Avoid/Tolerate**, execute their distinct approved operations. | Nonzero return code returns control to Agent inside this block; if still unresolved, preserve result for F/G. |
+| **F Deliver (response block)** | Hand off the chosen procedure/available command and current outcome. Later, at **relevant** workflow steps, the Hook/Skill mechanism may expose the appropriate command; that future contextual exposure is *not another occurrence transition*. | No unsupported CLI is presented as installed; deliver failure evidence when unresolved. |
+| **G Accept (response block)** | Use deterministic checks for mechanical obligations; separately assess substantive task evidence. If check/acceptance fails, return explicit unmet conditions and keep open; retire only obsolete lesson prose, not a command still needed for routine work. | Only accepted outcomes may be reported as accepted; Tolerate remains bounded, not “fixed.” |
 
-## Mechanical-prevention handoff (Level 2 only)
+## Mechanism and time boundary (the one-time response vs future use)
 
 ```mermaid
 flowchart LR
-    D["D · Decide<br/>mechanical writer selected"] --> E1["E · Agent<br/>body + truthful status"]
-    E1 --> E2["E · Script / CLI<br/>write final STATUS and check file"]
-    E2 --> F["F · Deliver<br/>expose command at next relevant step"]
-    F --> G["G · Accept<br/>output + task evidence"]
+    RESPONSE["Current occurrence: D → E → F → G<br/>decide, apply, hand off, accept"] -. "established reusable capability" .-> AVAILABLE["Relevant Skill / Script reference"]
+    AVAILABLE -. "at a later relevant workflow step<br/>via scoped Hook disclosure" .-> OP["Agent performs script-mediated operation<br/>and uses return code"]
 ```
 
-The **script is a proposed prevention mechanism**; the hook/context carrier may point to it but does not write reports or declare success. The tool owns **formatting**, while the agent/reviewer retain responsibility for substantive evidence and decision quality. If the same `codex exec -o` output serves as report and final turn, **do not claim the unimplemented report-turn exception exists**: preserve the raw output, stage it, and treat the host boundary as unresolved until an accepted contract makes the separation valid.
+The dotted relations are **reuse/context**, not control-flow links between occurrences. Level 1 remains the only occurrence lifecycle. Future agents need to know **the action to perform at the current step**, not reload every past error report. Mechanism correctness and eventual recurrence reduction remain separate questions.
 
-## Level 3: documentation, contracts, and evidence (follow the action link only when needed)
+### Script-first contract (Level 2 only)
 
-- [Capture evidence / producer and artifact detail](../details/e0002-capture-evidence.md): how to preserve the original error observation, including report-file vs turn-message distinctions.
-- [Report writer / CLI operational contract](../details/e0002-report-writer.md): candidate `write`/`check` commands, atomicity, negative cases and handling `-o` outputs.
-- [Existing E-0002 Error Ledger](../../../../.agents/harness-everything/errors/E-0002-report-missing-terminal-status.md): canonical class/signature, historical episodes and lesson (not duplicated here).
-- [ROUTE-001 delivery decision](../../../adr/ROUTE-001-error-lesson-delivery.md): existing proposed context-selection design. Not evidence that an executable writer or report-turn exception has shipped.
+- The **agent** determines content, substantive truth and how to react to failures; the **script** performs bounded write/check and returns exit code + clear unmet condition. A zero exit code proves only the specific script contract.
+- For `codex exec -o`, `-o` is a **script-mediated raw output/input artifact**, not a report finalized by manual editing. Route raw output through the report script, which must validate/extract only under a specified host-aware contract and then write/check the designated report. If the transformation cannot satisfy that contract, return nonzero and preserve raw evidence; do not silently strip metadata or fabricate success.
+- **No extra Level 1 branches or hard-coded retry counter** are added to make the script work. Agent correction after a failure is local to the magnified block and subject to existing constraints.
+- Script contracts and actual commands are **proposals** (not currently shipped). Missing scripts cannot satisfy a required mechanical check; keep that outcome open, rather than pretending a command exists.
 
-**Separation rule:** Level 1 owns *which* Action and the lifecycle; **Level 2 owns *what the agent must do* for E-0002**; **Level 3 owns *how to document, implement, validate, and reference* the chosen operation**. Do not turn Level 2 into a second ledger, a giant implementation spec, or a new Action type for each error class.
+## Level 3 — optional details consulted only when needed
 
-**Acceptance of this draft is diagram comprehension only**, not E-0002 prevention in production. A future implementation needs independent tests of the script and at least one real reporting task; only evidence of later correct use can support reduced recurrence.
+- [Capture evidence and producer/artifact details](../details/e0002-capture-evidence.md)
+- [Report writing / `-o` transformation / return-code contract](../details/e0002-report-writer.md)
+- [Existing E-0002 Error Ledger](../../../../.agents/harness-everything/errors/E-0002-report-missing-terminal-status.md): existing class/history, not duplicated here
+- [ROUTE-001 delivery decision](../../../adr/ROUTE-001-error-lesson-delivery.md): scoped delivery background, not proof of deployed writer
+
+**Acceptance of this draft:** Level 1 alignment and Action guidance only. No end-to-end recurrence/cost conclusion until Error Handling, Script and Hook/Skill Delivery are actually integrated and exercised.
