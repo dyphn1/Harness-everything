@@ -26,35 +26,35 @@ OpenCode V1 is in **critical-fix-only** maintenance (security, data loss and sev
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    participant M as Main Agent
-    participant T as V2 Tool
-    participant AH as execute.after Hook
-    participant CH as context Hook
-    participant R as Independent Reviewer child session
-    participant L as Existing Error Ledger/Registry
-    M->>T: Execute Tool(s) for active Workflow
-    T-->>AH: completed(result) / error(error)
-    AH-->>M: Objective Evidence only (not verdict)
-    M->>CH: Next Agent model request
-    CH-->>M: Relevant request-scoped context
-    M->>M: Problem observed -> Level 1 A Capture Evidence
-    M->>M: Level 1 B Triage; use approved Tolerate path if applicable
-    opt Main Agent dispatches Reviewer within Triage
-      M->>R: Review suspected issue + scoped Evidence and task
-      R->>CH: Reviewer Agent model request (sessionID + agent)
-      CH->>L: Find related known issues (only if scope is reliable)
-      L-->>CH: Short issue IDs / titles / descriptions / refs
-      CH-->>R: Reviewer instructions + Evidence refs + issue summaries
-      R->>R: Independent investigation and counterexamples
-      R-->>M: Confirmed / Not confirmed / Inconclusive + Evidence
-    end
-    opt Confirmed, identified and blocking
-      M->>M: Continue SAME L1 at C Identify → D Decide
-      M->>M: E Treat: Converge / scoped Avoid / approved Tolerate
-      Note over M: Level 2 local verification and correction<br/>does not restart Level 1
-      M->>M: F Deliver → G Accept, retire or report Unresolved
-    end
+  autonumber
+  participant X as Executing Agent
+  participant T as V2 Tool
+  participant AH as execute.after
+  participant CH as context
+  participant M as Main Agent
+  participant R as Reviewer child
+  participant L as Existing Error Ledger
+  X->>T: Execute Workflow step
+  T-->>AH: completed(result) or error(error)
+  AH-->>X: Evidence only
+  X->>CH: Next model request
+  CH-->>X: Request-scoped relevant guidance
+  X->>X: Error observed → L1 A Capture + B Triage
+  alt Executing Agent recognizes own error
+    X->>X: Self-correct through SAME L1/L2/L3
+    X->>X: Local E Treat correction; F Deliver → G Accept
+  else Main requests independent investigation
+    X-->>M: Raw Evidence + earlier L1 Action progress
+    M->>R: Dispatch hypothesis + prior context + scope
+    R->>CH: Reviewer model request (sessionID/agent)
+    CH->>L: Lookup task-relevant historical issue summaries
+    L-->>CH: Issue IDs / titles / descriptions / refs
+    CH-->>R: Bounded request-scoped Reviewer context
+    R->>R: Resume SAME L1 Action flow; independently verify
+    R-->>M: Confirmed / Not confirmed / Inconclusive + Evidence
+    M-->>X: Finding and updated context
+    X->>X: Continue same occurrence as warranted
+  end
 ```
 
 **The above is logical order, not an automatic event-to-child mapping.** OpenCode V2's native `subagent` tool creates a child session using an agent ID, description and complete prompt; the parent obtains a child `sessionID`. Verify that `event.agent` matches the chosen reviewer agent definition, and whether dispatch features (or trustworthy task-scoped references) reach the child context. No unverified assumption that `fork`, the prompt hook or `setup(ctx)` automatically provide a complete Reviewer dispatch packet.
@@ -63,25 +63,19 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    IN["Agent model request"] --> C["ctx.session.hook('context')<br/>sessionID + agent + messages"]
-    S["Optional stable config switch"] --> C
-    C --> ROLE{"Reviewer role and reliable task scope?"}
-    ROLE -->|No| BASIC["Normal request or relevant minimal cue"]
-    ROLE -->|Yes| F["Trusted dispatch info from Main Agent<br/>after A Capture and during B Triage"]
-    F --> E{"Enough trusted Evidence/task features?"}
-    E -->|No| SAFE["General Reviewer instructions only<br/>do not fabricate Error ID"]
-    E -->|Yes| SEL["CURRENT: deterministic lookup<br/>existing Error Ledger / registry"]
-    SEL --> INDEX["Task-scoped issue ID / title / short description / ref<br/>no full resolution or verdict"]
-    INDEX --> CUE["Construct request-scoped Reviewer context"]
-    SAFE --> CUE
-    CUE --> SYSTEM["Append once to THIS request's system parts"]
-    SYSTEM --> REVIEW["Reviewer independently judges suspicion in B Triage"]
-    BASIC --> CONT["Continue Agent request"]
-    REVIEW --> FIND{"Reviewer finding"}
-    FIND -->|Confirmed| NEXT["Main Agent continues SAME Level 1<br/>at C Identify → D Decide / E Treat"]
-    FIND -->|Not confirmed| DIS["Dismiss / resume"]
-    FIND -->|Inconclusive| HOLD["Hold / evidence / Owner decision"]
-    FUTURE["FUTURE: System One ranks candidates / abstains<br/>deterministic fallback"] -. "No verdict or policy override" .-> SEL
+  REQ["V2 Agent model request"] --> CH["ctx.session.hook('context')"]
+  CH --> AGENT{"Role and scoped context available?"}
+  AGENT -->|Regular executing Agent| SELF["Deliver relevant Evidence/lesson cue<br/>enables self-correction in L1"]
+  AGENT -->|Reviewer| PKT["Earlier L1 A/B progress from dispatch<br/>Evidence, hypothesis, Workflow step"]
+  AGENT -->|Unknown| FALL["No fabricated matches; normal context"]
+  PKT --> SELECT["Existing Ledger relevance selection"]
+  S1["Future System One ranking only"] -.-> SELECT
+  SELECT --> LIST["Reviewer instructions + issue summaries<br/>no full history/verdict"]
+  LIST --> VALIDATE["Reviewer follows SAME L1 semantics<br/>independently checks relevant Action"]
+  SELF --> EXEC["Agent uses SAME L1/L2/L3 for self-correction"]
+  VALIDATE --> FIND["Finding + Evidence returned to execution owner"]
+  FALL --> STANDARD["Default request"]
+  CH --> NOTE["Request-scoped event.system:<br/>include needed cue on each relevant request"]
 ```
 
 ### Dispatch/context features
