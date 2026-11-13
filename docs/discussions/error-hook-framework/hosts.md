@@ -4,57 +4,58 @@
 
 ## Host-neutral invariant, host-specific timing
 
+**One Level 1 workflow, two entry situations:** the error-producing Agent may self-correct after receiving Hook Evidence; when Main requests an independent investigation, Reviewer receives prior Action progress and follows the same L1 flow from the relevant step. Role/context differs, not the Workflow.
+
 The *shared selection decision* may be reusable: **given active workflow step + bounded evidence, which Action cue/Skill reference is relevant?** The **hook that discovers the information, the point at which the Agent can read it, the tool result shape and the adapter** are **not shared**.
 
 ```mermaid
 flowchart TB
-  CORE["Shared matching logic<br/>Workflow + registry + existing Error Ledger"]
-  CORE --> CA["Claude adapter"]
+  CORE["Shared relevant Evidence + Error Ledger context"] --> CA["Claude adapter"]
   CORE --> CX["Codex adapter"]
-  CORE --> OC["OpenCode V1 / V2 adapter"]
-  CA --> CM["Claude model context / next turn"]
-  CX --> XM["Codex additionalContext / model request"]
-  OC --> OM["OpenCode context transform / model request"]
-  CM --> A["Agent chooses Action, Skill or Script"]
-  XM --> A
-  OM --> A
+  CORE --> OC["OpenCode V2 adapter"]
+  CA --> CM["Claude Agent context"]
+  CX --> XM["Codex Agent context"]
+  OC --> OM["OpenCode request-scoped context"]
+  CM --> X["Executing Agent sees evidence"]
+  XM --> X
+  OM --> X
+  X --> DEC{"Handling situation?"}
+  DEC -->|Self-correction| SELF["Same L1/L2/L3 workflow<br/>no mandatory Reviewer"]
+  DEC -->|Main requests independent investigation| DP["Reviewer dispatch with prior Action progress + Evidence"]
+  DP --> RV["Reviewer uses SAME L1 Action semantics<br/>independently examine facts"]
+  RV --> FIN["Return findings to execution owner"]
 ```
 
 **Critical rule:** A tool-selection-time hook cannot be casually called *pre-agent-action context*. The Agent may already have chosen the tool. A Hook return is only evidence of **delivery attempt** until an actual model-visible context capture establishes what the model received.
 
 ## 1. Claude Code — lifecycle command hooks
 
-> **Owner closure, 2026-11-13:** This section remains a preliminary host map. The newer [Claude-specific closure](./claude-code.md) supersedes its simplified single-Agent recovery sequence: Main Agent suspects → independent Reviewer confirms/rejects → Main Agent L1 treats → direct fix OR scoped Avoid/workaround → independent verification or Unresolved. `PostToolBatch` is an additional documented before-next-model batch context candidate. No automatic Reviewer dispatch by Hook. **Timing discussion closed, host implementation unverified.**
+> **Owner closure, 2026-11-13:** This section remains a preliminary host map. The newer [Claude-specific closure](./claude-code.md) supersedes its simplified single-Agent recovery sequence: Executing Agent sees error → L1 Capture/Triage → self-correction OR Main-dispatched Reviewer using prior L1 context → same L1 treatment and objective verification or Unresolved. `PostToolBatch` is an additional documented before-next-model batch context candidate. No automatic Reviewer dispatch by Hook. **Timing discussion closed, host implementation unverified.**
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    participant U as Task / dispatch
-    participant C as Claude native hooks
-    participant R as Shared relevance selector
-    participant M as Claude Agent
-    participant T as Tool / Script
-    U->>C: SessionStart or UserPromptSubmit
-    C->>R: Workspace/step/marker
-    alt Relevant record
-      R-->>C: Compact lesson / Level 2 Action cue
-      C-->>M: Supported model-visible hook context
-    else No match / unavailable
-      R-->>C: No cue (fail open)
-    end
-    M->>T: Selected operation
-    opt PreToolUse for selected tool
-      C->>R: Tool name, args, context
-      Note over C,M: After selection; do not assume pre-call cue<br/>makes Agent replan the tool already chosen
-    end
-    alt Tool fails
-      T-->>C: PostToolUseFailure / supported failure result
-      C->>R: Failure signature / evidence
-      C-->>M: Lesson on a supported subsequent model turn
-    else Tool succeeds
-      T-->>M: Ordinary result
-    end
-    M->>U: Continue Action, evidence or unresolved
+  autonumber
+  participant X as Executing Agent
+  participant C as Claude native Hook
+  participant T as Tool
+  participant M as Main Agent
+  participant R as Reviewer
+  C-->>X: Relevant entry/context cue where available
+  X->>T: Execute current Workflow
+  T-->>C: PostToolUse / PostToolUseFailure
+  C-->>X: Evidence / PostToolBatch bounded cue
+  X->>X: Observe issue → L1 A Capture / B Triage
+  alt Executing Agent self-corrects
+    X->>X: SAME L1 C/D/E/F/G; local L2 correction/check
+  else Main requests independent investigation
+    X-->>M: Previous L1 Action progress, Evidence, hypothesis
+    M->>R: Dispatch context + issue summaries
+    C-->>R: SubagentStart cue (no predeclared verdict)
+    R->>R: Resume SAME L1 semantics; independently check
+    R-->>M: Finding + Evidence
+    M-->>X: Findings / authorized action
+    X->>X: Continue same Occurrence or dismiss/hold
+  end
 ```
 
 | Responsibility | Candidate Host event / existing repo evidence | Boundary |
@@ -72,25 +73,30 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    participant M as Codex Main Agent
-    participant T as Tool
-    participant H as Codex Hook adapter
-    participant L as Existing Error Ledger
-    participant R as Reviewer Subagent
-    M->>T: Execute chosen tool
-    T-->>H: PostToolUse (tool-specific result)
-    H-->>M: Evidence only; no Error Class verdict
-    M->>M: Suspected actual problem?
-    opt Main Agent chooses to dispatch independent review
-      M->>R: Review task and observed evidence
-      R->>H: SubagentStart
-      H->>L: Query only relevant known issues when scoped task reference is available
-      L-->>H: IDs / titles / short descriptions / references
-      H-->>R: Reviewer instructions + candidate issue index
-      R-->>M: Confirmed / Not confirmed / Inconclusive + evidence
-    end
-    M->>M: On confirmed finding: L1 direct fix OR scoped Avoid OR Unresolved
+  autonumber
+  participant X as Executing Agent
+  participant T as Tool
+  participant H as Codex Hook
+  participant M as Main Agent
+  participant L as Error Ledger
+  participant R as Reviewer
+  X->>T: Execute current Workflow tool
+  T-->>H: PostToolUse result
+  H-->>X: Evidence only, no verdict
+  X->>X: Observe problem → L1 A Capture / B Triage
+  alt Self-correction
+    X->>X: Continue same L1 and L2 Treat verification
+  else Main requests independent investigation
+    X-->>M: Scoped Evidence and prior L1 steps
+    M->>R: Dispatch Reviewer with hypothesis / task context
+    R->>H: SubagentStart
+    H->>L: Read relevant known issue summaries if scoped
+    L-->>H: ID / title / short description / ref
+    H-->>R: Reviewer instructions + issue list
+    R->>R: Same L1 semantics; independent check
+    R-->>M: Finding / Evidence
+    M-->>X: Findings; same Occurrence
+  end
 ```
 
 | Responsibility | Official event contract | Boundary |
@@ -109,23 +115,23 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    M["Main Agent executes Workflow"] --> T["Tool"]
-    T --> E["V2 tool.hook('execute.after')<br/>Objective Evidence only"]
-    E --> Q["V2 session.hook('context')<br/>Before next Agent model request"]
-    Q --> S{"Main Agent suspects actual error?"}
-    S -->|No| M
-    S -->|Yes| R["Dispatch independent Reviewer subagent<br/>with scoped evidence/task"]
-    R --> C["Child session model request<br/>V2 context Hook with sessionID + agent"]
-    L["Existing Error Ledger / registry"] --> C
-    C --> P["Reviewer instructions + relevant issue summaries<br/>each request as needed, not full history"]
-    P --> V["Independent Reviewer verification"]
-    V --> F{"Finding"}
-    F -->|Not confirmed| M
-    F -->|Inconclusive| U["More evidence / Unresolved"]
-    F -->|Confirmed| H["Main Agent Level 1<br/>Converge / scoped Avoid / approved Tolerate"]
-    H --> O["Independent outcome verification"]
-    O -->|Pass| M
-    O -->|No proof| U
+  X["Executing Agent Workflow"] --> TOOL["Tool"]
+  TOOL --> EV["V2 execute.after<br/>Evidence only"]
+  EV --> C["V2 context Hook<br/>per-model-request relevant cue"]
+  C --> SUS{"Error observed?"}
+  SUS -->|No| X
+  SUS -->|Yes| AB["L1 A Capture → B Triage"]
+  AB --> CHOICE{"Handling situation?"}
+  CHOICE -->|Agent self-corrects| SELF["Continue SAME L1 / L2 Treat<br/>local verification"]
+  CHOICE -->|Main requests independent review| DIS["Dispatch Reviewer<br/>prior Action context + Evidence"]
+  DIS --> CTX["Child V2 context Hook<br/>agent/session + relevant issue summaries"]
+  CTX --> RV["Reviewer follows SAME L1<br/>rechecks Evidence independently"]
+  RV --> FIND{"Finding"}
+  FIND -->|Confirmed| RESP["Execution owner continues SAME occurrence"]
+  FIND -->|Not confirmed| NONE["Dismiss"]
+  FIND -->|Inconclusive| HOLD["Hold / evidence"]
+  SELF --> RESP
+  RESP --> FIN["Converge / scoped Avoid / approved Tolerate<br/>Deliver and Accept or Unresolved"]
 ```
 
 | Responsibility | Official V2 Host contract | Design boundary |
