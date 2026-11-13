@@ -4,6 +4,8 @@
 >
 > **Action identity:** Capture is the existing A Action from [nodes.yaml](../nodes.yaml); A is a *diagram-local alias*, not a stable identifier. **E-0002 is a worked example, not the identity or mandatory type of this Action.**
 
+**Prevention boundary:** This document records the occurrence, but does **not** solve E-0002 by repeating diagnostic text. The operational prevention proposal is [E · Treat — report write/check through a scoped CLI](./treat-e0002.md). After approval, F · Deliver must tell the agent to invoke the actual writer instead of hand-formatting terminal STATUS lines.
+
 ## Purpose and boundaries
 
 Capture opens **one new Error Occurrence** and records *what was actually observed* with enough provenance for **B · Triage** to examine it. Capture may adapt its evidence-collection steps to the producer, artifact, or a known example such as E-0002. It **does not** decide whether the finding is real, approve a tolerate class, identify the canonical Error Class/signature, choose a disposition, repair an artifact, or declare a check passed.
