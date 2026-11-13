@@ -82,10 +82,9 @@ flowchart LR
     E --> F["F Deliver<br/>tell agent which command to run"]
     F --> RUN["Agent executes<br/>body + status → CLI → file"]
     RUN --> G["G Accept<br/>structural proof and actual outcome"]
-    G -. "future error = NEW occurrence" .-> A
 ```
 
-The dotted future arrow depicts a **different future occurrence**, not a control-flow loop inside this occurrence. This is an explanatory relationship, not a change to Level 1.
+A future recurrence starts a **separate new occurrence** at A Capture; there is deliberately **no** G-to-A or G-to-D edge in this Action diagram or Level 1.
 
 - **#359:** existing E-0002 ledger remains the error/evidence authority; do not create a second database.
 - **#394 / ROUTE-001:** relevance-scoped delivery can point agents at the operation, but a hint alone does **not** prevent malformed report writing. The CLI is the **mechanism**; the hook is a **context carrier**. Delivery behavior remains a separate implementation decision.
