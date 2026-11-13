@@ -29,31 +29,32 @@ sequenceDiagram
   autonumber
   participant X as Executing Agent
   participant T as V2 Tool
-  participant AH as execute.after
-  participant CH as context
-  participant M as Main Agent
-  participant R as Reviewer child
+  participant H as V2 Hooks (execute.after and context)
+  participant M as Main Coordinator
+  participant R as Read-only Reviewer child
   participant L as Existing Error Ledger
-  X->>T: Execute Workflow step
-  T-->>AH: completed(result) or error(error)
-  AH-->>X: Evidence only
-  X->>CH: Next model request
-  CH-->>X: Request-scoped relevant guidance
-  X->>X: Error observed → L1 A Capture + B Triage
-  alt Executing Agent recognizes own error
-    X->>X: Self-correct through SAME L1/L2/L3
-    X->>X: Local E Treat correction; F Deliver → G Accept
-  else Main requests independent investigation
-    X-->>M: Raw Evidence + earlier L1 Action progress
-    M->>R: Dispatch hypothesis + prior context + scope
-    R->>CH: Reviewer model request (sessionID/agent)
-    CH->>L: Lookup task-relevant historical issue summaries
-    L-->>CH: Issue IDs / titles / descriptions / refs
-    CH-->>R: Bounded request-scoped Reviewer context
-    R->>R: Resume SAME L1 Action flow; independently verify
-    R-->>M: Confirmed / Not confirmed / Inconclusive + Evidence
-    M-->>X: Finding and updated context
-    X->>X: Continue same occurrence as warranted
+  X->>T: Execute Workflow operation
+  T-->>H: completed result or error
+  H-->>X: Evidence and request-scoped context
+  X->>X: Error observed → L1 A Capture → B Triage
+  alt Main is Coordinator
+    X-->>M: Prior A/B Action context and original Evidence
+    M->>R: Mandatory independent Reviewer dispatch
+    R->>H: Reviewer model request (sessionID and agent)
+    H->>L: Read task-relevant known issue index
+    L-->>H: IDs / titles / summaries / refs
+    H-->>R: Bounded instructions and Evidence
+    R->>R: SAME Level 1 semantics, read-only independent check
+    R-->>M: Finding and Evidence
+    M-->>X: Assigned correction within same Occurrence
+    X->>X: D/E/F with bounded Level 2 correction
+    X-->>M: Treatment outcome and required Evidence
+    M->>R: Mandatory read-only independent outcome verification at G
+    R-->>M: Verified or unmet conditions
+    M->>M: G Accept only if conditions are met
+  else Solo Main executes without Reviewer
+    X->>X: Same L1/L2/L3; self-correct and check objective evidence
+    Note over X: No independent review claim; missing proof is not PASS
   end
 ```
 
@@ -63,19 +64,20 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-  REQ["V2 Agent model request"] --> CH["ctx.session.hook('context')"]
-  CH --> AGENT{"Role and scoped context available?"}
-  AGENT -->|Regular executing Agent| SELF["Deliver relevant Evidence/lesson cue<br/>enables self-correction in L1"]
-  AGENT -->|Reviewer| PKT["Earlier L1 A/B progress from dispatch<br/>Evidence, hypothesis, Workflow step"]
-  AGENT -->|Unknown| FALL["No fabricated matches; normal context"]
-  PKT --> SELECT["Existing Ledger relevance selection"]
-  S1["Future System One ranking only"] -.-> SELECT
-  SELECT --> LIST["Reviewer instructions + issue summaries<br/>no full history/verdict"]
-  LIST --> VALIDATE["Reviewer follows SAME L1 semantics<br/>independently checks relevant Action"]
-  SELF --> EXEC["Agent uses SAME L1/L2/L3 for self-correction"]
-  VALIDATE --> FIND["Finding + Evidence returned to execution owner"]
-  FALL --> STANDARD["Default request"]
-  CH --> NOTE["Request-scoped event.system:<br/>include needed cue on each relevant request"]
+  REQ["Agent model request"] --> CH["ctx.session.hook('context')"]
+  CH --> ROLE{"Agent role / Coordinator vs Solo?"}
+  ROLE -->|Solo Main executor| SO["Relevant Evidence and lesson cue<br/>for Solo self-correction"]
+  ROLE -->|Coordinator worker| EW["Step-relevant Evidence; Main must dispatch Reviewer"]
+  ROLE -->|Coordinator Reviewer child| PKT["Previous A/B progress, hypothesis,<br/>original Evidence and task scope"]
+  ROLE -->|Unknown| FALL["Default context; no fabricated matches"]
+  PKT --> SELECT["Existing Ledger lookup: relevant issue summaries"]
+  S1["FUTURE System One ranks or abstains only"] -.-> SELECT
+  SELECT --> LIST["Reviewer instructions and issue index<br/>not verdict or full solutions"]
+  LIST --> RV["Read-only Reviewer checks SAME L1 Actions"]
+  RV --> FIND["Finding returned to Coordinator<br/>independent G outcome verification required"]
+  SO --> RUN["Solo Main objective L1/L2/L3 acceptance"]
+  EW --> RETURN["Worker reports Evidence to Coordinator"]
+  CH --> SCOPE["Request-scoped system change<br/>include necessary cue on each relevant request"]
 ```
 
 ### Dispatch/context features
@@ -96,9 +98,9 @@ V2 `context` provides `sessionID`, `agent`, `messages`, `system`, `tools`, `mode
 
 ### Evidence → treatment boundary
 
-- `execute.after` gives **evidence**; status `error` is an execution failure signal, not proof of an Error Occurrence. Status `completed` can still include a test failure, policy failure or invalid report — A Main-dispatched Reviewer remains responsible for independent findings; the executing Agent may still self-correct from objective evidence without a compulsory review.
-- Once a problem is observed, the **executing Agent** preserves facts at **L1 A Capture**, then follows **B Triage**. It can **self-correct using the same L1/2/3** when the Evidence is sufficient, without a compulsory Reviewer. If **Main requests independent investigation**, it dispatches Reviewer with earlier Action progress, original Evidence and relevant historical issue summaries; Reviewer follows the **same L1 Action semantics**, re-checking prior claims independently. A confirmed finding returns to the responsible Agent for continuation at the applicable Action, **not** a restart of L1. Approved Tolerate retains its existing bounded Triage route.
-- If direct correction is infeasible, **Avoid** adjusts only the affected Workflow segment, retains original objectives and mandatory checks; prove applicable acceptance conditions with objective evidence and obtain an independent check when required. Approved **Tolerate** is a distinct L1 case. Otherwise remain **Unresolved**; no fabricated PASS.
+- `execute.after` gives **evidence**; status `error` is an execution failure signal, not proof of an Error Occurrence. Status `completed` can still include a test failure, policy failure or invalid report — Coordinator Main **must dispatch** independent read-only Reviewer for findings and acceptance; Solo Main may self-correct based on objective Evidence, without a fabricated independent PASS.
+- In **Coordinator mode**, Main dispatches independent **read-only Reviewer** for investigation and G outcome verification. The child receives earlier A/B progress, original Evidence and related issue summaries; it independently rechecks facts under the same L1, without new Occurrence or default write permission. In **Solo Main mode**, objective Evidence allows self-correction; no independent Reviewer PASS is claimed. Approved Tolerate remains a bounded L1 route.
+- If direct correction is infeasible, **Avoid** adjusts only the affected Workflow segment and retains mandatory checks. In Coordinator mode, Main **must** dispatch independent read-only G outcome verification; Solo Main uses objective checks without independent-review claim. Approved **Tolerate** is a distinct L1 case. Otherwise remain **Unresolved**; no fabricated PASS.
 - Error Hook must **not** use V2 `execute.before` to block edits, alter `event.tools` permissions, synthesize extra prompts via `ctx.session.prompt`, run a forced review, force Zoom-out, count failures or reintroduce `reflectionPending` / lock. #394 owns retirement of obsolete Rule-of-3 paths.
 - If Hooks are absent, fail-open **advisory** context only; do not mark required verification/authorization as passed.
 
