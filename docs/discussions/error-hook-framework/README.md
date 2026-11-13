@@ -4,7 +4,7 @@
 
 ## Owner-accepted Claude Code closure (2026-11-13)
 
-**[Claude Code event timing, reviewer-gated Error Handling, scoped Avoid/workaround and unresolved reporting](./claude-code.md)** is the authoritative Claude-specific draft for this discussion branch. **Reviewer independently judges whether the Main Agent's suspected error is real**; Hook supplies bounded evidence/context, not a verdict. Main Agent can fix the affected Workflow segment, or when direct repair is infeasible, **replan only the affected segment using a valid workaround**, preserving the task's mandatory checks. If neither works or proof is missing, explicitly report **Unresolved**. All treatment paths require independent verification; no "player as referee". Claude native timing design is **closed**; host adapter delivery and behavioral validation remain **unchecked** under #394. Codex now has its own owner-adjudicated [evidence/reviewer-index draft](./codex.md); OpenCode V1/V2 remain open.
+**[Claude Code event timing, reviewer-gated Error Handling, scoped Avoid/workaround and unresolved reporting](./claude-code.md)** is the authoritative Claude-specific draft for this discussion branch. **Reviewer independently judges whether the Main Agent's suspected error is real**; Hook supplies bounded evidence/context, not a verdict. Main Agent can fix the affected Workflow segment, or when direct repair is infeasible, **replan only the affected segment using a valid workaround**, preserving the task's mandatory checks. If neither works or proof is missing, explicitly report **Unresolved**. All treatment paths require independent verification; no "player as referee". Claude native timing design is **closed**; host adapter delivery and behavioral validation remain **unchecked** under #394. Codex now has its own owner-adjudicated [evidence/reviewer-index draft](./codex.md). OpenCode **V2-only** has a [timing/context draft](./opencode-v2.md); new V1 feature work is excluded.
 
 ## Owner-adjudicated Codex CLI evidence / Reviewer context (2026-11-13)
 
@@ -13,6 +13,10 @@
 ## Codex routing refinement / System One future option (2026-11-13)
 
 [Codex owner-aligned draft](./codex.md) now distinguishes **stable mechanism switch → native Reviewer role → scoped dispatch packet/evidence → deterministic related-issue summaries**. Process-child environment inheritance is documented as an **optional limited fallback**, not a native-subagent guarantee. Long term, optional **System One feature scoring** may rank context candidates / abstain, using dispatch features while leaving independent Reviewer truth assessment, Kernel rules and Level 1 untouched. This **does not gate** implementation of the current Host Hook contract; no System One integration is claimed.
+
+## OpenCode V2-only error-hook draft (2026-11-13)
+
+**[OpenCode V2 diagrams, timing and verification plan](./opencode-v2.md).** Official `ctx.tool.hook("execute.after")` is the **Evidence-only** observer; `ctx.session.hook("context")` contributes task/role-scoped Reviewer instructions, case references and a **small related issue list** before **each relevant Agent model request** (including continuations). Historical entries are candidate checks, not a verdict. **Critical nuance:** edits to `event.system` are **request-scoped**. Do **not** omit necessary context merely because the same cue was injected on an earlier request. Avoid duplicate content *within the current request* and full history loading; optional keyed `session.instructions.entry` updates are a **separate, unverified optimization**. New OpenCode V1 Hook feature development/acceptance is out of scope (critical-fixes-only maintenance); preserve legacy compatibility notes without imposing a V1 gate. Main Agent → independent Reviewer → Level 1 repair / scoped Avoid / Unresolved remains authoritative. Host child dispatch correlation and model-visible receipt remain UNVERIFIED under #394.
 
 ## Ownership and architectural fit
 
@@ -86,7 +90,7 @@ See **[the three-host detailed Hook diagrams and matrix](./hosts.md)**. Keep the
 | --- | --- | --- | --- |
 | Claude Code | `UserPromptSubmit` / `SessionStart` where relevant; `SubagentStart` for Reviewer context | `PostToolUseFailure`, conditional `PostToolUse`; `PostToolBatch` once per batch before next model request | **[Claude closure](./claude-code.md):** Hook is cue only, Reviewer judges truth; direct repair or scoped workaround; no live-host receipt yet |
 | Codex CLI | `UserPromptSubmit` / `SessionStart` for entry; `SubagentStart` for Reviewer task + **related issue summaries** | `PostToolUse` **Evidence only** (including nonzero, no verdict) | **[Codex closure](./codex.md):** Review task correlation not native to `SubagentStart`; `PreModelRequest` diagnostic-only; real host receipt unchecked |
-| OpenCode | V2 `ctx.session.hook("context")` before agent model request; V1 transformation needs separate proof | V2 `ctx.tool.hook("execute.after")`, V1 tool hook | V1/V2 are **distinct APIs**, V2 context registration is **not currently present** in the repo adapter |
+| OpenCode V2 only | `ctx.session.hook("context")` before each relevant Agent model request; child task scope must be verified | `ctx.tool.hook("execute.after")` **Evidence only** | **[V2 draft](./opencode-v2.md):** request-scoped Context, per-request dedup, related issue summaries; V1 maintenance-only/no new feature gate |
 
 **Do not equate** official Host API support, code configured, packaging tests, real Host hook invocation, model-visible receipt or behavioral improvement. Retain separate status for each.
 
