@@ -12,7 +12,7 @@ Capture opens **one new Error Occurrence** and records *what was actually observ
 
 A later recurrence starts a **new** Capture execution. Continuation of a pending occurrence is **not** a new one. The existing Error Ledger ([#359](https://github.com/dyphn1/Harness-everything/issues/359)) remains the system of record for class/episode association *after* Identify; this draft does not create a parallel ledger or allocate persistent IDs.
 
-## Level 2 · Capture activity (common path and E-0002 specialization)
+## Level 3 · Capture evidence-detail diagram (supporting the Level 2 Action Map)
 
 ```mermaid
 flowchart TD
