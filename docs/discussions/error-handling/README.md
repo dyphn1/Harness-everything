@@ -12,11 +12,12 @@ An Overview contains **three distinct views**. Their responsibilities must not b
 
 **Cross-view convention:** **ASSESS** and **RESPOND** group the same Actions in Views 1 and 2; Action **D · Decide disposition** is expanded in View 3. Node IDs are local to each diagram, and A–G are drawing-local aliases, not persistent identifiers. The seven Action IDs in `nodes.yaml` remain the only proposed persistent identities.
 
-## First Level 2 Action draft — A · Capture (E-0002 example)
+## Level 2 Action drafts — E-0002 example: facts **and** executable treatment
 
-- [A · Capture — Level 2 activity and evidence boundary](./actions/capture-e0002.md) uses **E-0002** (report missing terminal STATUS) as a *worked scenario*, while retaining Capture's general responsibility.
-- The two Mermaid diagrams distinguish source-specific evidence capture from report-file vs final-turn evidence. Capture records facts only; B judges the finding, and C identifies its class.
-- Discussion-only: the Level 1 flow, persistent Action identities and existing ledger/hook/CLI behavior are unchanged.
+- [A · Capture — observation and evidence](./actions/capture-e0002.md): what was observed, who/where it came from, raw report-file vs final-turn evidence. **No fixing or classification happens in Capture.**
+- [E · Treat — actionable report writer design](./actions/treat-e0002.md): **what the next agent should actually do** — prepare body and evidence-grounded status, call a proposed scoped report **write/check** CLI to produce a mechanically valid terminal STATUS, check the result, and preserve UNVERIFIED outcomes. Includes diagram, candidate command syntax and negative tests.
+- **Ownership:** D chooses treatment, E defines/applies it, F supplies the agent with the correct command at the relevant step, G validates the result. This prevents the same error by changing the operation, not just adding a lesson or another review.
+- The CLI is **proposed, not implemented**. These drafts do not change the accepted Level 1 sequence, IDs, current Error Ledger, hooks, or runtime.
 
 ## Decision — Error occurrence and recurrence boundary
 
