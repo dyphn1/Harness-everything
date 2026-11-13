@@ -66,48 +66,42 @@ sequenceDiagram
 
 **Current repository constraint:** The Claude `hooks/hooks.json` still registers `rule-of-3.js` and `rule-of-3-tracker.js`. Those enforce obsolete count/lock behavior and conflict with the current #394 owner direction; **#394 owns retirement**. Do not represent them as a new Error Hook capability.
 
-## 2. Codex CLI — config/plugin hooks and additionalContext
+## 2. Codex CLI — evidence-only / Reviewer awareness (owner adjudication)
+
+> **2026-11-13 design decisions:** [Authoritative Codex-specific draft and two diagrams](./codex.md). `PostToolUse` is **Evidence only**; `SubagentStart` provides Reviewer instructions, scoped case evidence and a related **historical issue summary/list**, never full remedies or a pre-certified verdict. Reviewer independent confirmation precedes Main Agent L1 treatment; Converge / scoped Avoid and Unresolved remain available. Native Hook contract is documented; actual installation/dispatch correlation/child receipt is unverified.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant U as Task / dispatch
-    participant C as Codex native hook + adapter
-    participant R as Shared relevance selector
-    participant M as Codex Agent
-    participant T as Tool / Script
-    U->>C: UserPromptSubmit (trusted hook)
-    C->>R: Active step / explicit marker
-    alt Match
-      R-->>C: Action cue / supported Skill reference
-      C-->>M: hookSpecificOutput.additionalContext
-    else No match / not trusted
-      R-->>C: Absent/unavailable; do not claim receipt
+    participant M as Codex Main Agent
+    participant T as Tool
+    participant H as Codex Hook adapter
+    participant L as Existing Error Ledger
+    participant R as Reviewer Subagent
+    M->>T: Execute chosen tool
+    T-->>H: PostToolUse (tool-specific result)
+    H-->>M: Evidence only; no Error Class verdict
+    M->>M: Suspected actual problem?
+    opt Main Agent chooses to dispatch independent review
+      M->>R: Review task and observed evidence
+      R->>H: SubagentStart
+      H->>L: Query only relevant known issues when scoped task reference is available
+      L-->>H: IDs / titles / short descriptions / references
+      H-->>R: Reviewer instructions + candidate issue index
+      R-->>M: Confirmed / Not confirmed / Inconclusive + evidence
     end
-    M->>T: Tool selected and invoked
-    opt PreToolUse
-      C->>R: Tool/arguments observation
-      Note over C,M: This is after tool selection
-    end
-    T-->>C: PostToolUse result (including nonzero)
-    C->>R: Match failure, if observable
-    C-->>M: PostToolUse additionalContext at supported next model step
-    opt SubagentStart
-      C-->>M: Child-scoped context where supported
-    end
-    M->>U: Continue / correction / unresolved
+    M->>M: On confirmed finding: L1 direct fix OR scoped Avoid OR Unresolved
 ```
 
-| Responsibility | Candidate Host event / repo evidence | Boundary |
+| Responsibility | Official event contract | Boundary |
 | --- | --- | --- |
-| First cue | `UserPromptSubmit` + JSON `hookSpecificOutput.additionalContext` | **Correction (official spec, 2026-11-13):** plain stdout for `UserPromptSubmit` **is also added as extra developer context**; structured `hookSpecificOutput.additionalContext` is another supported form. Which output the current adapter produces and what the model actually receives remain unverified. See https://learn.chatgpt.com/docs/hooks |
-| Child cue | `SubagentStart` additional context if that event is actually delivered | `SubagentStart` does not guarantee all nested contexts inherit prior instructions |
-| Tool/failure observation | `PreToolUse`, `PostToolUse` | **No distinct `PostToolUseFailure`** documented for current Codex; parse nonzero/errors through `PostToolUse` |
-| Model-request events | `PreModelRequest`, `PostModelRequest` | **Diagnostic-only** in current official docs: not a model-context injection surface |
-| Host trust and installation | User config and packaged plugin hooks can co-exist; `plugins/harness-everything/hooks/hooks.json` contains candidate wiring | Non-managed hooks require review/trust; multiple matched hooks can run concurrently; packaged hook JSON is not live receipt |
-| Tool coverage | Local tools, shell, many MCP tools can fire tool hooks | Hosted tools/specialized paths may bypass; **not** a complete security enforcement boundary |
+| First entry / resume | `UserPromptSubmit` (plain stdout or structured developer context), `SessionStart` | Only small applicable reminders, not the full ledger |
+| Failure/evidence | `PostToolUse` includes tool-specific input and response, including nonzero shell results; **plain stdout ignored**, JSON `hookSpecificOutput.additionalContext` supported | Evidence-only and no hook-side diagnosis, `decision: "block"` or result replacement; tool response does not have a universal exit status field |
+| Independent Reviewer | `SubagentStart` supports child developer context; `matcher` uses `agent_type` | **No native task/problem ID field in the Hook input**; a trustworthy existing scoped dispatch packet/context is needed for relevant ledger selection. Without it, emit generic reviewer guidance, not fabricated matches |
+| Model request | `PreModelRequest`, `PostModelRequest` | Diagnostic-only, not context injection |
+| Trust and coverage | Repo/user/plugin hook sources may co-exist; supports many local tools | Trust and actual model/child receipt need real host capture; hosted tools can bypass the tool Hook path |
 
-**Current evidence limit:** `docs/platform-capabilities.md` and `docs/system-one-observations.md` record a **bounded Windows Codex user-hook live observation** for `UserPromptSubmit` / `Stop`, but not native packaged plugin E-0002 injection, every tool event or model-visible use of a lesson. A successful adapter test is not a Host/Agent proof.
+**Status:** Codex logical payload split and progressive-disclosure decision are recorded; implemented delivery and independent Reviewer outcomes remain **UNTESTED**. Current repo hook wiring is not proof of receipt. Reference: https://learn.chatgpt.com/docs/hooks.
 
 ## 3. OpenCode — V1 and V2 are different plugin contracts
 
