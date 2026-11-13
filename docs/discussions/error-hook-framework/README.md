@@ -2,6 +2,10 @@
 
 > **Discussion draft for [#439](https://github.com/dyphn1/Harness-everything/issues/439), not an implementation or an approved host capability claim.** This branch is **independent of #437** (based on `main`) to avoid coupling its document changes to the ongoing E-0002 diagram revisions. Read the [E-0002 Level 2 Action Map on its discussion branch](https://github.com/dyphn1/Harness-everything/blob/discussion/437-e0002-capture-level2/docs/discussions/error-handling/actions/e0002-action-map.md) when the behavior example is relevant.
 
+## Owner-accepted Claude Code closure (2026-11-13)
+
+**[Claude Code event timing, reviewer-gated Error Handling, scoped Avoid/workaround and unresolved reporting](./claude-code.md)** is the authoritative Claude-specific draft for this discussion branch. **Reviewer independently judges whether the Main Agent's suspected error is real**; Hook supplies bounded evidence/context, not a verdict. Main Agent can fix the affected Workflow segment, or when direct repair is infeasible, **replan only the affected segment using a valid workaround**, preserving the task's mandatory checks. If neither works or proof is missing, explicitly report **Unresolved**. All treatment paths require independent verification; no "player as referee". Claude native timing design is **closed**; host adapter delivery and behavioral validation remain **unchecked** under #394. Codex and OpenCode are not decided here.
+
 ## Ownership and architectural fit
 
 - [#403](https://github.com/dyphn1/Harness-everything/issues/403): long-term Graph Engineering, hierarchy/funnel, progressive disclosure, cost-aware modularity.
@@ -10,7 +14,7 @@
 - [#394](https://github.com/dyphn1/Harness-everything/issues/394): **owns actual Hook / Error Ledger lesson injection, removal of superseded Rule-of-3 enforcement, and three-host verification**. This document must not replace that scope or become a second hook controller.
 - [#359](https://github.com/dyphn1/Harness-everything/issues/359): existing Error Ledger is the record authority; no second memory store.
 
-**Goal:** At the point a model makes a relevant decision, it receives the *smallest useful* Error Handling Action cue and, only when needed, the Skill/CLI entry to perform it. **A Hook delivers context, not decisions, permission or the execution of Error Handling itself.** Agent autonomy remains inside Level 1 constraints. A script is responsible for only its deterministic contract and return codes.
+**Goal:** At the point a model makes a relevant decision, it receives the *smallest useful* Error Handling Action cue and, only when needed, the Skill/CLI entry to perform it. **A Hook delivers context, not decisions, permission or the execution of Error Handling itself.** Suspected errors require independent Reviewer findings; Main Agent owns actions inside Level 1, including scoped Avoid/workaround if direct repair is infeasible. A script is responsible for only its deterministic contract and return codes.
 
 ## Common logical design — one selector, distinct host transports
 
@@ -72,7 +76,7 @@ See **[the three-host detailed Hook diagrams and matrix](./hosts.md)**. Keep the
 
 | Host | Early relevance disclosure candidate | Failure observation candidate | Explicit limitation |
 | --- | --- | --- | --- |
-| Claude Code | `UserPromptSubmit` / appropriate session context; model-visible output verified per installed version | `PostToolUse` or `PostToolUseFailure` where exposed | `PreToolUse` is after model chooses a tool; subagent and continuation receipt need evidence |
+| Claude Code | `UserPromptSubmit` / `SessionStart` where relevant; `SubagentStart` for Reviewer context | `PostToolUseFailure`, conditional `PostToolUse`; `PostToolBatch` once per batch before next model request | **[Claude closure](./claude-code.md):** Hook is cue only, Reviewer judges truth; direct repair or scoped workaround; no live-host receipt yet |
 | Codex CLI | `UserPromptSubmit` `hookSpecificOutput.additionalContext`, possibly `SubagentStart` | `PostToolUse` for tool results / nonzero | `PreModelRequest` is diagnostic-only in current docs; hook trust, plugin-vs-user source and tool coverage vary |
 | OpenCode | V2 `ctx.session.hook("context")` before agent model request; V1 transformation needs separate proof | V2 `ctx.tool.hook("execute.after")`, V1 tool hook | V1/V2 are **distinct APIs**, V2 context registration is **not currently present** in the repo adapter |
 
