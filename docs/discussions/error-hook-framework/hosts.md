@@ -4,57 +4,53 @@
 
 ## Host-neutral invariant, host-specific timing
 
-**One Level 1 workflow, two entry situations:** the error-producing Agent may self-correct after receiving Hook Evidence; when Main requests an independent investigation, Reviewer receives prior Action progress and follows the same L1 flow from the relevant step. Role/context differs, **not the Action identities, Occurrence, or an independent approval contract**.
+**One Level 1, two Main execution modes:** in **Coordinator** mode Main must dispatch **read-only independent Reviewer** for suspected error investigation **and** G acceptance; in **Solo Main** mode Main self-corrects with objective Evidence but cannot claim independent review. Reviewer inherits prior Action progress and follows the same L1 semantics. No second Occurrence or new Action.
 
 The *shared relevance selection* may be reusable: **given active workflow step + bounded evidence, which Action cue/Skill reference is relevant?** The **hook that discovers the information, the point at which the Agent can read it, the tool result shape and the adapter** are **not shared**.
 
 ```mermaid
 flowchart TB
-  CORE["Shared relevant Evidence + Error Ledger context"] --> CA["Claude adapter"]
-  CORE --> CX["Codex adapter"]
-  CORE --> OC["OpenCode V2 adapter"]
-  CA --> CM["Claude Agent context"]
-  CX --> XM["Codex Agent context"]
-  OC --> OM["OpenCode request-scoped context"]
-  CM --> X["Executing Agent sees evidence"]
-  XM --> X
-  OM --> X
-  X --> DEC{"Handling situation?"}
-  DEC -->|Self-correction| SELF["Same L1/L2/L3 workflow<br/>no mandatory Reviewer"]
-  DEC -->|Main requests independent investigation| DP["Reviewer dispatch with prior Action progress + Evidence"]
-  DP --> RV["Reviewer uses SAME L1 Action semantics<br/>independently examine facts"]
-  RV --> FIN["Return findings to execution owner"]
+  CORE["Shared Evidence + relevant Error Ledger cues"] --> C["Claude Code Adapter"]
+  CORE --> D["Codex Adapter"]
+  CORE --> O["OpenCode V2 Adapter"]
+  C --> M["Model-visible context where Host supports it"]
+  D --> M
+  O --> M
+  M --> ROLE{"Main mode?"}
+  ROLE -->|Coordinator| RV["Main dispatches independent read-only Reviewer<br/>with earlier Action context"]
+  ROLE -->|Solo Main| SELF["Main self-corrects with objective Evidence<br/>no independent Review claim"]
+  RV --> FIND["Reviewer Finding; executor performs correction"]
+  FIND --> ACCEPT["Main dispatches independent read-only G verification"]
+  SELF --> OBJ["Objective G checks; no independent Reviewer claim"]
 ```
 
 **Critical rule:** A tool-selection-time hook cannot be casually called *pre-agent-action context*. The Agent may already have chosen the tool. A Hook return is only evidence of **delivery attempt** until an actual model-visible context capture establishes what the model received.
 
 ## 1. Claude Code — lifecycle command hooks
 
-> **Owner closure, 2026-11-13:** This section remains a preliminary host map. The newer [Claude-specific closure](./claude-code.md) supersedes its simplified single-Agent recovery sequence: Executing Agent sees error → L1 Capture/Triage → self-correction OR Main-dispatched Reviewer using prior L1 context → same L1 treatment and objective verification or Unresolved. `PostToolBatch` is an additional documented before-next-model batch context candidate. No automatic Reviewer dispatch by Hook. **Timing discussion closed, host implementation unverified.**
+> **Owner closure, 2026-11-13:** This section remains a preliminary host map. The newer [Claude-specific closure](./claude-code.md) supersedes its simplified single-Agent recovery sequence: Executing Agent sees error → L1 Capture/Triage → Solo self-correction OR mandatory Coordinator-dispatched Reviewer using prior L1 context → same L1 treatment and objective verification or Unresolved. `PostToolBatch` is an additional documented before-next-model batch context candidate. No automatic Reviewer dispatch by Hook. **Timing discussion closed, host implementation unverified.**
 
 ```mermaid
 sequenceDiagram
   autonumber
   participant X as Executing Agent
-  participant C as Claude native Hook
-  participant T as Tool
-  participant M as Main Agent
-  participant R as Reviewer
-  C-->>X: Relevant entry/context cue where available
-  X->>T: Execute current Workflow
-  T-->>C: PostToolUse / PostToolUseFailure
-  C-->>X: Evidence / PostToolBatch bounded cue
-  X->>X: Observe issue → L1 A Capture / B Triage
-  alt Executing Agent self-corrects
-    X->>X: SAME L1 C/D/E/F/G; local L2 correction/check
-  else Main requests independent investigation
-    X-->>M: Previous L1 Action progress, Evidence, hypothesis
-    M->>R: Dispatch context + issue summaries
-    C-->>R: SubagentStart cue (no predeclared verdict)
-    R->>R: Resume SAME L1 semantics; independently check
-    R-->>M: Finding + Evidence
-    M-->>X: Findings / authorized action
-    X->>X: Continue same Occurrence or dismiss/hold
+  participant H as Claude native Hook
+  participant M as Main Coordinator
+  participant R as Read-only Reviewer
+  X->>H: Supported Hook boundary for Evidence
+  H-->>X: Relevant cue, not verdict
+  X->>X: Observe problem; L1 Capture/Triage
+  alt Main is Coordinator
+    X-->>M: Previous Action state and original Evidence
+    M->>R: Mandatory independent investigation
+    H-->>R: SubagentStart bounded reviewer context
+    R-->>M: Finding and Evidence
+    M-->>X: Responsible Agent continues same L1 Treat
+    X-->>M: Output and required Evidence
+    M->>R: Independent read-only outcome verification at G
+    R-->>M: Conditions met or unresolved
+  else Solo Main executes
+    X->>X: Self-correction; objective check and no false independent PASS
   end
 ```
 
@@ -75,27 +71,27 @@ sequenceDiagram
 sequenceDiagram
   autonumber
   participant X as Executing Agent
-  participant T as Tool
   participant H as Codex Hook
-  participant M as Main Agent
-  participant L as Error Ledger
-  participant R as Reviewer
-  X->>T: Execute current Workflow tool
-  T-->>H: PostToolUse result
-  H-->>X: Evidence only, no verdict
-  X->>X: Observe problem → L1 A Capture / B Triage
-  alt Self-correction
-    X->>X: Continue same L1 and L2 Treat verification
-  else Main requests independent investigation
-    X-->>M: Scoped Evidence and prior L1 steps
-    M->>R: Dispatch Reviewer with hypothesis / task context
+  participant M as Main Coordinator
+  participant R as Read-only Reviewer
+  participant L as Existing Ledger
+  X->>H: PostToolUse result
+  H-->>X: Evidence only
+  X->>X: Observe problem; L1 Capture/Triage
+  alt Coordinator
+    X-->>M: Prior Evidence and L1 Action context
+    M->>R: Mandatory review dispatch
     R->>H: SubagentStart
-    H->>L: Read relevant known issue summaries if scoped
-    L-->>H: ID / title / short description / ref
-    H-->>R: Reviewer instructions + issue list
-    R->>R: Same L1 semantics; independent check
-    R-->>M: Finding / Evidence
-    M-->>X: Findings; same Occurrence
+    H->>L: Relevant issue index if reliable scope
+    L-->>H: ID/title/short summary/ref
+    H-->>R: Reviewer instructions and issue list
+    R-->>M: Independent finding and Evidence
+    M-->>X: Same L1 execution owner corrects
+    X-->>M: Objective outcome and Evidence
+    M->>R: Mandatory independent read-only G check
+    R-->>M: Verified or unmet conditions
+  else Solo executing Main
+    X->>X: Self-correction and objective acceptance Evidence
   end
 ```
 
@@ -115,23 +111,18 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-  X["Executing Agent Workflow"] --> TOOL["Tool"]
-  TOOL --> EV["V2 execute.after<br/>Evidence only"]
-  EV --> C["V2 context Hook<br/>per-model-request relevant cue"]
-  C --> SUS{"Error observed?"}
-  SUS -->|No| X
-  SUS -->|Yes| AB["L1 A Capture → B Triage"]
-  AB --> CHOICE{"Handling situation?"}
-  CHOICE -->|Agent self-corrects| SELF["Continue SAME L1 / L2 Treat<br/>local verification"]
-  CHOICE -->|Main requests independent review| DIS["Dispatch Reviewer<br/>prior Action context + Evidence"]
-  DIS --> CTX["Child V2 context Hook<br/>agent/session + relevant issue summaries"]
-  CTX --> RV["Reviewer follows SAME L1<br/>rechecks Evidence independently"]
-  RV --> FIND{"Finding"}
-  FIND -->|Confirmed| RESP["Execution owner continues SAME occurrence"]
-  FIND -->|Not confirmed| NONE["Dismiss"]
-  FIND -->|Inconclusive| HOLD["Hold / evidence"]
-  SELF --> RESP
-  RESP --> FIN["Converge / scoped Avoid / approved Tolerate<br/>Deliver and Accept or Unresolved"]
+  X["Executing Agent tool result"] --> AFTER["OpenCode V2 execute.after<br/>Evidence only"]
+  AFTER --> CTX["context Hook before Agent model request<br/>request-scoped relevant cue"]
+  CTX --> AB["L1 A Capture / B Triage"]
+  AB --> MODE{"Main mode?"}
+  MODE -->|Coordinator| DIS["Main dispatches read-only Reviewer<br/>prior A/B Context and Evidence"]
+  MODE -->|Solo executing Main| SELF["Main self-corrects with objective Evidence"]
+  DIS --> RC["Reviewer child context Hook<br/>relevant historical issue list"]
+  RC --> RV["Independent read-only Reviewer<br/>same Level 1"]
+  RV --> FIND["Finding and Evidence returned to Main"]
+  FIND --> EXEC["Assigned Agent performs same-occurrence treatment"]
+  EXEC --> G["L1 G Accept: Coordinator dispatches<br/>independent read-only Reviewer verification"]
+  SELF --> OBJ["L1 G Accept: objective checks<br/>no independent review claim"]
 ```
 
 | Responsibility | Official V2 Host contract | Design boundary |
