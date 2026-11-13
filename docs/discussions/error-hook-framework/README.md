@@ -4,7 +4,7 @@
 
 ## Owner-accepted Claude Code closure (2026-11-13)
 
-**[Claude Code event timing, self-correction, optional Reviewer investigation and scoped Avoid/workaround and unresolved reporting](./claude-code.md)** is the authoritative Claude-specific draft for this discussion branch. **The executing Agent can self-correct when a Hook makes an error evident; Reviewer is optionally dispatched by Main for independent investigation, reusing earlier Action context in the same Level 1 flow.** Hook supplies bounded evidence/context, not a verdict. Main Agent can fix the affected Workflow segment, or when direct repair is infeasible, **replan only the affected segment using a valid workaround**, preserving the task's mandatory checks. If neither works or proof is missing, explicitly report **Unresolved**. Treatment must have objective verification evidence; self-correction does not certify independent review, and independent Reviewers are used when Main requests a separate investigation. Claude native timing design is **closed**; host adapter delivery and behavioral validation remain **unchecked** under #394. Codex now has its own owner-adjudicated [evidence/reviewer-index draft](./codex.md). OpenCode **V2-only** has a [timing/context draft](./opencode-v2.md); new V1 feature work is excluded.
+**[Claude Code event timing, self-correction, optional Reviewer investigation and scoped Avoid/workaround and unresolved reporting](./claude-code.md)** is the authoritative Claude-specific draft for this discussion branch. **In Coordinator mode Main must dispatch read-only Reviewer investigation and independent outcome verification; Solo executing Main may self-correct without independent review. Both reuse the same L1 Action semantics and prior Context.** Hook supplies bounded evidence/context, not a verdict. Main Agent can fix the affected Workflow segment, or when direct repair is infeasible, **replan only the affected segment using a valid workaround**, preserving the task's mandatory checks. If neither works or proof is missing, explicitly report **Unresolved**. Acceptance requires objective Evidence. Coordinator Main dispatches read-only independent verification before accepting; Solo Main must disclose no independent review. Claude native timing design is **closed**; host adapter delivery and behavioral validation remain **unchecked** under #394. Codex now has its own owner-adjudicated [evidence/reviewer-index draft](./codex.md). OpenCode **V2-only** has a [timing/context draft](./opencode-v2.md); new V1 feature work is excluded.
 
 ## Owner-adjudicated Codex CLI evidence / Reviewer context (2026-11-13)
 
@@ -16,7 +16,7 @@
 
 ## OpenCode V2-only error-hook draft (2026-11-13)
 
-**[OpenCode V2 diagrams, timing and verification plan](./opencode-v2.md).** Official `ctx.tool.hook("execute.after")` is the **Evidence-only** observer; `ctx.session.hook("context")` contributes task/role-scoped Reviewer instructions, case references and a **small related issue list** before **each relevant Agent model request** (including continuations). Historical entries are candidate checks, not a verdict. **Critical nuance:** edits to `event.system` are **request-scoped**. Do **not** omit necessary context merely because the same cue was injected on an earlier request. Avoid duplicate content *within the current request* and full history loading; optional keyed `session.instructions.entry` updates are a **separate, unverified optimization**. New OpenCode V1 Hook feature development/acceptance is out of scope (critical-fixes-only maintenance); preserve legacy compatibility notes without imposing a V1 gate. Both self-correction and Main-dispatched independent Reviewer investigation use the **same Level 1/2/3**, with prior Action context passed to Reviewer; Converge / scoped Avoid / Unresolved remain available. Host child dispatch correlation and model-visible receipt remain UNVERIFIED under #394.
+**[OpenCode V2 diagrams, timing and verification plan](./opencode-v2.md).** Official `ctx.tool.hook("execute.after")` is the **Evidence-only** observer; `ctx.session.hook("context")` contributes task/role-scoped Reviewer instructions, case references and a **small related issue list** before **each relevant Agent model request** (including continuations). Historical entries are candidate checks, not a verdict. **Critical nuance:** edits to `event.system` are **request-scoped**. Do **not** omit necessary context merely because the same cue was injected on an earlier request. Avoid duplicate content *within the current request* and full history loading; optional keyed `session.instructions.entry` updates are a **separate, unverified optimization**. New OpenCode V1 Hook feature development/acceptance is out of scope (critical-fixes-only maintenance); preserve legacy compatibility notes without imposing a V1 gate. Coordinator-required independent Reviewer investigation and Solo Main self-correction use the **same Level 1/2/3**, with prior Action context passed to Reviewer; Converge / scoped Avoid / Unresolved remain available. Host child dispatch correlation and model-visible receipt remain UNVERIFIED under #394.
 
 ## Ownership and architectural fit
 
@@ -26,11 +26,11 @@
 - [#394](https://github.com/dyphn1/Harness-everything/issues/394): **owns actual Hook / Error Ledger lesson injection, removal of superseded Rule-of-3 enforcement, and three-host verification**. This document must not replace that scope or become a second hook controller.
 - [#359](https://github.com/dyphn1/Harness-everything/issues/359): existing Error Ledger is the record authority; no second memory store.
 
-**Goal:** At the point a model makes a relevant decision, it receives a **small, usable** Error Handling Action cue and, only when needed, the Skill/CLI entry to perform it. **A Hook delivers context, not decisions, permission or the execution of Error Handling itself.** An error-producing Agent can self-correct; a Main-dispatched Reviewer independently examines suspicious results using the same Level 1 flow and prior context; the execution owner keeps Action responsibility, including scoped Avoid/workaround if direct repair is infeasible. A script is responsible for only its deterministic contract and return codes.
+**Goal:** At the point a model makes a relevant decision, it receives a **small, usable** Error Handling Action cue and, only when needed, the Skill/CLI entry to perform it. **A Hook delivers context, not decisions, permission or the execution of Error Handling itself.** In Coordinator mode Main must dispatch independent read-only Reviewer investigation and acceptance checks; when Main executes alone, it may self-correct using objective Evidence. The Reviewer inherits prior context and the execution owner retains changes/Action responsibility, including scoped Avoid/workaround if direct repair is infeasible. A script is responsible for only its deterministic contract and return codes.
 
-## One Level 1 workflow — two execution situations, no extra gate
+## One Level 1 workflow — Coordinator mandatory review / Solo self-correction
 
-**A–G are the same #437 Error Handling Actions regardless of actor.** The error-producing Agent can use model-visible Hook Evidence and matching historical reminders to **self-correct** within the relevant L1/L2/L3 boundary. When Main requests independent investigation, the Reviewer receives **existing Action progress and scoped Evidence**, rechecks claims from the appropriate point in the *same* L1 semantics, and returns findings. Reviewer dispatch does **not** create a second Error Occurrence, a new L1 Activity, or compulsory re-collection of facts. A Reviewer is **not required for every tool failure or correction**.
+**A–G are the same #437 Error Handling Actions regardless of actor.** When Main is a **Coordinator** supervising delegated execution, it **must dispatch a read-only Reviewer** for error investigation and **again arrange independent read-only verification at G Accept**. If Main is the **sole executing Agent**, it may self-correct using model-visible Hook Evidence and the same L1/L2/L3; objective checks remain required and no independent-review claim is made. Reviewer inherits **previous Action progress and scoped Evidence**, independently rechecks claims in the *same* L1 semantics, and returns findings without editing source. Its dispatch does **not** create a second Error Occurrence or a new L1 Activity.
 
 \`\`\`mermaid
 flowchart TD
@@ -61,7 +61,7 @@ flowchart TD
   F --> G["L1 G · Accept / retire or Unresolved"]
 \`\`\`
 
-**The arrow from B to a Reviewer is conditional; it is not a new L1 gate.** Raw Evidence and prior Action progress travel as **review inputs, not pre-established conclusions**. On returning, the responsible Agent continues from the applicable Action and does not blindly re-run A/B. A later independent failure/recurrence starts a **new** Occurrence at A; iteration inside current Treat is local to L2 and subject to the existing budget. Acceptance follows the applicable objective checks; **self-correction is not proof of independent review**, and a required independent review must never be fabricated.
+**The arrow from B to a Reviewer is **mandatory in Coordinator mode** and not used in Solo mode; this role-specific check is part of the existing B Triage, **not** a new L1 Action.** Raw Evidence and prior Action progress travel as **review inputs, not pre-established conclusions**. On returning, the responsible Agent continues from the applicable Action and does not blindly re-run A/B. A later independent failure/recurrence starts a **new** Occurrence at A; iteration inside current Treat is local to L2 and subject to the existing budget. Acceptance follows the applicable objective checks; **self-correction is not proof of independent review**, and a required independent review must never be fabricated.
 
 **Level 1 authority:** [#437's current Activity Diagram draft](https://github.com/dyphn1/Harness-everything/blob/discussion/437-e0002-capture-level2/docs/discussions/error-handling/README.md). This document is a Hook-facing **participation view**, not a second definition of Action sequence or approval policy. #437's older issue-body diagram may show superseded recurrence arrows. **The exact requirement for Reviewer in the L1 \`Real problem?\` guard remains an explicit owner clarification**, listed in the [semantic audit](./semantics-review-2026-11-13.md); do not silently rewrite #437 here.
 
@@ -69,21 +69,33 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    WF["Active Workflow step / task context<br/>or observed error/review evidence"] --> EVENT["Host lifecycle event + payload"]
-    EVENT --> HOST{"Which host/runtime?"}
-    HOST --> CLAUDE["Claude adapter<br/>native command lifecycle hooks"]
-    HOST --> CODEX["Codex adapter<br/>native/plugin/user hooks + trust"]
-    HOST --> OPEN["OpenCode V2 adapter<br/>domain hooks"]
-    CLAUDE --> SELECT["Shared relevance selection (proposal)<br/>active step + existing registry/ledger;<br/>minimal E-0002 marker for first slice"]
-    CODEX --> SELECT
-    OPEN --> SELECT
-    SELECT --> MATCH{"Relevant and source readable?"}
-    MATCH -->|No| SILENT["Quiet / fail-open injection<br/>do not claim a checked task passed"]
-    MATCH -->|Yes| CUE["Bounded Action cue<br/>Level 2 pointer; Level 3 only when needed"]
-    CUE --> DELIVERY["Host-specific model-visible delivery<br/>at its supported request boundary"]
-    DELIVERY --> AGENT["Agent decides how to act<br/>within Level 1 requirements"]
-    AGENT --> EXEC["Skill / CLI when needed<br/>return code and verification evidence"]
-    EXEC --> FLOW["Return to active Action or unresolved outcome<br/>new occurrence only for a NEW error"]
+  H["Host Hook: objective Evidence + related reminders"] -. "Context only" .-> O
+  O["Execution error observed"] --> A["L1 A · Capture: raw Evidence and active Workflow state"]
+  A --> B["L1 B · Triage"]
+  B --> MODE{"Main Agent role?"}
+  MODE -->|Coordinator| R["Main dispatches independent read-only Reviewer<br/>A/B progress + Evidence + hypothesis + issue index"]
+  MODE -->|Solo executor| S["Main checks objective Evidence<br/>self-correction when no Reviewer is available"]
+  R --> FIND{"Reviewer finding"}
+  FIND -->|Not confirmed| DIS["Dismiss with reason"]
+  FIND -->|Inconclusive| HOLD["Hold / Owner / gather Evidence"]
+  FIND -->|Confirmed| T{"Approved Tolerate class?"}
+  S --> T
+  T -->|Yes| FAST["Bounded operation retry / UNVERIFIED if unresolved"]
+  T -->|No| C["L1 C · Identify"]
+  C --> BL{"Identified + blocking?"}
+  BL -->|Nonblocking| DEF["Record / Defer"]
+  BL -->|Unknown| HOLD
+  BL -->|Yes| D["L1 D · Decide: Converge / Avoid / approved Tolerate"]
+  D --> E["L1 E · Treat + L2 local correction/check"]
+  E --> F["L1 F · Deliver"]
+  F --> G["L1 G · Accept"]
+  G --> A_MODE{"Main Agent role?"}
+  A_MODE -->|Coordinator| VERIFY["Main dispatches independent read-only Reviewer<br/>verify fix/workaround and preserved obligations"]
+  A_MODE -->|Solo executor| MECH["Main checks objective Script/CI/contract results<br/>no independent review claim"]
+  VERIFY --> COND{"Acceptance evidence sufficient?"}
+  MECH --> COND
+  COND -->|Yes| OK["Accept / retire applicable lesson"]
+  COND -->|No| U["Keep UNVERIFIED / Unresolved"]
 ```
 
 **This diagram is an architecture relationship, not a timing promise.** The same tool event can be **too late to change a tool already chosen**; only receipt at a *model-decision boundary* can steer that decision. Transport, invocation, actual injection, model receipt and subsequent behavior must be measured separately.
