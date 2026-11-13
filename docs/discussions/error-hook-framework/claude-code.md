@@ -1,4 +1,4 @@
-# Claude Code — Error Hook timing, self-correction and optional Reviewer handoff
+# Claude Code — Error Hook timing, Coordinator-required read-only review and Solo correction
 
 > **#439 Claude Code architecture/timing: CLOSED FOR DISCUSSION; host/runtime behavior: NOT YET VERIFIED.** This is a draft artifact, **not** code, configuration, an approved rollout, a passing real-host test or a permission bypass. Based on [Claude Code Hooks reference](https://code.claude.com/docs/en/hooks), checked 2026-11-13. The overall [#439](https://github.com/dyphn1/Harness-everything/issues/439) body is authoritative for owner decisions; runtime changes are under [#394](https://github.com/dyphn1/Harness-everything/issues/394).
 
@@ -94,7 +94,7 @@ sequenceDiagram
 
 ### Host constraints and unresolved behavior
 
-1. **Hook timing is not model receipt**. Capture separate observations: hook invoked → matching cue generated → context accepted → **executing Agent** actually received it → **optional Reviewer dispatch/finding** if requested → treatment → objective result. Do not report an implementation PASS solely from hook stdout.
+1. **Hook timing is not model receipt**. Capture separate observations: hook invoked → matching cue generated → context accepted → **executing Agent** actually received it → **Coordinator-required Reviewer dispatch/finding** (Solo Main has no independent review) → treatment → objective result. Do not report an implementation PASS solely from hook stdout.
 2. **Batch versus per-call**. `PostToolUseFailure` provides explicit per-tool failure data; `PostToolBatch` receives the batch in a **different** result representation. A single batch context may avoid repetitive hints, but do not assume both payloads are interchangeable or introduce a duplicate cross-event store. Prefer deterministic extraction from the event currently observed; proof of exact fields is part of host tests.
 3. **No hook-controlled reviewer**. A failed tool does **not** automatically mean an error class is confirmed, or demand an immediate Reviewer. Coordinator Main **must** dispatch read-only Reviewer for independent investigation and at acceptance; **Solo Main** may self-correct with objective checks. Non-tool reasoning errors may not have a corresponding native failure event.
 4. **Reviewer isolation**. `SubagentStart` can inject child-scoped additional context, but *technical transport* is not proof of independent reasoning. Child input should contain falsifiable claims/evidence, not pre-committed verdicts.
