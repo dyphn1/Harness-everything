@@ -4,7 +4,7 @@
 
 ## Owner-accepted Claude Code closure (2026-11-13)
 
-**[Claude Code event timing, reviewer-gated Error Handling, scoped Avoid/workaround and unresolved reporting](./claude-code.md)** is the authoritative Claude-specific draft for this discussion branch. **The executing Agent can self-correct when a Hook makes an error evident; Reviewer is optionally dispatched by Main for independent investigation, reusing earlier Action context in the same Level 1 flow.** Hook supplies bounded evidence/context, not a verdict. Main Agent can fix the affected Workflow segment, or when direct repair is infeasible, **replan only the affected segment using a valid workaround**, preserving the task's mandatory checks. If neither works or proof is missing, explicitly report **Unresolved**. All treatment paths require independent verification; no "player as referee". Claude native timing design is **closed**; host adapter delivery and behavioral validation remain **unchecked** under #394. Codex now has its own owner-adjudicated [evidence/reviewer-index draft](./codex.md). OpenCode **V2-only** has a [timing/context draft](./opencode-v2.md); new V1 feature work is excluded.
+**[Claude Code event timing, reviewer-gated Error Handling, scoped Avoid/workaround and unresolved reporting](./claude-code.md)** is the authoritative Claude-specific draft for this discussion branch. **The executing Agent can self-correct when a Hook makes an error evident; Reviewer is optionally dispatched by Main for independent investigation, reusing earlier Action context in the same Level 1 flow.** Hook supplies bounded evidence/context, not a verdict. Main Agent can fix the affected Workflow segment, or when direct repair is infeasible, **replan only the affected segment using a valid workaround**, preserving the task's mandatory checks. If neither works or proof is missing, explicitly report **Unresolved**. Treatment must have objective verification evidence; self-correction does not certify independent review, and independent Reviewers are used when Main requests a separate investigation. Claude native timing design is **closed**; host adapter delivery and behavioral validation remain **unchecked** under #394. Codex now has its own owner-adjudicated [evidence/reviewer-index draft](./codex.md). OpenCode **V2-only** has a [timing/context draft](./opencode-v2.md); new V1 feature work is excluded.
 
 ## Owner-adjudicated Codex CLI evidence / Reviewer context (2026-11-13)
 
@@ -41,7 +41,9 @@ flowchart TD
   OBS -->|No| E
   OBS -->|Yes| CAP["L1 A · Capture<br/>keep raw Evidence and current Action"]
   CAP --> TRI["L1 B · Triage<br/>existing rules and suspected problem"]
-  TRI --> PATH{"Handling situation?"}
+  TRI --> APPROVED{"Previously approved Tolerate?"}
+  APPROVED -->|Yes| FAST["Bounded operation-local retry<br/>UNVERIFIED remains UNVERIFIED"]
+  APPROVED -->|No| PATH{"Handling situation?"}
   PATH -->|Agent recognizes own error| SELF["Self-correction<br/>same Agent, same Level 1/2/3"]
   PATH -->|Main requests independent investigation| PACK["Dispatch Reviewer with A/B progress<br/>hypothesis, Evidence, Workflow context<br/>related issue summaries"]
   PACK --> RV["Reviewer follows SAME Level 1<br/>resume relevant Action, independently check prior facts"]
@@ -51,9 +53,7 @@ flowchart TD
   FIND -->|Confirmed| CONF["Return finding + updated Action context"]
   CONF --> PROCEED["Proceed in SAME occurrence"]
   SELF --> PROCEED
-  PROCEED --> TOL{"Approved Tolerate class?"}
-  TOL -->|Yes| RETRY["Bounded operation-local retry<br/>unverified is not PASS"]
-  TOL -->|No| ID["L1 C · Identify"]
+  PROCEED --> ID["L1 C · Identify"]
   ID --> BLOCK{"Identified and blocking?"}
   BLOCK -->|No, nonblocking| DEFER["Record / defer"]
   BLOCK -->|No, cannot identify| HOLD
