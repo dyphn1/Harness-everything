@@ -10,6 +10,10 @@
 
 **[Codex diagram and responsibilities](./codex.md)** extends the Claude closure: `PostToolUse` contributes **Evidence only**, never an Error verdict or compulsory reviewer dispatch; `SubagentStart` injects **Reviewer instructions, case evidence and a relevant historical problem/Error Class index** (IDs, titles, short symptom/constraint and reference). Do **not** preload full resolutions or deep Action/Skill detail — Reviewer opens those only when needed. A small amount of orientation context is intentional to reduce repeated mistakes; independent Reviewer findings still decide whether the *current* suspected problem is real. Direct repair / scoped Workflow workaround / Unresolved remain in L1. The official `SubagentStart` event does **not** itself supply the review packet or problem ID: correlation and actual child receipt are unresolved Host/implementation checks under #394, not proven capabilities.
 
+## Codex routing refinement / System One future option (2026-11-13)
+
+[Codex owner-aligned draft](./codex.md) now distinguishes **stable mechanism switch → native Reviewer role → scoped dispatch packet/evidence → deterministic related-issue summaries**. Process-child environment inheritance is documented as an **optional limited fallback**, not a native-subagent guarantee. Long term, optional **System One feature scoring** may rank context candidates / abstain, using dispatch features while leaving independent Reviewer truth assessment, Kernel rules and Level 1 untouched. This **does not gate** implementation of the current Host Hook contract; no System One integration is claimed.
+
 ## Ownership and architectural fit
 
 - [#403](https://github.com/dyphn1/Harness-everything/issues/403): long-term Graph Engineering, hierarchy/funnel, progressive disclosure, cost-aware modularity.
