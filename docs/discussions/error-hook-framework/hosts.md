@@ -100,7 +100,7 @@ sequenceDiagram
 
 | Responsibility | Candidate Host event / repo evidence | Boundary |
 | --- | --- | --- |
-| First cue | `UserPromptSubmit` + JSON `hookSpecificOutput.additionalContext` | Plain stdout from `hooks/scripts/codex-user-prompt.js` cannot substitute for this JSON field |
+| First cue | `UserPromptSubmit` + JSON `hookSpecificOutput.additionalContext` | **Correction (official spec, 2026-11-13):** plain stdout for `UserPromptSubmit` **is also added as extra developer context**; structured `hookSpecificOutput.additionalContext` is another supported form. Which output the current adapter produces and what the model actually receives remain unverified. See https://learn.chatgpt.com/docs/hooks |
 | Child cue | `SubagentStart` additional context if that event is actually delivered | `SubagentStart` does not guarantee all nested contexts inherit prior instructions |
 | Tool/failure observation | `PreToolUse`, `PostToolUse` | **No distinct `PostToolUseFailure`** documented for current Codex; parse nonzero/errors through `PostToolUse` |
 | Model-request events | `PreModelRequest`, `PostModelRequest` | **Diagnostic-only** in current official docs: not a model-context injection surface |
