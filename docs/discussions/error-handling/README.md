@@ -12,6 +12,12 @@ An Overview contains **three distinct views**. Their responsibilities must not b
 
 **Cross-view convention:** **ASSESS** and **RESPOND** group the same Actions in Views 1 and 2; Action **D · Decide disposition** is expanded in View 3. Node IDs are local to each diagram, and A–G are drawing-local aliases, not persistent identifiers. The seven Action IDs in `nodes.yaml` remain the only proposed persistent identities.
 
+## First Level 2 Action draft — A · Capture (E-0002 example)
+
+- [A · Capture — Level 2 activity and evidence boundary](./actions/capture-e0002.md) uses **E-0002** (report missing terminal STATUS) as a *worked scenario*, while retaining Capture's general responsibility.
+- The two Mermaid diagrams distinguish source-specific evidence capture from report-file vs final-turn evidence. Capture records facts only; B judges the finding, and C identifies its class.
+- Discussion-only: the Level 1 flow, persistent Action identities and existing ledger/hook/CLI behavior are unchanged.
+
 ## Decision — Error occurrence and recurrence boundary
 
 - **One activity execution handles one Error Occurrence.** A later recurrence, including one with the same root-cause class, is a **new Error Occurrence** starting at **Capture**, not a return from G to D or G to Capture.
