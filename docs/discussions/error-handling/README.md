@@ -47,6 +47,41 @@ Read only the details required for the current Action/block:
 
 These rules settle the conceptual recurrence question raised in [Round 1](./evaluation/results/round-1/README.md) and [Round 2](./evaluation/results/round-2/README.md). Those evaluation artifacts are **historical frozen stimuli/results** and are intentionally **not edited** to retroactively match this updated design.
 
+## Final owner decisions — execution mode, Reviewer role and acceptance (2026-11-13)
+
+**Q1 — Main execution mode determines the path.** When Main acts as **Coordinator** of other execution Agents, Main **must dispatch an independent Reviewer** for error investigation. When Main **executes alone** and no independent Agent is available, it may **self-correct** based on Host Hook cues and objective Evidence. An executing Worker in coordinated mode does not substitute its own assessment for the Coordinator's independent Reviewer requirement. The distinction is role/mode per execution, **not a new Level 1 Action**.
+
+**Q2 — Reviewer is read-only by default.** It receives prior Action progress and observed Evidence, independently inspects/reproduces/checks as permitted, and returns a Finding and related Evidence. **Do not modify source or execute Treat by default.** Trivial/minor errors are not a standing permission exemption. A future class-scoped exception would need separate explicit owner authorization; no current Hook/Reviewer feature grants it.
+
+**Q3 — Coordinated acceptance requires independent review.** After a fix/workaround, Main dispatches read-only Reviewer verification of the outcome and obligations before G Accept can conclude. Main remains responsible for work assignment, disposition and acceptance; the Reviewer supplies independent Evidence, not permissions. In **solo Main mode**, objective Script/CI/contract checks remain required and Main must disclose that independent review was unavailable, without inventing a reviewer PASS. Failure or missing proof remains UNVERIFIED/Unresolved.
+
+```mermaid
+flowchart TD
+  OBS["Issue observed during execution"] --> A["L1 A · Capture: original Evidence"]
+  A --> B["L1 B · Triage"]
+  B --> APPROVED{"Preapproved Tolerate?"}
+  APPROVED -->|Yes| FAST["Bounded local retry / UNVERIFIED if unresolved"]
+  APPROVED -->|No| MODE{"Main Agent mode?"}
+  MODE -->|Coordinator| REVIEW["Main dispatches independent read-only Reviewer<br/>with existing A/B context"]
+  MODE -->|Solo Executor| SELF["Main self-checks objective Evidence<br/>and corrects if justified"]
+  REVIEW --> FIND{"Reviewer finding"}
+  FIND -->|Not confirmed| DIS["Dismiss with reason"]
+  FIND -->|Inconclusive| HOLD["Hold / Owner decision"]
+  FIND -->|Confirmed| C["L1 C · Identify"]
+  SELF --> C
+  C --> D["D Decide → E Treat → F Deliver"]
+  D --> G["L1 G · Accept"]
+  G --> AMODE{"Execution mode?"}
+  AMODE -->|Coordinator| AR["Main dispatches read-only Reviewer<br/>independently verify fix/workaround"]
+  AMODE -->|Solo Executor| AS["Main checks objective CI/Script/contract<br/>no independent review claim"]
+  AR --> OUT{"Acceptance conditions met?"}
+  AS --> OUT
+  OUT -->|Yes| OK["Accept current Occurrence"]
+  OUT -->|No / no proof| UNR["Keep Unresolved / UNVERIFIED"]
+```
+
+This is a **role/acceptance overlay** on the same Level 1, not a second controller or replacement for View 1's exhaustive Hold/Defer/Converge/Avoid/Tolerate guards. For Reviewer handoff, preserve prior Action state, do not mechanically recreate accepted Capture Evidence; Reviewer re-checks independently as required.
+
 ## View 1 — Overall UML Activity Diagram
 
 **This is the first, large diagram**, not just an A→G list. Its **ASSESS / RESPOND** groups contain the same Actions as the composition view (View 2); the D Action is visibly the point expanded in View 3. The Mermaid flowchart is a GitHub-renderable representation using normal UML Activity concepts (Action, Decision, Guard and control flow). The corresponding **PlantUML activity source** is [activity.puml](./activity.puml). Decisions are not additional persistent Actions.
@@ -64,10 +99,17 @@ flowchart TD
         REC -->|Yes| RESUME["Resume interrupted work"]
         REC -->|No| UNV["Mark step UNVERIFIED; report; continue independent work only"]
 
-        T -->|No| REAL{"Real problem? (reviewer)"}
-        REAL -->|No| DISMISS["Dismiss with reason"]
-        REAL -->|Unclear| OWNER["Request owner decision; hold item"]
-        REAL -->|Yes| C["C · Identify"]
+        T -->|No| MODE{"Main Agent execution mode?"}
+        MODE -->|Coordinator: another agent executes| DELEGATE["Main dispatches read-only Reviewer<br/>with A/B context, original Evidence, suspected issue"]
+        MODE -->|Solo: Main executes work itself| SELF["Main independently checks available objective Evidence<br/>and self-corrects; no Reviewer available"]
+        DELEGATE --> RREAL{"Reviewer finding?"}
+        RREAL -->|Not confirmed| DISMISS["Dismiss with reason"]
+        RREAL -->|Inconclusive| OWNER["Request owner decision; hold item"]
+        RREAL -->|Confirmed| C["C · Identify"]
+        SELF --> SREAL{"Observed problem supported by Evidence?"}
+        SREAL -->|No| DISMISS
+        SREAL -->|Unclear| OWNER
+        SREAL -->|Yes| C
         C --> READY{"Identification complete?"}
         READY -->|No / owner decision pending| HOLD["Hold pending identification decision"]
         READY -->|Yes| NOW{"Blocking main path?"}
@@ -90,9 +132,13 @@ flowchart TD
         TOL --> E
         E --> F["F · Deliver relevant context"]
         F --> G["G · Accept and retire"]
-        G --> RESULT{"Review disposition outcome"}
+        G --> AMODE{"Who is responsible for acceptance?"}
+        AMODE -->|Coordinated work| A_REVIEW["Main dispatches read-only independent Reviewer<br/>to verify treatment Evidence and required conditions"]
+        AMODE -->|Solo Main execution| A_SELF["Main checks objective Script/CI/contract Evidence<br/>report limits; cannot claim independent review"]
+        A_REVIEW --> RESULT{"Acceptance evidence and disposition outcome"}
+        A_SELF --> RESULT
         RESULT -->|Converge / Avoid: met| RETIRE["Accept; retire unneeded lesson"]
-        RESULT -->|Tolerate: cap and escalation recorded| KEEP["Keep tolerate class active"]
+        RESULT -->|Tolerate: owner-approved cap and escalation recorded| KEEP["Keep tolerate class active"]
         RESULT -->|Not met / unverified| OPEN["Keep open; report outstanding evidence"]
     end
 
@@ -118,10 +164,10 @@ Reading notes:
 - **Diagram-level traceability**: Views 1 and 2 group the same Actions under `ASSESS` and `RESPOND`; `D · Decide disposition` in both diagrams is expanded in View 3. These groupings are organizational and do not change control flow.
 
 - The **primary blocking path** keeps exactly `Capture → Triage → Identify → Decide disposition → Treat → Deliver relevant context → Accept and retire`. A non-blocking item completes identification and is recorded/deferred, without opening an immediate fix cycle.
-- **B / Triage**: an already-approved tolerate class can have a bounded per-operation retry (up to three); failure leaves that step UNVERIFIED and does not convert mandatory evidence into PASS. A reviewer decides whether a different finding is real; an unclear item goes to the owner.
+- **B / Triage, mode-dependent:** an already-approved tolerate class retains bounded per-operation retry (up to three); failure leaves the step UNVERIFIED. Otherwise **Coordinator Main** dispatches an independent **read-only Reviewer** with prior A/B Evidence; **Solo executing Main** can identify/correct its own evident error when no separate Reviewer is available, using objective Evidence without claiming independent review. A disputed/inconclusive finding goes to Hold/Owner. This is one L1 activity, not an extra gate or new Occurrence.
 - **C / Identify**: Level 1 asks only whether identification is complete; unresolved cases are held for the required decision. Searching/reusing Error Class and recording a new occurrence are **Action-level responsibilities**, not extra Level 1 branches. Any new class still requires owner approval in the Identify detail.
 - **D / Decide**: Converge / Avoid / Tolerate. Reusing prior disposition history belongs inside the Action detail, not the top-level activity. The existing #437 budget suggestion is one correction plus one review; there is no global recurrence counter or forced Zoom-out.
-- **G / Accept**: Converge or Avoid can be accepted against defined conditions; a Tolerate class records retry/escalation conditions but is **not claimed to be rooted out**. G ends **this occurrence**; it never emits a cross-occurrence return arrow.
+- **G / Accept, mode-dependent:** for coordinated work, **Main dispatches independent read-only Reviewer verification of the proposed outcome**; the execution owner provides Evidence and implements any subsequent correction. For solo Main, objective Script/CI/contract checks may support acceptance where permitted, but **independent review is not claimed** and missing mandatory evidence cannot become PASS. Converge/Avoid are accepted only when defined conditions are met; Tolerate stays active and is not claimed rooted out. G ends **this occurrence**, never a cross-occurrence return arrow.
 
 ## View 2 — System architecture / composition
 
@@ -142,8 +188,8 @@ flowchart TB
         end
         C -->|"blocking only"| D
     end
-    REVIEW["Reviewer / Owner"] -. "judgement / approval" .-> B
-    REVIEW -. "approval" .-> D
+    REVIEW["Independent Reviewer (Coordinator mode) / Owner<br/>read-only Findings and acceptance checks"] -. "conditional mode-based finding" .-> B
+    REVIEW -. "independent acceptance Evidence" .-> G
     LEDGER[("Existing Error Ledger · #359")] -. "find / record" .-> C
     LEDGER -. "mechanism / disposition" .-> E
     HOOK["Existing bounded context delivery · #394"] -. "reuse" .-> F
