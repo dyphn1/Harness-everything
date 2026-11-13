@@ -28,6 +28,29 @@
 
 **Goal:** At the point a model makes a relevant decision, it receives the *smallest useful* Error Handling Action cue and, only when needed, the Skill/CLI entry to perform it. **A Hook delivers context, not decisions, permission or the execution of Error Handling itself.** Suspected errors require independent Reviewer findings; Main Agent owns actions inside Level 1, including scoped Avoid/workaround if direct repair is infeasible. A script is responsible for only its deterministic contract and return codes.
 
+## Reading the two diagrams together — Reviewer is inside Level 1 Triage
+
+This is **one Error Occurrence**, **not two sequential controllers**. The Main Agent first observes a problem and retains the facts in **A Capture**. In **B Triage** it dispatches an independent Reviewer (except the established approved-Tolerate fast path). A Confirmed finding continues **the same Level 1 process at C Identify**; it does **not** *start* Level 1. The Hook is only an evidence/context transport.
+
+```mermaid
+flowchart LR
+  OBS["Main Agent observes problem"] --> A["L1 A · Capture<br/>facts and Evidence"]
+  A --> B["L1 B · Triage"]
+  B --> T{"Previously approved Tolerate?"}
+  T -->|Yes| FAST["Bounded operation retry / UNVERIFIED"]
+  T -->|No| RV["Main Agent dispatches independent Reviewer"]
+  RV --> V{"Reviewer finding"}
+  V -->|Not confirmed| DIS["Dismiss"]
+  V -->|Inconclusive| HOLD["Hold / evidence / Owner"]
+  V -->|Confirmed| C["L1 C · Identify"]
+  C --> D["L1 D · Decide"]
+  D --> E["L1 E · Treat<br/>L2 local correction and verification"]
+  E --> F["L1 F · Deliver"]
+  F --> G["L1 G · Accept / retire<br/>or Unresolved"]
+```
+
+**Same-Action correction is local to the Level 2 Treat detail, not a G→D or G→Capture loop.** Later recurrence is a new Error Occurrence and returns to A Capture as a *new invocation*, as #437 already specifies. Hold, Defer, Approved Tolerate and Unresolved retain the guards/early exits in [#437's Level 1 activity](https://github.com/dyphn1/Harness-everything/blob/discussion/437-e0002-capture-level2/docs/discussions/error-handling/README.md).
+
 ## Common logical design — one selector, distinct host transports
 
 ```mermaid
@@ -36,7 +59,7 @@ flowchart TD
     EVENT --> HOST{"Which host/runtime?"}
     HOST --> CLAUDE["Claude adapter<br/>native command lifecycle hooks"]
     HOST --> CODEX["Codex adapter<br/>native/plugin/user hooks + trust"]
-    HOST --> OPEN["OpenCode adapter<br/>V1 plugin / V2 domain hooks"]
+    HOST --> OPEN["OpenCode V2 adapter<br/>domain hooks"]
     CLAUDE --> SELECT["Shared relevance selection (proposal)<br/>active step + existing registry/ledger;<br/>minimal E-0002 marker for first slice"]
     CODEX --> SELECT
     OPEN --> SELECT
