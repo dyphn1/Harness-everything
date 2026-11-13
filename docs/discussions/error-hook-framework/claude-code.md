@@ -1,4 +1,4 @@
-# Claude Code — Error Hook timing and reviewer-gated treatment (owner-aligned draft)
+# Claude Code — Error Hook timing, self-correction and optional Reviewer handoff
 
 > **#439 Claude Code architecture/timing: CLOSED FOR DISCUSSION; host/runtime behavior: NOT YET VERIFIED.** This is a draft artifact, **not** code, configuration, an approved rollout, a passing real-host test or a permission bypass. Based on [Claude Code Hooks reference](https://code.claude.com/docs/en/hooks), checked 2026-11-13. The overall [#439](https://github.com/dyphn1/Harness-everything/issues/439) body is authoritative for owner decisions; runtime changes are under [#394](https://github.com/dyphn1/Harness-everything/issues/394).
 
@@ -8,9 +8,9 @@
 
 - **Hook**: sees an officially supported event/payload, identifies relevance conservatively, optionally returns a *suspicion/evidence cue*; no automated verdict, correction, escalation, repeat counter or subagent dispatch.
 - **Main Agent**: can self-correct its own detected error using existing L1/L2/L3; requests independent Reviewer when a suspicious result warrants separate verification. The execution owner acts on independently verified findings as assigned.
-- **Reviewer Subagent**: fresh, bounded, preferably read-only investigation in the same Level 1 flow using prior Action context; recheck evidence and counterexamples; produce `Confirmed`, `Not confirmed` or `Inconclusive` with rationale. A reviewer cannot be a copy of the Main Agent's diagnosis; initial instructions should avoid asserting the suspicion as fact.
+- **Reviewer Subagent**: fresh, bounded independent investigation in the same Level 1 flow using prior Action context; recheck evidence and counterexamples; produce `Confirmed`, `Not confirmed` or `Inconclusive` with rationale. A reviewer cannot be a copy of the Main Agent's diagnosis; initial instructions should avoid asserting the suspicion as fact. **Whether this role may perform explicitly delegated bounded correction beyond findings-only remains an open owner decision**, not a host-specific permission created by a Hook.
 - **Level 1**: Capture → Triage → Identify → Decide disposition → Treat → Deliver → Accept/retire. **Level 2** is the relevant Action diagram; **Level 3** is Skill/Script/CLI only when needed. Existing ledger/registry are the authority.
-- **Evidence gate**: repair **and** workaround outputs require independent verification; failing, missing or contradictory evidence is never reported as success. Verification/correction inside Level 2 Treat does **not** restart Level 1; unresolved treatment proceeds to F Deliver and G Accept with an open outcome.
+- **Acceptance evidence**: repair **and** workaround outputs must meet the applicable objective/contract checks. Self-correction is **not** an independent Reviewer finding. Where an independent review is required or Main requests one, preserve Reviewer independence. Missing/contradictory proof is not a PASS. Verification/correction inside Level 2 Treat does **not** restart Level 1; unresolved treatment proceeds to F Deliver and G Accept with an open outcome.
 
 ```mermaid
 flowchart TD
@@ -88,9 +88,9 @@ sequenceDiagram
 
 ### Host constraints and unresolved behavior
 
-1. **Hook timing is not model receipt**. Capture independently: hook invoked → matching cue generated → context accepted → Main Agent/Reviewer actually received it → Reviewer finding → treatment → verified result. Do not report an implementation PASS solely from hook stdout.
+1. **Hook timing is not model receipt**. Capture separate observations: hook invoked → matching cue generated → context accepted → **executing Agent** actually received it → **optional Reviewer dispatch/finding** if requested → treatment → objective result. Do not report an implementation PASS solely from hook stdout.
 2. **Batch versus per-call**. `PostToolUseFailure` provides explicit per-tool failure data; `PostToolBatch` receives the batch in a **different** result representation. A single batch context may avoid repetitive hints, but do not assume both payloads are interchangeable or introduce a duplicate cross-event store. Prefer deterministic extraction from the event currently observed; proof of exact fields is part of host tests.
-3. **No hook-controlled reviewer**. A failed tool does **not** automatically mean an error class is confirmed, or demand an immediate Reviewer. Reviewer is dispatched by the Main Agent once it suspects an actual problem. Non-tool reasoning errors may not have a corresponding native failure event.
+3. **No hook-controlled reviewer**. A failed tool does **not** automatically mean an error class is confirmed, or demand an immediate Reviewer. Main Agent may dispatch Reviewer for independently examining a suspicious result; an executing Agent may self-correct without that dispatch. Non-tool reasoning errors may not have a corresponding native failure event.
 4. **Reviewer isolation**. `SubagentStart` can inject child-scoped additional context, but *technical transport* is not proof of independent reasoning. Child input should contain falsifiable claims/evidence, not pre-committed verdicts.
 5. **Scope and incidence**. Repair attempts and alternate-route validation remain in the current treatment while they address the same occurrence; a later independent failure/recurrence starts a new occurrence, reusing existing class/history as relevant.
 6. **Fail-open applies to contextual delivery**. A disabled/unreadable hook does not produce a false approval for required checks or authorization; underlying verification and permissions remain intact. Avoid legacy `rule-of-3.js` and `rule-of-3-tracker.js` logic, whose retirement is owned by #394.
