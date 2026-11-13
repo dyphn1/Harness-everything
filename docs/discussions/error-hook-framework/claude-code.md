@@ -4,50 +4,44 @@
 
 ## Design closure: who decides what
 
-**Do not make the player also the referee.** An Error Hook is an observer and bounded context carrier. After a problem is observed, the Main Agent **captures facts in Level 1 A**, then delegates **independent verification in B Triage** to a Reviewer Subagent when needed. A confirmed finding continues the same Level 1 Occurrence at **C Identify**. The Reviewer, not the Main Agent (nor Hook), judges whether the suspected error is real; the Main Agent owns Workflow decisions inside Level 1. This does not authorize every tool error to spawn a Reviewer automatically.
+**Do not make the player also the referee.** An Error Hook is an observer and bounded context carrier. After an error is observed, the **error-producing Agent** can follow L1 A Capture → B Triage and self-correct within the same L1/L2/L3 flow. When Main requests an independent investigation, the Reviewer enters the **same flow** with existing A/B progress and Evidence, validates the relevant Action independently, and returns findings; Reviewer is not mandatory for every correction. The Reviewer, not the Main Agent (nor Hook), judges whether the suspected error is real; the Main Agent owns Workflow decisions inside Level 1. Reviewer receives previous Action progress rather than restarting the entire flow. Not every tool error requires a Reviewer.
 
 - **Hook**: sees an officially supported event/payload, identifies relevance conservatively, optionally returns a *suspicion/evidence cue*; no automated verdict, correction, escalation, repeat counter or subagent dispatch.
-- **Main Agent**: detects a potential problem from evidence (including its own reasoning), asks independent Reviewer to establish a finding, and handles confirmed problems within existing L1.
-- **Reviewer Subagent**: fresh, bounded, preferably read-only verification; inspect evidence and counterexamples; produce `Confirmed`, `Not confirmed` or `Inconclusive` with rationale. A reviewer cannot be a copy of the Main Agent's diagnosis; initial instructions should avoid asserting the suspicion as fact.
+- **Main Agent**: can self-correct its own detected error using existing L1/L2/L3; requests independent Reviewer when a suspicious result warrants separate verification. The execution owner acts on independently verified findings as assigned.
+- **Reviewer Subagent**: fresh, bounded, preferably read-only investigation in the same Level 1 flow using prior Action context; recheck evidence and counterexamples; produce `Confirmed`, `Not confirmed` or `Inconclusive` with rationale. A reviewer cannot be a copy of the Main Agent's diagnosis; initial instructions should avoid asserting the suspicion as fact.
 - **Level 1**: Capture → Triage → Identify → Decide disposition → Treat → Deliver → Accept/retire. **Level 2** is the relevant Action diagram; **Level 3** is Skill/Script/CLI only when needed. Existing ledger/registry are the authority.
 - **Evidence gate**: repair **and** workaround outputs require independent verification; failing, missing or contradictory evidence is never reported as success. Verification/correction inside Level 2 Treat does **not** restart Level 1; unresolved treatment proceeds to F Deliver and G Accept with an open outcome.
 
 ```mermaid
 flowchart TD
-  RUN["Main Agent executes Workflow"] --> SUS{"Problem observed or suspected?"}
-  SUS -->|No| RUN
-  SUS -->|Yes| A["A · Capture<br/>Main Agent preserves raw Evidence; no verdict"]
-  HOOK["Claude Code Hook<br/>Evidence / relevant context only"] -. "Observation, not adjudication" .-> SUS
-  A --> B["B · Triage"]
-  B --> APPROVED{"Already-approved Tolerate class?"}
-  APPROVED -->|Yes| FAST["Bounded operation-local retry<br/>resume if recovered; otherwise UNVERIFIED"]
-  APPROVED -->|No| RV["Main Agent dispatches isolated Reviewer<br/>during Triage: hypothesis + Evidence"]
-  RV --> FIND{"Reviewer finding"}
-  FIND -->|Not confirmed| DISMISS["Dismiss with reason / resume Workflow"]
-  FIND -->|Inconclusive| HOLD["Hold; collect Evidence / Owner decision"]
-  FIND -->|Confirmed| C["C · Identify<br/>Error Class and this Occurrence"]
-  C --> IDENT{"Identification complete?"}
-  IDENT -->|No| HOLD
-  IDENT -->|Yes| BLOCK{"Blocks main Workflow?"}
-  BLOCK -->|No| DEFER["Record and defer treatment"]
-  BLOCK -->|Yes| D["D · Decide disposition"]
-  D --> POSS{"Allowed treatment feasible?"}
-  POSS -->|Converge| REPAIR["Repair affected area"]
-  POSS -->|Avoid| REPLAN["Scoped Workflow replan<br/>preserve task obligations"]
-  POSS -->|Approved Tolerate| TREAT_T["Apply approved bounded treatment"]
-  POSS -->|No valid path| UNRES["Unresolved + Evidence"]
-  REPAIR --> E["E · Treat (same Occurrence)"]
-  REPLAN --> E
-  TREAT_T --> E
-  E --> LOCAL["Level 2 local correction and verification"]
-  LOCAL --> CHECK{"Treatment outcome?"}
-  CHECK -->|Correctable within Action and budget| LOCAL
-  CHECK -->|Complete or unresolvable| F["F · Deliver outcome / relevant context"]
-  F --> G["G · Accept and retire"]
-  G --> OUT{"Acceptance"}
-  OUT -->|Verified Converge / Avoid| RETURN["Accept and return to Workflow"]
-  OUT -->|Approved Tolerate| KEEP["Keep Tolerate active; not rooted out"]
-  OUT -->|Unverified / unmet| UNRES
+  EXEC["Executing Agent active Workflow"] --> OBS{"Error observed or Hook evidence suggests failure?"}
+  HOOK["Claude Code Hook<br/>bounded Evidence and related cue, never verdict"] -.-> OBS
+  OBS -->|No| EXEC
+  OBS -->|Yes| A["L1 A · Capture<br/>raw facts / Evidence"]
+  A --> B["L1 B · Triage"]
+  B --> WHO{"Handling situation?"}
+  WHO -->|Agent recognizes own error| SELF["Self-correction by executing Agent<br/>same L1 / L2 / L3"]
+  WHO -->|Main asks for independent investigation| DP["Dispatch Reviewer with previous A/B context,<br/>Evidence, hypothesis, Workflow step, issue summaries"]
+  DP --> REV["Reviewer uses SAME Level 1 Actions<br/>resume relevant step and independently recheck facts"]
+  REV --> FIND{"Finding"}
+  FIND -->|Not confirmed| DIS["Dismiss with rationale"]
+  FIND -->|Inconclusive| HOLD["Hold / evidence / Owner"]
+  FIND -->|Confirmed| BACK["Finding + updated Action context to executor"]
+  BACK --> CONT["Continue current Occurrence"]
+  SELF --> CONT
+  CONT --> TOL{"Approved Tolerate case?"}
+  TOL -->|Yes| FAST["Bounded operation-local retry<br/>UNVERIFIED if not recovered"]
+  TOL -->|No| C["L1 C · Identify"]
+  C --> BL{"Identified and blocking?"}
+  BL -->|Nonblocking| DEF["Record / Defer"]
+  BL -->|Unidentified| HOLD
+  BL -->|Yes| D["L1 D · Decide"]
+  D --> E["L1 E · Treat: Converge / scoped Avoid / approved Tolerate"]
+  E --> LOCAL["Level 2 local correction / verification"]
+  LOCAL --> RESULT{"Within Action and budget?"}
+  RESULT -->|Correctable| LOCAL
+  RESULT -->|Done or unresolved| F["L1 F · Deliver"]
+  F --> G["L1 G · Accept / retire or Unresolved"]
 ```
 
 **Do not confuse `Avoid` with simply skipping verification.** For an irreparable failing operation, adjust **only the affected Workflow segment** and preserve original goals, dependencies, previously accepted outputs and mandatory checks. If no valid alternative exists, leave it `Unresolved`. Under [#437](https://github.com/dyphn1/Harness-everything/issues/437), `Converge` / `Avoid` / approved `Tolerate` are distinct dispositions; approved bounded retries for a tolerate class are **not** permission to reinstate legacy Rule-of-3 lock/counter/automatic reflection.
@@ -56,33 +50,29 @@ flowchart TD
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    participant W as Workflow / user task
-    participant H as Claude Code hooks
-    participant M as Main Agent
-    participant T as Tool batch
-    participant R as Independent Reviewer subagent
-    W->>H: SessionStart / UserPromptSubmit where relevant
-    H-->>M: Minimal relevant context (not verdict)
-    M->>T: Chosen tool calls
-    opt PreToolUse: tool already selected
-      H->>H: Observe requested tool and args
-    end
-    T-->>H: PostToolUse / PostToolUseFailure
-    H-->>M: Evidence and optional PostToolBatch bounded cue
-    M->>M: Problem observed -> Level 1 A Capture facts
-    M->>M: Level 1 B Triage (approved Tolerate route if applicable)
-    opt Main Agent needs independent adjudication
-      M->>R: Dispatch Reviewer during Triage with hypothesis and Evidence
-      H-->>R: SubagentStart: relevant issues, not prior verdict
-      R-->>M: Confirmed / Not confirmed / Inconclusive
-    end
-    opt Reviewer confirmed; blocking and identified
-      M->>M: C Identify → D Decide disposition
-      M->>M: E Treat: Converge or scoped Avoid / approved Tolerate
-      Note over M: Level 2 correction/check stays inside Treat; no L1 restart
-      M->>M: F Deliver → G Accept / retire or Unresolved
-    end
+  autonumber
+  participant X as Executing Agent
+  participant H as Claude Hook
+  participant T as Tool
+  participant M as Main Agent (coordinator when different)
+  participant R as Reviewer
+  H-->>X: Entry context / relevant historical cue if matched
+  X->>T: Execute Workflow tool
+  T-->>H: PostToolUse / PostToolUseFailure
+  H-->>X: Bounded Evidence (PostToolBatch if useful)
+  X->>X: Detect error; L1 A Capture → B Triage
+  alt Error-producing Agent self-corrects
+    X->>X: Same L1 C/D/E and local L2 correction/check
+    X->>X: F Deliver → G Accept or Unresolved
+  else Main requests independent investigation
+    X-->>M: Problem + A/B progress + raw Evidence
+    M->>R: Dispatch hypothesis, scope, Action progress and historical issue index
+    H-->>R: SubagentStart adds context, never verdict
+    R->>R: Resume SAME L1 from relevant Action; independently validate
+    R-->>M: Finding and Evidence with prior context updated
+    M-->>X: Verified finding / directions within assigned authority
+    X->>X: Continue SAME occurrence, use L2 as needed
+  end
 ```
 
 | Event | Official relative timing | #439 role | Decision |
