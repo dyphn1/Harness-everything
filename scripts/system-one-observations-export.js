@@ -30,8 +30,7 @@ function family(text) {
 function validDecision(d) {
   return d && typeof d.id === 'string'
     && [undefined, null, 'actionable', 'invalid', 'unsure'].includes(d.validity)
-    && [undefined, null, ...obs.TIERS].includes(d.tier)
-    && [undefined, null, true, false].includes(d.contextDependent);
+    && [undefined, null, ...obs.TIERS].includes(d.tier);
 }
 
 function loadReview(file) {
@@ -47,15 +46,13 @@ function derive(record, owner) {
   const self = record.selfReport;
   const behavior = record.captureMethod === 'session-backfill' ? null : record.behavior;
   let validity = self ? self.validity : null;
-  let contextDependent = self ? self.contextDependent : null;
   if (owner && owner.validity && owner.validity !== 'unsure') validity = owner.validity;
-  if (owner && typeof owner.contextDependent === 'boolean') contextDependent = owner.contextDependent;
   let { tier, source: tierSource } = obs.labelTier(self, owner);
   if (validity === 'invalid' && !(owner && obs.TIERS.includes(owner.tier))) { tier = null; tierSource = tierSource && 'self-report'; }
   const skills = record.behavior && record.behavior.skills && record.behavior.skills.length
     ? record.behavior.skills : (self ? self.skills : []);
   return {
-    id: record.id, validity, contextDependent, tier, tierSource,
+    id: record.id, validity, tier, tierSource,
     intents: self ? self.intents : [], workflow: (self && self.workflow) || (record.router && record.router.strategy) || null,
     skills,
     behaviorEvidence: behavior ? 'observed' : 'unobserved',

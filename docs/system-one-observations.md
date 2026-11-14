@@ -54,13 +54,12 @@ At the end of the final message of each turn the agent writes one line,
 which is invisible in rendered Markdown:
 
 ```
-<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier2","intents":["fix","test"],"workflow":"iterative-single","skills":["tdd"]} -->
+<!-- harness-label {"v":1,"validity":"actionable","tier":"tier2","intents":["fix","test"],"workflow":"iterative-single","skills":["tdd"]} -->
 ```
 
 | Key | Values |
 | --- | --- |
-| `validity` | `actionable` or `invalid` (continuation, feedback on earlier work, pointer to earlier content, paste or chatter) |
-| `contextDependent` | `true` when the prompt text alone would not have been enough to know the task |
+| `validity` | `actionable` or `invalid`; invalid means the prompt cannot be understood from its own text and needs conversation context. Agent-written dispatches and worker instructions are ordinary prompts. |
 | `tier` | `tier1` (no file change), `tier2` (bounded file change: code, config or docs), `tier3` (feature, refactor, redefinition, cross-component) or `null` (only for `invalid`), under tier rules v2 |
 | `intents` | up to 3 of the 12 intent ids, strongest first |
 | `workflow` | a router strategy id or `null` |
@@ -76,13 +75,13 @@ accepted when it ends the message.
 
 ## Labels and how much to trust them
 
-The label is the host LLM's own judgement. It saw the whole conversation and
-did the work, so no fixed rule replaces it (owner decision, 2026-09-27: no
-file-count threshold for tier).
+Validity is judged from the prompt text alone, even when the agent saw the
+whole conversation. The other keys are the host LLM's own judgement; no
+fixed rule replaces tier (owner decision, 2026-09-27: no file-count threshold).
 
 | Label | Source | Override |
 | --- | --- | --- |
-| validity, contextDependent | self-report | owner review |
+| validity | self-report, judged from prompt text alone | owner review |
 | intents | self-report | — |
 | tier | self-report (tier rules v2) | owner review |
 | workflow | self-report, else the confirmed strategy | — |
@@ -201,7 +200,7 @@ The importer accepts only valid label lines, applies the same email/home-path re
 repository:
 
 - `prompts-observed.jsonl`: `{id, family, source: "observation", split, text}`
-- `labels-observed.jsonl`: `{id, validity, contextDependent, tier, tierSource, intents, workflow, skills, behaviorEvidence, contradictions}`
+- `labels-observed.jsonl`: `{id, validity, tier, tierSource, intents, workflow, skills, behaviorEvidence, contradictions}`
 
 `family` groups near-duplicate prompts. The split is by time: the newest 15%
 is validation. The existing holdouts stay frozen and separate. Observed data

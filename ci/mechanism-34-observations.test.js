@@ -19,23 +19,25 @@ function test(name, fn) {
   try { fn(); console.log(`  PASS ${name}`); } catch (error) { failures++; console.error(`  FAIL ${name}\n    ${error.stack.split('\n').slice(0, 3).join('\n    ')}`); }
 }
 
-const LABEL = '<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier2","intents":["fix","test"],"workflow":"iterative-single","skills":["tdd"]} -->';
+const LABEL = '<!-- harness-label {"v":1,"validity":"actionable","tier":"tier2","intents":["fix","test"],"workflow":"iterative-single","skills":["tdd"]} -->';
+const LEGACY_LABEL = '<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier2","intents":["fix","test"],"workflow":"iterative-single","skills":["tdd"]} -->';
 
 test('label line parses and validates', () => {
   const parsed = lib.parseLabelLine(`Done.\n\n${LABEL}\n`);
-  assert.deepStrictEqual(parsed.label, { v: 1, validity: 'actionable', contextDependent: false, tier: 'tier2',
+  assert.deepStrictEqual(parsed.label, { v: 1, validity: 'actionable', tier: 'tier2',
     intents: ['fix', 'test'], workflow: 'iterative-single', skills: ['tdd'] });
+  assert.deepStrictEqual(lib.parseLabelLine(LEGACY_LABEL).label, parsed.label, 'legacy field is accepted but ignored');
   assert.strictEqual(lib.parseLabelLine('no label here').label, null);
   assert.strictEqual(lib.parseLabelLine('no label here').reason, 'label-missing');
   assert.strictEqual(lib.parseLabelLine('<!-- harness-label {bad json} -->').reason, 'label-unparseable');
-  const unknown = lib.parseLabelLine('<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier9","intents":[],"workflow":null,"skills":[]} -->');
+  const unknown = lib.parseLabelLine('<!-- harness-label {"v":1,"validity":"actionable","tier":"tier9","intents":[],"workflow":null,"skills":[]} -->');
   assert.strictEqual(unknown.label, null);
   assert.strictEqual(unknown.reason, 'label-invalid');
-  const tooMany = lib.parseLabelLine('<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":null,"intents":["fix","test","docs","plan"],"workflow":null,"skills":[]} -->');
+  const tooMany = lib.parseLabelLine('<!-- harness-label {"v":1,"validity":"actionable","tier":null,"intents":["fix","test","docs","plan"],"workflow":null,"skills":[]} -->');
   assert.strictEqual(tooMany.reason, 'label-invalid', 'at most three intents');
   const two = lib.parseLabelLine(`${LABEL.replace('tier2', 'tier1')}\nmore\n${LABEL}`);
   assert.strictEqual(two.label.tier, 'tier2', 'the last label line wins');
-  const invalid = lib.parseLabelLine('<!-- harness-label {"v":1,"validity":"invalid","contextDependent":true,"tier":null,"intents":[],"workflow":null,"skills":[]} -->');
+  const invalid = lib.parseLabelLine('<!-- harness-label {"v":1,"validity":"invalid","tier":null,"intents":[],"workflow":null,"skills":[]} -->');
   assert.strictEqual(invalid.label.validity, 'invalid');
 });
 
@@ -169,7 +171,7 @@ test('second turn keeps the previous final message; missing label is recorded, n
   hook(s.env, { ...base, hook_event_name: 'UserPromptSubmit', prompt: 'run the tests' });
   hook(s.env, { ...base, hook_event_name: 'Stop', last_assistant_message: 'All 12 tests pass. Want me to commit?' });
   hook(s.env, { ...base, hook_event_name: 'UserPromptSubmit', prompt: 'yes' });
-  hook(s.env, { ...base, hook_event_name: 'Stop', last_assistant_message: `Committed.\n${LABEL.replace('"actionable","contextDependent":false', '"invalid","contextDependent":true')}` });
+  hook(s.env, { ...base, hook_event_name: 'Stop', last_assistant_message: `Committed.\n${LABEL.replace('"actionable"', '"invalid"')}` });
   const recs = records(s.store);
   assert.strictEqual(recs.length, 2);
   assert.strictEqual(recs[0].selfReport, null);
@@ -177,7 +179,7 @@ test('second turn keeps the previous final message; missing label is recorded, n
   const text = JSON.parse(fs.readFileSync(path.join(s.store, 'text', `${recs[1].contentSha256}.json`), 'utf8'));
   assert.strictEqual(text.prompt, 'yes');
   assert(text.previous.includes('Want me to commit?'));
-  assert.strictEqual(recs[1].selfReport.contextDependent, true);
+  assert.strictEqual(recs[1].selfReport.validity, 'invalid');
 });
 
 test('Codex turn: final message from the rollout transcript, apply_patch counted', () => {
@@ -227,7 +229,7 @@ function writeFixtureStore(s) {
     { sid: 'e1', prompt: 'git status', label: LABEL.replace('"tier2"', '"tier1"'), tools: [] },
     { sid: 'e2', prompt: 'fix the flaky parser test', label: LABEL, tools: [['Edit', 'a.js'], ['Edit', 'b.js']] },
     { sid: 'e3', prompt: 'add a csv export command', label: LABEL.replace('"tier2"', '"tier3"').replace('["fix","test"]', '["feature"]'), tools: [['Edit', 'c.js']] },
-    { sid: 'e4', prompt: 'go', label: LABEL.replace('"actionable","contextDependent":false', '"invalid","contextDependent":true'), tools: [] },
+    { sid: 'e4', prompt: 'go', label: LABEL.replace('"actionable"', '"invalid"'), tools: [] },
   ];
   for (const t of turns) {
     hook(s.env, { ...base, session_id: t.sid, hook_event_name: 'UserPromptSubmit', prompt: t.prompt });
@@ -446,14 +448,18 @@ test('failed tool attempts are not counted as writes or loads', () => {
   assert.deepStrictEqual(lib.contradictions(r.selfReport, r.behavior), []);
 });
 
-test('owner review overrides context dependence, explicit false included', () => {
+test('legacy context fields are ignored by export and review', () => {
   const s = sandbox();
   const base = { cwd: s.repo };
   hook(s.env, { ...base, session_id: 'cd-1', hook_event_name: 'UserPromptSubmit', prompt: 'continue' });
-  hook(s.env, { ...base, session_id: 'cd-1', hook_event_name: 'Stop', last_assistant_message: `ok\n${LABEL.replace('"contextDependent":false', '"contextDependent":true')}` });
+  hook(s.env, { ...base, session_id: 'cd-1', hook_event_name: 'Stop', last_assistant_message: `ok\n${LEGACY_LABEL}` });
   hook(s.env, { ...base, session_id: 'cd-2', hook_event_name: 'UserPromptSubmit', prompt: 'rename foo to bar in util.js' });
   hook(s.env, { ...base, session_id: 'cd-2', hook_event_name: 'Stop', last_assistant_message: 'no label' });
   const [a, b] = records(s.store);
+  const indexPath = path.join(s.store, 'observations-index.json');
+  const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
+  index.records.find(record => record.id === a.id).selfReport.contextDependent = true;
+  fs.writeFileSync(indexPath, JSON.stringify(index));
   const review = path.join(s.dir, 'decisions.json');
   fs.writeFileSync(review, JSON.stringify({ schemaVersion: 1, review: 'harness-observation-review', decisions: [
     { id: a.id, contextDependent: false }, { id: b.id, validity: 'actionable', contextDependent: false, tier: 'tier2' }] }));
@@ -461,15 +467,12 @@ test('owner review overrides context dependence, explicit false included', () =>
   const e = spawnSync('node', [EXPORTER, '--store', s.store, '--out', out, '--owner-review', review], { encoding: 'utf8', env: s.env });
   assert.strictEqual(e.status, 0, e.stderr);
   const labels = fs.readFileSync(path.join(out, 'labels-observed.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
-  assert.strictEqual(labels.find(l => l.id === a.id).contextDependent, false);
-  assert.deepStrictEqual((({ validity, contextDependent, tier }) => ({ validity, contextDependent, tier }))(labels.find(l => l.id === b.id)),
-    { validity: 'actionable', contextDependent: false, tier: 'tier2' });
-  fs.writeFileSync(review, JSON.stringify({ schemaVersion: 1, review: 'harness-observation-review', decisions: [{ id: a.id, contextDependent: 'no' }] }));
-  const bad = spawnSync('node', [EXPORTER, '--store', s.store, '--out', out, '--owner-review', review], { encoding: 'utf8', env: s.env });
-  assert.notStrictEqual(bad.status, 0, 'invalid owner decisions are rejected');
+  assert(!Object.hasOwn(labels.find(l => l.id === a.id), 'contextDependent'));
+  assert.deepStrictEqual((({ validity, tier }) => ({ validity, tier }))(labels.find(l => l.id === b.id)),
+    { validity: 'actionable', tier: 'tier2' });
   const html = path.join(s.dir, 'review.html');
   assert.strictEqual(spawnSync('node', [REVIEW, '--store', s.store, '--out', html], { encoding: 'utf8', env: s.env }).status, 0);
-  assert(fs.readFileSync(html, 'utf8').includes('contextDependent'), 'the review page records context dependence');
+  assert(!fs.readFileSync(html, 'utf8').includes('contextDependent'), 'the review page no longer collects the removed field');
 });
 
 function agePending(store, sessionId, days) {
@@ -539,6 +542,8 @@ test('the label contract is the router output\'s last section and covers every t
   const last = sections[sections.length - 1];
   assert(/^=> TURN LABEL LINE/.test(last) && last.includes('harness-label'), 'the label contract is printed last');
   assert(/EVERY TURN/.test(last) && /null only when validity is invalid/.test(last));
+  assert(/cannot be understood from its own text and needs conversation context/.test(last));
+  assert(/agent-written dispatches and worker instructions are ordinary prompts/.test(last));
   const status = sections.find(x => x.startsWith('=> USER-VISIBLE HARNESS STATUS CONTRACT'));
   assert(status && !status.includes('harness-label'), 'not scoped under the non-trivial Harness Status contract');
   assert(/^14\. \*\*The turn label line is mandatory on every turn/m.test(fs.readFileSync(path.join(ROOT, 'AGENTS.md'), 'utf8')));
@@ -554,7 +559,7 @@ test('router/self agreement counts only turns where the router chose a tier', ()
     return { id: `r${k}`, source: 'observation', status: 'active', observedAt: new Date(now - (3 - k) * 1000).toISOString(),
       validUntil: new Date(now + 86400000).toISOString(), contentSha256: sha, host: 'claude', turn: 1, writer: { sessionId: `s${k}` },
       router: { tier: router }, behavior: lib.emptyBehavior(),
-      selfReport: { v: 1, validity: 'actionable', contextDependent: false, tier: self, intents: [], workflow: null, skills: [] } };
+      selfReport: { v: 1, validity: 'actionable', tier: self, intents: [], workflow: null, skills: [] } };
   });
   fs.writeFileSync(path.join(s.store, 'observations-index.json'), JSON.stringify({ schemaVersion: 1, records: recs }));
   const out = path.join(s.dir, 'export');
@@ -565,16 +570,16 @@ test('router/self agreement counts only turns where the router chose a tier', ()
 });
 
 test('label slips seen live: unknown intents dropped, unterminated final line accepted', () => {
-  const unknown = lib.parseLabelLine('ok\n<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier1","intents":["lookup","git"],"workflow":null,"skills":[]} -->');
+  const unknown = lib.parseLabelLine('ok\n<!-- harness-label {"v":1,"validity":"actionable","tier":"tier1","intents":["lookup","git"],"workflow":null,"skills":[]} -->');
   assert.strictEqual(unknown.reason, null);
   assert.deepStrictEqual(unknown.label.intents, ['git']);
   assert.deepStrictEqual(unknown.label.unknownIntents, ['lookup']);
-  const open = lib.parseLabelLine('M README.md\n\n<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier1","intents":["git"],"workflow":null,"skills":[]}');
+  const open = lib.parseLabelLine('M README.md\n\n<!-- harness-label {"v":1,"validity":"actionable","tier":"tier1","intents":["git"],"workflow":null,"skills":[]}');
   assert.strictEqual(open.reason, null, 'a final label line missing its closing --> is accepted');
   assert.strictEqual(open.label.tier, 'tier1');
-  const middle = lib.parseLabelLine('<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier1","intents":[],"workflow":null,"skills":[]}\nmore text');
+  const middle = lib.parseLabelLine('<!-- harness-label {"v":1,"validity":"actionable","tier":"tier1","intents":[],"workflow":null,"skills":[]}\nmore text');
   assert.strictEqual(middle.label, null, 'an unterminated line is accepted only at the end');
-  assert.strictEqual(lib.parseLabelLine('<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier9","intents":[],"workflow":null,"skills":[]} -->').reason, 'label-invalid');
+  assert.strictEqual(lib.parseLabelLine('<!-- harness-label {"v":1,"validity":"actionable","tier":"tier9","intents":[],"workflow":null,"skills":[]} -->').reason, 'label-invalid');
 });
 
 test('Codex router hook returns its contract as JSON additionalContext', () => {
@@ -604,6 +609,7 @@ test('hooks are registered for both hosts and the contract asks for the label li
   }
   const router = spawnSync('node', [path.join(ROOT, 'harness-everything/scripts/kernel-router.js'), 'refactor the logger module across the repo'], { encoding: 'utf8' });
   assert(router.stdout.includes('harness-label'), 'the router contract asks for the label line');
+  assert(!router.stdout.includes('contextDependent'), 'the router template omits the removed field');
   assert(fs.readFileSync(path.join(ROOT, 'AGENTS.md'), 'utf8').includes('harness-label'));
   assert(fs.readFileSync(path.join(ROOT, 'PRIVACY.md'), 'utf8').includes('HARNESS_OBSERVATIONS=off'));
   const telemetry = fs.readFileSync(path.join(ROOT, 'hooks/scripts/lib/telemetry.js'), 'utf8');

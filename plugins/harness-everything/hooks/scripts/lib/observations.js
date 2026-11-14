@@ -58,7 +58,7 @@ function tailBytes(text, bytes) {
 
 function validLabel(raw) {
   if (!raw || typeof raw !== 'object' || raw.v !== 1) return false;
-  if (!VALIDITY.includes(raw.validity) || typeof raw.contextDependent !== 'boolean') return false;
+  if (!VALIDITY.includes(raw.validity)) return false;
   if (!(raw.tier === null || TIERS.includes(raw.tier))) return false;
   if (!Array.isArray(raw.intents) || raw.intents.length > 6 || !raw.intents.every(i => typeof i === 'string')) return false;
   const known = raw.intents.filter(i => INTENTS.includes(i));
@@ -79,7 +79,7 @@ function parseLabelLine(text) {
   if (!validLabel(raw)) return { label: null, reason: 'label-invalid' };
   // Unknown intent ids are dropped, not fatal: the rest of the label is still the agent's judgement.
   const unknownIntents = raw.intents.filter(i => !INTENTS.includes(i));
-  const label = { v: 1, validity: raw.validity, contextDependent: raw.contextDependent, tier: raw.tier,
+  const label = { v: 1, validity: raw.validity, tier: raw.tier,
     intents: raw.intents.filter(i => INTENTS.includes(i)), workflow: raw.workflow, skills: raw.skills.map(skillName) };
   if (unknownIntents.length) label.unknownIntents = unknownIntents;
   return { label, reason: null };
