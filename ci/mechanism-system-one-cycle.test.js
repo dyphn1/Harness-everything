@@ -15,7 +15,7 @@ const provider = require('../harness-everything/scripts/system-one/provider');
 const router = require('../harness-everything/scripts/system-one/router');
 const { CATALOGS } = require('../harness-everything/scripts/system-one/catalogs');
 
-const root = path.resolve(__dirname, '..');
+const root = fs.realpathSync.native(path.resolve(__dirname, '..'));
 
 function writeJsonl(file, rows) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -71,6 +71,14 @@ function syntheticCycle(dir) {
   return { training, holdout };
 }
 
+function assertNoDatasetOutputs(...dirs) {
+  for (const dir of dirs) {
+    for (const file of ['prompts.jsonl', 'labels.jsonl', 'labels-intent.jsonl', 'report.json']) {
+      assert.equal(fs.existsSync(path.join(dir, file)), false, `unexpected dataset output ${file}`);
+    }
+  }
+}
+
 test('cycle dataset uses text-only labels, consensus, behavior evidence, holdout fields, and private prompt elision', t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'system-one-cycle-build-'));
   try {
@@ -103,6 +111,94 @@ test('cycle dataset uses text-only labels, consensus, behavior evidence, holdout
     assert.equal(report.droppedByReason['no-vote'], 1);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('cycle dataset rejects direct, aliased, and unresolved checkout destinations before writing either output', t => {
+  for (const aliasKind of ['direct', 'ancestor', 'leaf', 'unresolved']) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'system-one-cycle-private-destination-'));
+    const forbidden = fs.mkdtempSync(path.join(root, 'ci', '.s1-f9-forbidden-'));
+    let alias;
+    try {
+      const fixture = syntheticCycle(dir);
+      let validityOutDir = forbidden;
+      if (aliasKind !== 'direct') {
+        alias = path.join(dir, `forbidden-${aliasKind}`);
+        try { fs.symlinkSync(aliasKind === 'unresolved' ? path.join(forbidden, 'missing-target') : forbidden, alias, 'dir'); }
+        catch (error) {
+          if (['EACCES', 'EPERM', 'ENOSYS', 'ENOTSUP'].includes(error.code)) {
+            t.skip(`directory symlinks unavailable: ${error.code}`);
+            return;
+          }
+          throw error;
+        }
+        validityOutDir = aliasKind === 'leaf' ? alias : path.join(alias, 'missing', 'validity');
+      }
+
+      const safeOutput = path.join(dir, 'safe-output');
+      if (aliasKind === 'unresolved') {
+        assert.throws(() => buildDataset({ dataDir: dir, holdoutFiles: [fixture.holdout],
+          outDir: safeOutput, validityOutDir }), error => error.code === 'ENOENT');
+      } else {
+        assert.throws(() => buildDataset({ dataDir: dir, holdoutFiles: [fixture.holdout],
+          outDir: safeOutput, validityOutDir }), /outside the repository/);
+      }
+      assertNoDatasetOutputs(safeOutput, forbidden);
+    } finally {
+      if (alias) fs.rmSync(alias, { recursive: true, force: true });
+      fs.rmSync(forbidden, { recursive: true, force: true });
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }
+});
+
+test('cycle dataset accepts an external data directory through an external symlink alias', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'system-one-cycle-external-alias-'));
+  const dataDir = path.join(dir, 'data');
+  const alias = path.join(dir, 'data-alias');
+  try {
+    const fixture = syntheticCycle(dataDir);
+    try { fs.symlinkSync(dataDir, alias, 'dir'); }
+    catch (error) {
+      if (['EACCES', 'EPERM', 'ENOSYS', 'ENOTSUP'].includes(error.code)) {
+        t.skip(`directory symlinks unavailable: ${error.code}`);
+        return;
+      }
+      throw error;
+    }
+
+    buildDataset({ dataDir: alias, holdoutFiles: [fixture.holdout] });
+    assert.equal(fs.existsSync(path.join(dataDir, 'training', 'v1', 'prompts.jsonl')), true);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('cycle dataset keeps the .s1-work exception tied to the canonical synthetic destination', t => {
+  const base = path.join(root, '.s1-work');
+  fs.mkdirSync(base, { recursive: true });
+  const dataDir = fs.mkdtempSync(path.join(base, 'f9-canonical-exception-'));
+  const alias = path.join(os.tmpdir(), `system-one-cycle-s1-work-alias-${process.pid}`);
+  try {
+    const fixture = syntheticCycle(dataDir);
+    const promptFile = path.join(fixture.training, 'observed', 'prompts-observed.jsonl');
+    const prompts = fs.readFileSync(promptFile, 'utf8').trim().split('\n').map(JSON.parse)
+      .map(row => ({ ...row, text: 'agent request without the fixture marker' }));
+    writeJsonl(promptFile, prompts);
+    try { fs.symlinkSync(dataDir, alias, 'dir'); }
+    catch (error) {
+      if (['EACCES', 'EPERM', 'ENOSYS', 'ENOTSUP'].includes(error.code)) {
+        t.skip(`directory symlinks unavailable: ${error.code}`);
+        return;
+      }
+      throw error;
+    }
+
+    assert.throws(() => buildDataset({ dataDir: alias, holdoutFiles: [fixture.holdout] }), /synthetic fixture rows/);
+    assertNoDatasetOutputs(path.join(dataDir, 'training', 'v1'), path.join(dataDir, 'training', 'v1-validity'));
+  } finally {
+    fs.rmSync(alias, { recursive: true, force: true });
+    fs.rmSync(dataDir, { recursive: true, force: true });
   }
 });
 

@@ -80,16 +80,50 @@ function runNode(script, args, { cwd = REPO, env = process.env } = {}) {
   if (result.error || result.status !== 0) throw new Error(`${path.basename(script)} failed${result.status === null ? '' : ` (${result.status})`}`);
 }
 
-function assertPrivateDataDir(dataDir) {
-  fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
-  let target = path.resolve(dataDir);
-  let repo = REPO;
-  try { target = fs.realpathSync.native(target); repo = fs.realpathSync.native(REPO); } catch { /* path resolution below still checks the visible root */ }
-  const relative = path.relative(repo, target);
-  if (relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative))) {
-    throw new Error('private cycle data must be stored outside the repository');
+function canonicalDestination(destination) {
+  let current = path.resolve(destination);
+  const missing = [];
+  while (true) {
+    try { return path.join(fs.realpathSync.native(current), ...missing.reverse()); }
+    catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      let exists = false;
+      try { fs.lstatSync(current); exists = true; }
+      catch (statError) { if (statError.code !== 'ENOENT') throw statError; }
+      if (exists) throw error;
+      const parent = path.dirname(current);
+      if (parent === current) throw error;
+      missing.push(path.basename(current));
+      current = parent;
+    }
   }
-  if (process.platform !== 'win32') fs.chmodSync(target, 0o700);
+}
+
+function isWithin(root, target) {
+  const relative = path.relative(root, target);
+  return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
+}
+
+function isSyntheticBuildDataDir(target, repo = fs.realpathSync.native(REPO)) {
+  const relative = path.relative(repo, target);
+  return relative.startsWith(`.s1-work${path.sep}`) && !path.isAbsolute(relative);
+}
+
+function assertPrivateDataDir(dataDir, { allowSyntheticBuildRoot = false, create = true } = {}) {
+  const repo = fs.realpathSync.native(REPO);
+  const assertAllowed = target => {
+    if (isWithin(repo, target) && !(allowSyntheticBuildRoot && isSyntheticBuildDataDir(target, repo))) {
+      throw new Error('private cycle data must be stored outside the repository');
+    }
+  };
+  let target = canonicalDestination(dataDir);
+  assertAllowed(target);
+  if (create) {
+    fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+    target = canonicalDestination(dataDir);
+    assertAllowed(target);
+    if (process.platform !== 'win32') fs.chmodSync(target, 0o700);
+  }
   return target;
 }
 
@@ -99,5 +133,5 @@ function resultSummary(step, details) {
 
 module.exports = {
   REPO, STEPS, readJsonl, writeJsonl, writeJson, parseFlags, flag, required, dataPath,
-  readState, stepComplete, markStep, runNode, assertPrivateDataDir, resultSummary,
+  readState, stepComplete, markStep, runNode, assertPrivateDataDir, isSyntheticBuildDataDir, resultSummary,
 };
