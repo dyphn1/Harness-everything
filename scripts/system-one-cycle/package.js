@@ -51,6 +51,7 @@ function buildVersion({ dataDir, version, versionDir, sourceDir }) {
     let sourceConfig;
     let options;
     let thresholds;
+    let priorReferenceOnly = [];
     let targetWeights = `${task}.safetensors`;
     let targetConfig = `${task}.json`;
 
@@ -61,6 +62,7 @@ function buildVersion({ dataDir, version, versionDir, sourceDir }) {
       sourceConfig = path.join(source, stage.config);
       options = stage.options;
       thresholds = stage.thresholds;
+      priorReferenceOnly = stage.referenceOnly ?? [];
       if (digest(sourceWeights) !== stage.sha256) throw new Error(`${task} checkpoint hash does not match its manifest`);
     } else {
       const runDir = path.join(source, task);
@@ -72,16 +74,21 @@ function buildVersion({ dataDir, version, versionDir, sourceDir }) {
     }
     if (!Array.isArray(options) || !options.length || new Set(options).size !== options.length
         || !thresholds || Object.keys(thresholds).some(id => !options.includes(id))
-        || Object.values(thresholds).some(value => !Number.isFinite(value))) {
+        || Object.values(thresholds).some(value => value !== null && !Number.isFinite(value))
+        || !Array.isArray(priorReferenceOnly) || priorReferenceOnly.some(id => !options.includes(id))) {
       throw new Error(`${task} calibration has no finite per-option thresholds`);
     }
+    // A null threshold means calibration found no cutoff reaching the precision target: the option
+    // is reference-only, pinned to 1 so it is never auto-selected while its score is still reported.
+    const referenceOnly = options.filter(id => thresholds[id] === null || priorReferenceOnly.includes(id));
+    const finalThresholds = Object.fromEntries(Object.entries(thresholds).map(([id, value]) => [id, value === null ? 1 : value]));
     if (!fs.existsSync(sourceWeights) || !fs.existsSync(sourceConfig)) throw new Error(`${task} checkpoint artifacts are missing`);
     const targetWeightsPath = path.join(target, targetWeights);
     const targetConfigPath = path.join(target, targetConfig);
     if (path.resolve(sourceWeights) !== targetWeightsPath) copy(sourceWeights, targetWeightsPath);
     if (path.resolve(sourceConfig) !== targetConfigPath) copy(sourceConfig, targetConfigPath);
     stages[task] = { weights: targetWeights, config: targetConfig, sha256: digest(targetWeightsPath),
-      options: [...options], thresholds: { ...thresholds } };
+      options: [...options], thresholds: finalThresholds, ...(referenceOnly.length ? { referenceOnly } : {}) };
   }
 
   const sourceEvaluation = path.join(source, 'evaluation');

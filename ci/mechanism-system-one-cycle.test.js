@@ -208,6 +208,60 @@ test('package writes the contract B manifest and carries evaluation into the pri
     assert.deepEqual(manifest.stages.tier.thresholds, thresholds.tier);
     assert.match(manifest.stages.intent.sha256, /^[0-9a-f]{64}$/);
     assert.equal(fs.existsSync(path.join(output, 'evaluation', 'trend.json')), true);
+    assert.equal('referenceOnly' in manifest.stages.validity, false);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+function writePackageRuns(dir, version, calibrationByTask) {
+  const runs = path.join(dir, 'training', 'runs', version);
+  for (const [task, values] of Object.entries(calibrationByTask)) {
+    const stage = path.join(runs, task);
+    fs.mkdirSync(stage, { recursive: true });
+    fs.writeFileSync(path.join(stage, 'harness-routing-v1.safetensors'), `${task}-weights`);
+    fs.writeFileSync(path.join(stage, 'harness-routing-v1.json'), JSON.stringify({ context_tokens: 1024 }));
+    fs.writeFileSync(path.join(stage, 'calibration.json'), JSON.stringify({ thresholds: values }));
+  }
+  return runs;
+}
+
+test('package turns a null calibration threshold into 1 and carries referenceOnly through repackaging', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'system-one-cycle-package-null-'));
+  try {
+    const version = 'synthetic-null-v1';
+    const runs = writePackageRuns(dir, version, {
+      validity: { invalid: 0.5 }, intent: { feature: 0.4 }, tier: { tier1: 0.3, tier2: null, tier3: 0.5 },
+    });
+    const candidate = path.join(dir, 'training', 'candidates', version);
+    buildVersion({ dataDir: dir, version, sourceDir: runs, versionDir: candidate });
+    const candidateManifest = JSON.parse(fs.readFileSync(path.join(candidate, 'manifest.json'), 'utf8'));
+    assert.equal(candidateManifest.stages.tier.thresholds.tier2, 1);
+    assert.deepEqual(candidateManifest.stages.tier.referenceOnly, ['tier2']);
+
+    const output = path.join(dir, 'training', 'versions', version);
+    buildVersion({ dataDir: dir, version, sourceDir: candidate, versionDir: output });
+    const manifest = JSON.parse(fs.readFileSync(path.join(output, 'manifest.json'), 'utf8'));
+    assert.equal(manifest.stages.tier.thresholds.tier2, 1);
+    assert.deepEqual(manifest.stages.tier.referenceOnly, ['tier2']);
+    assert.equal('referenceOnly' in manifest.stages.validity, false);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('package still rejects a non-null non-finite threshold', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'system-one-cycle-package-nan-'));
+  try {
+    const version = 'synthetic-nan-v1';
+    const runs = writePackageRuns(dir, version, {
+      validity: { invalid: 0.5 }, intent: { feature: 0.4 }, tier: { tier1: 0.3, tier2: 0.5, tier3: 0.5 },
+    });
+    // 1e999 overflows to Infinity, the non-null non-finite value JSON can carry.
+    const calibration = path.join(runs, 'tier', 'calibration.json');
+    fs.writeFileSync(calibration, '{"thresholds":{"tier1":0.3,"tier2":1e999,"tier3":0.5}}');
+    assert.throws(() => buildVersion({ dataDir: dir, version, sourceDir: runs,
+      versionDir: path.join(dir, 'training', 'versions', version) }), /finite per-option thresholds/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
