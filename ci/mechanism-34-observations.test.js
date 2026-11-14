@@ -12,8 +12,10 @@ const { spawnSync, execFileSync } = require('child_process');
 const ROOT = path.resolve(__dirname, '..');
 const lib = require(path.join(ROOT, 'hooks/scripts/lib/observations.js'));
 const HOOK = path.join(ROOT, 'hooks/scripts/observation-hook.js');
+const ROUTER = path.join(ROOT, 'harness-everything/scripts/kernel-router.js');
 const EXPORTER = path.join(ROOT, 'scripts/system-one-observations-export.js');
 const REVIEW = path.join(ROOT, 'scripts/system-one-observations-review.js');
+const { getWorkspaceKey } = require(path.join(ROOT, 'scripts/lib/workspace.js'));
 let failures = 0;
 function test(name, fn) {
   try { fn(); console.log(`  PASS ${name}`); } catch (error) { failures++; console.error(`  FAIL ${name}\n    ${error.stack.split('\n').slice(0, 3).join('\n    ')}`); }
@@ -114,8 +116,11 @@ function sandbox() {
   const repo = path.join(dir, 'repo');
   fs.mkdirSync(repo);
   execFileSync('git', ['init', '-q', repo]);
-  const env = { ...process.env, HARNESS_OBSERVATIONS_DIR: store, HARNESS_STATE_ROOT: path.join(dir, 'state') };
+  const env = { ...process.env, HARNESS_OBSERVATIONS_DIR: store, HARNESS_STATE_ROOT: path.join(dir, 'state'),
+    HARNESS_STATE_HOME: path.join(dir, 'harness-state') };
   delete env.HARNESS_OBSERVATIONS;
+  delete env.HARNESS_SYSTEM_ONE_MODE;
+  delete env.HARNESS_ROUTER_CONTRACT_PATH;
   // Fixtures choose their own host; never inherit the invoking agent's.
   for (const key of ['CLAUDE_PLUGIN_ROOT', 'CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE', 'CODEX_HOME', 'CODEX_THREAD_ID']) delete env[key];
   return { dir, store, repo, env };
@@ -126,6 +131,32 @@ function hook(env, payload) {
   assert.strictEqual(r.status, 0, `hook exit ${r.status}: ${r.stderr}`);
   assert.strictEqual(r.stdout, '', 'the hook never writes to stdout (it would enter the model context)');
   return r;
+}
+
+function routeWorkflow(s, sessionId, systemOne) {
+  const routed = spawnSync(process.execPath, [ROUTER], {
+    input: JSON.stringify({ session_id: sessionId, cwd: s.repo, prompt: 'update the observation fixture' }),
+    env: s.env, cwd: ROOT, encoding: 'utf8', timeout: 15000,
+  });
+  assert.strictEqual(routed.status, 0, `router exit ${routed.status}: ${routed.stderr}`);
+  const file = path.join(s.env.HARNESS_STATE_HOME, 'workspaces', getWorkspaceKey(s.repo), 'state',
+    'sessions', sessionId, 'workflow-run.json');
+  assert(fs.existsSync(file), 'the router persists workflow-run.json');
+  const run = JSON.parse(fs.readFileSync(file, 'utf8'));
+  assert(run.workflowPlan && typeof run.workflowPlan === 'object', 'the router writes a workflowPlan object');
+  if (systemOne !== undefined) {
+    run.workflowPlan.systemOne = systemOne;
+    fs.writeFileSync(file, JSON.stringify(run));
+  }
+  return file;
+}
+
+function observeWithRouter(s, sessionId, systemOne, label = LABEL) {
+  routeWorkflow(s, sessionId, systemOne);
+  const base = { session_id: sessionId, cwd: s.repo };
+  hook(s.env, { ...base, hook_event_name: 'UserPromptSubmit', prompt: 'capture observation metadata' });
+  hook(s.env, { ...base, hook_event_name: 'Stop', last_assistant_message: `done\n${label}` });
+  return records(s.store).find(record => record.writer.sessionId === sessionId);
 }
 
 function records(store) {
@@ -261,6 +292,73 @@ test('exporter derives labels, splits by time and reports agreement', () => {
   assert('routerVsSelfTier' in report.agreement && !('selfVsBehaviorTier' in report.agreement));
   assert(labels.every(l => !('breadthTier' in l)), 'labels carry no file-count tier');
   assert(!fs.readFileSync(path.join(out, 'export-report.json'), 'utf8').includes('parser'), 'the report holds no text');
+});
+
+test('router System One state is copied, bounded and fail-open', () => {
+  const absent = sandbox();
+  const absentRecord = observeWithRouter(absent, 'system-one-absent', undefined);
+  assert.strictEqual(absentRecord.router.systemOne, null, 'an ordinary router artifact has no System One field');
+
+  const bounded = sandbox();
+  const scoredIntents = Object.fromEntries(Array.from({ length: 14 }, (_, index) => [`intent-${index}`, index === 0 ? -1 : index === 1 ? 0.5 : 2]));
+  const oversized = {
+    version: 'v'.repeat(70), sha256: '0123456789abcdef', mode: 'live',
+    validity: { invalid: 1.5, ignored: 0.75 }, intents: scoredIntents,
+    tier: { tier1: -1, tier2: 0.4, tier3: 2, ignored: 0.75 },
+    decision: { validity: 'actionable', intents: ['d'.repeat(70), ...Array.from({ length: 13 }, (_, index) => `decision-${index}`)], tier: 'tier2', ignored: 'drop' },
+    ignored: 'drop',
+  };
+  const boundedRecord = observeWithRouter(bounded, 'system-one-oversized', oversized);
+  assert.deepStrictEqual(boundedRecord.router.systemOne, {
+    version: 'v'.repeat(64), sha256: '0123456789abcdef', mode: 'live',
+    validity: { invalid: 1 },
+    intents: Object.fromEntries(Array.from({ length: 12 }, (_, index) => [`intent-${index}`, index === 0 ? 0 : index === 1 ? 0.5 : 1])),
+    tier: { tier1: 0, tier2: 0.4, tier3: 1 },
+    decision: { validity: 'actionable', intents: ['d'.repeat(64), ...Array.from({ length: 11 }, (_, index) => `decision-${index}`)], tier: 'tier2' },
+  });
+
+  const malformed = sandbox();
+  const malformedRecord = observeWithRouter(malformed, 'system-one-malformed', {
+    version: 'bad', sha256: 'bad-hash', mode: 'shadow', validity: { invalid: '0.4' },
+    intents: null, tier: null, decision: { validity: 'maybe', intents: [], tier: 'tier9' },
+  });
+  assert.strictEqual(malformedRecord.router.systemOne, null, 'malformed router output is ignored without blocking the turn');
+});
+
+test('export includes only System One decision data and reports tier agreement per version', () => {
+  const s = sandbox();
+  const rows = [
+    { sid: 'system-one-a1', version: 'checkpoint-a', decisionTier: 'tier1', selfTier: 'tier1' },
+    { sid: 'system-one-a2', version: 'checkpoint-a', decisionTier: 'tier3', selfTier: 'tier2' },
+    { sid: 'system-one-b1', version: 'checkpoint-b', decisionTier: 'tier2', selfTier: 'tier2' },
+    { sid: 'system-one-none', version: null, decisionTier: null, selfTier: 'tier2' },
+  ];
+  const ids = new Map();
+  for (const item of rows) {
+    const systemOne = item.version === null ? undefined : {
+      version: item.version, sha256: '0123456789abcdef', mode: 'live',
+      validity: { invalid: 0.918273645 }, intents: null, tier: null,
+      decision: { validity: 'actionable', intents: ['feature'], tier: item.decisionTier },
+    };
+    const label = LABEL.replace('"tier2"', `"${item.selfTier}"`);
+    ids.set(item.sid, observeWithRouter(s, item.sid, systemOne, label).id);
+  }
+  const out = path.join(s.dir, 'system-one-export');
+  const exported = spawnSync(process.execPath, [EXPORTER, '--store', s.store, '--out', out], { encoding: 'utf8', env: s.env });
+  assert.strictEqual(exported.status, 0, exported.stderr);
+  const labels = fs.readFileSync(path.join(out, 'labels-observed.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
+  const byId = Object.fromEntries(labels.map(label => [label.id, label]));
+  assert.deepStrictEqual(byId[ids.get('system-one-a1')].systemOne, {
+    version: 'checkpoint-a', sha256: '0123456789abcdef', mode: 'live',
+    decision: { validity: 'actionable', intents: ['feature'], tier: 'tier1' },
+  });
+  assert.strictEqual(byId[ids.get('system-one-none')].systemOne, null);
+  assert(!fs.readFileSync(path.join(out, 'labels-observed.jsonl'), 'utf8').includes('0.918273645'), 'probability scores stay private');
+  const report = JSON.parse(fs.readFileSync(path.join(out, 'export-report.json'), 'utf8'));
+  assert.deepStrictEqual(report.systemOne.versions, {
+    'checkpoint-a': { rows: 2, tierAgreement: { matches: 1, comparisons: 2, rate: 0.5 } },
+    'checkpoint-b': { rows: 1, tierAgreement: { matches: 1, comparisons: 1, rate: 1 } },
+  });
 });
 
 test('exporter can select post-cutoff rows with self-reported labels for training', () => {

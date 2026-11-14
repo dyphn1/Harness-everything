@@ -43,6 +43,7 @@ A turn runs from `UserPromptSubmit` to `Stop`. Its record:
 | `prompt` | `UserPromptSubmit` | stored in the private text store only (see Storage) |
 | `previous` | the last assistant message before the prompt | truncated to 2 KB; text store only |
 | `router` | kernel-router output | lexical tier, strategy, normalized knowledge signals, active step/stage bindings; System One shadow scores when present |
+| `router.systemOne` | `workflow-run.json` → `workflowPlan.systemOne` | bounded version, hash, mode, scores and decision; unknown keys are dropped, scores are clamped to 0..1, and malformed or missing input is stored as `null`. Scores remain in the private store only. |
 | `behavior` | `PostToolUse`, `PostToolUseFailure` | counts and categories, never arguments: files written, distinct repositories written, files created, commands by class (git, gh, test, build, package, shell), skills loaded or read, subagents started. Failed attempts are counted separately (`toolFailures`, `failedWrites`, `failedSkillLoads`) and never count as a write or a load. `null` means the capture source did not observe tool events; it is not a zero count. |
 | `workflow` | `workflow-run.json` / `workflow-disposition` | selected and confirmed strategy |
 | `selfReport` | label line in the final message | see below; `null` if missing or invalid |
@@ -200,7 +201,8 @@ The importer accepts only valid label lines, applies the same email/home-path re
 repository:
 
 - `prompts-observed.jsonl`: `{id, family, source: "observation", split, text}`
-- `labels-observed.jsonl`: `{id, validity, tier, tierSource, intents, workflow, skills, behaviorEvidence, contradictions}`
+- `labels-observed.jsonl`: `{id, validity, tier, tierSource, intents, workflow, skills, behaviorEvidence, contradictions, systemOne}`. `systemOne` is `{version, sha256, mode, decision}` or `null`; score maps stay in the private observation store.
+- `export-report.json`: `systemOne.versions[version]` counts exported rows for each version and reports tier agreement (`matches`, `comparisons`, `rate`) between the router decision and self-report. Comparisons include only rows where both tiers are known.
 
 `family` groups near-duplicate prompts. The split is by time: the newest 15%
 is validation. The existing holdouts stay frozen and separate. Observed data

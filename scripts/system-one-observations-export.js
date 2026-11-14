@@ -65,6 +65,11 @@ function rate(pairs) {
   return pairs.length ? pairs.filter(([a, b]) => a === b).length / pairs.length : null;
 }
 
+function exportSystemOne(record) {
+  const systemOne = obs.normalizeSystemOne(record && record.router && record.router.systemOne);
+  return systemOne ? { version: systemOne.version, sha256: systemOne.sha256, mode: systemOne.mode, decision: systemOne.decision } : null;
+}
+
 function run(args) {
   const store = path.resolve(option(args, '--store', obs.storeRoot()));
   const out = option(args, '--out');
@@ -99,7 +104,9 @@ function run(args) {
   const prompts = rows.map((r, i) => JSON.stringify({ id: r.record.id, family: family(r.text.prompt), source: 'observation',
     split: i >= rows.length - validation ? 'validation' : 'train', text: r.text.prompt, previous: r.text.previous || '' }));
   fs.writeFileSync(path.join(out, 'prompts-observed.jsonl'), prompts.join('\n') + (prompts.length ? '\n' : ''));
-  fs.writeFileSync(path.join(out, 'labels-observed.jsonl'), rows.map(r => JSON.stringify(r.label)).join('\n') + (rows.length ? '\n' : ''));
+  fs.writeFileSync(path.join(out, 'labels-observed.jsonl'), rows.map(r => JSON.stringify({
+    ...r.label, systemOne: exportSystemOne(r.record),
+  })).join('\n') + (rows.length ? '\n' : ''));
   const withSelf = rows.filter(r => r.record.selfReport);
   // Only turns where the router chose a tier; 'unclassified' is not one.
   const routerSelf = withSelf.filter(r => r.record.router && obs.TIERS.includes(r.record.router.tier)).map(r => [r.record.router.tier, r.record.selfReport.tier]);
@@ -107,6 +114,24 @@ function run(args) {
   const contradictions = {};
   for (const r of rows) for (const c of r.label.contradictions) contradictions[c] = (contradictions[c] || 0) + 1;
   const count = key => rows.reduce((acc, r) => { const k = String(key(r)); acc[k] = (acc[k] || 0) + 1; return acc; }, {});
+  const systemOneVersions = new Map();
+  for (const r of rows) {
+    const systemOne = obs.normalizeSystemOne(r.record.router && r.record.router.systemOne);
+    if (!systemOne) continue;
+    const version = systemOneVersions.get(systemOne.version) || { rows: 0, matches: 0, comparisons: 0 };
+    version.rows++;
+    const selfTier = r.record.selfReport && r.record.selfReport.tier;
+    if (obs.TIERS.includes(systemOne.decision.tier) && obs.TIERS.includes(selfTier)) {
+      version.comparisons++;
+      if (systemOne.decision.tier === selfTier) version.matches++;
+    }
+    systemOneVersions.set(systemOne.version, version);
+  }
+  const systemOneReport = Object.fromEntries([...systemOneVersions].map(([version, counts]) => [version, {
+    rows: counts.rows,
+    tierAgreement: { matches: counts.matches, comparisons: counts.comparisons,
+      rate: counts.comparisons ? counts.matches / counts.comparisons : null },
+  }]));
   const report = {
     schemaVersion: 1, exportedAt: new Date().toISOString(), records: index.records.length, exported: rows.length,
     since: sinceText, selfReportOnly, skippedBeforeSince, skippedUnlabeled,
@@ -119,6 +144,7 @@ function run(args) {
     },
     contradictionEvidence: 'observed-behavior-only',
     ownerDecisions: Object.keys(owner).length, agreement, contradictions,
+    systemOne: { versions: systemOneReport },
   };
   fs.writeFileSync(path.join(out, 'export-report.json'), JSON.stringify(report, null, 2) + '\n');
   return report;

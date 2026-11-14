@@ -352,6 +352,44 @@ function detectHost(payload, hints) {
   return 'unknown';
 }
 
+function normalizeSystemOne(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const fields = ['version', 'sha256', 'mode', 'validity', 'intents', 'tier', 'decision'];
+  if (!fields.every(key => Object.hasOwn(value, key))
+      || typeof value.version !== 'string' || !value.version.trim()
+      || typeof value.sha256 !== 'string' || !/^[a-f\d]{16}$/i.test(value.sha256)
+      || !['off', 'live'].includes(value.mode)) return null;
+
+  const invalid = Symbol('invalid-system-one');
+  const probabilities = (source, allowed, limit = 12) => {
+    if (source === null) return null;
+    if (!source || typeof source !== 'object' || Array.isArray(source)) return invalid;
+    const entries = Object.entries(source).filter(([key]) => !allowed || allowed.has(key)).slice(0, limit);
+    const bounded = [];
+    for (const [key, score] of entries) {
+      if (!key || !Number.isFinite(score)) return invalid;
+      bounded.push([key.slice(0, 64), Math.max(0, Math.min(1, score))]);
+    }
+    return Object.fromEntries(bounded);
+  };
+  const validity = probabilities(value.validity, new Set(['invalid']), 1);
+  const intents = probabilities(value.intents, null);
+  const tier = probabilities(value.tier, new Set(TIERS), TIERS.length);
+  const decision = value.decision;
+  if (validity === invalid || intents === invalid || tier === invalid
+      || !decision || typeof decision !== 'object' || Array.isArray(decision)
+      || !['actionable', 'invalid', 'abstain'].includes(decision.validity)
+      || !Array.isArray(decision.intents)
+      || !decision.intents.every(id => typeof id === 'string' && id.length > 0)
+      || !(decision.tier === null || TIERS.includes(decision.tier))) return null;
+
+  return {
+    version: value.version.slice(0, 64), sha256: value.sha256.toLowerCase(), mode: value.mode,
+    validity, intents, tier,
+    decision: { validity: decision.validity, intents: decision.intents.slice(0, 12).map(id => id.slice(0, 64)), tier: decision.tier },
+  };
+}
+
 function routerState(payload) {
   try {
     const state = require('./harness-state');
@@ -364,7 +402,8 @@ function routerState(payload) {
     const plan = run.workflowPlan && typeof run.workflowPlan === 'object' ? run.workflowPlan : run;
     return { tier: plan.tier || run.tier || null, strategy: plan.strategy || run.strategy || null,
       strategySelection: plan.strategySelection || run.strategySelection || null,
-      suggestedSkills: Array.isArray(plan.suggestedSkills) ? plan.suggestedSkills.slice(0, 12) : [] };
+      suggestedSkills: Array.isArray(plan.suggestedSkills) ? plan.suggestedSkills.slice(0, 12) : [],
+      systemOne: normalizeSystemOne(plan.systemOne) };
   } catch (_) {
     return null;
   }
@@ -651,7 +690,7 @@ function handle(payload, env = process.env) {
 }
 
 module.exports = {
-  INTENTS, TIERS, STRATEGIES, RETENTION_MS, PREVIOUS_BYTES, enabled, storeRoot, redact, parseLabelLine, stripLabels, tailBytes, sha, classifyCommand, labelTier, contradictions,
+  INTENTS, TIERS, STRATEGIES, RETENTION_MS, PREVIOUS_BYTES, enabled, storeRoot, redact, parseLabelLine, stripLabels, tailBytes, sha, normalizeSystemOne, classifyCommand, labelTier, contradictions,
   normalizeTerms, transcriptMessage, recordTool, emptyBehavior, mergeBehavior, toolFailed, handle, readJson, appendRecord, appendRecordDetailed, observationTurnMatch, findObservationTurnMatch, markSessionBackfillBehaviorUnobserved,
   expired, recordText, sweep,
 };
