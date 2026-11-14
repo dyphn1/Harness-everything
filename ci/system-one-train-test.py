@@ -79,11 +79,27 @@ except ValueError:
     pass
 
 lengths = [10, 1024, 300, 5, 700, 1024, 50] * 20
-batches = trainer.make_batches(lengths, token_budget=4096)
-flat = sorted(i for b in batches for i in b)
+assert trainer.TOKEN_BUDGET == 84000, trainer.TOKEN_BUDGET
+
+
+def batch_cost(items, lengths, n_options):
+    return len(items) * (max(lengths[i] for i in items) + n_options * trainer.OPTION_TOKENS)
+
+
+intent_batches = trainer.make_batches(lengths, 16384, 12, trainer.OPTION_TOKENS)
+flat = sorted(i for b in intent_batches for i in b)
 assert flat == list(range(len(lengths))), 'every example exactly once'
-assert all(len(b) * max(lengths[i] for i in b) <= 4096 or len(b) == 1 for b in batches), 'budget respected'
-assert batches == trainer.make_batches(lengths, token_budget=4096), 'deterministic'
+assert all(batch_cost(b, lengths, 12) <= 16384 for b in intent_batches), 'whole forward pass within the budget'
+assert intent_batches == trainer.make_batches(lengths, 16384, 12, trainer.OPTION_TOKENS), 'deterministic'
+print('PASS batches: 12 options count toward the budget, every example once, deterministic')
+
+# v1 shape (witness): the largest batch was 703 examples whose longest prompt is 23 tokens.
+v1 = [23] * 703 + [24] + [1024] * 40
+validation = trainer.make_batches(v1, trainer.TOKEN_BUDGET, 1, trainer.OPTION_TOKENS)
+prompt_only = trainer.make_batches(v1, 16384, 1, 0)
+assert max(len(b) for b in prompt_only) == max(len(b) for b in validation) == 703
+assert all(batch_cost(b, v1, 1) <= trainer.TOKEN_BUDGET for b in validation)
+print('PASS batches: 1 option keeps the v1 largest batch (703) inside the new default')
 
 with tempfile.TemporaryDirectory() as tmp:
     p = Path(tmp) / 'rows.jsonl'
