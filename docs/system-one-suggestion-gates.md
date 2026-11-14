@@ -122,14 +122,12 @@ on `actionable` prompts.
 
 ### Invalid prompts
 
-Some prompts cannot be judged from their text: a go-ahead (`go`, `好`,
-`完成了`), an option pick, a change verb with no object (`修正一下`),
-feedback on earlier work (`還是一樣的錯誤`), a pointer to earlier content
-(`請依照需求實作`), a paste with no request, or chatter. The small model
-does not try to recover the missing context. It marks them `invalid` and
-hands them to the host agent (the external LLM), which sees the whole
-conversation. Deterministic controls (action gates, scope and memory
-ownership, the Rule of 3) apply unchanged. The noise-gate experiment (#265)
+`invalid` means the prompt cannot be understood from its own text and needs
+conversation context. Agent-written dispatch packets and worker instructions
+are ordinary prompts; their audience does not make them invalid. The small
+model judges the prompt text itself, without trying to recover missing
+context. Deterministic controls (action gates, scope and memory ownership,
+the Rule of 3) apply unchanged. The noise-gate experiment (#265)
 showed that tier labels given to such prompts from session context were
 what kept a text-only model unsure.
 

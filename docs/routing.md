@@ -70,10 +70,10 @@ This MUST is semantic rather than a hard runtime lock: hosts may observe/remind 
 End the final message of **every** turn with one line that rendered Markdown hides. This includes short answers, lookups, and turns that end with a question back to the user; unlike the Harness Status, it is not limited to non-trivial work:
 
 ```
-<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier2","intents":["fix","test"],"workflow":"iterative-single","skills":["tdd"]} -->
+<!-- harness-label {"v":1,"validity":"actionable","tier":"tier2","intents":["fix","test"],"workflow":"iterative-single","skills":["tdd"]} -->
 ```
 
-It states the agent's own judgement after the work, not a copy of the router's suggestion: `validity` (`actionable` or `invalid`), `contextDependent` (the prompt text alone would not have been enough), `tier` under tier rules v2, up to three `intents`, the `workflow` strategy and the `skills` actually used. The observation collector stores it as training data ([system-one-observations.md](system-one-observations.md)). A missing or malformed line is recorded with a reason code; it never blocks a turn or changes routing.
+It states the agent's own judgement after the work, not a copy of the router's suggestion. `invalid` means the prompt cannot be understood from its own text and needs conversation context; agent-written dispatches and worker instructions are ordinary prompts. The remaining keys record `tier` under tier rules v2, up to three `intents`, the `workflow` strategy and the `skills` actually used. The observation collector stores it as training data ([system-one-observations.md](system-one-observations.md)). A missing or malformed line is recorded with a reason code; it never blocks a turn or changes routing.
 
 Tier values:
 
