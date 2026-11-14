@@ -18,6 +18,9 @@ All notable changes to this project are documented in this file.
 
 ### Features
 
+* **system-one:** Opt-in machines can run System One live (`HARNESS_SYSTEM_ONE_MODE=live`): CUA-S1 validity → intent → tier with independent per-option sigmoid scores shown as reference confidence, explicit choices and the structural floor ahead of it, the lexical tier as fallback. Weights are private versions installed, activated and rolled back with `install.js`; nothing is enabled by default.
+* **system-one:** Owner-started training cycle (`scripts/system-one-cycle.js`, runbook `docs/system-one-cycle.md`): collect, label, judge, build, train under a CPU/memory guard, evaluate by long-term calibration and coverage curves, package and publish. Hand-off files can carry a short YAML header (`scripts/handoff-file.js`) that System One reads as input.
+* **observations:** The turn label line drops `contextDependent`; `invalid` now means only that the prompt needs conversation context, and agent-written prompts are ordinary prompts. Turn records keep the System One version and suggestion.
 * **CI:** Skip the three-platform Node 24 self-regression matrix for pull requests limited to approved documentation, benchmark results, error ledger, or changelog paths.
 * **doc-reconciliation:** credit only correlated, bounded workflow-state operations for the approved row-17 outline cycle
 
