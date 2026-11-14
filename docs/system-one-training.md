@@ -199,3 +199,30 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
 - **Release**: the `.safetensors` and `.json` files are attached to a GitHub release. The
   installer's pins gain the new model ID, revision, `domain: "harness-routing-v1"` and both
   SHA-256 values. Until every rollout gate passes, the router default stays `off`.
+
+## Evaluating a version over time
+
+Run `scripts/system-one-curves.js` with a version directory, one or more validation score
+files, an optional matching set of holdout score files, a history JSONL file and an output
+directory. Each score row has `{id, gold, scores: {option: probability}}`. Options are
+scored independently: log loss, Brier score and 10-bin ECE use every option-row pair, while
+the confidence curve measures top-choice accuracy as its score threshold sweeps from 0 to 1.
+The report also keeps reliability bins and five score quantiles per option.
+
+```mermaid
+flowchart LR
+  V[Validation scores] --> C[Compare AUC, log loss and ECE]
+  H[Old holdout scores] --> F{Checked floor has no regression?}
+  C --> P{Candidate no worse on all curves?}
+  F --> P
+  P -->|yes| Promote[Promote]
+  P -->|no, two consecutive declines| Rollback[Rollback]
+  P -->|otherwise| Hold[Hold]
+```
+
+Promotion requires the candidate to tie or improve the previous version on coverage-accuracy
+area, log loss and ECE, and a checked old-holdout floor with no regression. Missing holdout
+scores leave the floor unknown and block promotion. A rollback requires two consecutive
+history comparisons where the active trend is dominated across those same curves. The
+verdict is based on the whole curve; System One scores remain reference confidence, not
+absolute answers.
