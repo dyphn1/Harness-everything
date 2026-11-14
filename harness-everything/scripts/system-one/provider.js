@@ -176,7 +176,8 @@ async function scoreLive(prompt, env = process.env, catalogs, scoreStage = (stag
     const catalog = catalogs[stage];
     const ids = active.stages[stage].options;
     const expectedIds = Array.isArray(catalog) ? catalog.map(option => option?.id)
-      .filter(id => id !== 'unclassified' && !(stage === 'validity' && id === 'actionable')) : [];
+      .filter(id => !(stage === 'validity' && id === 'actionable')
+        && !(stage === 'tier' && id === 'unclassified')) : [];
     if (!Array.isArray(catalog) || ids.length !== expectedIds.length
       || ids.some((id, index) => id !== expectedIds[index])) return null;
     const options = ids.map(id => catalog.find(option => option?.id === id));
@@ -191,7 +192,7 @@ async function scoreLive(prompt, env = process.env, catalogs, scoreStage = (stag
       continue;
     }
     stageScores[stage] = Object.fromEntries(result.response.scores
-      .filter(score => score.id !== 'unclassified' && !(stage === 'validity' && score.id === 'actionable'))
+      .filter(score => !(stage === 'validity' && score.id === 'actionable'))
       .map(score => [score.id, score.probability]));
     if (stage === 'validity' && (active.stages.validity.referenceOnly.includes('invalid')
       || stageScores.validity.invalid >= active.stages.validity.thresholds.invalid)) break;

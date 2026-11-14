@@ -8,6 +8,7 @@ const test = require('node:test');
 const provider = require('../harness-everything/scripts/system-one/provider');
 const { createRequest } = require('../harness-everything/scripts/system-one/contract');
 const router = require('../harness-everything/scripts/system-one/router');
+const { INTENT_OPTIONS } = require('../harness-everything/scripts/system-one/catalogs');
 
 const idHash = value => crypto.createHash('sha256').update(value).digest('hex');
 const stages = {
@@ -16,16 +17,17 @@ const stages = {
     thresholds: { invalid: 0.55 },
   },
   intent: {
-    options: ['explain', 'discuss', 'git', 'fix', 'edit', 'feature', 'refactor', 'review', 'test', 'docs', 'plan', 'investigate'],
-    thresholds: Object.fromEntries(['explain', 'discuss', 'git', 'fix', 'edit', 'feature', 'refactor', 'review', 'test', 'docs', 'plan', 'investigate'].map(id => [id, 0.55])),
+    options: INTENT_OPTIONS.map(option => option.id),
+    thresholds: Object.fromEntries(INTENT_OPTIONS.map(option => [option.id, option.id === 'unclassified' ? 1 : 0.55])),
+    referenceOnly: ['unclassified'],
   },
   tier: {
     options: ['tier1', 'tier2', 'tier3'],
     thresholds: { tier1: 0.6, tier2: 0.65, tier3: 0.7 },
   },
 };
-const intentScores = () => Object.fromEntries(stages.intent.options.filter(id => id !== 'unclassified')
-  .map(id => [id, ({ feature: 0.91, fix: 0.8, docs: 0.72 })[id] || 0.1]));
+const intentScores = () => Object.fromEntries(stages.intent.options
+  .map(id => [id, id === 'unclassified' ? 0.99 : ({ feature: 0.91, fix: 0.8, docs: 0.72 })[id] || 0.1]));
 
 function activeFixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'system-one-live-'));
@@ -45,6 +47,7 @@ function activeFixture() {
       sha256: idHash(weightsBytes),
       options: data.options,
       thresholds: data.thresholds,
+      ...(data.referenceOnly ? { referenceOnly: data.referenceOnly } : {}),
     };
   }
   fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify({
@@ -186,6 +189,7 @@ test('F1 provider keeps adapter vectors and projects live sigmoid stages to opti
     assert.deepEqual(result.stageScores.validity, { invalid: 0.1 });
     assert.equal(result.stageScores.intent.fix, 0.9);
     assert.equal(result.stageScores.intent.test, 0.8);
+    assert.equal(result.stageScores.intent.unclassified, 0.1);
     assert.deepEqual(result.stageScores.tier, { tier1: 0.2, tier2: 0.76, tier3: 0.9 });
     assert.ok(Object.values(result.stageScores.tier).reduce((sum, score) => sum + score, 0) > 1);
   } finally {

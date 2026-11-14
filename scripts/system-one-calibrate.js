@@ -105,10 +105,12 @@ function calibrateLegacy(rows, task, ids, minPrecision) {
     : { feasible: false, rows: rows.length, minPrecision, ...extra, minConfidence: null, minMargin: null, coverage: 0, precision: null, accepted: 0 };
 }
 
-function calibrate(rows, { minPrecision = 0.85, task = 'tier' } = {}) {
+function calibrate(rows, { minPrecision = 0.85, task = 'tier', catalogIds } = {}) {
   if (!Array.isArray(rows) || !Number.isFinite(minPrecision) || minPrecision < 0 || minPrecision > 1) throw new TypeError('invalid-calibration-input');
-  const allIds = scoreIds(task);
-  const ids = allIds.filter(id => id !== 'unclassified');
+  const allIds = catalogIds ?? scoreIds(task);
+  if (!Array.isArray(allIds) || !allIds.length || allIds.some(id => typeof id !== 'string' || !id)
+      || new Set(allIds).size !== allIds.length) throw new TypeError('invalid-calibration-catalog');
+  const ids = allIds;
   const normalized = rows.map(row => normalizeRow(row, task, allIds));
   // Legacy simplex artifacts keep single-winner calibration; keyed scores are sigmoid targets.
   if (task !== 'validity' && rows.length && rows.every(row => !Object.hasOwn(row, 'scores') && Array.isArray(row.probs)
@@ -116,7 +118,7 @@ function calibrate(rows, { minPrecision = 0.85, task = 'tier' } = {}) {
     return calibrateLegacy(rows, task, allIds, minPrecision);
   }
   const options = Object.fromEntries(ids.map(id => [id, fitOption(normalized, id, minPrecision)]));
-  return { feasible: ids.every(id => options[id].feasible), task, rows: normalized.length, minPrecision,
+  return { feasible: ids.every(id => id === 'unclassified' || options[id].feasible), task, rows: normalized.length, minPrecision,
     thresholds: Object.fromEntries(ids.map(id => [id, options[id].threshold])), options };
 }
 
@@ -124,10 +126,14 @@ if (require.main === module) {
   try {
     const args = process.argv.slice(2);
     const ti = args.indexOf('--task'); const task = ti >= 0 ? args.splice(ti, 2)[1] : 'tier';
+    const ci = args.indexOf('--catalog'); const catalogFile = ci >= 0 ? args.splice(ci, 2)[1] : null;
     const [input, output, extra] = args;
-    if (!input || !output || extra) throw new Error('usage: system-one-calibrate.js <val-scores.jsonl> <calibration.json> [--task validity|intent|tier]');
+    if (!input || !output || extra || (ci >= 0 && !catalogFile)) throw new Error('usage: system-one-calibrate.js <val-scores.jsonl> <calibration.json> [--task validity|intent|tier] [--catalog <train-report.json>]');
     const rows = fs.readFileSync(input, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line));
-    fs.writeFileSync(output, JSON.stringify(calibrate(rows, { task }), null, 2) + '\n');
+    const report = catalogFile ? JSON.parse(fs.readFileSync(catalogFile, 'utf8')) : null;
+    if (report && (report.task !== task || !Array.isArray(report.catalog))) throw new Error('trainer catalog does not match task');
+    const catalogIds = report?.catalog;
+    fs.writeFileSync(output, JSON.stringify(calibrate(rows, { task, catalogIds }), null, 2) + '\n');
     console.log(JSON.stringify({ task, rows: rows.length }));
   } catch (err) { console.error(`system-one-calibrate: ${err.message}`); process.exitCode = 1; }
 }

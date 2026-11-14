@@ -187,7 +187,7 @@ test('package writes the contract B manifest and carries evaluation into the pri
     const runs = path.join(dir, 'training', 'runs', version);
     const catalogs = trainerCatalogs();
     const thresholds = Object.fromEntries(Object.entries(catalogs).map(([task, options]) => [task,
-      Object.fromEntries(options.map(id => [id, 0.5]))]));
+      Object.fromEntries(options.map(id => [id, id === 'unclassified' ? null : 0.5]))]));
     for (const [task, values] of Object.entries(thresholds)) {
       const stage = path.join(runs, task);
       fs.mkdirSync(stage, { recursive: true });
@@ -211,8 +211,12 @@ test('package writes the contract B manifest and carries evaluation into the pri
     assert.equal(manifest.evaluation, 'evaluation/curves.json');
     assert.deepEqual(manifest.stages.validity.options, catalogs.validity);
     assert.deepEqual(manifest.stages.intent.options, catalogs.intent);
-    assert.equal(manifest.stages.intent.options.includes('unclassified'), false);
+    assert.ok(manifest.stages.intent.options.includes('unclassified'));
+    assert.deepEqual(Object.keys(manifest.stages.intent.thresholds), catalogs.intent);
+    assert.equal(manifest.stages.intent.thresholds.unclassified, 1);
+    assert.ok(manifest.stages.intent.referenceOnly.includes('unclassified'));
     assert.deepEqual(manifest.stages.tier.thresholds, thresholds.tier);
+    assert.deepEqual(Object.keys(manifest.stages.tier.thresholds), catalogs.tier);
     assert.match(manifest.stages.intent.sha256, /^[0-9a-f]{64}$/);
     assert.equal(fs.existsSync(path.join(output, 'evaluation', 'trend.json')), true);
     assert.equal('referenceOnly' in manifest.stages.validity, false);
@@ -235,7 +239,7 @@ function writePackageRuns(dir, version, calibrationByTask) {
 
 function trainerThresholds(value = 0.5) {
   return Object.fromEntries(Object.entries(trainerCatalogs()).map(([task, options]) => [task,
-    Object.fromEntries(options.map(id => [id, value]))]));
+    Object.fromEntries(options.map(id => [id, id === 'unclassified' ? null : value]))]));
 }
 
 test('package turns a null calibration threshold into 1 and carries referenceOnly through repackaging', t => {
@@ -257,6 +261,35 @@ test('package turns a null calibration threshold into 1 and carries referenceOnl
     assert.equal(manifest.stages.tier.thresholds.tier2, 1);
     assert.deepEqual(manifest.stages.tier.referenceOnly, ['tier2']);
     assert.equal('referenceOnly' in manifest.stages.validity, false);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('package restores omitted unclassified metadata from a prior candidate without retraining', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'system-one-cycle-package-legacy-catalog-'));
+  try {
+    const version = 'synthetic-legacy-catalog-v1';
+    const thresholds = trainerThresholds();
+    const runs = writePackageRuns(dir, version, thresholds);
+    const candidate = path.join(dir, 'training', 'candidates', version);
+    buildVersion({ dataDir: dir, version, sourceDir: runs, versionDir: candidate });
+
+    const manifestFile = path.join(candidate, 'manifest.json');
+    const oldManifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+    oldManifest.stages.intent.options = oldManifest.stages.intent.options.filter(id => id !== 'unclassified');
+    delete oldManifest.stages.intent.thresholds.unclassified;
+    oldManifest.stages.intent.referenceOnly = oldManifest.stages.intent.referenceOnly.filter(id => id !== 'unclassified');
+    if (!oldManifest.stages.intent.referenceOnly.length) delete oldManifest.stages.intent.referenceOnly;
+    fs.writeFileSync(manifestFile, JSON.stringify(oldManifest));
+
+    const output = path.join(dir, 'training', 'versions', version);
+    buildVersion({ dataDir: dir, version, sourceDir: candidate, versionDir: output });
+    const manifest = JSON.parse(fs.readFileSync(path.join(output, 'manifest.json'), 'utf8'));
+    assert.ok(manifest.stages.intent.options.includes('unclassified'));
+    assert.equal(manifest.stages.intent.thresholds.unclassified, 1);
+    assert.ok(manifest.stages.intent.referenceOnly.includes('unclassified'));
+    assert.deepEqual(Object.keys(manifest.stages.intent.thresholds), manifest.stages.intent.options);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -287,7 +320,7 @@ test('package publishes a trainer-catalog version that installs, activates, and 
     const version = 'synthetic-roundtrip-v1';
     const catalogs = trainerCatalogs();
     const thresholds = Object.fromEntries(Object.entries(catalogs).map(([task, options]) => [task,
-      Object.fromEntries(options.map(id => [id, 0.5]))]));
+      Object.fromEntries(options.map(id => [id, id === 'unclassified' ? null : 0.5]))]));
     thresholds.intent.fix = null;
     thresholds.tier.tier3 = null;
     const runs = writePackageRuns(dir, version, thresholds);
@@ -296,8 +329,9 @@ test('package publishes a trainer-catalog version that installs, activates, and 
     const packaged = JSON.parse(fs.readFileSync(path.join(versionDir, 'manifest.json'), 'utf8'));
     for (const [stage, ids] of Object.entries(catalogs)) {
       assert.deepEqual(packaged.stages[stage].options, ids);
-      assert.equal(packaged.stages[stage].options.includes('unclassified'), false);
+      assert.deepEqual(Object.keys(packaged.stages[stage].thresholds), ids);
     }
+    assert.deepEqual(packaged.stages.intent.referenceOnly, ['fix', 'unclassified']);
     const scoreScript = path.join(root, 'scripts/system-one-cycle/score.py');
     const pythonCode = "import importlib.util,json,sys; spec=importlib.util.spec_from_file_location('score',sys.argv[1]); module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module); print(json.dumps([o['id'] for o in module.trained_catalog(sys.argv[2],'intent',sys.argv[3])]))";
     const scoredCatalog = spawnSync(process.env.PYTHON || 'python3', ['-c', pythonCode, scoreScript,
@@ -331,15 +365,18 @@ test('package publishes a trainer-catalog version that installs, activates, and 
           probability: option.id === 'fix' || option.id === 'tier3' ? 0.99 : option.id === 'tier2' ? 0.8 : 0.1 })),
       },
     }));
-    assert.deepEqual(result.referenceOnly, { validity: [], intent: ['fix'], tier: ['tier3'] });
+    assert.deepEqual(result.referenceOnly, { validity: [], intent: ['fix', 'unclassified'], tier: ['tier3'] });
     assert.equal(result.stageScores.intent.fix, 0.99);
+    assert.equal(result.stageScores.intent.unclassified, 0.1);
     assert.equal(result.stageScores.tier.tier3, 0.99);
     const routed = router.routeLive({ tier: 'Tier 1 (Trivial)', floor: null, explicit: false }, result);
     assert.equal(routed.systemOne.intents.fix, 0.99);
+    assert.equal(Object.hasOwn(routed.systemOne.intents, 'unclassified'), false);
     assert.equal(routed.systemOne.decision.intents.includes('fix'), false);
     assert.equal(routed.systemOne.decision.tier, 'tier2');
     assert.deepEqual(routed.reference.referenceOnlyOptions, [
-      { stage: 'intent', id: 'fix', probability: 0.99 }, { stage: 'tier', id: 'tier3', probability: 0.99 },
+      { stage: 'intent', id: 'fix', probability: 0.99 }, { stage: 'intent', id: 'unclassified', probability: 0.1 },
+      { stage: 'tier', id: 'tier3', probability: 0.99 },
     ]);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

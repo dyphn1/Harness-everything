@@ -59,8 +59,11 @@ test('S1-T07 validity and intent use the task-specific option catalogs', () => {
     scores: Object.fromEntries(intentIds.map(id => [id, id === gold ? 0.95 : 0.1])) }));
   const intent = calibrate(rows, { task: 'intent' });
   assert.equal(intent.feasible, true);
-  assert.deepEqual(Object.keys(intent.thresholds), intentIds.filter(id => id !== 'unclassified'));
-  assert.ok(Object.values(intent.thresholds).every(threshold => threshold === 0.95));
+  assert.deepEqual(Object.keys(intent.thresholds), intentIds);
+  assert.ok(Object.values(intent.thresholds).filter(threshold => threshold !== null).every(threshold => threshold === 0.95));
+  assert.equal(intent.thresholds.unclassified, null);
+  assert.throws(() => calibrate([...rows, { gold: 'fix', scores: Object.fromEntries(intentIds
+    .filter(id => id !== 'unclassified').map(id => [id, id === 'fix' ? 0.95 : 0.1])) }], { task: 'intent' }), /invalid-scores/);
 });
 
 test('F1 calibration keeps legacy simplex rows separate from sigmoid option scores', () => {
@@ -107,6 +110,26 @@ test('S1-T04 calibration CLI reads validation sigmoid scores and writes per-opti
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('calibration uses the trainer report catalog, including the unclassified score key', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-s1-cal-catalog-'));
+  try {
+    const intentIds = CATALOGS.intent.map(option => option.id);
+    const rows = intentIds.filter(id => id !== 'unclassified').map((gold, i) => ({ id: `i${i}`, gold,
+      scores: Object.fromEntries(intentIds.map(id => [id, id === gold ? 0.95 : 0.1])) }));
+    const input = path.join(dir, 'val-scores.jsonl');
+    const catalog = path.join(dir, 'train-report.json');
+    const output = path.join(dir, 'calibration.json');
+    fs.writeFileSync(input, rows.map(row => JSON.stringify(row)).join('\n') + '\n');
+    fs.writeFileSync(catalog, JSON.stringify({ task: 'intent', catalog: intentIds }));
+    const result = spawnSync(process.execPath, [path.join(root, 'scripts/system-one-calibrate.js'), input, output,
+      '--task', 'intent', '--catalog', catalog], { encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    const calibrated = JSON.parse(fs.readFileSync(output, 'utf8'));
+    assert.deepEqual(Object.keys(calibrated.thresholds), intentIds);
+    assert.equal(calibrated.thresholds.unclassified, null);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('S1-T05 real tiny training runs write option-keyed sigmoid scores and load checkpoints (skipped without torch)', t => {
   const probe = spawnSync(python, ['-c', 'import torch'], { encoding: 'utf8' });
   if (probe.status !== 0) { t.skip('skipped without torch'); return; }
@@ -138,6 +161,7 @@ test('S1-T05 real tiny training runs write option-keyed sigmoid scores and load 
       assert.equal(r.status, 0, r.stdout + r.stderr);
       const report = JSON.parse(fs.readFileSync(path.join(out, 'train-report.json'), 'utf8'));
       assert.deepEqual(report.counts, task.counts);
+      assert.deepEqual(report.catalog, task.options);
       const scores = fs.readFileSync(path.join(out, 'val-scores.jsonl'), 'utf8').trim().split('\n').map(l => JSON.parse(l));
       assert.equal(scores.length, task.counts.validation);
       for (const row of scores) {

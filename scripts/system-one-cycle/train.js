@@ -125,7 +125,8 @@ async function trainCycle({ dataDir, version, threads = 4, maxRssMb = 6144, run 
     if (result.killedForLimit) throw new Error(`training ${task} exceeded the ${maxRssMb} MB RSS limit`);
     if (result.monitorFailed) throw new Error(`training ${task} RSS monitoring failed`);
     if (result.exitCode !== 0) throw new Error(`training ${task} failed`);
-    runNode(calibrator, [path.join(out, 'val-scores.jsonl'), path.join(out, 'calibration.json'), '--task', task]);
+    runNode(calibrator, [path.join(out, 'val-scores.jsonl'), path.join(out, 'calibration.json'), '--task', task,
+      '--catalog', path.join(out, 'train-report.json')]);
     trained++;
     outputs.push(`training/runs/${version}/${task}/resource-guard.json`);
   }

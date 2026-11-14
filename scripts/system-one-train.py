@@ -206,7 +206,8 @@ def train(args):
             fh.write(json.dumps(validation_record(row, catalog, scores, args.task)) + '\n')
     counts = {name: len(rows) for name, rows in split.items()}
     report = {'schemaVersion': 1, 'config': config, 'counts': counts, 'bestEpoch': best['epoch'], 'history': history,
-              'datasets': datasets, 'seed': args.seed, 'task': args.task, 'target': args.target}
+              'datasets': datasets, 'seed': args.seed, 'task': args.task, 'target': args.target,
+              'catalog': [o['id'] for o in catalog]}
     (out / 'train-report.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
     print(json.dumps({'counts': counts, 'bestEpoch': best['epoch'], 'validation': best['metrics']}))
 

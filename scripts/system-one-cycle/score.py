@@ -40,13 +40,14 @@ def trained_catalog(weights, task, holdout):
     spec = importlib.util.spec_from_file_location('system_one_train', trainer_path)
     trainer = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(trainer)
-    texts = {option['id']: option['text'] for option in trainer.catalog_for(task, holdout)}
+    catalog = trainer.catalog_for(task, holdout)
+    catalog_ids = [option['id'] for option in catalog]
+    texts = {option['id']: option['text'] for option in catalog}
     manifest = json.loads((Path(weights).parent / 'manifest.json').read_text(encoding='utf-8'))
     validate_manifest(manifest)
     ids = manifest['stages'][task]['options']
-    missing = [option_id for option_id in ids if option_id not in texts]
-    if missing:
-        raise ValueError(f'{task} manifest options are not in the trained catalog: {missing!r}')
+    if ids != catalog_ids:
+        raise ValueError(f'{task} manifest options do not match the trainer catalog')
     return [{'id': option_id, 'text': texts[option_id]} for option_id in ids]
 
 

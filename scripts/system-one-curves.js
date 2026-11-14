@@ -3,8 +3,9 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { STAGES, validateVersionManifest } = require('../harness-everything/scripts/system-one/manifest');
 
-const STAGES = new Set(['validity', 'intent', 'tier']);
+const STAGE_SET = new Set(STAGES);
 const EPSILON = 1e-12;
 const LOG_EPSILON = Number.EPSILON;
 const fail = () => { throw new TypeError('invalid-system-one-curves-input'); };
@@ -22,16 +23,9 @@ function readJsonl(file) {
 function readManifest(dir, version) {
   let manifest;
   try { manifest = JSON.parse(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf8')); } catch (_) { fail(); }
-  if (!isObject(manifest) || manifest.schemaVersion !== 1 || manifest.version !== version
-    || !isText(manifest.createdAt) || !isObject(manifest.stages)
-    || !(manifest.evaluation === null || isText(manifest.evaluation))) fail();
-  for (const [stage, entry] of Object.entries(manifest.stages)) {
-    if (!STAGES.has(stage) || !isObject(entry) || !isText(entry.weights) || path.basename(entry.weights) !== entry.weights
-      || !isText(entry.config) || path.basename(entry.config) !== entry.config
-      || !fs.existsSync(path.join(dir, entry.weights)) || !fs.existsSync(path.join(dir, entry.config))
-      || !/^[a-f\d]{64}$/i.test(entry.sha256) || !Array.isArray(entry.options) || !entry.options.length
-      || entry.options.some(option => !isText(option)) || new Set(entry.options).size !== entry.options.length
-      || !isObject(entry.thresholds) || Object.entries(entry.thresholds).some(([id, value]) => !entry.options.includes(id) || !isProbability(value))) fail();
+  try { validateVersionManifest(manifest, version); } catch (_) { fail(); }
+  for (const entry of Object.values(manifest.stages)) {
+    if (!fs.existsSync(path.join(dir, entry.weights)) || !fs.existsSync(path.join(dir, entry.config))) fail();
   }
   return manifest;
 }
@@ -71,24 +65,27 @@ function quantile(values, probability) {
   return sorted[lower] + (sorted[Math.min(lower + 1, sorted.length - 1)] - sorted[lower]) * fraction;
 }
 
-function decision(row, stage, options) {
+function decision(row, stage, options, referenceOnly) {
   if (stage === 'validity') {
     const probability = row.scores.invalid;
+    if (referenceOnly.includes('invalid')) return { confidence: 1 - probability, correct: !row.positive.has('invalid') };
     const id = probability >= 0.5 ? 'invalid' : 'actionable';
     return { confidence: Math.max(probability, 1 - probability), correct: row.positive.has(id) };
   }
-  let id = options[0];
-  for (const option of options.slice(1)) if (row.scores[option] > row.scores[id]) id = option;
+  const selectable = options.filter(option => !referenceOnly.includes(option) && !(stage === 'intent' && option === 'unclassified'));
+  if (!selectable.length) return { confidence: null, correct: false };
+  let id = selectable[0];
+  for (const option of selectable.slice(1)) if (row.scores[option] > row.scores[id]) id = option;
   return { confidence: row.scores[id], correct: row.positive.has(id) };
 }
 
-function coverageCurve(rows, stage, options) {
-  const decisions = rows.map(row => decision(row, stage, options));
+function coverageCurve(rows, stage, options, referenceOnly) {
+  const decisions = rows.map(row => decision(row, stage, options, referenceOnly));
   return Array.from({ length: 101 }, (_, i) => {
     const confidence = i / 100;
     let count = 0; let correct = 0;
     for (const item of decisions) {
-      if (item.confidence < confidence) continue;
+      if (item.confidence === null || item.confidence < confidence) continue;
       count++;
       if (item.correct) correct++;
     }
@@ -108,7 +105,7 @@ function coverageAccuracyAuc(curve) {
   return area + last[1] * last[2];
 }
 
-function scoreRows(rows, stage, options) {
+function scoreRows(rows, stage, options, referenceOnly = []) {
   const bins = Array.from({ length: 10 }, (_, i) => ({ low: i / 10, high: (i + 1) / 10, sum: 0, positive: 0, n: 0 }));
   const distributions = Object.fromEntries(options.map(option => [option, []]));
   let logLoss = 0; let brier = 0; let count = 0;
@@ -128,7 +125,7 @@ function scoreRows(rows, stage, options) {
   const reliability = bins.map(bin => [bin.low, bin.high, bin.n ? bin.sum / bin.n : null,
     bin.n ? bin.positive / bin.n : null, bin.n]);
   const ece = bins.reduce((sum, bin) => sum + (bin.n / count) * (bin.n ? Math.abs(bin.sum / bin.n - bin.positive / bin.n) : 0), 0);
-  const curve = coverageCurve(rows, stage, options);
+  const curve = coverageCurve(rows, stage, options, referenceOnly);
   return {
     logLoss: logLoss / count,
     brier: brier / count,
@@ -262,7 +259,7 @@ function stageFiles(args, option) {
     const split = value.indexOf('=');
     if (split < 1) fail();
     const stage = value.slice(0, split); const file = value.slice(split + 1);
-    if (!STAGES.has(stage) || !isText(file) || Object.hasOwn(result, stage)) fail();
+    if (!STAGE_SET.has(stage) || !isText(file) || Object.hasOwn(result, stage)) fail();
     result[stage] = file;
   }
   return result;
@@ -293,12 +290,13 @@ function run(argv) {
     const entry = manifest.stages[stage];
     if (!entry) fail();
     const valRows = readRows(file, stage, entry.options);
-    stages[stage] = scoreRows(valRows, stage, entry.options);
+    const referenceOnly = entry.referenceOnly ?? [];
+    stages[stage] = scoreRows(valRows, stage, entry.options, referenceOnly);
     if (holdoutFiles[stage]) {
       const holdoutRows = readRows(holdoutFiles[stage], stage, entry.options);
       const valIds = new Set(valRows.map(row => row.id));
       if (holdoutRows.some(row => valIds.has(row.id))) fail();
-      holdoutMetrics[stage] = scoreRows(holdoutRows, stage, entry.options);
+      holdoutMetrics[stage] = scoreRows(holdoutRows, stage, entry.options, referenceOnly);
     }
   }
   if (Object.keys(holdoutFiles).length && Object.keys(holdoutFiles).length !== Object.keys(valFiles).length) fail();

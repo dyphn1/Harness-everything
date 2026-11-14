@@ -32,7 +32,8 @@ function validateVersionManifest(manifest, expectedVersion) {
     if (!(exact(stage, fields) || exact(stage, [...fields, 'referenceOnly']))
         || !safeRelative(stage.weights) || !safeRelative(stage.config) || !HASH.test(stage.sha256)
         || !Array.isArray(stage.options) || !stage.options.length
-        || stage.options.some(id => typeof id !== 'string' || !SAFE_ID.test(id) || id === 'unclassified')
+        || stage.options.some(id => typeof id !== 'string' || !SAFE_ID.test(id)
+          || (id === 'unclassified' && name !== 'intent'))
         || new Set(stage.options).size !== stage.options.length || !exact(stage.thresholds, stage.options)
         || Object.values(stage.thresholds).some(value => typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1)) {
       fail(`malformed ${name} stage`);

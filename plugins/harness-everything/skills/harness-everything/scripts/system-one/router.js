@@ -37,10 +37,11 @@ function routeLive(input, result) {
     && isProbability(thresholds.validity?.invalid) ? { invalid: stages.validity.invalid } : null;
   const validity = validityScores === null || referenceOnly.validity.includes('invalid') ? 'abstain'
     : validityScores.invalid >= thresholds.validity.invalid ? 'invalid' : 'actionable';
-  const intentIds = options.intent.map(option => option.id).filter(id => id !== 'unclassified');
-  const intents = validity === 'actionable' && exactScores(stages.intent, intentIds)
-    && intentIds.every(id => isProbability(thresholds.intent?.[id]))
-    ? stages.intent : null;
+  const intentCatalogIds = options.intent.map(option => option.id);
+  const intentIds = intentCatalogIds.filter(id => id !== 'unclassified');
+  const intents = validity === 'actionable' && exactScores(stages.intent, intentCatalogIds)
+    && intentCatalogIds.every(id => isProbability(thresholds.intent?.[id]))
+    ? Object.fromEntries(intentIds.map(id => [id, stages.intent[id]])) : null;
   const tierIds = ['tier1', 'tier2', 'tier3'];
   const tierScores = validity === 'actionable' && exactScores(stages.tier, tierIds)
     && tierIds.every(id => isProbability(thresholds.tier?.[id])) ? stages.tier : null;

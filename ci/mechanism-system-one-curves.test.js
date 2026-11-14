@@ -8,26 +8,40 @@ const assert = require('node:assert/strict');
 
 const root = path.resolve(__dirname, '..');
 const cli = path.join(root, 'scripts/system-one-curves.js');
-function fixture(t, { stage = 'validity', options = ['invalid'] } = {}) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-s1-curves-'));
+function fixture(t, { stage = 'validity', options = ['invalid'], referenceOnly = [] } = {}) {
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'harness-s1-curves-')));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const versionDir = path.join(dir, 'version');
   fs.mkdirSync(versionDir);
   const history = path.join(dir, 'history.jsonl');
   const out = path.join(dir, 'out');
   const writeVersion = version => {
-    fs.writeFileSync(path.join(versionDir, 'weights.bin'), 'fixture');
-    fs.writeFileSync(path.join(versionDir, 'config.json'), '{}\n');
-    fs.writeFileSync(path.join(versionDir, 'manifest.json'), JSON.stringify({
+    const catalogs = { validity: ['invalid'], intent: ['fix'], tier: ['tier1'] };
+    catalogs[stage] = options;
+    const stages = Object.fromEntries(Object.entries(catalogs).map(([name, ids]) => {
+      const weights = `${name}.bin`; const config = `${name}.json`;
+      fs.writeFileSync(path.join(versionDir, weights), 'fixture');
+      fs.writeFileSync(path.join(versionDir, config), '{}\n');
+      const thresholds = Object.fromEntries(ids.map(id => [id, name === stage && referenceOnly.includes(id) ? 1 : 0.5]));
+      return [name, { weights, config, sha256: '0'.repeat(64), options: ids, thresholds,
+        ...(name === stage && referenceOnly.length ? { referenceOnly } : {}) }];
+    }));
+    const manifest = {
       schemaVersion: 1,
       version,
       createdAt: '2026-11-14T00:00:00.000Z',
-      stages: { [stage]: { weights: 'weights.bin', config: 'config.json', sha256: '0'.repeat(64), options, thresholds: {} } },
+      stages,
       evaluation: null,
-    }));
+    };
+    fs.writeFileSync(path.join(versionDir, 'manifest.json'), JSON.stringify(manifest));
+    return manifest;
   };
-  function run({ version = 'v1', val, holdout } = {}) {
-    writeVersion(version);
+  function run({ version = 'v1', val, holdout, mutateManifest, expectFailure = false } = {}) {
+    const manifest = writeVersion(version);
+    if (mutateManifest) {
+      mutateManifest(manifest);
+      fs.writeFileSync(path.join(versionDir, 'manifest.json'), JSON.stringify(manifest));
+    }
     const valFile = path.join(dir, `${version}-val.jsonl`);
     fs.writeFileSync(valFile, val.map(row => JSON.stringify(row)).join('\n') + '\n');
     const args = [cli, '--version', version, '--version-dir', versionDir, '--val-scores', `${stage}=${valFile}`, '--history', history, '--out', out];
@@ -37,6 +51,10 @@ function fixture(t, { stage = 'validity', options = ['invalid'] } = {}) {
       args.splice(args.indexOf('--history'), 0, '--holdout-scores', `${stage}=${holdoutFile}`);
     }
     const child = spawnSync(process.execPath, args, { cwd: root, encoding: 'utf8', env: { ...process.env, HARNESS_SYSTEM_ONE_HOME: dir } });
+    if (expectFailure) {
+      assert.notEqual(child.status, 0, child.stdout);
+      return child;
+    }
     assert.equal(child.status, 0, child.stderr || child.stdout);
     return {
       stdout: child.stdout.trim(),
@@ -102,6 +120,36 @@ test('one successful run appends exactly one history line', t => {
   lines = fs.readFileSync(f.history, 'utf8').trim().split('\n');
   assert.equal(lines.length, 2);
   assert.deepEqual(JSON.parse(lines[1]), second.curves);
+});
+
+test('intent curves keep reference-only unclassified scores but never use them as the selected option', t => {
+  const f = fixture(t, { stage: 'intent', options: ['fix', 'unclassified'], referenceOnly: ['unclassified'] });
+  const { curves, trend } = f.run({ val: [
+    { id: 'i1', gold: ['fix'], scores: { fix: 0.7, unclassified: 0.99 } },
+  ] });
+  const metrics = curves.stages.intent;
+  assert.deepEqual(metrics.optionDistributions.unclassified, [0.99, 0.99, 0.99, 0.99, 0.99]);
+  assert.equal(metrics.coverageCurve[80][1], 0);
+  assert.equal(metrics.coverageCurve[70][1], 1);
+  assert.equal(trend.verdict, 'hold');
+  assert.equal(fs.existsSync(path.join(f.dir, 'out', 'curves.json')), true);
+  assert.equal(fs.existsSync(path.join(f.dir, 'out', 'trend.json')), true);
+  assert.equal(fs.readFileSync(f.history, 'utf8').trim().split('\n').length, 1);
+});
+
+test('curves rejects malformed reference-only metadata and score rows that omit catalog ids', t => {
+  const f = fixture(t, { stage: 'intent', options: ['fix', 'unclassified'], referenceOnly: ['unclassified'] });
+  const row = { id: 'i1', gold: ['fix'], scores: { fix: 0.7, unclassified: 0.8 } };
+  f.run({ val: [row], mutateManifest: manifest => { manifest.stages.intent.referenceOnly = ['missing']; }, expectFailure: true });
+  f.run({ val: [row], mutateManifest: manifest => { manifest.stages.intent.thresholds.unclassified = 0.9; }, expectFailure: true });
+  f.run({ val: [{ id: 'i2', gold: ['fix'], scores: { fix: 0.7 } }], expectFailure: true });
+});
+
+test('curves reports zero coverage when every intent option is reference-only', t => {
+  const f = fixture(t, { stage: 'intent', options: ['unclassified'], referenceOnly: ['unclassified'] });
+  const { curves } = f.run({ val: [{ id: 'i1', gold: ['unclassified'], scores: { unclassified: 0.99 } }] });
+  assert.deepEqual(curves.stages.intent.optionDistributions.unclassified, [0.99, 0.99, 0.99, 0.99, 0.99]);
+  assert.ok(curves.stages.intent.coverageCurve.every(([, coverage]) => coverage === 0));
 });
 
 test('active trend rolls back after two consecutive worsening cycles', t => {

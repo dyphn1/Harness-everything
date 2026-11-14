@@ -260,8 +260,10 @@ Live reads `~/.agents/harness-everything/system-one/active.json`; tests can poin
 directory contains `manifest.json` with `schemaVersion`, `version`, `createdAt`,
 `stages`, and `evaluation`. `stages` contains `validity`, `intent`, and `tier`;
 each entry names sibling `weights` and `config` files, the weights `sha256`, its
-ordered trainer-catalog `options` (with `unclassified` omitted), and one
-per-option `threshold`. The validity catalog has only `invalid`. An optional
+ordered trainer-catalog `options`, and one per-option `threshold`. The intent
+catalog includes `unclassified`; validity has only `invalid`, and tier has the
+three tier IDs. Calibration, manifest options, and score rows keep the same
+catalog IDs. An optional
 `referenceOnly` list must be a subset of the stage options, and each listed
 option must have threshold `1`. Its score remains visible in the reference
 readout, but it is excluded from automatic decisions. The router verifies the weight
@@ -291,8 +293,13 @@ with their probabilities as reference confidence, never as a verdict; it does
 not print prompt text or artifact paths. Checkpoint activation is opt-in and the
 default mode remains `off`.
 
-The live field has exactly this shape; probability maps contain independent
-values in `[0, 1]` and omit `unclassified`:
+H1b separately authorized the handoff count enrichment at
+`inputEnrichment.handoffFiles`. F6 authorized `referenceOnly` as optional
+per-stage manifest metadata; it did not explicitly approve a new top-level
+`referenceOnly` output field. The current router includes both fields in
+`workflowPlan.systemOne`, so the top-level `referenceOnly` field remains an
+unresolved discrepancy against shared contract B. The seven-field contract
+shape is:
 
 ```json
 {
@@ -399,9 +406,9 @@ Phase 4 training data, labeling, calibration and release are defined in
 
 Live routing scores three fixed catalogs in order. Validity is `actionable` or
 `invalid`; the intent catalog contains the twelve work intents plus
-`unclassified`; and the tier catalog contains `tier1`, `tier2`, `tier3` plus
-`unclassified`. `unclassified` is an abstention option and is not included in
-the output probability maps.
+`unclassified`; and the tier catalog contains `tier1`, `tier2`, and `tier3`.
+`unclassified` remains in intent score rows and manifest metadata, but is never
+auto-selected or included in the output intent probability map.
 
 Invalid prompts receive no intent or tier suggestion. For actionable prompts,
 all intent options are scored independently and up to three above-threshold

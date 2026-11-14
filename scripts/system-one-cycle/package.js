@@ -10,7 +10,7 @@ const { validateVersionManifest } = require('../../harness-everything/scripts/sy
 
 function trainerCatalogs() {
   const trainer = path.join(REPO, 'scripts', 'system-one-train.py');
-  const code = 'import importlib.util,json,sys; spec=importlib.util.spec_from_file_location("system_one_train",sys.argv[1]); module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module); print(json.dumps({task:[o["id"] for o in module.catalog_for(task) if o["id"]!="unclassified"] for task in ("validity","intent","tier")}))';
+  const code = 'import importlib.util,json,sys; spec=importlib.util.spec_from_file_location("system_one_train",sys.argv[1]); module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module); print(json.dumps({task:[o["id"] for o in module.catalog_for(task)] for task in ("validity","intent","tier")}))';
   const python = process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
   const result = spawnSync(python, ['-c', code, trainer], { cwd: REPO, encoding: 'utf8', windowsHide: true });
   if (result.error || result.status !== 0) throw new Error('trainer-catalog-unavailable');
@@ -18,7 +18,9 @@ function trainerCatalogs() {
   try { catalogs = JSON.parse(result.stdout); } catch { throw new Error('trainer-catalog-invalid'); }
   if (!catalogs || Object.keys(catalogs).sort().join(',') !== [...TASKS].sort().join(',')
       || TASKS.some(task => !Array.isArray(catalogs[task]) || !catalogs[task].length
-        || catalogs[task].includes('unclassified') || new Set(catalogs[task]).size !== catalogs[task].length)) {
+        || catalogs[task].some(id => typeof id !== 'string')
+        || (task !== 'intent' && catalogs[task].includes('unclassified'))
+        || new Set(catalogs[task]).size !== catalogs[task].length)) {
     throw new Error('trainer-catalog-invalid');
   }
   return catalogs;
@@ -68,10 +70,15 @@ function buildVersion({ dataDir, version, versionDir, sourceDir }) {
     if (prior) {
       const stage = prior.stages?.[task];
       if (!stage || !safeRelative(stage.weights) || !safeRelative(stage.config)) throw new Error(`candidate manifest is missing ${task}`);
+      options = catalogs[task];
+      const legacyOptions = task === 'intent' ? options.filter(id => id !== 'unclassified') : options;
+      if (!Array.isArray(stage.options) || (stage.options.join('\0') !== options.join('\0')
+          && stage.options.join('\0') !== legacyOptions.join('\0'))) {
+        throw new Error(`${task} checkpoint catalog does not match the trainer catalog`);
+      }
       sourceWeights = path.join(source, stage.weights);
       sourceConfig = path.join(source, stage.config);
-      options = catalogs[task];
-      thresholds = stage.thresholds;
+      thresholds = { ...stage.thresholds };
       priorReferenceOnly = stage.referenceOnly ?? [];
       if (digest(sourceWeights) !== stage.sha256) throw new Error(`${task} checkpoint hash does not match its manifest`);
     } else {
@@ -81,6 +88,11 @@ function buildVersion({ dataDir, version, versionDir, sourceDir }) {
       const calibration = JSON.parse(fs.readFileSync(path.join(runDir, 'calibration.json'), 'utf8'));
       thresholds = calibration.thresholds;
       options = catalogs[task];
+    }
+    // Older packages omitted this non-selectable intent option; restore its metadata without retraining.
+    if (task === 'intent' && options.includes('unclassified') && thresholds && typeof thresholds === 'object'
+        && !Array.isArray(thresholds) && !Object.hasOwn(thresholds, 'unclassified')) {
+      thresholds = { ...thresholds, unclassified: null };
     }
     if (!Array.isArray(options) || !options.length || new Set(options).size !== options.length
         || !thresholds || Object.keys(thresholds).length !== options.length
