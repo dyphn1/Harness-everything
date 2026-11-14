@@ -15,9 +15,9 @@ only SUGGEST rules (soft guidance). This means:
 
 ## The plugin
 
-**File:** `index.mjs` - a single ESM module, because that is what opencode
-actually loads: a JS/TS file exporting a function that returns a hooks
-object (see https://opencode.ai/docs/plugins/). There is no manifest-to-script
+**File:** `index.mjs` - the ESM plugin entrypoint. The OpenCode 2 adapter uses
+the documented prompt and context hooks; the V1 factory remains available for
+existing OpenCode 1 installations. There is no manifest-to-script
 mechanism; an earlier version of this plugin assumed one (a `plugin.json`
 mapping event names to standalone scripts) and opencode never invoked it -
 see issue #37 for how that was found and fixed. **Naming caveat (issue
@@ -26,7 +26,7 @@ must be copied to a `.js` name when installed - see Installation below.
 
 It implements three lifecycle mechanisms across opencode's real hooks:
 
-The module follows opencode's V1 plugin contract directly: the named
+The V1 factory follows opencode's plugin contract directly: the named
 `HarnessEnforcement` export is an async factory receiving the opencode context
 (`client`, `directory`, `project`, `worktree`, and `$`) and returning the hook
 map. Copying this one file into `.opencode/plugins/` under a `.js` name is
@@ -35,6 +35,9 @@ repository
 inventory and is not an opencode runtime manifest. The hook callbacks use the
 V1 `(input, output)` shape, including
 `output.args` when the host supplies tool arguments only in the result object.
+OpenCode 2's prompt injection and observation path resolves the canonical
+`harness-everything/scripts/kernel-router.js` and
+`hooks/scripts/lib/observations.js` from an ancestor Harness checkout/runtime.
 
 ### 1. Edit tracking (`tool.execute.after`)
 
@@ -102,8 +105,9 @@ new breaker failure. A reflection artifact itself does not count as a code edit.
 
 ## Installation
 
-**OpenCode 2.x (and newer 1.18.29+):** the module default-exports
-`{ id: "harness.enforcement", setup(ctx) }` and registers `ctx.tool.hook("execute.before|after")`
+**OpenCode 2.x:** the module default-exports
+`{ id: "harness.enforcement", setup(ctx) }` and registers
+`ctx.session.hook("prompt|context")`, `ctx.tool.hook("execute.before|after")`,
 plus `ctx.event.subscribe()` through the OpenCode 2 plugin context. OpenCode 2
 never loads a named-export-only plugin: it fails with `Plugin must export a
 default definition with an id and an effect or setup function`
@@ -114,11 +118,17 @@ available for OpenCode 1.x hosts: it receives the V1 context
 adapter wraps that factory and maps the V2 hook events onto it, so the
 enforcement logic is shared, not duplicated.
 
+The prompt/context routing and System One observation hooks are V2-only. The
+V1 factory keeps its existing enforcement hooks; it does not capture turns.
+
 Direction:
 named factory (V1 hosts/tests) → default-export setup adapter → V2 domains.
 
-Copy `index.mjs` into opencode's plugin directory **under a `.js` filename** -
-it is self-contained, no sibling files required:
+Copy `index.mjs` into opencode's plugin directory **under a `.js` filename**.
+The router and observation hooks resolve from a Harness checkout above the
+plugin, or from sibling `harness-everything/`, `hooks/scripts/`, and
+`scripts/lib/` runtime directories. A project install inside the Harness
+checkout already has those files.
 
 ```bash
 mkdir -p .opencode/plugins
@@ -126,6 +136,10 @@ cp opencode-plugin/index.mjs .opencode/plugins/harness-enforcement.js   # projec
 # or
 mkdir -p ~/.config/opencode/plugins
 cp opencode-plugin/index.mjs ~/.config/opencode/plugins/harness-enforcement.js  # global
+mkdir -p ~/.config/opencode/hooks ~/.config/opencode/scripts
+cp -R harness-everything ~/.config/opencode/
+cp -R hooks/scripts ~/.config/opencode/hooks/
+cp -R scripts/lib ~/.config/opencode/scripts/
 ```
 
 Restart OpenCode after copying so the plugin is discovered at startup.

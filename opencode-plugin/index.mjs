@@ -49,7 +49,130 @@ const OPENCODE_CAPTURE_FILE = "opencode-captures.jsonl"
 const OPENCODE_CAPTURE_LIMIT_BYTES = 4 * 1024 * 1024
 const OPENCODE_CAPTURE_RECORD_LIMIT_BYTES = 16 * 1024
 const requireFromPlugin = createRequire(import.meta.url)
-const STOP_GATE_FILE = join(dirname(fileURLToPath(import.meta.url)), "..", "hooks", "scripts", "workflow-stop-gate.js")
+const PLUGIN_DIRECTORY = dirname(fileURLToPath(import.meta.url))
+
+function findHarnessRoot(start = PLUGIN_DIRECTORY) {
+  let directory = resolve(start)
+  for (let depth = 0; depth < 8; depth++) {
+    if (existsSync(join(directory, "harness-everything", "scripts", "kernel-router.js"))
+      && existsSync(join(directory, "hooks", "scripts", "lib", "observations.js"))) return directory
+    const parent = dirname(directory)
+    if (parent === directory) break
+    directory = parent
+  }
+  return null
+}
+
+const HARNESS_ROOT = findHarnessRoot()
+const STOP_GATE_FILE = join(HARNESS_ROOT || resolve(PLUGIN_DIRECTORY, ".."), "hooks", "scripts", "workflow-stop-gate.js")
+const OBSERVATIONS_FILE = HARNESS_ROOT && join(HARNESS_ROOT, "hooks", "scripts", "lib", "observations.js")
+const ROUTER_FILE = HARNESS_ROOT && join(HARNESS_ROOT, "harness-everything", "scripts", "kernel-router.js")
+let observationsApi
+
+function systemOneObservations() {
+  if (!OBSERVATIONS_FILE) return null
+  if (!observationsApi) {
+    try { observationsApi = requireFromPlugin(OBSERVATIONS_FILE) } catch { return null }
+  }
+  return observationsApi
+}
+
+function runKernelRouter(payload) {
+  if (!ROUTER_FILE) return Promise.resolve(null)
+  return new Promise(resolveOutput => {
+    let stdout = ""
+    let settled = false
+    const finish = value => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeout)
+      resolveOutput(value)
+    }
+    const child = spawn(process.execPath, [ROUTER_FILE], {
+      cwd: payload.cwd || HARNESS_ROOT,
+      env: process.env,
+      stdio: ["pipe", "pipe", "ignore"],
+      windowsHide: true,
+    })
+    const timeout = setTimeout(() => {
+      try { child.kill() } catch {}
+      finish(null)
+    }, 5000)
+    child.stdout.on("data", chunk => { stdout += chunk })
+    child.stdin.on("error", () => finish(null))
+    child.on("error", () => finish(null))
+    child.on("close", code => finish(code === 0 ? stdout.trim() : null))
+    try { child.stdin.end(JSON.stringify(payload)) } catch { finish(null) }
+  })
+}
+
+function assistantTextForCurrentTurn(messages, userMessageID) {
+  const items = Array.isArray(messages) ? messages : Array.isArray(messages?.data) ? messages.data : []
+  let lastUser = userMessageID
+    ? items.findIndex(message => (message?.info || message)?.id === userMessageID && (message?.info || message)?.role === "user")
+    : -1
+  if (!userMessageID) {
+    for (let i = items.length - 1; i >= 0; i--) {
+      if ((items[i]?.info || items[i])?.role === "user") { lastUser = i; break }
+    }
+  }
+  if (lastUser < 0) return null
+  for (let i = items.length - 1; i > lastUser; i--) {
+    const message = items[i]
+    if ((message?.info || message)?.role !== "assistant") continue
+    const text = (Array.isArray(message.parts) ? message.parts : [])
+      .filter(part => part?.type === "text" && typeof part.text === "string")
+      .map(part => part.text).join("")
+    if (text) return text
+  }
+  return null
+}
+
+function observeOpenCodeTool(event, workspace) {
+  try {
+    const observations = systemOneObservations()
+    if (!observations || !observations.enabled() || !event?.sessionID) return
+    const args = isRecord(event.input) ? event.input : {}
+    const names = { edit: "Edit", write: "Write", apply_patch: "apply_patch", bash: "shell", skill: "Skill", read: "Read", task: "Task" }
+    const toolInput = {
+      ...args,
+      file_path: args.filePath || args.file_path || args.path,
+      command: args.command || args.cmd,
+      skill: args.skill || args.name,
+    }
+    const failed = event.status === "error" || Boolean(event.error)
+    observations.handle({
+      hook_event_name: failed ? "PostToolUseFailure" : "PostToolUse",
+      host: "opencode",
+      session_id: event.sessionID,
+      cwd: workspace,
+      tool_name: names[String(event.tool || "").toLowerCase()] || event.tool,
+      tool_input: toolInput,
+      tool_response: event.result,
+      error: failed,
+    })
+  } catch { /* turn observation is always fail-open */ }
+}
+
+async function observeOpenCodeCompletion(sessionID, ctx, workspace, promptRoutes) {
+  const prompt = promptRoutes.get(sessionID)
+  promptRoutes.delete(sessionID)
+  try {
+    const observations = systemOneObservations()
+    if (!observations || !observations.enabled()) return
+    let lastMessage = null
+    try { lastMessage = assistantTextForCurrentTurn(await ctx.session.context({ sessionID }), prompt?.messageID) } catch {}
+    const payload = {
+      hook_event_name: "Stop",
+      host: "opencode",
+      session_id: sessionID,
+      ...(prompt?.messageID ? { turn_id: prompt.messageID } : {}),
+      cwd: workspace,
+      ...(lastMessage === null ? {} : { last_assistant_message: lastMessage }),
+    }
+    observations.handle(payload)
+  } catch { /* turn observation is always fail-open */ }
+}
 
 function canonicalJson(value) {
   if (Array.isArray(value)) return value.map(canonicalJson)
@@ -1143,6 +1266,8 @@ export default {
   id: "harness.enforcement",
   async setup(ctx) {
     const events = new AbortController()
+    const workspace = (ctx.location && ctx.location.directory) || ctx.directory || process.cwd()
+    const promptRoutes = new Map()
     const hooks = await HarnessEnforcement({
       signal: events.signal,
       client: {
@@ -1156,25 +1281,65 @@ export default {
             }),
         },
       },
-      directory: (ctx.location && ctx.location.directory) || ctx.directory,
+      directory: workspace,
+    })
+
+    await ctx.session.hook("prompt", async event => {
+      try {
+        if (typeof event?.sessionID !== "string" || typeof event.prompt?.text !== "string") return
+        const messageID = event.messageID || event.messageId || null
+        const previous = promptRoutes.get(event.sessionID)
+        if (messageID && previous?.messageID === messageID) {
+          await previous.routerPromise
+          return
+        }
+        const prompt = { messageID, text: event.prompt.text, routerOutput: null, routerPromise: null }
+        promptRoutes.set(event.sessionID, prompt)
+        try {
+          const observations = systemOneObservations()
+          if (observations && observations.enabled()) {
+            observations.handle({ hook_event_name: "UserPromptSubmit", host: "opencode", session_id: event.sessionID,
+              ...(prompt.messageID ? { turn_id: prompt.messageID } : {}), cwd: workspace, prompt: event.prompt.text })
+          }
+        } catch { /* turn observation is always fail-open */ }
+        const routerPayload = { host: "opencode", session_id: event.sessionID,
+          ...(prompt.messageID ? { turn_id: prompt.messageID } : {}), cwd: workspace, prompt: event.prompt.text }
+        prompt.routerPromise = (previous?.routerPromise || Promise.resolve())
+          .catch(() => null).then(() => runKernelRouter(routerPayload))
+        prompt.routerOutput = await prompt.routerPromise
+      } catch { /* routing context is fail-open; do not reject prompt admission */ }
+    })
+    await ctx.session.hook("context", event => {
+      const output = promptRoutes.get(event?.sessionID)?.routerOutput
+      if (!output || (event.kind && event.kind !== "primary") || !Array.isArray(event.system)) return
+      if (!event.system.some(part => part && part.text === output)) event.system.push({ type: "text", text: output })
     })
 
     await ctx.tool.hook("execute.before", (event) =>
       hooks["tool.execute.before"](toolEventInput(event), { args: event.input }))
     await ctx.tool.hook("execute.after", (event) =>
-      hooks["tool.execute.after"](toolEventInput(event), {
+      (observeOpenCodeTool(event, workspace), hooks["tool.execute.after"](toolEventInput(event), {
         args: event.input,
         status: event.status,
         result: event.result,
         error: event.error,
         messageID: event.messageID,
-      }))
+      })))
 
     const pendingIdles = new Set()
     void (async () => {
       try {
         for await (const raw of ctx.event.subscribe({ signal: events.signal })) {
           if (events.signal.aborted) break
+          const sessionID = raw.sessionID || (raw.properties && (raw.properties.sessionID || raw.properties.info?.id))
+          if (raw.type === "session.idle" && typeof sessionID === "string" && promptRoutes.has(sessionID)) {
+            const observation = observeOpenCodeCompletion(sessionID, ctx, workspace, promptRoutes)
+              .catch(() => {})
+              .finally(() => pendingIdles.delete(observation))
+            pendingIdles.add(observation)
+          } else if (["session.created", "session.deleted"].includes(raw.type) && sessionID) {
+            promptRoutes.delete(sessionID)
+          }
           const delivery = hooks.event({
             event: {
               type: raw.type,

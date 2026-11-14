@@ -173,6 +173,8 @@ warning sign. The review page samples the turns where they differ.
     cannot read Codex trust state.
   - The final message comes from the rollout's `task_complete` event.
 - Fresh live-host verification on Windows (Codex CLI 0.162.1, 2026-10-13) exercised the user-hook compatibility fallback: only the `UserPromptSubmit` and `Stop` observation hooks were individually reviewed/trusted. Two consecutive real turns produced `host: "codex"` records with distinct current `turn_id` values and their respective valid self-reports. The sanitized record excerpt and scope limits are preserved in [Codex live-host evidence](../benchmarks/results/live-host/codex-2026-10-13/README.md). This does not verify native plugin-bundled hooks, other lifecycle events, or tool behavior capture.
+- **OpenCode 2.x:** the plugin's documented `prompt` hook captures the original user text and runs the canonical kernel router; its `context` hook adds that router output, including the exact label instruction, to primary model requests. OpenCode tool events and `session.idle` feed the shared observation library, which reads the current turn's final assistant text through the session context API. `HARNESS_OBSERVATIONS=off` disables capture while routing injection remains active. Deterministic mechanism tests cover injection, turn recording, malformed labels, and opt-out; there is no retained live-host artifact for these hooks yet.
+- The OpenCode exporter reports malformed `label-invalid` and `label-unparseable` records by host in `malformedLabelsByHost`; missing labels remain a separate reason and count.
 - The final message must belong to the current turn. A transcript scan
   stops at the start of the current turn (Codex `task_started` or a user
   message; a Claude user prompt) and a Codex `task_complete` must carry the
@@ -202,6 +204,9 @@ repository:
 
 - `prompts-observed.jsonl`: `{id, family, source: "observation", split, text}`
 - `labels-observed.jsonl`: `{id, validity, contextDependent, tier, tierSource, intents, workflow, skills, behaviorEvidence, contradictions}`
+
+The text-free `export-report.json` includes `malformedLabelsByHost` for invalid
+or unparseable self-reports, including those omitted by `--self-report-only`.
 
 `family` groups near-duplicate prompts. The split is by time: the newest 15%
 is validation. The existing holdouts stay frozen and separate. Observed data

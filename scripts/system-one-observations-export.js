@@ -80,6 +80,14 @@ function run(args) {
   obs.sweep(store);
   const index = obs.readJson(path.join(store, 'observations-index.json'), null);
   if (!index || index.schemaVersion !== 1 || !Array.isArray(index.records)) throw new Error(`no observation index in ${store}`);
+  const malformedLabelReasons = new Set(['label-invalid', 'label-unparseable']);
+  const malformedLabelsByHost = {};
+  for (const record of index.records) {
+    if (since !== null && (!Number.isFinite(Date.parse(record.observedAt || '')) || Date.parse(record.observedAt) < since)) continue;
+    if (!malformedLabelReasons.has(record.selfReportReason)) continue;
+    const host = String(record.host || 'unknown');
+    malformedLabelsByHost[host] = (malformedLabelsByHost[host] || 0) + 1;
+  }
   const rows = [];
   let skippedNoText = 0;
   let skippedBeforeSince = 0;
@@ -115,6 +123,7 @@ function run(args) {
     since: sinceText, selfReportOnly, skippedBeforeSince, skippedUnlabeled,
     skippedNoText, validationRows: validation, withSelfReport: withSelf.length,
     selfReportReasons: count(r => r.record.selfReportReason || 'ok'), hosts: count(r => r.record.host),
+    malformedLabelsByHost: Object.fromEntries(Object.entries(malformedLabelsByHost).sort(([left], [right]) => left.localeCompare(right))),
     validity: count(r => r.label.validity), tiers: count(r => r.label.tier), tierSources: count(r => r.label.tierSource),
     behaviorEvidence: {
       observed: rows.filter(r => r.label.behaviorEvidence === 'observed').length,
