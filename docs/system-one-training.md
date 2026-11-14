@@ -159,17 +159,25 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
     same logits, which ranks the intents in relevance order, so the contract's
     probability vector and the calibration below stay as they are. Handing the absolute
     relevance bands to the skills stage is a separate contract change.
-- The `tinyx` path below is kept for comparison. Its first checkpoint learned little beyond
-  class priors.
-- **Model** (`tinyx`): a new `cua_s1` `tinyx` scorer built with `make_system`.
+- **CUA-S1 trainer**: `scripts/system-one-train.py` builds a new `cua_s1` `tinyx` scorer
+  with `make_system`. `--task {validity,intent,tier}` selects the head (default `tier`);
+  `--target {label,scores}` selects hard labels or scored intent labels (default `label`).
+  `--target scores` requires `--task intent` and reads `labels-intent-scores.jsonl`.
   - Config: `width` 128, `rank` 128, `layers` 2, `heads` 4, `context_tokens` 1024 and
     `option_tokens` 96.
   - Weights are initialized fresh, not from the forms checkpoint, whose domain and
     positional range differ.
-- **Target**: each example is the fixed tier catalog with the index of the gold option.
-  `null` maps to `unclassified`.
-- **Optimization**:
-  - Cross-entropy, AdamW, a fixed seed and CPU.
+- **Targets**: each option is an independent binary target. The validity head uses all
+  `labels.jsonl` rows and scores one `invalid` option: a `null` tier gold maps to 1, and a
+  tier gold maps to 0. The tier head uses valid `labels.jsonl` rows, the three options
+  `tier1`, `tier2` and `tier3`, and a one-hot target. The intent head uses valid
+  `labels-intent.jsonl` rows and the fixed intent catalog; its hard target is multi-hot for
+  `gold` plus `secondary`. With `--target scores`, each intent's value from
+  `labels-intent-scores.jsonl` is its soft target.
+- **Optimization**: per-option binary cross-entropy with logits, AdamW, a fixed seed and CPU.
+  Validation applies sigmoid independently to each option; `val-scores.jsonl` stores rows as
+  `{id, gold, scores: {option: probability}}`; option probabilities are independent and do
+  not have to sum to one.
   - The epoch with the lowest validation negative log-likelihood is kept.
   - The checkpoint metadata records the dataset hashes, the config and the validation metrics.
 - **Calibration**: `minConfidence` and `minMargin` are chosen on validation to maximize

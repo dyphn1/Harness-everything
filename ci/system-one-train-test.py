@@ -1,4 +1,4 @@
-"""Stdlib-only tests for the System One trainer's data handling (no torch needed)."""
+"""Stdlib-only tests for CUA-S1 targets and data handling (no torch needed)."""
 import importlib.util
 import json
 from pathlib import Path
@@ -12,16 +12,55 @@ trainer = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(trainer)
 assert 'torch' not in sys.modules, 'importing the trainer must not import torch'
 
-catalog = trainer.catalog_from_holdout(ROOT / 'benchmarks' / 'fixtures' / 'system-one-holdout.json')
-assert [o['id'] for o in catalog] == ['tier1', 'tier2', 'tier3', 'unclassified'], catalog
-assert all(o['text'] for o in catalog)
-assert trainer.label_index('tier2', catalog) == 1
-assert trainer.label_index(None, catalog) == 3
-try:
-    trainer.label_index('tier9', catalog)
-    raise SystemExit('unknown gold must be rejected')
-except ValueError:
-    pass
+tier_catalog = trainer.catalog_for('tier')
+intent_catalog = trainer.catalog_for('intent')
+validity_catalog = trainer.catalog_for('validity')
+assert [o['id'] for o in tier_catalog] == ['tier1', 'tier2', 'tier3'], tier_catalog
+assert [o['id'] for o in intent_catalog][-1] == 'unclassified', intent_catalog
+assert [o['id'] for o in validity_catalog] == ['invalid'], validity_catalog
+
+validity_rows = [
+    {'id': 'valid', 'gold': 'tier2'},
+    {'id': 'invalid', 'gold': None},
+]
+assert [trainer.build_targets(r, validity_catalog, 'validity') for r in validity_rows] == [[0.0], [1.0]]
+print('PASS validity target: all labeled rows; invalid iff tier gold is null')
+
+intent_row = {'id': 'intent', 'gold': 'fix', 'secondary': ['test']}
+intent_ids = [o['id'] for o in intent_catalog]
+intent_targets = trainer.build_targets(intent_row, intent_catalog, 'intent')
+assert intent_targets[intent_ids.index('fix')] == 1.0
+assert intent_targets[intent_ids.index('test')] == 1.0
+assert sum(intent_targets) == 2.0
+assert intent_targets[intent_ids.index('unclassified')] == 0.0
+print('PASS intent target: hard multi-hot for gold and secondary')
+
+tier_row = {'id': 'tier', 'gold': 'tier2'}
+tier_targets = trainer.build_targets(tier_row, tier_catalog, 'tier')
+assert tier_targets == [0.0, 1.0, 0.0]
+print('PASS tier target: three-way one-hot on valid rows')
+
+scores_row = {'id': 'scored', 'gold': 'fix', 'secondary': ['test'],
+              'scores': {'fix': 0.9, 'test': 0.55}}
+scores_targets = trainer.build_targets(scores_row, intent_catalog, 'intent', target='scores')
+assert scores_targets[intent_ids.index('fix')] == 0.9
+assert scores_targets[intent_ids.index('test')] == 0.55
+assert scores_targets[intent_ids.index('git')] == 0.0
+print('PASS intent target: soft scores from labels-intent-scores rows')
+
+intent_rows = [{'id': 'valid', 'gold': 'fix', 'secondary': []},
+               {'id': 'invalid', 'gold': None, 'secondary': []}]
+assert trainer.eligible_rows(validity_rows, 'validity') == validity_rows
+assert trainer.eligible_rows(intent_rows, 'intent') == [intent_rows[0]]
+assert trainer.eligible_rows(validity_rows, 'tier') == [validity_rows[0]]
+assert trainer.build_targets(validity_rows[1], validity_catalog, 'validity') == [1.0]
+assert trainer.target_gold(validity_rows[0], 'validity') == 'actionable'
+assert trainer.target_gold(validity_rows[1], 'validity') == 'invalid'
+print('PASS null handling: validity keeps null; intent and tier exclude it')
+
+record = trainer.validation_record(tier_row, tier_catalog, [0.1, 0.8, 0.2], 'tier')
+assert record == {'id': 'tier', 'gold': 'tier2', 'scores': {'tier1': 0.1, 'tier2': 0.8, 'tier3': 0.2}}
+print('PASS validation score rows use independent option-keyed scores')
 
 prompts = [
     {'id': 'a', 'family': 'f1', 'source': 'claude', 'split': 'train', 'text': 'commit'},
@@ -30,11 +69,11 @@ prompts = [
     {'id': 'd', 'family': 'f4', 'source': 'codex', 'split': 'train', 'text': 'owner override'},
 ]
 labels = [{'id': 'a', 'gold': 'tier1'}, {'id': 'b', 'gold': None}, {'id': 'd', 'gold': 'tier3'}]
-overrides = [{'id': 'd', 'gold': 'tier2'}]
-examples = trainer.join(prompts, labels, overrides)
-assert [(e['id'], e['split'], e['gold']) for e in examples] == [('a', 'train', 'tier1'), ('b', 'validation', None), ('d', 'train', 'tier2')], examples
+examples = trainer.join(prompts, labels)
+assert [(e['id'], e['split'], e['gold']) for e in examples] == [
+    ('a', 'train', 'tier1'), ('b', 'validation', None), ('d', 'train', 'tier3')], examples
 try:
-    trainer.join(prompts, labels + [{'id': 'a', 'gold': 'tier2'}], [])
+    trainer.join(prompts, labels + [{'id': 'a', 'gold': 'tier2'}])
     raise SystemExit('duplicate labels must be rejected')
 except ValueError:
     pass
@@ -45,12 +84,6 @@ flat = sorted(i for b in batches for i in b)
 assert flat == list(range(len(lengths))), 'every example exactly once'
 assert all(len(b) * max(lengths[i] for i in b) <= 4096 or len(b) == 1 for b in batches), 'budget respected'
 assert batches == trainer.make_batches(lengths, token_budget=4096), 'deterministic'
-
-weights = trainer.class_weights([0, 0, 0, 1, 2, 2], 4)
-assert len(weights) == 4
-assert weights[3] == 0.0, 'an absent class gets no weight'
-assert weights[1] > weights[2] > weights[0], weights
-assert abs(sum(w * n for w, n in zip(weights, [3, 1, 2, 0])) - 6) < 1e-9, 'weights average to 1 over the examples'
 
 with tempfile.TemporaryDirectory() as tmp:
     p = Path(tmp) / 'rows.jsonl'
