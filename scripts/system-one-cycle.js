@@ -2,9 +2,8 @@
 'use strict';
 
 const path = require('node:path');
-const fs = require('node:fs');
 const {
-  REPO, STEPS, parseFlags, flag, required, markStep, stepComplete, resultSummary,
+  STEPS, parseFlags, flag, required, markStep, stepComplete, resultSummary,
 } = require('./system-one-cycle/common');
 const { collect } = require('./system-one-cycle/collect');
 const { labelData } = require('./system-one-cycle/label');
@@ -57,18 +56,6 @@ function outputsFor(step, dataDir, version, versionDir, result) {
   }
 }
 
-function assertSyntheticBuildRoot(dataDir) {
-  const relative = path.relative(REPO, dataDir);
-  if (relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative))) {
-    if (!relative.startsWith(`.s1-work${path.sep}`)) throw new Error('repository-local build data is allowed only under .s1-work synthetic fixtures');
-    const prompts = path.join(dataDir, 'training', 'observed', 'prompts-observed.jsonl');
-    const rows = fs.readFileSync(prompts, 'utf8').split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
-    if (!rows.length || rows.some(row => typeof row.text !== 'string' || !row.text.toLowerCase().includes('synthetic'))) {
-      throw new Error('repository-local build input must contain only synthetic fixture rows');
-    }
-  }
-}
-
 async function runStep(step, flags, dataDir) {
   if (!STEPS.includes(step)) throw new Error(`unknown cycle step: ${step}`);
   if (['collect', 'label', 'judge'].includes(step) && stepComplete(dataDir, step)) return resultSummary(step, { skipped: true });
@@ -87,7 +74,6 @@ async function runStep(step, flags, dataDir) {
       result = await judgeRows({ dataDir, batchSize: integerFlag(flags, 'batch', 20) });
       break;
     case 'build':
-      assertSyntheticBuildRoot(dataDir);
       result = buildDataset({ dataDir, holdoutFiles: values(flags, 'holdout').length ? values(flags, 'holdout') : undefined });
       break;
     case 'train':

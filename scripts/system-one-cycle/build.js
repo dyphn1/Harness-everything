@@ -2,7 +2,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { REPO, readJsonl, writeJsonl, writeJson } = require('./common');
+const { REPO, readJsonl, writeJsonl, writeJson, assertPrivateDataDir, isSyntheticBuildDataDir } = require('./common');
 const { CATALOGS, validSecondary } = require('../../harness-everything/scripts/system-one/catalogs');
 
 const TIERS = new Set(['tier1', 'tier2', 'tier3']);
@@ -47,15 +47,27 @@ function defaultHoldouts() {
   return ['system-one-holdout.json', 'system-one-intent-holdout.json'].map(file => path.join(dir, file));
 }
 
-function buildDataset({ dataDir, holdoutFiles = defaultHoldouts(), outDir = path.join(dataDir, 'training', 'v1'),
-  validityOutDir = path.join(dataDir, 'training', 'v1-validity') }) {
-  const training = path.join(dataDir, 'training');
+function buildDataset({ dataDir, holdoutFiles = defaultHoldouts(), outDir, validityOutDir }) {
+  const privateDir = assertPrivateDataDir(dataDir, { allowSyntheticBuildRoot: true, create: false });
+  const syntheticBuildRoot = isSyntheticBuildDataDir(privateDir);
+  const outputDir = outDir === undefined ? path.join(privateDir, 'training', 'v1') : outDir;
+  const validityOutputDir = validityOutDir === undefined ? path.join(privateDir, 'training', 'v1-validity') : validityOutDir;
+  outDir = assertPrivateDataDir(outputDir, {
+    allowSyntheticBuildRoot: syntheticBuildRoot, create: false,
+  });
+  validityOutDir = assertPrivateDataDir(validityOutputDir, {
+    allowSyntheticBuildRoot: syntheticBuildRoot, create: false,
+  });
+  const training = path.join(privateDir, 'training');
   const promptFile = path.join(training, 'observed', 'prompts-observed.jsonl');
   const selfFile = path.join(training, 'observed', 'labels-observed.jsonl');
   const lunaFile = path.join(training, 'relabel-luna', 'labels.jsonl');
   const intentFile = path.join(training, 'relabel-luna', 'labels-intent.jsonl');
   const consensusFile = path.join(training, 'adjudication', 'consensus.jsonl');
   const promptRows = readJsonl(promptFile);
+  if (syntheticBuildRoot && (!promptRows.length || promptRows.some(row => typeof row.text !== 'string' || !row.text.toLowerCase().includes('synthetic')))) {
+    throw new Error('repository-local build input must contain only synthetic fixture rows');
+  }
   const selfLabels = indexById(readJsonl(selfFile, true), selfFile);
   const luna = indexById(readJsonl(lunaFile), lunaFile);
   const intents = indexById(readJsonl(intentFile), intentFile);
@@ -124,11 +136,11 @@ function buildDataset({ dataDir, holdoutFiles = defaultHoldouts(), outDir = path
     droppedByReason,
   };
 
-  fs.mkdirSync(outDir, { recursive: true, mode: 0o700 });
+  outDir = assertPrivateDataDir(outDir, { allowSyntheticBuildRoot: syntheticBuildRoot });
+  validityOutDir = assertPrivateDataDir(validityOutDir, { allowSyntheticBuildRoot: syntheticBuildRoot });
   writeJsonl(path.join(outDir, 'prompts.jsonl'), prompts);
   writeJsonl(path.join(outDir, 'labels.jsonl'), labels);
   writeJsonl(path.join(outDir, 'labels-intent.jsonl'), intentRows);
-  fs.mkdirSync(validityOutDir, { recursive: true, mode: 0o700 });
   writeJsonl(path.join(validityOutDir, 'prompts.jsonl'), prompts);
   writeJsonl(path.join(validityOutDir, 'labels.jsonl'), validityLabels);
   writeJson(path.join(outDir, 'report.json'), report);
