@@ -260,7 +260,11 @@ Live reads `~/.agents/harness-everything/system-one/active.json`; tests can poin
 directory contains `manifest.json` with `schemaVersion`, `version`, `createdAt`,
 `stages`, and `evaluation`. `stages` contains `validity`, `intent`, and `tier`;
 each entry names sibling `weights` and `config` files, the weights `sha256`, its
-ordered `options`, and per-option `thresholds`. The router verifies the weight
+ordered trainer-catalog `options` (with `unclassified` omitted), and one
+per-option `threshold`. The validity catalog has only `invalid`. An optional
+`referenceOnly` list must be a subset of the stage options, and each listed
+option must have threshold `1`. Its score remains visible in the reference
+readout, but it is excluded from automatic decisions. The router verifies the weight
 hash and the CUA-S1 adapter verifies the checkpoint/config pair before loading.
 The workflow hash is the first 16 hex digits of the tier weights hash. A single
 resident process loads all three checkpoints from that version. The public plugin

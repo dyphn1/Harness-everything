@@ -29,6 +29,12 @@ test('S1-C02 rejected input partitions and byte boundaries', () => {
     const r = request(); mutate(r); assert.throws(() => validateRequest(r));
   }
 });
+test('legacy requests reject one option while live validity can opt in', () => {
+  const single = [{ id: 'invalid', text: 'Needs context' }];
+  assert.throws(() => createRequest('validity', 'current text', single), { code: 'invalid-request' });
+  const live = createRequest('validity', 'current text', single, { minOptions: 1 });
+  assert.equal(validateRequest(live), true);
+});
 test('S1-C03 complete output validation and no raw-data leakage', () => {
   const req = request();
   for (const mutate of [r => { r.schemaVersion = 2; }, r => { r.requestHash = 'stale'; }, r => { r.catalogHash = 'stale'; }, r => { r.scores.pop(); }, r => { r.scores.push(r.scores[0]); }, r => { r.scores.reverse(); }, r => { r.scores[1].id = r.scores[0].id; }, r => { r.scores[0].probability = NaN; }, r => { r.scores[0].probability = Infinity; }, r => { r.scores[0].probability = -1; }, r => { r.scores[0].probability = 1.1; }, r => { r.scores[0].probability = '0.95'; }, r => { r.scores[0].extra = 'secret'; }, r => { r.model.extra = 'secret'; }, r => { r.model.revision = ''; }, r => { delete r.model; }, r => { r.extra = 'secret'; }]) {

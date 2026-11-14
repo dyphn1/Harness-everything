@@ -140,7 +140,8 @@ function startActive(active, files, deps) {
   try {
     const [exe, prefix] = (deps.command || defaultActiveCommand)(active);
     child = spawn(exe, [...prefix, active.pointerPath, files.state, files.lock, active.fingerprint],
-      { detached: true, stdio: 'ignore', windowsHide: true, shell: false });
+      { detached: true, stdio: 'ignore', windowsHide: true, shell: false,
+        env: { ...process.env, HARNESS_SYSTEM_ONE_NODE: process.execPath } });
     child.on('error', () => { /* recorded synchronously below: a failed spawn has no pid */ });
     child.unref();
   } catch (_) { child = null; }

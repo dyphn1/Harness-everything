@@ -5,6 +5,7 @@ const path = require('node:path');
 const { createHash } = require('node:crypto');
 const { spawnSync } = require('node:child_process');
 const { createRequest, validateRequest, validateResponse } = require('./contract');
+const { STAGES, validateVersionManifest } = require('./manifest');
 // Upstream cua_s1 source revision documented in docs/system-one-routing.md.
 const PINNED_CUA_S1_REVISION = 'b7f7e2d8714609853a29c7d049140bc46aec0954';
 const ADAPTER = path.join(__dirname, 'cua_adapter.py');
@@ -16,9 +17,8 @@ const label = value => typeof value === 'string' && value.length > 0 && value.le
 const adapterName = value => typeof value === 'string' && /^[a-z][a-z0-9_-]{0,63}\.py$/.test(value);
 // Thresholds calibrated on validation for this checkpoint (docs/system-one-training.md).
 const inRange = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
-const LIVE_STAGES = ['validity', 'intent', 'tier'];
+const LIVE_STAGES = STAGES;
 const SAFE_ID = /^[a-z0-9._-]{1,80}$/;
-const HASH = /^[a-f0-9]{64}$/;
 const sha256 = value => createHash('sha256').update(value).digest('hex');
 // secondaryThreshold is optional and belongs to intent checkpoints (docs/system-one-intent.md#scoring).
 const validAcceptance = a => (exact(a, ['minConfidence', 'minMargin']) || (exact(a, ['minConfidence', 'minMargin', 'secondaryThreshold']) && inRange(a.secondaryThreshold, 0.05, 0.5)))
@@ -151,27 +151,14 @@ function readActive(env = process.env) {
     const manifestStat = fs.lstatSync(manifestPath);
     if (!manifestStat.isFile() || manifestStat.isSymbolicLink() || manifestStat.size > 131072) return null;
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-    if (!exact(manifest, ['schemaVersion', 'version', 'createdAt', 'stages', 'evaluation'])
-      || manifest.schemaVersion !== 1 || manifest.version !== pointer.version
-      || typeof manifest.createdAt !== 'string' || !Number.isFinite(Date.parse(manifest.createdAt))
-      || !exact(manifest.stages, LIVE_STAGES)) return null;
-    if (manifest.evaluation !== null && (typeof manifest.evaluation !== 'string' || !manifest.evaluation
-      || path.isAbsolute(manifest.evaluation) || manifest.evaluation.replace(/\\/g, '/').split('/').some(part => !part || part === '..' || part === '.'))) return null;
+    validateVersionManifest(manifest, pointer.version);
     const loadedStages = {};
     for (const stageName of LIVE_STAGES) {
       const stage = manifest.stages[stageName];
-      if (!exact(stage, ['weights', 'config', 'sha256', 'options', 'thresholds']) || !HASH.test(stage.sha256)
-        || !Array.isArray(stage.options) || stage.options.length < 2 || stage.options.some(id => typeof id !== 'string' || !SAFE_ID.test(id))
-        || new Set(stage.options).size !== stage.options.length || !stage.thresholds || typeof stage.thresholds !== 'object' || Array.isArray(stage.thresholds)) return null;
       const weightsPath = readableFile(dir, stage.weights, '.safetensors');
       const configPath = readableFile(dir, stage.config, '.json');
       if (!weightsPath || !configPath || sha256(fs.readFileSync(weightsPath)) !== stage.sha256) return null;
-      const thresholds = stage.thresholds;
-      const thresholdIds = Object.keys(thresholds);
-      const expectedIds = stage.options.filter(id => id !== 'unclassified' && !(stageName === 'validity' && id === 'actionable'));
-      if (thresholdIds.length !== expectedIds.length || expectedIds.some(id => !Object.hasOwn(thresholds, id) || !inRange(thresholds[id], 0, 1))
-        || thresholdIds.some(id => !expectedIds.includes(id))) return null;
-      loadedStages[stageName] = { ...stage, weightsPath, configPath,
+      loadedStages[stageName] = { ...stage, referenceOnly: stage.referenceOnly ?? [], weightsPath, configPath,
         configSha256: sha256(fs.readFileSync(configPath)) };
     }
     const fingerprint = sha256(`${pointer.version}\0${dir}\0${LIVE_STAGES.map(stage => `${stage}\0${loadedStages[stage].sha256}\0${loadedStages[stage].configSha256}`).join('\0')}`);
@@ -186,13 +173,17 @@ async function scoreLive(prompt, env = process.env, catalogs, scoreStage = (stag
   if (!active || typeof prompt !== 'string' || !catalogs) return null;
   const stageScores = { validity: null, intent: null, tier: null };
   for (const stage of LIVE_STAGES) {
-    const options = catalogs[stage];
-    if (!Array.isArray(options) || options.length !== active.stages[stage].options.length
-      || options.some((option, index) => option?.id !== active.stages[stage].options[index])) return null;
+    const catalog = catalogs[stage];
+    const ids = active.stages[stage].options;
+    const expectedIds = Array.isArray(catalog) ? catalog.map(option => option?.id)
+      .filter(id => id !== 'unclassified' && !(stage === 'validity' && id === 'actionable')) : [];
+    if (!Array.isArray(catalog) || ids.length !== expectedIds.length
+      || ids.some((id, index) => id !== expectedIds[index])) return null;
+    const options = ids.map(id => catalog.find(option => option?.id === id));
     let result;
     let request;
     try {
-      request = createRequest(stage, prompt, options);
+      request = createRequest(stage, prompt, options, stage === 'validity' ? { minOptions: 1 } : undefined);
       result = await scoreStage(stage, request, active);
     } catch (_) { result = null; }
     if (!result || result.status !== 'scored' || !validateResponse(request, result.response)) {
@@ -202,12 +193,14 @@ async function scoreLive(prompt, env = process.env, catalogs, scoreStage = (stag
     stageScores[stage] = Object.fromEntries(result.response.scores
       .filter(score => score.id !== 'unclassified' && !(stage === 'validity' && score.id === 'actionable'))
       .map(score => [score.id, score.probability]));
-    if (stage === 'validity' && stageScores.validity.invalid >= active.stages.validity.thresholds.invalid) break;
+    if (stage === 'validity' && (active.stages.validity.referenceOnly.includes('invalid')
+      || stageScores.validity.invalid >= active.stages.validity.thresholds.invalid)) break;
   }
   const current = readActive(env);
   if (!current || current.fingerprint !== active.fingerprint) return null;
   return { version: active.version, sha256: active.sha256, stageScores,
-    thresholds: Object.fromEntries(LIVE_STAGES.map(stage => [stage, { ...active.stages[stage].thresholds }])) };
+    thresholds: Object.fromEntries(LIVE_STAGES.map(stage => [stage, { ...active.stages[stage].thresholds }])),
+    referenceOnly: Object.fromEntries(LIVE_STAGES.map(stage => [stage, [...active.stages[stage].referenceOnly]])) };
 }
 module.exports = { score, scoreAsync, runProvider, validateManifest, readManifest, provenance, validateProvenance,
   decisionPolicy, readActive, scoreLive, PINNED_CUA_S1_REVISION };

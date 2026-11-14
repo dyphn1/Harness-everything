@@ -78,6 +78,21 @@ def infer(request, manifest):
 ACTIVE_STAGES = ('validity', 'intent', 'tier')
 
 
+def validate_shared_manifest(manifest):
+    node = os.environ.get('HARNESS_SYSTEM_ONE_NODE') or shutil.which('node')
+    if not node:
+        raise ValueError('active-manifest')
+    validator = Path(__file__).with_name('manifest.js')
+    try:
+        result = subprocess.run([node, str(validator)], input=json.dumps(manifest), text=True,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5,
+                                shell=False, check=False)
+    except (OSError, subprocess.SubprocessError):
+        raise ValueError('active-manifest') from None
+    if result.returncode != 0:
+        raise ValueError('active-manifest')
+
+
 def _active_artifact(directory, name, suffix):
     if not isinstance(name, str) or not re.fullmatch(r'[A-Za-z0-9._-]+', name) or name in ('.', '..') or Path(name).name != name or '\\' in name or Path(name).suffix != suffix:
         raise ValueError('checkpoint-format')
@@ -129,32 +144,17 @@ def load_active_bundle(active_path, expected_fingerprint=None, scorer_loader=Non
     if manifest_path.is_symlink() or not manifest_path.is_file() or manifest_path.stat().st_size > 131072:
         raise ValueError('active-manifest')
     manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
-    if (not isinstance(manifest, dict) or set(manifest) != {'schemaVersion', 'version', 'createdAt', 'stages', 'evaluation'}
-            or manifest.get('schemaVersion') != 1 or manifest.get('version') != pointer['version']
-            or not isinstance(manifest.get('createdAt'), str) or not isinstance(manifest.get('stages'), dict)
-            or set(manifest['stages']) != set(ACTIVE_STAGES)
-            or (manifest.get('evaluation') is not None and (not isinstance(manifest['evaluation'], str)
-                or not manifest['evaluation'] or Path(manifest['evaluation']).is_absolute()
-                or any(part in ('', '.', '..') for part in manifest['evaluation'].replace('\\', '/').split('/'))))):
+    validate_shared_manifest(manifest)
+    if manifest['version'] != pointer['version']:
         raise ValueError('active-manifest')
     scorers = {}
     loader = scorer_loader or load_scorer
     for stage in ACTIVE_STAGES:
         entry = manifest['stages'][stage]
-        if (not isinstance(entry, dict) or set(entry) != {'weights', 'config', 'sha256', 'options', 'thresholds'}
-                or not isinstance(entry.get('sha256'), str) or not HASH_PATTERN.fullmatch(entry['sha256'])
-                or not isinstance(entry.get('options'), list) or len(entry['options']) < 2
-                or any(not isinstance(option, str) or not ID_PATTERN.fullmatch(option) for option in entry['options'])
-                or len(set(entry['options'])) != len(entry['options']) or not isinstance(entry.get('thresholds'), dict)):
-            raise ValueError('active-stage')
         weights = _active_artifact(directory, entry['weights'], '.safetensors')
         config_path = _active_artifact(directory, entry['config'], '.json')
         if hashlib.sha256(weights.read_bytes()).hexdigest() != entry['sha256']:
             raise ValueError('artifact-hash')
-        threshold_ids = set(entry['thresholds'])
-        expected_ids = {option for option in entry['options'] if option != 'unclassified' and not (stage == 'validity' and option == 'actionable')}
-        if threshold_ids != expected_ids or any(not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 <= value <= 1 for value in entry['thresholds'].values()):
-            raise ValueError('active-stage')
         stage_manifest = {
             'checkpoint': str(weights),
             'config': str(config_path),
@@ -266,7 +266,7 @@ def _valid_score_request(request):
             or not all(isinstance(request[k], str) and HASH_PATTERN.fullmatch(request[k]) for k in ('catalogHash', 'requestHash'))):
         return False
     options = request['options']
-    if not isinstance(options, list) or not 2 <= len(options) <= MAX_OPTIONS:
+    if not isinstance(options, list) or not 1 <= len(options) <= MAX_OPTIONS:
         return False
     if any(not isinstance(o, dict) or set(o) != {'id', 'text'} or not isinstance(o['id'], str)
            or not ID_PATTERN.fullmatch(o['id']) or not isinstance(o['text'], str) for o in options):

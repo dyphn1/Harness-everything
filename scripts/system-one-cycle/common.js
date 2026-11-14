@@ -5,7 +5,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const REPO = path.resolve(__dirname, '../..');
-const STEPS = ['collect', 'label', 'judge', 'build', 'train', 'evaluate', 'package'];
+const STEPS = ['collect', 'label', 'judge', 'build', 'train', 'evaluate', 'package', 'publish'];
 
 function readJsonl(file, optional = false) {
   if (optional && !fs.existsSync(file)) return [];

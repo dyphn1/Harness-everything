@@ -7,6 +7,7 @@ const path = require('node:path');
 const { createHash, randomBytes } = require('node:crypto');
 const { spawnSync } = require('node:child_process');
 const { PINNED_CUA_S1_REVISION } = require('./provider');
+const { STAGES, validateVersionManifest } = require('./manifest');
 
 const PINS = Object.freeze({
   cuaS1Revision: PINNED_CUA_S1_REVISION,
@@ -14,7 +15,6 @@ const PINS = Object.freeze({
   torchSpec: 'torch>=2.2,<3',
   torchIndex: 'https://download.pytorch.org/whl/cpu',
 });
-const STAGES = ['validity', 'intent', 'tier'];
 const USAGE = 'Usage: install.js install --from <local-path|git-ssh-url> --version <id> [--dir <absolute-dir>] [--python <3.11-3.13>] [--dry-run] | activate <id> | rollback | status';
 
 const defaultDir = () => path.resolve(process.env.HARNESS_SYSTEM_ONE_HOME
@@ -156,27 +156,10 @@ function readCheckpoint(dir, version) {
   let manifest;
   try { manifest = JSON.parse(fs.readFileSync(manifestFile.path, 'utf8')); }
   catch { throw new Error('invalid-manifest: manifest.json is not valid JSON'); }
-  if (!manifest || Object.keys(manifest).sort().join(',') !== 'createdAt,evaluation,schemaVersion,stages,version'
-      || manifest.schemaVersion !== 1 || manifest.version !== version
-      || typeof manifest.createdAt !== 'string' || !manifest.stages
-      || typeof manifest.stages !== 'object' || Array.isArray(manifest.stages)
-      || !(manifest.evaluation === null || typeof manifest.evaluation === 'string')
-      || STAGES.some(stage => !Object.hasOwn(manifest.stages, stage))
-      || Object.keys(manifest.stages).some(stage => !STAGES.includes(stage))) {
-    throw new Error('invalid-manifest: expected schema version 1 and validity, intent, and tier stages');
-  }
+  validateVersionManifest(manifest, version);
   const files = new Map([['manifest.json', manifestFile]]);
   for (const stage of STAGES) {
     const record = manifest.stages[stage];
-    if (!record || typeof record !== 'object' || Array.isArray(record)
-        || Object.keys(record).sort().join(',') !== 'config,options,sha256,thresholds,weights'
-        || !Array.isArray(record.options)
-        || !record.options.every(option => typeof option === 'string')
-        || !record.thresholds || typeof record.thresholds !== 'object' || Array.isArray(record.thresholds)
-        || Object.values(record.thresholds).some(value => !Number.isFinite(value) || value < 0 || value > 1)
-        || typeof record.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(record.sha256)) {
-      throw new Error(`invalid-manifest: malformed ${stage} stage`);
-    }
     const weights = resolveManifestFile(root, record.weights);
     const config = resolveManifestFile(root, record.config);
     if (hash(fs.readFileSync(weights.path)) !== record.sha256) throw new Error(`checkpoint-hash-mismatch: ${stage}`);

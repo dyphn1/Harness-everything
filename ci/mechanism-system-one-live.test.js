@@ -12,15 +12,15 @@ const router = require('../harness-everything/scripts/system-one/router');
 const idHash = value => crypto.createHash('sha256').update(value).digest('hex');
 const stages = {
   validity: {
-    options: ['actionable', 'invalid'],
+    options: ['invalid'],
     thresholds: { invalid: 0.55 },
   },
   intent: {
-    options: ['explain', 'discuss', 'git', 'fix', 'edit', 'feature', 'refactor', 'review', 'test', 'docs', 'plan', 'investigate', 'unclassified'],
+    options: ['explain', 'discuss', 'git', 'fix', 'edit', 'feature', 'refactor', 'review', 'test', 'docs', 'plan', 'investigate'],
     thresholds: Object.fromEntries(['explain', 'discuss', 'git', 'fix', 'edit', 'feature', 'refactor', 'review', 'test', 'docs', 'plan', 'investigate'].map(id => [id, 0.55])),
   },
   tier: {
-    options: ['tier1', 'tier2', 'tier3', 'unclassified'],
+    options: ['tier1', 'tier2', 'tier3'],
     thresholds: { tier1: 0.6, tier2: 0.65, tier3: 0.7 },
   },
 };
@@ -102,7 +102,7 @@ test('S1-L02 scores validity, intent, tier in order with independent probabiliti
     const liveEnv = { ...fixture.env, HARNESS_SYSTEM_ONE_MODE: 'live' };
     const runWithFake = async (stage, request) => {
       calls.push(stage);
-      const values = stage === 'validity' ? [0.91, 0.18]
+      const values = stage === 'validity' ? [0.18]
         : stage === 'intent' ? request.options.map(option => ({ feature: 0.91, fix: 0.8, docs: 0.72 })[option.id] || 0.1)
           : [0.2, 0.76, 0.9, 0.1];
       return { status: 'scored', response: response(request, values) };
@@ -123,10 +123,37 @@ test('S1-L02 scores validity, intent, tier in order with independent probabiliti
     calls.length = 0;
     const invalid = await router.prescoreLive('fixture context', liveEnv, (prompt, env, options) => provider.scoreLive(prompt, env, options, async (stage, request) => {
       calls.push(stage);
-      return { status: 'scored', response: response(request, [0.1, 0.9]) };
+      return { status: 'scored', response: response(request, [0.9]) };
     }));
     assert.deepEqual(calls, ['validity']);
     assert.deepEqual(invalid.stageScores, { validity: { invalid: 0.9 }, intent: null, tier: null });
+  } finally {
+    fs.rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('reference-only validity reports its score and abstains without scoring later stages', async () => {
+  const fixture = activeFixture();
+  try {
+    const manifestFile = path.join(fixture.dir, 'manifest.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+    manifest.stages.validity.thresholds.invalid = 1;
+    manifest.stages.validity.referenceOnly = ['invalid'];
+    fs.writeFileSync(manifestFile, JSON.stringify(manifest));
+    const calls = [];
+    const result = await provider.scoreLive('fixture context', fixture.env, {
+      validity: router.VALIDITY_OPTIONS,
+      intent: require('../harness-everything/scripts/system-one/catalogs').INTENT_OPTIONS,
+      tier: router.TIER_OPTIONS,
+    }, async (stage, request) => {
+      calls.push(stage);
+      return { status: 'scored', response: response(request, [1]) };
+    });
+    assert.deepEqual(calls, ['validity']);
+    assert.equal(result.stageScores.validity.invalid, 1);
+    const routed = router.routeLive({ tier: 'Tier 2 (Standard Task)', floor: null, explicit: false }, result);
+    assert.equal(routed.systemOne.decision.validity, 'abstain');
+    assert.deepEqual(routed.reference.referenceOnlyOptions, [{ stage: 'validity', id: 'invalid', probability: 1 }]);
   } finally {
     fs.rmSync(fixture.root, { recursive: true, force: true });
   }
@@ -147,7 +174,7 @@ test('F1 provider keeps adapter vectors and projects live sigmoid stages to opti
     };
     const adapterResponses = [];
     const result = await provider.scoreLive('fixture context', fixture.env, catalogs, async (stage, request) => {
-      const values = stage === 'validity' ? [0.9, 0.1]
+      const values = stage === 'validity' ? [0.1]
         : stage === 'intent' ? request.options.map(option => ({ fix: 0.9, test: 0.8 })[option.id] || 0.1)
           : [0.2, 0.76, 0.9, 0.1];
       const scored = response(request, values);
@@ -229,7 +256,7 @@ test('S1-L04 workflow plan carries the fixed object and user output labels score
       thresholds: { validity: { invalid: 0.55 }, intent: stages.intent.thresholds, tier: stages.tier.thresholds },
     };
     const contract = run('fixture request with clear scope', null, { systemOneResult: result });
-    assert.deepEqual(Object.keys(contract.workflowPlan.systemOne), ['version', 'sha256', 'mode', 'inputEnrichment', 'validity', 'intents', 'tier', 'decision']);
+    assert.deepEqual(Object.keys(contract.workflowPlan.systemOne), ['version', 'sha256', 'mode', 'inputEnrichment', 'referenceOnly', 'validity', 'intents', 'tier', 'decision']);
     assert.deepEqual(contract.workflowPlan.systemOne.inputEnrichment, { handoffFiles: 0 });
     assert.deepEqual(contract.workflowPlan.systemOne.decision, { validity: 'actionable', intents: ['feature', 'fix', 'docs'], tier: 'tier3' });
     assert.deepEqual(JSON.parse(fs.readFileSync(env.HARNESS_ROUTER_CONTRACT_PATH, 'utf8')).workflowPlan.systemOne, contract.workflowPlan.systemOne);

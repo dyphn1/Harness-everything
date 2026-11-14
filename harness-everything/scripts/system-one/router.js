@@ -31,9 +31,11 @@ function routeLive(input, result) {
   const options = liveOptions();
   const stages = result.stageScores || {};
   const thresholds = result.thresholds || {};
+  const referenceOnly = Object.fromEntries(['validity', 'intent', 'tier'].map(stage => [stage,
+    Array.isArray(result.referenceOnly?.[stage]) ? result.referenceOnly[stage].filter(id => typeof id === 'string') : []]));
   const validityScores = exactScores(stages.validity, ['invalid'])
     && isProbability(thresholds.validity?.invalid) ? { invalid: stages.validity.invalid } : null;
-  const validity = validityScores === null ? 'abstain'
+  const validity = validityScores === null || referenceOnly.validity.includes('invalid') ? 'abstain'
     : validityScores.invalid >= thresholds.validity.invalid ? 'invalid' : 'actionable';
   const intentIds = options.intent.map(option => option.id).filter(id => id !== 'unclassified');
   const intents = validity === 'actionable' && exactScores(stages.intent, intentIds)
@@ -42,9 +44,9 @@ function routeLive(input, result) {
   const tierIds = ['tier1', 'tier2', 'tier3'];
   const tierScores = validity === 'actionable' && exactScores(stages.tier, tierIds)
     && tierIds.every(id => isProbability(thresholds.tier?.[id])) ? stages.tier : null;
-  const selectedIntents = intents ? intentIds.filter(id => intents[id] >= thresholds.intent[id])
+  const selectedIntents = intents ? intentIds.filter(id => !referenceOnly.intent.includes(id) && intents[id] >= thresholds.intent[id])
     .sort((a, b) => (intents[b] - intents[a]) || (intentIds.indexOf(a) - intentIds.indexOf(b))).slice(0, 3) : [];
-  const rankedTiers = tierScores ? [...tierIds].sort((a, b) => (tierScores[b] - tierScores[a])
+  const rankedTiers = tierScores ? tierIds.filter(id => !referenceOnly.tier.includes(id)).sort((a, b) => (tierScores[b] - tierScores[a])
     || (tierIds.indexOf(a) - tierIds.indexOf(b))) : [];
   const bestTier = rankedTiers[0];
   const selectedTier = bestTier && tierScores[bestTier] >= thresholds.tier[bestTier]
@@ -55,6 +57,7 @@ function routeLive(input, result) {
     mode: 'live',
     inputEnrichment: { handoffFiles: Number.isSafeInteger(result.inputEnrichment?.handoffFiles)
       ? result.inputEnrichment.handoffFiles : 0 },
+    referenceOnly,
     validity: validityScores,
     intents,
     tier: tierScores,
@@ -63,8 +66,12 @@ function routeLive(input, result) {
   const top = (stage, scores) => scores ? Object.entries(scores).sort((a, b) => b[1] - a[1]
     || Object.keys(scores).indexOf(a[0]) - Object.keys(scores).indexOf(b[0])).slice(0, 3)
     .map(([id, probability]) => ({ stage, id, probability })) : [];
+  const referenceOnlyOptions = Object.entries(referenceOnly).flatMap(([stage, ids]) => ids
+    .filter(id => isProbability(stages[stage]?.[id]))
+    .map(id => ({ stage, id, probability: stages[stage][id] })));
   const reference = { version: result.version, sha256: result.sha256,
-    topOptions: [...top('validity', validityScores), ...top('intent', intents), ...top('tier', tierScores)] };
+    topOptions: [...top('validity', validityScores), ...top('intent', intents), ...top('tier', tierScores)],
+    referenceOnlyOptions };
   const floorValid = input.floor == null || Object.hasOwn(RANK, input.floor);
   const belowFloor = selectedTier && input.floor != null && RANK[selectedTier] < RANK[input.floor];
   const applied = floorValid && validity === 'actionable' && selectedTier !== null && !input.explicit && !belowFloor;

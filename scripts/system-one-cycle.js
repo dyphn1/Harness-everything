@@ -12,10 +12,10 @@ const { judgeRows } = require('./system-one-cycle/judge');
 const { buildDataset } = require('./system-one-cycle/build');
 const { trainCycle } = require('./system-one-cycle/train');
 const { evaluateCycle } = require('./system-one-cycle/evaluate');
-const { buildVersion, validateVersion } = require('./system-one-cycle/package');
+const { buildVersion, publishVersion, validateVersion } = require('./system-one-cycle/package');
 
 const USAGE = `Usage:
-  node scripts/system-one-cycle.js <collect|label|judge|build|train|evaluate|package> --data-dir <private cycle directory> [options]
+  node scripts/system-one-cycle.js <collect|label|judge|build|train|evaluate|package|publish> --data-dir <private cycle directory> [options]
   node scripts/system-one-cycle.js all --until <step> --data-dir <private cycle directory> [options]
 
 Steps: ${STEPS.join(', ')}
@@ -52,6 +52,7 @@ function outputsFor(step, dataDir, version, versionDir, result) {
       const relative = path.relative(dataDir, target);
       return path.isAbsolute(relative) || relative.startsWith('..') ? [] : [path.join(relative, 'manifest.json')];
     }
+    case 'publish': return [path.join('models', 'cua-s1', version, 'manifest.json')];
     default: return [];
   }
 }
@@ -102,6 +103,10 @@ async function runStep(step, flags, dataDir) {
       versionDir = flag(flags, 'version-dir');
       result = buildVersion({ dataDir, version, versionDir, sourceDir: path.join(dataDir, 'training', 'candidates', version) });
       result = { version, evaluation: result.evaluation };
+      break;
+    case 'publish':
+      version = validateVersion(required(flags, 'version'));
+      result = publishVersion({ dataDir, version });
       break;
   }
   const completed = step === 'label'

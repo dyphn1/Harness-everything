@@ -77,6 +77,32 @@ test('S1-I02 install rejects a tampered stage hash before copying any version', 
   } finally { remove(root, home); }
 });
 
+test('install accepts referenceOnly only when its option threshold is one', () => {
+  const root = tempDir('harness-s1-reference-only-'); const home = tempDir('harness-s1-reference-home-');
+  try {
+    const source = makeRepo(root);
+    const manifestFile = path.join(source, 'manifest.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+    manifest.stages.intent.thresholds['intent-a'] = 1;
+    manifest.stages.intent.referenceOnly = ['intent-a'];
+    fs.writeFileSync(manifestFile, JSON.stringify(manifest));
+    assert.equal(install.installVersion(root, 'v1', home).status, 'installed');
+
+    const invalidRoot = tempDir('harness-s1-reference-invalid-');
+    const invalidHome = tempDir('harness-s1-reference-invalid-home-');
+    try {
+      const invalidSource = makeRepo(invalidRoot);
+      const invalidFile = path.join(invalidSource, 'manifest.json');
+      const invalidManifest = JSON.parse(fs.readFileSync(invalidFile, 'utf8'));
+      invalidManifest.stages.intent.thresholds['intent-a'] = 0.99;
+      invalidManifest.stages.intent.referenceOnly = ['intent-a'];
+      fs.writeFileSync(invalidFile, JSON.stringify(invalidManifest));
+      assert.throws(() => install.installVersion(invalidRoot, 'v1', invalidHome), /invalid-manifest: malformed intent referenceOnly/);
+      assert.equal(fs.existsSync(path.join(invalidHome, 'versions', 'v1')), false);
+    } finally { remove(invalidRoot, invalidHome); }
+  } finally { remove(root, home); }
+});
+
 test('S1-I03 activation and rollback round-trip through the previous pointer', () => {
   const root = tempDir('harness-s1-repo-'); const home = tempDir('harness-s1-home-');
   try {

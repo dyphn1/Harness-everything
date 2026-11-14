@@ -9,7 +9,11 @@ const { test } = require('node:test');
 const { buildDataset } = require('../scripts/system-one-cycle/build');
 const { judgeRows } = require('../scripts/system-one-cycle/judge');
 const { runGuarded, processTreeRssMb } = require('../scripts/system-one-cycle/train');
-const { buildVersion } = require('../scripts/system-one-cycle/package');
+const { buildVersion, trainerCatalogs } = require('../scripts/system-one-cycle/package');
+const install = require('../harness-everything/scripts/system-one/install');
+const provider = require('../harness-everything/scripts/system-one/provider');
+const router = require('../harness-everything/scripts/system-one/router');
+const { CATALOGS } = require('../harness-everything/scripts/system-one/catalogs');
 
 const root = path.resolve(__dirname, '..');
 
@@ -181,7 +185,9 @@ test('package writes the contract B manifest and carries evaluation into the pri
   try {
     const version = 'synthetic-v1';
     const runs = path.join(dir, 'training', 'runs', version);
-    const thresholds = { validity: { invalid: 0.5 }, intent: { feature: 0.4 }, tier: { tier1: 0.3, tier2: 0.4, tier3: 0.5 } };
+    const catalogs = trainerCatalogs();
+    const thresholds = Object.fromEntries(Object.entries(catalogs).map(([task, options]) => [task,
+      Object.fromEntries(options.map(id => [id, 0.5]))]));
     for (const [task, values] of Object.entries(thresholds)) {
       const stage = path.join(runs, task);
       fs.mkdirSync(stage, { recursive: true });
@@ -203,8 +209,9 @@ test('package writes the contract B manifest and carries evaluation into the pri
     assert.equal(manifest.schemaVersion, 1);
     assert.equal(manifest.version, version);
     assert.equal(manifest.evaluation, 'evaluation/curves.json');
-    assert.deepEqual(manifest.stages.validity.options, ['invalid']);
-    assert.ok(manifest.stages.intent.options.includes('unclassified'));
+    assert.deepEqual(manifest.stages.validity.options, catalogs.validity);
+    assert.deepEqual(manifest.stages.intent.options, catalogs.intent);
+    assert.equal(manifest.stages.intent.options.includes('unclassified'), false);
     assert.deepEqual(manifest.stages.tier.thresholds, thresholds.tier);
     assert.match(manifest.stages.intent.sha256, /^[0-9a-f]{64}$/);
     assert.equal(fs.existsSync(path.join(output, 'evaluation', 'trend.json')), true);
@@ -226,13 +233,18 @@ function writePackageRuns(dir, version, calibrationByTask) {
   return runs;
 }
 
+function trainerThresholds(value = 0.5) {
+  return Object.fromEntries(Object.entries(trainerCatalogs()).map(([task, options]) => [task,
+    Object.fromEntries(options.map(id => [id, value]))]));
+}
+
 test('package turns a null calibration threshold into 1 and carries referenceOnly through repackaging', t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'system-one-cycle-package-null-'));
   try {
     const version = 'synthetic-null-v1';
-    const runs = writePackageRuns(dir, version, {
-      validity: { invalid: 0.5 }, intent: { feature: 0.4 }, tier: { tier1: 0.3, tier2: null, tier3: 0.5 },
-    });
+    const thresholds = trainerThresholds();
+    thresholds.tier.tier2 = null;
+    const runs = writePackageRuns(dir, version, thresholds);
     const candidate = path.join(dir, 'training', 'candidates', version);
     buildVersion({ dataDir: dir, version, sourceDir: runs, versionDir: candidate });
     const candidateManifest = JSON.parse(fs.readFileSync(path.join(candidate, 'manifest.json'), 'utf8'));
@@ -254,16 +266,84 @@ test('package still rejects a non-null non-finite threshold', t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'system-one-cycle-package-nan-'));
   try {
     const version = 'synthetic-nan-v1';
-    const runs = writePackageRuns(dir, version, {
-      validity: { invalid: 0.5 }, intent: { feature: 0.4 }, tier: { tier1: 0.3, tier2: 0.5, tier3: 0.5 },
-    });
+    const thresholds = trainerThresholds();
+    const runs = writePackageRuns(dir, version, thresholds);
     // 1e999 overflows to Infinity, the non-null non-finite value JSON can carry.
     const calibration = path.join(runs, 'tier', 'calibration.json');
-    fs.writeFileSync(calibration, '{"thresholds":{"tier1":0.3,"tier2":1e999,"tier3":0.5}}');
+    const serialized = JSON.stringify({ thresholds: thresholds.tier });
+    const keyValue = `${JSON.stringify('tier2')}:${thresholds.tier.tier2}`;
+    fs.writeFileSync(calibration, serialized.replace(keyValue, `${JSON.stringify('tier2')}:1e999`));
     assert.throws(() => buildVersion({ dataDir: dir, version, sourceDir: runs,
       versionDir: path.join(dir, 'training', 'versions', version) }), /finite per-option thresholds/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('package publishes a trainer-catalog version that installs, activates, and reports reference-only scores', async t => {
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'system-one-cycle-roundtrip-')));
+  const home = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'system-one-cycle-home-')));
+  try {
+    const version = 'synthetic-roundtrip-v1';
+    const catalogs = trainerCatalogs();
+    const thresholds = Object.fromEntries(Object.entries(catalogs).map(([task, options]) => [task,
+      Object.fromEntries(options.map(id => [id, 0.5]))]));
+    thresholds.intent.fix = null;
+    thresholds.tier.tier3 = null;
+    const runs = writePackageRuns(dir, version, thresholds);
+    const versionDir = path.join(dir, 'training', 'versions', version);
+    buildVersion({ dataDir: dir, version, sourceDir: runs, versionDir });
+    const packaged = JSON.parse(fs.readFileSync(path.join(versionDir, 'manifest.json'), 'utf8'));
+    for (const [stage, ids] of Object.entries(catalogs)) {
+      assert.deepEqual(packaged.stages[stage].options, ids);
+      assert.equal(packaged.stages[stage].options.includes('unclassified'), false);
+    }
+    const scoreScript = path.join(root, 'scripts/system-one-cycle/score.py');
+    const pythonCode = "import importlib.util,json,sys; spec=importlib.util.spec_from_file_location('score',sys.argv[1]); module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module); print(json.dumps([o['id'] for o in module.trained_catalog(sys.argv[2],'intent',sys.argv[3])]))";
+    const scoredCatalog = spawnSync(process.env.PYTHON || 'python3', ['-c', pythonCode, scoreScript,
+      path.join(versionDir, 'intent.safetensors'), path.join(root, 'benchmarks/fixtures/system-one-intent-holdout.json')],
+    { cwd: root, encoding: 'utf8' });
+    assert.equal(scoredCatalog.status, 0, scoredCatalog.stderr);
+    assert.deepEqual(JSON.parse(scoredCatalog.stdout), catalogs.intent);
+
+    const publishCommand = spawnSync(process.execPath, [path.join(root, 'scripts/system-one-cycle.js'), 'publish',
+      '--data-dir', dir, '--version', version], { cwd: root, encoding: 'utf8' });
+    assert.equal(publishCommand.status, 0, publishCommand.stderr);
+    const published = JSON.parse(publishCommand.stdout).steps[0];
+    assert.equal(published.publishedPath, path.join(dir, 'models', 'cua-s1', version));
+
+    install.installVersion(dir, version, home);
+    install.activate(version, home);
+    const env = { HARNESS_SYSTEM_ONE_HOME: home };
+    const active = provider.readActive(env);
+    assert.equal(active.version, version);
+    const liveCatalogs = {
+      validity: router.VALIDITY_OPTIONS,
+      intent: CATALOGS.intent,
+      tier: router.TIER_OPTIONS,
+    };
+    const result = await provider.scoreLive('synthetic request', env, liveCatalogs, async (_stage, request) => ({
+      status: 'scored',
+      response: {
+        schemaVersion: 1, requestHash: request.requestHash, catalogHash: request.catalogHash,
+        model: { id: version, revision: version, domain: 'harness-routing-v1' },
+        scores: request.options.map(option => ({ id: option.id,
+          probability: option.id === 'fix' || option.id === 'tier3' ? 0.99 : option.id === 'tier2' ? 0.8 : 0.1 })),
+      },
+    }));
+    assert.deepEqual(result.referenceOnly, { validity: [], intent: ['fix'], tier: ['tier3'] });
+    assert.equal(result.stageScores.intent.fix, 0.99);
+    assert.equal(result.stageScores.tier.tier3, 0.99);
+    const routed = router.routeLive({ tier: 'Tier 1 (Trivial)', floor: null, explicit: false }, result);
+    assert.equal(routed.systemOne.intents.fix, 0.99);
+    assert.equal(routed.systemOne.decision.intents.includes('fix'), false);
+    assert.equal(routed.systemOne.decision.tier, 'tier2');
+    assert.deepEqual(routed.reference.referenceOnlyOptions, [
+      { stage: 'intent', id: 'fix', probability: 0.99 }, { stage: 'tier', id: 'tier3', probability: 0.99 },
+    ]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(home, { recursive: true, force: true });
   }
 });
 

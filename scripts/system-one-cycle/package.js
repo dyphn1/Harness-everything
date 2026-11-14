@@ -3,15 +3,26 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
-const { dataPath, writeJson, assertPrivateDataDir } = require('./common');
+const { spawnSync } = require('node:child_process');
+const { REPO, dataPath, writeJson, assertPrivateDataDir } = require('./common');
 const { TASKS } = require('./train');
-const { CATALOGS } = require('../../harness-everything/scripts/system-one/catalogs');
+const { validateVersionManifest } = require('../../harness-everything/scripts/system-one/manifest');
 
-const OPTIONS = {
-  validity: ['invalid'],
-  intent: CATALOGS.intent.map(option => option.id),
-  tier: ['tier1', 'tier2', 'tier3'],
-};
+function trainerCatalogs() {
+  const trainer = path.join(REPO, 'scripts', 'system-one-train.py');
+  const code = 'import importlib.util,json,sys; spec=importlib.util.spec_from_file_location("system_one_train",sys.argv[1]); module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module); print(json.dumps({task:[o["id"] for o in module.catalog_for(task) if o["id"]!="unclassified"] for task in ("validity","intent","tier")}))';
+  const python = process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
+  const result = spawnSync(python, ['-c', code, trainer], { cwd: REPO, encoding: 'utf8', windowsHide: true });
+  if (result.error || result.status !== 0) throw new Error('trainer-catalog-unavailable');
+  let catalogs;
+  try { catalogs = JSON.parse(result.stdout); } catch { throw new Error('trainer-catalog-invalid'); }
+  if (!catalogs || Object.keys(catalogs).sort().join(',') !== [...TASKS].sort().join(',')
+      || TASKS.some(task => !Array.isArray(catalogs[task]) || !catalogs[task].length
+        || catalogs[task].includes('unclassified') || new Set(catalogs[task]).size !== catalogs[task].length)) {
+    throw new Error('trainer-catalog-invalid');
+  }
+  return catalogs;
+}
 
 function validateVersion(version) {
   if (typeof version !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(version)) throw new Error('invalid --version');
@@ -36,14 +47,13 @@ function safeRelative(value) {
 function buildVersion({ dataDir, version, versionDir, sourceDir }) {
   validateVersion(version);
   const privateDir = assertPrivateDataDir(dataDir);
+  const catalogs = trainerCatalogs();
   const target = assertPrivateDataDir(versionDir || dataPath(privateDir, 'training', 'versions', version));
   const source = assertPrivateDataDir(sourceDir ? path.resolve(sourceDir) : dataPath(privateDir, 'training', 'runs', version));
   const sourceManifestPath = path.join(source, 'manifest.json');
   const hasManifest = fs.existsSync(sourceManifestPath);
   const prior = hasManifest ? JSON.parse(fs.readFileSync(sourceManifestPath, 'utf8')) : null;
-  if (prior && (prior.schemaVersion !== 1 || prior.version !== version || !prior.stages || typeof prior.stages !== 'object')) {
-    throw new Error('candidate manifest does not match the requested version');
-  }
+  if (prior) validateVersionManifest(prior, version);
   const stages = {};
 
   for (const task of TASKS) {
@@ -60,7 +70,7 @@ function buildVersion({ dataDir, version, versionDir, sourceDir }) {
       if (!stage || !safeRelative(stage.weights) || !safeRelative(stage.config)) throw new Error(`candidate manifest is missing ${task}`);
       sourceWeights = path.join(source, stage.weights);
       sourceConfig = path.join(source, stage.config);
-      options = stage.options;
+      options = catalogs[task];
       thresholds = stage.thresholds;
       priorReferenceOnly = stage.referenceOnly ?? [];
       if (digest(sourceWeights) !== stage.sha256) throw new Error(`${task} checkpoint hash does not match its manifest`);
@@ -70,18 +80,19 @@ function buildVersion({ dataDir, version, versionDir, sourceDir }) {
       sourceConfig = path.join(runDir, 'harness-routing-v1.json');
       const calibration = JSON.parse(fs.readFileSync(path.join(runDir, 'calibration.json'), 'utf8'));
       thresholds = calibration.thresholds;
-      options = OPTIONS[task];
+      options = catalogs[task];
     }
     if (!Array.isArray(options) || !options.length || new Set(options).size !== options.length
-        || !thresholds || Object.keys(thresholds).some(id => !options.includes(id))
-        || Object.values(thresholds).some(value => value !== null && !Number.isFinite(value))
+        || !thresholds || Object.keys(thresholds).length !== options.length
+        || options.some(id => !Object.hasOwn(thresholds, id))
+        || Object.values(thresholds).some(value => value !== null && (!Number.isFinite(value) || value < 0 || value > 1))
         || !Array.isArray(priorReferenceOnly) || priorReferenceOnly.some(id => !options.includes(id))) {
       throw new Error(`${task} calibration has no finite per-option thresholds`);
     }
     // A null threshold means calibration found no cutoff reaching the precision target: the option
     // is reference-only, pinned to 1 so it is never auto-selected while its score is still reported.
     const referenceOnly = options.filter(id => thresholds[id] === null || priorReferenceOnly.includes(id));
-    const finalThresholds = Object.fromEntries(Object.entries(thresholds).map(([id, value]) => [id, value === null ? 1 : value]));
+    const finalThresholds = Object.fromEntries(options.map(id => [id, thresholds[id] === null ? 1 : thresholds[id]]));
     if (!fs.existsSync(sourceWeights) || !fs.existsSync(sourceConfig)) throw new Error(`${task} checkpoint artifacts are missing`);
     const targetWeightsPath = path.join(target, targetWeights);
     const targetConfigPath = path.join(target, targetConfig);
@@ -111,8 +122,40 @@ function buildVersion({ dataDir, version, versionDir, sourceDir }) {
   }
 
   const manifest = { schemaVersion: 1, version, createdAt: prior?.createdAt || new Date().toISOString(), stages, evaluation };
+  validateVersionManifest(manifest, version);
   writeJson(path.join(target, 'manifest.json'), manifest);
   return { version, versionDir: target, evaluation };
 }
 
-module.exports = { buildVersion, validateVersion, digest, safeRelative };
+function publishVersion({ dataDir, version }) {
+  validateVersion(version);
+  const privateDir = assertPrivateDataDir(dataDir);
+  const source = dataPath(privateDir, 'training', 'versions', version);
+  const target = dataPath(privateDir, 'models', 'cua-s1', version);
+  const sourceStat = fs.lstatSync(source);
+  const manifestFile = path.join(source, 'manifest.json');
+  const manifestStat = fs.lstatSync(manifestFile);
+  if (!sourceStat.isDirectory() || sourceStat.isSymbolicLink() || !manifestStat.isFile() || manifestStat.isSymbolicLink()) {
+    throw new Error('invalid-package: version directory must contain a regular manifest');
+  }
+  validateVersionManifest(JSON.parse(fs.readFileSync(manifestFile, 'utf8')), version);
+  for (const parent of [path.join(privateDir, 'models'), path.join(privateDir, 'models', 'cua-s1')]) {
+    try {
+      const stat = fs.lstatSync(parent);
+      if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('invalid-publish-dir');
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      fs.mkdirSync(parent, { mode: 0o700 });
+    }
+  }
+  try { fs.lstatSync(target); throw new Error('publish-target-exists'); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  try { fs.cpSync(source, target, { recursive: true, errorOnExist: true, force: false }); }
+  catch (error) {
+    fs.rmSync(target, { recursive: true, force: true });
+    throw error;
+  }
+  return { version, publishedPath: target };
+}
+
+module.exports = { buildVersion, publishVersion, trainerCatalogs, validateVersion, digest, safeRelative };

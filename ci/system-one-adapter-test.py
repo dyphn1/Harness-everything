@@ -22,18 +22,19 @@ adapter = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(adapter)
 
 ACTIVE_OPTIONS = {
-    'validity': ['actionable', 'invalid'],
-    'intent': ['explain', 'discuss', 'git', 'fix', 'edit', 'feature', 'refactor', 'review', 'test', 'docs', 'plan', 'investigate', 'unclassified'],
-    'tier': ['tier1', 'tier2', 'tier3', 'unclassified'],
+    'validity': ['invalid'],
+    'intent': ['explain', 'discuss', 'git', 'fix', 'edit', 'feature', 'refactor', 'review', 'test', 'docs', 'plan', 'investigate'],
+    'tier': ['tier1', 'tier2', 'tier3'],
 }
 
 
 def write_active_fixture(root):
     thresholds = {
         'validity': {'invalid': 0.55},
-        'intent': {key: 0.55 for key in ACTIVE_OPTIONS['intent'] if key != 'unclassified'},
-        'tier': {key: 0.55 for key in ACTIVE_OPTIONS['tier'] if key != 'unclassified'},
+        'intent': {key: 0.55 for key in ACTIVE_OPTIONS['intent']},
+        'tier': {key: 0.55 for key in ACTIVE_OPTIONS['tier']},
     }
+    thresholds['intent']['fix'] = 1
     version_dir = Path(root) / 'v1'
     version_dir.mkdir()
     stages = {}
@@ -49,6 +50,8 @@ def write_active_fixture(root):
             'sha256': hashlib.sha256(weight_bytes).hexdigest(),
             'options': ACTIVE_OPTIONS[stage], 'thresholds': thresholds[stage],
         }
+        if stage == 'intent':
+            stages[stage]['referenceOnly'] = ['fix']
     (version_dir / 'manifest.json').write_text(json.dumps({
         'schemaVersion': 1, 'version': 'v1', 'createdAt': '2026-11-14T00:00:00Z',
         'stages': stages, 'evaluation': None,
@@ -83,7 +86,18 @@ class AdapterTests(unittest.TestCase):
             bundle = adapter.load_active_bundle(pointer, scorer_loader=fake_loader)
             self.assertEqual(bundle['version'], 'v1')
             self.assertEqual(list(bundle['scorers']), ['validity', 'intent', 'tier'])
+            self.assertEqual(bundle['scorers']['intent']['referenceOnly'], ['fix'])
             self.assertEqual(loaded, [(f'{stage}-weights.safetensors', f'{stage}-config.json') for stage in ('validity', 'intent', 'tier')])
+
+    def test_active_manifest_uses_shared_reference_only_validation(self):
+        with tempfile.TemporaryDirectory() as root:
+            pointer = write_active_fixture(root)
+            manifest_path = pointer.parent / 'v1' / 'manifest.json'
+            manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+            manifest['stages']['intent']['thresholds']['fix'] = 0.99
+            manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, 'active-manifest'):
+                adapter.load_active_bundle(pointer, scorer_loader=lambda *_: (lambda _request: [] , {}))
 
     def test_active_stage_protocol_scores_independent_values_and_checks_catalog(self):
         with tempfile.TemporaryDirectory() as root:
@@ -111,7 +125,7 @@ class AdapterTests(unittest.TestCase):
             self.assertFalse(stop)
             self.assertTrue(reply['ok'])
             probabilities = [score['probability'] for score in reply['response']['scores']]
-            self.assertEqual(probabilities, [0.2, 0.76, 0.9, 0.1])
+            self.assertEqual(probabilities, [0.2, 0.76, 0.9])
             self.assertGreater(sum(probabilities), 1)
             bad, stop = handle(['tier1', 'tier2'])
             self.assertFalse(stop)

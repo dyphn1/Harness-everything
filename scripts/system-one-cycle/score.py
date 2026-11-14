@@ -12,9 +12,26 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import shutil
+import subprocess
 import sys
 
 sys.dont_write_bytecode = True
+
+
+def validate_manifest(manifest):
+    node = os.environ.get('HARNESS_SYSTEM_ONE_NODE') or shutil.which('node')
+    validator = Path(__file__).resolve().parents[2] / 'harness-everything' / 'scripts' / 'system-one' / 'manifest.js'
+    if not node:
+        raise ValueError('version manifest is invalid')
+    try:
+        result = subprocess.run([node, str(validator)], input=json.dumps(manifest), text=True,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5,
+                                shell=False, check=False)
+    except (OSError, subprocess.SubprocessError):
+        raise ValueError('version manifest is invalid') from None
+    if result.returncode != 0:
+        raise ValueError('version manifest is invalid')
 
 
 def trained_catalog(weights, task, holdout):
@@ -25,6 +42,7 @@ def trained_catalog(weights, task, holdout):
     spec.loader.exec_module(trainer)
     texts = {option['id']: option['text'] for option in trainer.catalog_for(task, holdout)}
     manifest = json.loads((Path(weights).parent / 'manifest.json').read_text(encoding='utf-8'))
+    validate_manifest(manifest)
     ids = manifest['stages'][task]['options']
     missing = [option_id for option_id in ids if option_id not in texts]
     if missing:

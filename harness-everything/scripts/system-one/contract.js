@@ -7,8 +7,9 @@ const text = (value, max = 4096) => typeof value === 'string' && value.trim().le
 const id = value => typeof value === 'string' && /^[a-z0-9._-]{1,80}$/.test(value);
 const probability = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
 function fail(code) { throw Object.assign(new TypeError(code), { code }); }
-function createRequest(task, context, options) {
-  if (!id(task) || !text(context, 65536) || !Array.isArray(options) || options.length < 2 || options.length > 256
+function createRequest(task, context, options, config) {
+  const minOptions = config === undefined ? 2 : exact(config, ['minOptions']) && config.minOptions === 1 ? 1 : null;
+  if (minOptions === null || !id(task) || !text(context, 65536) || !Array.isArray(options) || options.length < minOptions || options.length > 256
     || options.some(o => !exact(o, ['id', 'text']) || !id(o.id) || !text(o.text))
     || new Set(options.map(o => o.id)).size !== options.length) fail('invalid-request');
   const copy = options.map(o => ({ id: o.id, text: o.text }));
@@ -28,7 +29,8 @@ function validateResponse(req, res) {
 }
 function validateRequest(req) {
   if (!exact(req, ['schemaVersion', 'task', 'context', 'options', 'catalogHash', 'requestHash']) || req.schemaVersion !== 1) fail('invalid-request');
-  const rebuilt = createRequest(req.task, req.context, req.options);
+  const config = req.task === 'validity' && Array.isArray(req.options) && req.options.length === 1 ? { minOptions: 1 } : undefined;
+  const rebuilt = createRequest(req.task, req.context, req.options, config);
   if (req.catalogHash !== rebuilt.catalogHash || req.requestHash !== rebuilt.requestHash) fail('invalid-request');
   return true;
 }

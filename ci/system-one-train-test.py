@@ -115,16 +115,31 @@ scorer = importlib.util.module_from_spec(score_spec)
 score_spec.loader.exec_module(scorer)
 assert 'torch' not in sys.modules, 'importing the scorer must not import torch'
 
-stage_options = {'validity': ['invalid'], 'intent': [o['id'] for o in intent_catalog], 'tier': ['tier1', 'tier2', 'tier3']}
+stage_options = {'validity': ['invalid'], 'intent': [o['id'] for o in intent_catalog if o['id'] != 'unclassified'], 'tier': ['tier1', 'tier2', 'tier3']}
 holdouts = {'validity': trainer.DEFAULT_HOLDOUT, 'intent': trainer.DEFAULT_INTENT_HOLDOUT, 'tier': trainer.DEFAULT_HOLDOUT}
 with tempfile.TemporaryDirectory() as tmp:
     manifest = Path(tmp) / 'manifest.json'
-    manifest.write_text(json.dumps({'stages': {task: {'options': ids} for task, ids in stage_options.items()}}), encoding='utf-8')
+    version_manifest = {
+        'schemaVersion': 1,
+        'version': 'fixture-v1',
+        'createdAt': '2026-01-01T00:00:00.000Z',
+        'stages': {task: {
+            'weights': f'{task}.safetensors',
+            'config': f'{task}.json',
+            'sha256': '0' * 64,
+            'options': ids,
+            'thresholds': {option_id: 0.5 for option_id in ids},
+        } for task, ids in stage_options.items()},
+        'evaluation': None,
+    }
+    manifest.write_text(json.dumps(version_manifest), encoding='utf-8')
     weights = str(Path(tmp) / 'tier.safetensors')
     for task, options in stage_options.items():
         catalog = scorer.trained_catalog(weights, task, str(holdouts[task]))
         assert [o['id'] for o in catalog] == options, (task, catalog)
-        assert {o['id']: o['text'] for o in catalog} == {o['id']: o['text'] for o in trainer.catalog_for(task, str(holdouts[task]))}, task
+        assert {o['id']: o['text'] for o in catalog} == {
+            o['id']: o['text'] for o in trainer.catalog_for(task, str(holdouts[task])) if o['id'] != 'unclassified'
+        }, task
     tier_ids = set(stage_options['tier'])
     tier_cases = json.loads(trainer.DEFAULT_HOLDOUT.read_text(encoding='utf-8'))['cases']
     assert all(scorer.eligible(c, 'tier', tier_ids) == (c['gold'] in tier_ids) for c in tier_cases)
