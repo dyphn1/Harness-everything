@@ -6,9 +6,11 @@ import os
 from pathlib import Path
 import re
 import secrets
+import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 
@@ -17,7 +19,10 @@ def verify_artifacts(manifest):
     weights = Path(manifest['checkpoint'])
     if not weights.is_absolute() or weights.suffix != '.safetensors':
         raise ValueError('checkpoint-format')
-    for file, key in [(weights, 'weightsSha256'), (weights.with_suffix('.json'), 'configSha256')]:
+    config = Path(manifest.get('config', weights.with_suffix('.json')))
+    if not config.is_absolute() or config.suffix != '.json':
+        raise ValueError('checkpoint-format')
+    for file, key in [(weights, 'weightsSha256'), (config, 'configSha256')]:
         with file.open('rb') as handle:
             digest = hashlib.file_digest(handle, 'sha256').hexdigest()
         if digest != manifest[key]:
@@ -33,18 +38,25 @@ def check_limits(request, config):
 
 
 def load_scorer(weights, manifest):
-    """Load the verified checkpoint once; return (score(request) -> probabilities, config)."""
+    """Load the verified checkpoint once; return independent per-option probabilities."""
     import torch
     from cua_s1.model import ChoiceExample, load_checkpoint
 
     torch.set_num_threads(1)
     torch.use_deterministic_algorithms(True)
-    model, collator, config = load_checkpoint(weights, 'cpu')
+    config_path = Path(manifest.get('config', Path(weights).with_suffix('.json')))
+    if config_path != Path(weights).with_suffix('.json'):
+        with tempfile.TemporaryDirectory() as root:
+            shutil.copyfile(weights, Path(root) / 'model.safetensors')
+            shutil.copyfile(config_path, Path(root) / 'config.json')
+            model, collator, config = load_checkpoint(root, 'cpu')
+    else:
+        model, collator, config = load_checkpoint(weights, 'cpu')
 
     def score(request):
         example = ChoiceExample(context=request['context'], options=tuple(o['text'] for o in request['options']), label=0)
         with torch.inference_mode():
-            return model(collator([example])).softmax(-1)[0].tolist()
+            return model(collator([example])).sigmoid()[0].tolist()
     return score, config
 
 
@@ -61,6 +73,108 @@ def infer(request, manifest):
     score, config = load_scorer(weights, manifest)
     check_limits(request, config)
     return build_response(request, manifest, score(request))
+
+
+ACTIVE_STAGES = ('validity', 'intent', 'tier')
+
+
+def _active_artifact(directory, name, suffix):
+    if not isinstance(name, str) or not re.fullmatch(r'[A-Za-z0-9._-]+', name) or name in ('.', '..') or Path(name).name != name or '\\' in name or Path(name).suffix != suffix:
+        raise ValueError('checkpoint-format')
+    file = directory / name
+    if file.is_symlink() or not file.is_file():
+        raise ValueError('checkpoint-format')
+    return file
+
+
+def _active_fingerprint(version, directory, scorers):
+    values = [version, str(directory)]
+    for stage in ACTIVE_STAGES:
+        entry = scorers[stage]
+        values.extend((stage, entry['sha256'], entry['manifest']['configSha256']))
+    return hashlib.sha256('\0'.join(values).encode('utf-8')).hexdigest()
+
+
+def _active_stamp(bundle):
+    paths = [Path(bundle['activePath']), Path(bundle['manifestPath'])]
+    for stage in ACTIVE_STAGES:
+        paths.extend((bundle['scorers'][stage]['weights'], bundle['scorers'][stage]['configPath']))
+    return [(file.stat().st_size, file.stat().st_mtime_ns) for file in paths]
+
+
+def _active_unchanged(bundle, stamp):
+    try:
+        return _active_stamp(bundle) == stamp
+    except OSError:
+        return False
+
+
+def load_active_bundle(active_path, expected_fingerprint=None, scorer_loader=None):
+    """Read one active pointer and load its three verified stage checkpoints."""
+    active_path = Path(active_path)
+    if not active_path.is_absolute() or active_path.is_symlink() or not active_path.is_file() or active_path.stat().st_size > 65536:
+        raise ValueError('active-pointer')
+    pointer = json.loads(active_path.read_text(encoding='utf-8'))
+    if (not isinstance(pointer, dict) or set(pointer) != {'schemaVersion', 'version', 'dir', 'previous', 'activatedAt'}
+            or pointer.get('schemaVersion') != 1 or not isinstance(pointer.get('version'), str)
+            or not ID_PATTERN.fullmatch(pointer['version']) or not isinstance(pointer.get('dir'), str)
+            or not Path(pointer['dir']).is_absolute()
+            or (pointer.get('previous') is not None and (not isinstance(pointer['previous'], str) or not ID_PATTERN.fullmatch(pointer['previous'])))
+            or not isinstance(pointer.get('activatedAt'), str)):
+        raise ValueError('active-pointer')
+    directory = Path(pointer['dir'])
+    if directory.is_symlink() or not directory.is_dir():
+        raise ValueError('active-pointer')
+    manifest_path = directory / 'manifest.json'
+    if manifest_path.is_symlink() or not manifest_path.is_file() or manifest_path.stat().st_size > 131072:
+        raise ValueError('active-manifest')
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    if (not isinstance(manifest, dict) or set(manifest) != {'schemaVersion', 'version', 'createdAt', 'stages', 'evaluation'}
+            or manifest.get('schemaVersion') != 1 or manifest.get('version') != pointer['version']
+            or not isinstance(manifest.get('createdAt'), str) or not isinstance(manifest.get('stages'), dict)
+            or set(manifest['stages']) != set(ACTIVE_STAGES)
+            or (manifest.get('evaluation') is not None and (not isinstance(manifest['evaluation'], str)
+                or not manifest['evaluation'] or Path(manifest['evaluation']).is_absolute()
+                or any(part in ('', '.', '..') for part in manifest['evaluation'].replace('\\', '/').split('/'))))):
+        raise ValueError('active-manifest')
+    scorers = {}
+    loader = scorer_loader or load_scorer
+    for stage in ACTIVE_STAGES:
+        entry = manifest['stages'][stage]
+        if (not isinstance(entry, dict) or set(entry) != {'weights', 'config', 'sha256', 'options', 'thresholds'}
+                or not isinstance(entry.get('sha256'), str) or not HASH_PATTERN.fullmatch(entry['sha256'])
+                or not isinstance(entry.get('options'), list) or len(entry['options']) < 2
+                or any(not isinstance(option, str) or not ID_PATTERN.fullmatch(option) for option in entry['options'])
+                or len(set(entry['options'])) != len(entry['options']) or not isinstance(entry.get('thresholds'), dict)):
+            raise ValueError('active-stage')
+        weights = _active_artifact(directory, entry['weights'], '.safetensors')
+        config_path = _active_artifact(directory, entry['config'], '.json')
+        if hashlib.sha256(weights.read_bytes()).hexdigest() != entry['sha256']:
+            raise ValueError('artifact-hash')
+        threshold_ids = set(entry['thresholds'])
+        expected_ids = {option for option in entry['options'] if option != 'unclassified' and not (stage == 'validity' and option == 'actionable')}
+        if threshold_ids != expected_ids or any(not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 <= value <= 1 for value in entry['thresholds'].values()):
+            raise ValueError('active-stage')
+        stage_manifest = {
+            'checkpoint': str(weights),
+            'config': str(config_path),
+            'weightsSha256': entry['sha256'],
+            'configSha256': hashlib.sha256(config_path.read_bytes()).hexdigest(),
+            'modelId': pointer['version'],
+            'revision': pointer['version'],
+            'domain': 'harness-routing-v1',
+        }
+        score, config = loader(weights, stage_manifest)
+        scorers[stage] = {**entry, 'manifest': stage_manifest, 'score': score, 'config': config,
+                          'weights': weights, 'configPath': config_path}
+    fingerprint = _active_fingerprint(pointer['version'], pointer['dir'], scorers)
+    if expected_fingerprint is not None and fingerprint != expected_fingerprint:
+        raise ValueError('active-changed')
+    bundle = {'activePath': str(active_path), 'manifestPath': str(manifest_path), 'pointer': pointer,
+              'manifest': manifest, 'version': pointer['version'], 'dir': pointer['dir'],
+              'fingerprint': fingerprint, 'scorers': scorers}
+    bundle['stamp'] = _active_stamp(bundle)
+    return bundle
 
 
 MAX_REQUEST_BYTES = 2 * 1024 * 1024
@@ -160,7 +274,7 @@ def _valid_score_request(request):
     return len({o['id'] for o in options}) == len(options)
 
 
-def _handle(conn, token, manifest, weights, stamp, score, config):
+def _handle(conn, token, manifest, weights, stamp, score, config, active_bundle=None):
     """Return (reply, stop). Errors carry bounded reason codes only: no prompt, path, or traceback."""
     invalid = {'ok': False, 'reason': 'invalid-request'}
     try:
@@ -180,35 +294,50 @@ def _handle(conn, token, manifest, weights, stamp, score, config):
         return {'ok': False, 'reason': 'unauthorized'}, False
     op = message.get('op')
     if op == 'ping':
-        return {'ok': True, 'pid': os.getpid(), 'model': {'id': manifest['modelId'], 'revision': manifest['revision'], 'domain': manifest['domain']}}, False
+        model = {'id': active_bundle['version'], 'revision': active_bundle['version'], 'domain': 'harness-routing-v1'} if active_bundle else {
+            'id': manifest['modelId'], 'revision': manifest['revision'], 'domain': manifest['domain']}
+        return {'ok': True, 'pid': os.getpid(), 'model': model}, False
     if op == 'shutdown':
         return {'ok': True}, True
-    if op != 'score' or not _valid_score_request(message.get('request')):
+    stage = message.get('stage') if active_bundle else None
+    if (op != 'score' or (active_bundle and set(message) != {'token', 'op', 'stage', 'request'})
+            or (not active_bundle and not _valid_score_request(message.get('request')))
+            or (active_bundle and (not isinstance(stage, str) or stage not in active_bundle['scorers']
+                or not _valid_score_request(message.get('request'))))):
         return invalid, False
     try:
-        changed = _artifact_stamp(weights) != stamp
+        changed = not _active_unchanged(active_bundle, stamp) if active_bundle else _artifact_stamp(weights) != stamp
     except OSError:
         changed = True
     if changed:
         return {'ok': False, 'reason': 'artifact-changed'}, True
     request = message['request']
+    selected = active_bundle['scorers'][stage] if active_bundle else None
+    if active_bundle and (request['task'] != stage or [option['id'] for option in request['options']] != selected['options']):
+        return invalid, False
     try:
-        check_limits(request, config)
+        check_limits(request, selected['config'] if active_bundle else config)
     except ValueError:
         return {'ok': False, 'reason': 'input-too-long'}, False
     try:
-        return {'ok': True, 'response': build_response(request, manifest, score(request))}, False
+        response = build_response(request, selected['manifest'], score(request, stage)) if active_bundle else build_response(request, manifest, score(request))
+        return {'ok': True, 'response': response}, False
     except Exception:
         return {'ok': False, 'reason': 'score-failed'}, False
 
 
-def serve(manifest, state_path, lock_path, scorer_factory=None, idle_timeout_s=None):
+def serve(manifest, state_path, lock_path, scorer_factory=None, idle_timeout_s=None, active_bundle=None):
     """Resident loopback scorer: verify, load once, publish state, serve until idle/shutdown/artifact change."""
     state_path, lock_path = Path(state_path), Path(lock_path)
     try:
-        weights = verify_artifacts(manifest)
-        stamp = _artifact_stamp(weights)
-        score, config = (scorer_factory or load_scorer)(weights, manifest)
+        if active_bundle:
+            weights = None
+            stamp = active_bundle['stamp']
+            score = config = None
+        else:
+            weights = verify_artifacts(manifest)
+            stamp = _artifact_stamp(weights)
+            score, config = (scorer_factory or load_scorer)(weights, manifest)
     except Exception as exc:
         reason = str(exc) if str(exc) in STARTUP_REASONS else 'load-failed'
         try:
@@ -227,6 +356,10 @@ def serve(manifest, state_path, lock_path, scorer_factory=None, idle_timeout_s=N
         with score_lock:
             return score(request)
 
+    def guarded_active_score(request, stage):
+        with score_lock:
+            return active_bundle['scorers'][stage]['score'](request)
+
     def send(conn, reply):
         try:
             conn.sendall((json.dumps(reply, allow_nan=False) + '\n').encode('utf-8'))
@@ -237,7 +370,8 @@ def serve(manifest, state_path, lock_path, scorer_factory=None, idle_timeout_s=N
         try:
             with conn:
                 conn.settimeout(READ_DEADLINE_S)
-                reply, halt = _handle(conn, token, manifest, weights, stamp, guarded_score, config)
+                reply, halt = _handle(conn, token, manifest, weights, stamp,
+                                      guarded_active_score if active_bundle else guarded_score, config, active_bundle)
                 send(conn, reply)
             if halt:
                 stop.set()
@@ -256,7 +390,8 @@ def serve(manifest, state_path, lock_path, scorer_factory=None, idle_timeout_s=N
             pass
         last = time.monotonic()
         # A server whose state file no longer names it is undiscoverable (replaced or corrupted): exit, never orphan.
-        while not stop.is_set() and time.monotonic() - last <= idle and _owns_state(state_path, pid, token):
+        while not stop.is_set() and time.monotonic() - last <= idle and _owns_state(state_path, pid, token) \
+                and (active_bundle is None or _active_unchanged(active_bundle, stamp)):
             try:
                 conn, _ = server.accept()
             except socket.timeout:
@@ -301,6 +436,21 @@ def serve_main(argv, scorer_factory=None):
     return serve(json.loads(argv[0]), argv[1], argv[2], scorer_factory=scorer_factory)
 
 
+def serve_active_main(argv):
+    if len(argv) != 4:
+        return 2
+    active_path, state_path, lock_path, fingerprint = argv
+    try:
+        bundle = load_active_bundle(active_path, expected_fingerprint=fingerprint)
+    except Exception:
+        try:
+            _write_private_json(Path(lock_path), {'failed': 'load-failed', 'at': time.time()})
+        except OSError:
+            pass
+        return 1
+    return serve(bundle['manifest'], state_path, lock_path, active_bundle=bundle)
+
+
 def source_revision(direct_url_text):
     """Return the PEP 610 VCS commit recorded at install time, or None when unprovable."""
     try:
@@ -335,6 +485,8 @@ def main():
             return 0
         if sys.argv[1:2] == ['--serve']:
             return serve_main(sys.argv[2:])
+        if sys.argv[1:2] == ['--serve-active']:
+            return serve_active_main(sys.argv[2:])
         manifest = json.loads(sys.argv[1])
         raw = sys.stdin.buffer.read(2 * 1024 * 1024 + 1)
         if len(raw) > 2 * 1024 * 1024:

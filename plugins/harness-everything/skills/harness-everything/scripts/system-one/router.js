@@ -9,6 +9,69 @@ const TIER_OPTIONS = Object.freeze([
 ].map(Object.freeze));
 const LABELS = { tier1: 'Tier 1 (Trivial)', tier2: 'Tier 2 (Standard Task)', tier3: 'Tier 3 (Macro Task)' };
 const RANK = { tier1: 1, tier2: 2, tier3: 3 };
+const VALIDITY_OPTIONS = Object.freeze([
+  { id: 'actionable', text: 'The current prompt contains an actionable request.' },
+  { id: 'invalid', text: 'The request needs conversation context to understand.' },
+].map(Object.freeze));
+const isProbability = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+function liveOptions() {
+  const { INTENT_OPTIONS } = require('./catalogs');
+  return { validity: VALIDITY_OPTIONS, intent: INTENT_OPTIONS, tier: TIER_OPTIONS };
+}
+function exactScores(value, ids) {
+  return value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === ids.length
+    && ids.every(id => Object.hasOwn(value, id) && isProbability(value[id]));
+}
+function routeLive(input, result) {
+  if (!result || typeof result.version !== 'string' || !result.version
+    || typeof result.sha256 !== 'string' || !/^[a-f0-9]{16}$/.test(result.sha256)) {
+    return { tier: input.tier, reference: { available: false } };
+  }
+  const options = liveOptions();
+  const stages = result.stageScores || {};
+  const thresholds = result.thresholds || {};
+  const validityScores = exactScores(stages.validity, ['invalid'])
+    && isProbability(thresholds.validity?.invalid) ? { invalid: stages.validity.invalid } : null;
+  const validity = validityScores === null ? 'abstain'
+    : validityScores.invalid >= thresholds.validity.invalid ? 'invalid' : 'actionable';
+  const intentIds = options.intent.map(option => option.id).filter(id => id !== 'unclassified');
+  const intents = validity === 'actionable' && exactScores(stages.intent, intentIds)
+    && intentIds.every(id => isProbability(thresholds.intent?.[id]))
+    ? stages.intent : null;
+  const tierIds = ['tier1', 'tier2', 'tier3'];
+  const tierScores = validity === 'actionable' && exactScores(stages.tier, tierIds)
+    && tierIds.every(id => isProbability(thresholds.tier?.[id])) ? stages.tier : null;
+  const selectedIntents = intents ? intentIds.filter(id => intents[id] >= thresholds.intent[id])
+    .sort((a, b) => (intents[b] - intents[a]) || (intentIds.indexOf(a) - intentIds.indexOf(b))).slice(0, 3) : [];
+  const rankedTiers = tierScores ? [...tierIds].sort((a, b) => (tierScores[b] - tierScores[a])
+    || (tierIds.indexOf(a) - tierIds.indexOf(b))) : [];
+  const bestTier = rankedTiers[0];
+  const selectedTier = bestTier && tierScores[bestTier] >= thresholds.tier[bestTier]
+    && (rankedTiers.length === 1 || tierScores[bestTier] !== tierScores[rankedTiers[1]]) ? bestTier : null;
+  const systemOne = {
+    version: result.version,
+    sha256: result.sha256,
+    mode: 'live',
+    validity: validityScores,
+    intents,
+    tier: tierScores,
+    decision: { validity, intents: selectedIntents, tier: selectedTier },
+  };
+  const top = (stage, scores) => scores ? Object.entries(scores).sort((a, b) => b[1] - a[1]
+    || Object.keys(scores).indexOf(a[0]) - Object.keys(scores).indexOf(b[0])).slice(0, 3)
+    .map(([id, probability]) => ({ stage, id, probability })) : [];
+  const reference = { version: result.version, sha256: result.sha256,
+    topOptions: [...top('validity', validityScores), ...top('intent', intents), ...top('tier', tierScores)] };
+  const floorValid = input.floor == null || Object.hasOwn(RANK, input.floor);
+  const belowFloor = selectedTier && input.floor != null && RANK[selectedTier] < RANK[input.floor];
+  const applied = floorValid && validity === 'actionable' && selectedTier !== null && !input.explicit && !belowFloor;
+  return { tier: applied ? LABELS[selectedTier] : input.tier, systemOne, reference, applied };
+}
+async function prescoreLive(prompt, env = process.env, score = provider.scoreLive) {
+  if (env.HARNESS_SYSTEM_ONE_MODE !== 'live') return null;
+  try { return await score(prompt, env, liveOptions()); }
+  catch (_) { return null; }
+}
 // input.floor is the deterministic structural minimum; a scorer may raise the tier, never lower it below the floor.
 function selectTier(input, env = process.env, scorer = provider.score) {
   const mode = env.HARNESS_SYSTEM_ONE_MODE || 'off';
@@ -50,4 +113,4 @@ async function prescoreTier(prompt, env = process.env, scoreAsync = provider.sco
     return result;
   };
 }
-module.exports = { selectTier, prescoreTier, TIER_OPTIONS };
+module.exports = { selectTier, prescoreTier, prescoreLive, routeLive, TIER_OPTIONS, VALIDITY_OPTIONS };

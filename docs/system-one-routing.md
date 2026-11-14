@@ -1,12 +1,12 @@
 # System One routing migration
 
 Status: experimental engineering; issue [#233](https://github.com/dyphn1/Harness-everything/issues/233).
-The default router stays lexical until a Harness checkpoint passes the rollout gates.
+The default mode stays `off`. `live` is opt-in for machines with an activated private checkpoint; recorded gate values are baselines and do not block that opt-in.
 Implement each phase in **documentation → failing tests → implementation** order.
 
 ## Phase 0: scorer contract
 
-System One scores a complete, caller-owned candidate list in one pass. It cannot
+For each stage, System One scores the complete, caller-owned candidate list in one pass. It cannot
 generate a workflow, execute actions, authorize tools, or write memory. Policy and
 contract assembly remain deterministic. This boundary does not add execution locks.
 
@@ -22,17 +22,19 @@ fingerprint grants permission or authenticates a model.
 The provider response has exactly `schemaVersion`, `requestHash`, `catalogHash`,
 `model`, and `scores`. Model has nonempty `id`, `revision`, and `domain` strings.
 Scores have exactly `{id, probability}` in request order. All candidates occur
-exactly once; probabilities are finite numbers in [0, 1], summing to one within
-1e-6. Unknown fields, stale request/catalog hashes, and version mismatches fail.
+exactly once; probabilities are finite independent values in [0, 1] and do not
+sum to one. Unknown fields, stale request/catalog hashes, and version mismatches fail.
 
 `decide(request, response, policy)` returns exactly `status`, `reason`,
 `selectedId`, `confidence`, `margin`, and `model`. Status is `accepted`, `abstain`,
 or `invalid-output`; nonaccepted results always have `selectedId: null`.
 Policy requires a domain (default `harness-routing-v1`), minimum confidence
 (default 0.9) and minimum margin (default 0.2). Invalid policy is a caller error.
-Reject domain mismatch, tied winners, low confidence and low margin. A softmax
-score is not calibrated correctness probability. Invalid output returns no raw
-response, exception, or prompt. Identical inputs give identical decisions.
+The legacy `decide` path rejects domain mismatch, tied winners, low confidence
+and low margin. Live stages use their own calibrated per-option thresholds.
+Probabilities are reference confidence, not correctness guarantees. Invalid
+output returns no raw response, exception, or prompt. Identical inputs give
+identical decisions.
 
 ## Phase 1: local provider
 
@@ -95,8 +97,9 @@ inference path only, not Harness routing quality.
 
 The adapter verifies both files before `load_checkpoint(..., 'cpu')`, sets one
 torch thread and deterministic inference, calls the upstream collator/model,
-and returns a probability for every option. It rejects context or option text
-that exceeds the loaded byte limits before collation (no silent truncation).
+and applies a sigmoid independently to each option logit. It rejects context
+or option text that exceeds the loaded byte limits before collation (no silent
+truncation).
 No prompts or model values are written to disk or echoed in error messages.
 
 The Node transport has a hard timeout and a 1 MiB stdout/stderr bound; it kills
@@ -234,44 +237,77 @@ it started. Repository tests use a stub scorer behind the real server/protocol
 code; they prove the mechanism, not host survival of detached processes or model
 quality. Those require retained evidence.
 
-## Phase 2: tier integration and rollback
+## Phase 2: compatibility modes and staged live routing
 
-Set `HARNESS_SYSTEM_ONE_MODE=off|shadow|prefer` in the host environment. Default
-is `off`: no provider process, diagnostic, or contract change. Supply an absolute
-`HARNESS_SYSTEM_ONE_CONFIG` path to the Phase 1 manifest for the other modes.
-An unknown mode reports `invalid-mode` and leaves the lexical result unchanged.
-Shadow records the decision but never changes the route. Prefer replaces only
-the recommended tier when a valid `harness-routing-v1` result passes Phase 0
-thresholds. The full fixed tier catalog (tier1, tier2, tier3, unclassified) is
-always scored; it is never filtered using lexical matches. `unclassified` means
-abstention and keeps the existing route. Explicit strategy/model requests keep
-precedence and prevent model tier replacement. Set mode back to `off` to roll back.
+`HARNESS_SYSTEM_ONE_MODE=off` remains the default. Off starts no provider, emits
+no System One text or workflow field, and preserves the lexical route byte for
+byte. The older `shadow` and `prefer` single-tier modes remain for compatibility
+and use an absolute `HARNESS_SYSTEM_ONE_CONFIG` manifest path. `live` reads the
+active version pointer described below; it does not use that legacy manifest.
+Set the mode back to `off` to roll back. Unknown modes keep the lexical result.
 
-Prefer can raise a tier but never lower it below the deterministic structural
-floor: a macro-scope signal sets floor `tier3`, and multi-task, multi-sentence
-structure (other than a trivial docs edit) sets floor `tier2`. An accepted result
-below the floor is not applied and reports `structural-floor`, so repository-wide
-work keeps its Tier 3 strategy, independent verification and worktree
-invariants. Tier-3 keywords are lexical guesses, not structural floors. The
-policy assembler still consumes the original structural and risk signals.
-Safety, explicit prohibitions, memory ownership, and verification are not model
-outputs. This phase does not yet replace guide matching, dynamic
-skill triggers, fact-audit reminders, or the structural workflow signals.
-The same scorer API can evaluate caller-supplied text options; additional routing
-surfaces require their own catalog and held-out evidence before integration.
+Live reads `~/.agents/harness-everything/system-one/active.json`; tests can point
+`HARNESS_SYSTEM_ONE_HOME` at another System One home. The pointer has exactly
+`schemaVersion`, `version`, `dir`, `previous`, and `activatedAt`. Its version
+directory contains `manifest.json` with `schemaVersion`, `version`, `createdAt`,
+`stages`, and `evaluation`. `stages` contains `validity`, `intent`, and `tier`;
+each entry names sibling `weights` and `config` files, the weights `sha256`, its
+ordered `options`, and per-option `thresholds`. The router verifies the weight
+hash and the CUA-S1 adapter verifies the checkpoint/config pair before loading.
+The workflow hash is the first 16 hex digits of the tier weights hash. A single
+resident process loads all three checkpoints from that version. The public plugin
+contains the loading and training method, not private weights.
 
-When enabled, a single `SYSTEM ONE` JSON diagnostic reports mode, status, reason,
-selected candidate, model identity, confidence and margin; it omits prompt text,
-score vectors and artifact paths. The existing router contract schema is unchanged.
-Kernel/packaged entry points inherit these host environment variables. Prompts
+Live scores the prompt text in order: validity, then intent and tier only when
+validity is actionable. An invalid result stops later scoring. `p(invalid)` at
+or above its threshold marks the prompt invalid. Each option keeps its own
+sigmoid probability. Intent suggestions include options at or above their
+thresholds, sorted by probability and capped at three. The highest-scoring tier
+is returned only when it meets that tier's own threshold; otherwise the tier
+stage abstains. A tie at the top also abstains.
+
+Precedence is structural floor and explicit user/workflow choices, then System
+One, then lexical tier when System One abstains, is invalid or unavailable, or
+mode is off. The structural floor can only raise the route. Existing safety,
+explicit prohibitions, memory ownership, and verification remain deterministic.
+
+When a valid active version is available, `workflowPlan.systemOne` records the
+fixed version, weight hash, mode, raw stage probabilities, and thresholded
+decision. Unscored stages are `null`. When System One has no active version, the
+field is omitted. User-visible routing text labels the highest stage options
+with their probabilities as reference confidence, never as a verdict; it does
+not print prompt text or artifact paths. Checkpoint activation is opt-in and the
+default mode remains `off`.
+
+The live field has exactly this shape; probability maps contain independent
+values in `[0, 1]` and omit `unclassified`:
+
+```json
+{
+  "version": "<active version id>",
+  "sha256": "<first 16 hex digits of tier weights hash>",
+  "mode": "live",
+  "validity": { "invalid": 0.12 },
+  "intents": {
+    "explain": 0.1, "discuss": 0.12, "git": 0.1, "fix": 0.81,
+    "edit": 0.2, "feature": 0.54, "refactor": 0.1, "review": 0.1,
+    "test": 0.1, "docs": 0.14, "plan": 0.1, "investigate": 0.1
+  },
+  "tier": { "tier1": 0.1, "tier2": 0.84, "tier3": 0.62 },
+  "decision": { "validity": "actionable", "intents": ["fix"], "tier": "tier2" }
+}
+```
+
+`decision.validity` is `actionable`, `invalid`, or `abstain`. `decision.intents`
+contains up to three above-threshold IDs in probability order. `decision.tier` is
+the unique highest above-threshold tier or `null` when the tier stage abstains.
+
+Kernel and packaged entry points inherit host environment variables. Prompts
 and hook payload fields cannot set model configuration or launch executables.
 Claude Code settings `env` is hot-reloaded and reaches hooks and every command
-the agent runs; Codex hooks inherit the `codex` process environment, so a Codex
-started from an ordinary terminal needs user/OS-level variables (which then apply
-to every program the user starts). The recommended setting is `off` until a
-`harness-routing-v1` checkpoint passes the rollout gates.
-Repository tests establish mechanism/package evidence only; actual host loading
-and semantic quality remain unverified until retained sessions demonstrate them.
+the agent runs; Codex hooks inherit the `codex` process environment. Repository
+tests establish mechanism and package evidence only; live host loading and
+behavioral quality require retained host evidence.
 
 ## Phase 3: corpus and paired evaluation
 
@@ -340,7 +376,7 @@ unversioned download during a prompt hook.
 | --- | --- | --- |
 | 0 | Versioned option-scoring boundary | Complete positive/negative contract tests |
 | 1 | Local CUA-S1 adapter | Bounded subprocess, artifact validation, explicit failures |
-| 2 | Router integration | Off/shadow/prefer, existing policy invariants, rollback |
+| 2 | Router integration | Off/shadow/prefer/live, active pointer, precedence, rollback |
 | 3 | Corpus and paired evaluator | Leakage checks, coverage/error metrics, repeatability |
 | 4 | Harness training and rollout | Real checkpoint, reviewed holdout, measured host results |
 
@@ -349,50 +385,32 @@ Phase 4 training data, labeling, calibration and release are defined in
 
 ## Staged classification
 
-System One answers three narrow questions in sequence instead of one broad
-question. Each stage is its own fixed catalog, scorer request and holdout, so a
-small model only has to separate a few options at a time.
+Live routing scores three fixed catalogs in order. Validity is `actionable` or
+`invalid`; the intent catalog contains the twelve work intents plus
+`unclassified`; and the tier catalog contains `tier1`, `tier2`, `tier3` plus
+`unclassified`. `unclassified` is an abstention option and is not included in
+the output probability maps.
 
-1. **Tier**: `tier1`, `tier2`, `tier3` or `unclassified`, following
-   [system-one-corpus.md](system-one-corpus.md).
-2. **Intent**: the kind of work the prompt asks for, drawn from the owner's
-   fixed catalog in [system-one-intent.md](system-one-intent.md): `explain`,
-   `discuss`, `git`, `fix`, `edit`, `feature`, `refactor`, `review`, `test`,
-   `docs`, `plan`, `investigate` or `unclassified`. A prompt has one primary
-   intent and may have secondary intents.
-3. **Skill relevance**: candidate signals for requirement composition,
-   scored against canonical skill descriptions. These candidates do not select
-   paths, trigger loads, or bypass the active-step binding contract.
+Invalid prompts receive no intent or tier suggestion. For actionable prompts,
+all intent options are scored independently and up to three above-threshold
+suggestions are reported. Tier uses its own per-option thresholds and abstains
+when no tier meets its threshold. The live tier readout is independent of intent
+scores. System One does not choose workflow strategies or skill paths in this
+contract; explicit workflow requests, action gates, memory ownership, the Rule
+of 3 and the active-step binding contract remain deterministic.
 
-Each stage has its own gates, and a stage ships only when it passes them.
-The relevance-native plan in
-[system-one-suggestion-gates.md](system-one-suggestion-gates.md#readout-per-stage)
-adds a validity stage first and runs intent before tier, because tier3 is
-composed from the intent scores. Tier was trained first because the
-reviewed holdout exists for it. Later stages reuse the
-same collector, labeler, trainer and evaluator with a different catalog.
-Relevance candidates are advisory inputs to requirement composition: explicit
-workflow requests, action gates, memory ownership, the Rule of 3 and
-deterministic policy always take precedence. A candidate becomes a skill path
-only when a specific ordered requirement declares it as a binding.
+## Rollout and evaluation
 
-## Rollout gates
+The measurement definitions in
+[system-one-suggestion-gates.md](system-one-suggestion-gates.md) remain useful
+for recording model behavior. For opt-in live routing, their numeric values are
+stored as a baseline and do not block activation. Version comparison and
+rollback follow the long-term optimization curve, not one threshold or metric.
+The default mode stays `off`; private weights are used only by machines with an
+active version pointer, and the public plugin ships the training method rather
+than weights.
 
-Model-quality gates for relevance-native candidates are defined in
-[system-one-suggestion-gates.md](system-one-suggestion-gates.md), which
-supersedes the precision/coverage/latency targets below. The holdout size,
-provenance, repeatability and advisory rules below still apply.
-
-Phase 4 requires a separately reviewed, family-disjoint holdout of at least 200
-cases, at least 50 each in English and Traditional Chinese. System One output is
-advisory: it informs requirement composition and provides skill-relevance
-candidates. It never grants, removes policy, or loads paths. The owner therefore
-set the target at accepted precision ≥85% (the
-80–90% band), coverage ≥80%, and macro-F1 at least the lexical baseline. A
-probabilistic scorer small enough to ship inside a skills plugin (a few MB, not
-hundreds) is not expected to reach 98%.
-Policy invariants must remain intact in every case; repeat decisions twice with
-100% agreement. Record checkpoint/source hashes, CPU, OS, runtime, thread count,
-cold latency and warm p95 (target ≤100ms). Synthetic fixtures and mock providers
-only validate mechanisms. They cannot satisfy these model/behavior gates.
-Until measured evidence passes, retain the default, fallback and this open issue.
+Evaluation records stage distributions, provenance, repeatability, CPU, OS,
+runtime, thread count, cold latency and warm p95. System One provides reference
+confidence, not absolute answers. Mechanism tests and mock providers establish
+contract behavior only; they do not claim model quality or a live-host result.

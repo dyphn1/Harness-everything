@@ -15,6 +15,17 @@ function createRequest(task, context, options) {
   const catalogHash = hash({ task, options: copy });
   return { schemaVersion: 1, task, context, options: copy, catalogHash, requestHash: hash({ catalogHash, context }) };
 }
+function responseValid(req, res) {
+  return exact(res, ['schemaVersion', 'requestHash', 'catalogHash', 'model', 'scores'])
+    && res.schemaVersion === 1 && res.requestHash === req.requestHash && res.catalogHash === req.catalogHash
+    && exact(res.model, ['id', 'revision', 'domain']) && Object.values(res.model).every(v => text(v))
+    && Array.isArray(res.scores) && res.scores.length === req.options.length
+    && res.scores.every((s, i) => exact(s, ['id', 'probability']) && s.id === req.options[i].id && probability(s.probability));
+}
+function validateResponse(req, res) {
+  try { validateRequest(req); return responseValid(req, res); }
+  catch (_) { return false; }
+}
 function validateRequest(req) {
   if (!exact(req, ['schemaVersion', 'task', 'context', 'options', 'catalogHash', 'requestHash']) || req.schemaVersion !== 1) fail('invalid-request');
   const rebuilt = createRequest(req.task, req.context, req.options);
@@ -28,12 +39,7 @@ function decide(req, res, policy = {}) {
   const { domain = 'harness-routing-v1', minConfidence = 0.9, minMargin = 0.2 } = policy;
   if (!text(domain) || !probability(minConfidence) || !probability(minMargin)) fail('invalid-policy');
   const empty = { status: 'invalid-output', reason: 'invalid-response', selectedId: null, confidence: null, margin: null, model: null };
-  if (!exact(res, ['schemaVersion', 'requestHash', 'catalogHash', 'model', 'scores'])
-    || res.schemaVersion !== 1 || res.requestHash !== req.requestHash || res.catalogHash !== req.catalogHash
-    || !exact(res.model, ['id', 'revision', 'domain']) || !Object.values(res.model).every(v => text(v))
-    || !Array.isArray(res.scores) || res.scores.length !== req.options.length
-    || res.scores.some((s, i) => !exact(s, ['id', 'probability']) || s.id !== req.options[i].id || !probability(s.probability))
-    || Math.abs(res.scores.reduce((s, o) => s + o.probability, 0) - 1) > 1e-6) return empty;
+  if (!responseValid(req, res)) return empty;
   const ranked = [...res.scores].sort((a, b) => b.probability - a.probability);
   const confidence = ranked[0].probability;
   const margin = confidence - ranked[1].probability;
@@ -61,11 +67,7 @@ function decideIntents(req, res, policy = {}) {
   if (!text(domain)) fail('invalid-policy');
   const empty = { status: 'invalid-output', reason: 'invalid-response', selectedId: null,
     confidence: null, margin: null, model: null, intents: null };
-  if (!exact(res, ['schemaVersion', 'requestHash', 'catalogHash', 'model', 'scores'])
-    || res.schemaVersion !== 1 || res.requestHash !== req.requestHash || res.catalogHash !== req.catalogHash
-    || !exact(res.model, ['id', 'revision', 'domain']) || !Object.values(res.model).every(v => text(v))
-    || !Array.isArray(res.scores) || res.scores.length !== req.options.length
-    || res.scores.some((s, i) => !exact(s, ['id', 'probability']) || s.id !== req.options[i].id || !probability(s.probability))) return empty;
+  if (!responseValid(req, res)) return empty;
   const model = { ...res.model };
   if (model.domain !== domain) {
     return { status: 'abstain', reason: 'domain-mismatch', selectedId: null,
@@ -86,4 +88,4 @@ function decideIntents(req, res, policy = {}) {
   return { status: 'accepted', reason: 'scored', selectedId: fired[0][0], confidence,
     margin: confidence - Math.max(...rest, 0), model, intents };
 }
-module.exports = { createRequest, validateRequest, decide, decideIntents };
+module.exports = { createRequest, validateRequest, validateResponse, decide, decideIntents };

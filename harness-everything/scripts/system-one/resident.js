@@ -123,6 +123,50 @@ function start(manifest, files, deps) {
   }
   return unavailable('provider-starting');
 }
+function activeStateFiles(active) {
+  const base = path.join(path.dirname(active.pointerPath), `system-one-active-resident-${active.fingerprint.slice(0, 16)}`);
+  return { state: `${base}.json`, lock: `${base}.starting` };
+}
+function defaultActiveCommand(active) {
+  return [active.python, [adapterPath({}), '--serve-active']];
+}
+function startActive(active, files, deps) {
+  const lock = lockInfo(files.lock);
+  if (lock && lock.ageMs < LOCK_TTL_MS) return unavailable(lock.failed ? 'provider-unavailable' : 'provider-starting');
+  if (lock) { try { fs.unlinkSync(files.lock); } catch (_) { /* another caller replaced it */ } }
+  try { fs.writeFileSync(files.lock, JSON.stringify({ createdAt: Date.now() }), { flag: 'wx', mode: 0o600 }); }
+  catch (_) { return unavailable('provider-starting'); }
+  let child = null;
+  try {
+    const [exe, prefix] = (deps.command || defaultActiveCommand)(active);
+    child = spawn(exe, [...prefix, active.pointerPath, files.state, files.lock, active.fingerprint],
+      { detached: true, stdio: 'ignore', windowsHide: true, shell: false });
+    child.on('error', () => { /* recorded synchronously below: a failed spawn has no pid */ });
+    child.unref();
+  } catch (_) { child = null; }
+  if (!child || !child.pid) {
+    try { fs.writeFileSync(files.lock, JSON.stringify({ createdAt: Date.now(), failed: 'spawn-failed' })); } catch (_) { /* best effort */ }
+    return unavailable('provider-unavailable');
+  }
+  return unavailable('provider-starting');
+}
+function activeOutcome(result, files, state, active, deps) {
+  if (result.reply) {
+    if (result.reply.ok === true && Object.hasOwn(result.reply, 'response')) return { status: 'scored', response: result.reply.response };
+    if (result.reply.reason === 'artifact-changed') removeIfSame(files.state, state);
+    return unavailable(result.reply.ok === false ? 'provider-unavailable' : 'provider-json');
+  }
+  if (result.error === 'refused') { removeIfSame(files.state, state); return startActive(active, files, deps); }
+  return unavailable({ timeout: 'provider-timeout', limit: 'provider-output-limit', json: 'provider-json' }[result.error] || 'provider-unavailable');
+}
+async function scoreActiveStage(active, stage, request, deps = {}) {
+  validateRequest(request);
+  if (!['validity', 'intent', 'tier'].includes(stage)) return unavailable('provider-config');
+  const files = activeStateFiles(active);
+  const state = liveState(files);
+  if (!state) return startActive(active, files, deps);
+  return activeOutcome(await callAsync(state.port, { token: state.token, op: 'score', stage, request }), files, state, active, deps);
+}
 // Returns a live server state, or null after removing state that provably belongs to a dead server.
 function liveState(files) {
   const state = readState(files.state);
@@ -202,4 +246,5 @@ if (require.main === module) {
   if (op === 'stop') stop(manifest, manifestPath);
   process.stdout.write(`${JSON.stringify(status(manifest, manifestPath))}\n`);
 }
-module.exports = { stateFiles, readState, callSync, callAsync, score, scoreAsync, ensureReady, status, stop, defaultCommand, LOCK_TTL_MS, CALL_TIMEOUT_MS };
+module.exports = { stateFiles, readState, callSync, callAsync, score, scoreAsync, scoreActiveStage,
+  activeStateFiles, defaultActiveCommand, ensureReady, status, stop, defaultCommand, LOCK_TTL_MS, CALL_TIMEOUT_MS };

@@ -1,7 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createRequest, validateRequest, decide } = require('../harness-everything/scripts/system-one/contract');
+const { createRequest, validateRequest, validateResponse, decide } = require('../harness-everything/scripts/system-one/contract');
 const options = [{ id: 'tier1', text: 'Bounded edit' }, { id: 'tier3', text: 'Architecture' }];
 const request = () => createRequest('tier', '修正 typo', options);
 function response(req, p = [0.95, 0.05]) {
@@ -31,10 +31,11 @@ test('S1-C02 rejected input partitions and byte boundaries', () => {
 });
 test('S1-C03 complete output validation and no raw-data leakage', () => {
   const req = request();
-  for (const mutate of [r => { r.schemaVersion = 2; }, r => { r.requestHash = 'stale'; }, r => { r.catalogHash = 'stale'; }, r => { r.scores.pop(); }, r => { r.scores.push(r.scores[0]); }, r => { r.scores.reverse(); }, r => { r.scores[1].id = r.scores[0].id; }, r => { r.scores[0].probability = NaN; }, r => { r.scores[0].probability = Infinity; }, r => { r.scores[0].probability = -1; }, r => { r.scores[0].probability = 1.1; }, r => { r.scores[0].probability = '0.95'; }, r => { r.scores[0].probability = 0.8; }, r => { r.scores[0].extra = 'secret'; }, r => { r.model.extra = 'secret'; }, r => { r.model.revision = ''; }, r => { delete r.model; }, r => { r.extra = 'secret'; }]) {
+  for (const mutate of [r => { r.schemaVersion = 2; }, r => { r.requestHash = 'stale'; }, r => { r.catalogHash = 'stale'; }, r => { r.scores.pop(); }, r => { r.scores.push(r.scores[0]); }, r => { r.scores.reverse(); }, r => { r.scores[1].id = r.scores[0].id; }, r => { r.scores[0].probability = NaN; }, r => { r.scores[0].probability = Infinity; }, r => { r.scores[0].probability = -1; }, r => { r.scores[0].probability = 1.1; }, r => { r.scores[0].probability = '0.95'; }, r => { r.scores[0].extra = 'secret'; }, r => { r.model.extra = 'secret'; }, r => { r.model.revision = ''; }, r => { delete r.model; }, r => { r.extra = 'secret'; }]) {
     const res = response(req); mutate(res);
     assert.deepEqual(decide(req, res), { status: 'invalid-output', reason: 'invalid-response', selectedId: null, confidence: null, margin: null, model: null });
   }
+  assert.equal(validateResponse(req, response(req, [0.8, 0.75])), true);
   for (const value of [null, [], 'invalid']) assert.equal(decide(req, value).status, 'invalid-output');
 });
 test('S1-C04 abstention and policy boundaries', () => {
