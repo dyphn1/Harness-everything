@@ -16,6 +16,11 @@ REPO = Path(__file__).resolve().parents[1]
 DEFAULT_HOLDOUT = REPO / 'benchmarks' / 'fixtures' / 'system-one-holdout.json'
 DEFAULT_INTENT_HOLDOUT = REPO / 'benchmarks' / 'fixtures' / 'system-one-intent-holdout.json'
 TIER_IDS = ('tier1', 'tier2', 'tier3')
+OPTION_TOKENS = 96
+# Whole-forward-pass budget: prompt tokens plus one pass over every option, per example. 84,000 is the
+# smallest round budget that keeps validity's largest v1 batch (703 examples of 23-token prompts at 96
+# option tokens each, ~83.7k tokens) inside the 6 GB guard at the 5.0 GB peak already observed.
+TOKEN_BUDGET = 84000
 
 
 def load_jsonl(path):
@@ -97,15 +102,17 @@ def validation_record(row, catalog, probabilities, task):
             'scores': dict(zip((option['id'] for option in catalog), probabilities))}
 
 
-def make_batches(lengths, token_budget):
-    """Length-bucketed batches: each batch's size times its longest item stays within the budget."""
-    order = sorted(range(len(lengths)), key=lambda i: (lengths[i], i))
+def make_batches(lengths, token_budget, n_options, option_tokens):
+    """Length-bucketed batches: each batch's size times its longest item's forward-pass cost
+    (prompt tokens plus one pass over every option) stays within the whole-pass budget."""
+    costs = [length + n_options * option_tokens for length in lengths]
+    order = sorted(range(len(costs)), key=lambda i: (costs[i], i))
     batches, current, longest = [], [], 0
     for i in order:
-        longest_if_added = max(longest, lengths[i])
+        longest_if_added = max(longest, costs[i])
         if current and (len(current) + 1) * longest_if_added > token_budget:
             batches.append(current)
-            current, longest_if_added = [], lengths[i]
+            current, longest_if_added = [], costs[i]
         current.append(i)
         longest = longest_if_added
     if current:
@@ -128,7 +135,7 @@ def train(args):
     options = tuple(o['text'] for o in catalog)
     split = {name: [e for e in examples if e['split'] == name] for name in ('train', 'validation')}
     config = {'encoder': 'tinyx', 'width': 128, 'rank': 128, 'layers': 2, 'heads': 4, 'dropout': 0.1,
-              'context_tokens': args.context_tokens, 'option_tokens': 96}
+              'context_tokens': args.context_tokens, 'option_tokens': OPTION_TOKENS}
     model, collator = make_system(config, 'cpu')
 
     def to_examples(rows):
@@ -144,8 +151,8 @@ def train(args):
     train_x, val_x = to_examples(split['train']), to_examples(split['validation'])
     train_targets = torch.tensor([build_targets(r, catalog, args.task, args.target) for r in split['train']], dtype=torch.float)
     val_targets = torch.tensor([build_targets(r, catalog, args.task, args.target) for r in split['validation']], dtype=torch.float)
-    train_batches = make_batches(lengths(split['train']), args.token_budget)
-    val_batches = make_batches(lengths(split['validation']), args.token_budget)
+    train_batches = make_batches(lengths(split['train']), args.token_budget, len(catalog), config['option_tokens'])
+    val_batches = make_batches(lengths(split['validation']), args.token_budget, len(catalog), config['option_tokens'])
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
 
     def evaluate():
@@ -214,7 +221,8 @@ def main(argv=None):
     parser.add_argument('--seed', type=int, default=7)
     parser.add_argument('--threads', type=int, default=4)
     parser.add_argument('--context-tokens', type=int, default=1024)
-    parser.add_argument('--token-budget', type=int, default=16384)
+    parser.add_argument('--token-budget', type=int, default=TOKEN_BUDGET,
+                        help='whole-forward-pass tokens per batch (prompt plus every option)')
     parser.add_argument('--task', choices=['validity', 'intent', 'tier'], default='tier')
     parser.add_argument('--target', choices=['label', 'scores'], default='label',
                         help='scores: per-intent soft labels from labels-intent-scores.jsonl (intent only)')
