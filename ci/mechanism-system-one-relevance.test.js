@@ -86,7 +86,7 @@ const goodEvidence = () => ({ family: { gold: { rate: 0.8 }, model: { rate: 0.85
 
 test('S1-R06 relevance gates follow the reviewed promotion contract', () => {
   const pass = relevanceGates(goodMulti(), goodEvidence());
-  assert.ok(pass.rolloutReady === false, 'policy/live-host evidence keeps rollout red pre-production');
+  assert.equal(Object.hasOwn(pass, 'rolloutReady'), false, 'gate metrics stay report-only for the opt-in launch');
   for (const k of ['microF1', 'macroF1', 'perIntentFloors', 'weakPrecision', 'cardinality',
     'abstainRate', 'familyConsistency', 'repeatability', 'warmLatency', 'structuralControls']) {
     assert.equal(pass[k], true, k);
