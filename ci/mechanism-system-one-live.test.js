@@ -229,7 +229,8 @@ test('S1-L04 workflow plan carries the fixed object and user output labels score
       thresholds: { validity: { invalid: 0.55 }, intent: stages.intent.thresholds, tier: stages.tier.thresholds },
     };
     const contract = run('fixture request with clear scope', null, { systemOneResult: result });
-    assert.deepEqual(Object.keys(contract.workflowPlan.systemOne), ['version', 'sha256', 'mode', 'validity', 'intents', 'tier', 'decision']);
+    assert.deepEqual(Object.keys(contract.workflowPlan.systemOne), ['version', 'sha256', 'mode', 'inputEnrichment', 'validity', 'intents', 'tier', 'decision']);
+    assert.deepEqual(contract.workflowPlan.systemOne.inputEnrichment, { handoffFiles: 0 });
     assert.deepEqual(contract.workflowPlan.systemOne.decision, { validity: 'actionable', intents: ['feature', 'fix', 'docs'], tier: 'tier3' });
     assert.deepEqual(JSON.parse(fs.readFileSync(env.HARNESS_ROUTER_CONTRACT_PATH, 'utf8')).workflowPlan.systemOne, contract.workflowPlan.systemOne);
     const output = lines.join('\n');
