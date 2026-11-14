@@ -72,28 +72,36 @@ VCS URL pinned to that commit (not an editable or local-directory install).
 The status is `pinned` when it matches, `mismatch` otherwise, or `unavailable`
 when no revision is recorded. Malformed probe output is `provider-json`.
 
-`npm run system-one:install` (or `node harness-everything/scripts/system-one/install.js`)
-performs these steps on explicit request; hooks never run it. It selects a
-Python 3.11–3.13 interpreter (`--python` overrides; 3.14 is rejected by upstream),
-creates `<dir>/venv`, installs CPU-only torch from the PyTorch CPU index, then
-installs the pinned `cua_s1` Git URL. It downloads the `cua-ai/cua-s1-forms`
-safetensors weights and JSON sidecar at Hugging Face revision
-`f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71`, verifies pinned sizes and SHA-256
-before an atomic write (the pickle `.pt` is never fetched), and writes
-`<dir>/manifest.json` with `timeoutMs: 10000`, `transport: "resident"` and
-`idleTimeoutMs: 1800000`. The default `<dir>` is
-`~/.agents/harness-everything/system-one`; `--dir` takes an absolute path and
-`--dry-run` prints the plan without changes. Acceptance requires a `pinned`
-provenance probe and one real warm CPU inference through a resident server that
-the installer starts and then stops; otherwise the exit code is 1. Child-process
-output goes to stderr; stdout carries only the JSON report.
-Torch/numpy/safetensors versions resolve at install time and are recorded by
-the probe. The installer does not change the router mode: it prints
-`HARNESS_SYSTEM_ONE_MODE=shadow` and the manifest path for the host
-environment. This checkpoint declares domain `forms-v1`, so shadow diagnostics
-report `domain-mismatch` and prefer never applies it. It also rejects context
-above its 224-byte limit (`provider-exit`), so installing it proves the local
-inference path only, not Harness routing quality.
+Install a private checkpoint from a local data-repository checkout or its Git
+SSH URL. The checkout must contain
+`models/cua-s1/<id>/manifest.json` with validity, intent and tier stages:
+
+```sh
+node harness-everything/scripts/system-one/install.js install \
+  --from /path/to/private-data-repo --version <id>
+node harness-everything/scripts/system-one/install.js install \
+  --from git@host:private/data-repo.git --version <id>
+```
+
+The SSH path uses a shallow sparse clone of the requested checkpoint in a
+temporary cache directory; SSH credentials must come from the local SSH
+configuration, not the URL. The installer verifies each stage's `sha256`, then
+copies the manifest, weights, configs and optional evaluation file to
+`~/.agents/harness-everything/system-one/versions/<id>/`. It also creates the
+dedicated Python 3.11–3.13 virtual environment, installs CPU-only torch and the
+pinned `cua_s1` source. `--python` selects the interpreter, `--dir` selects an
+absolute install directory, and `--dry-run` prints the plan without changes.
+The default directory is `~/.agents/harness-everything/system-one`; set
+`HARNESS_SYSTEM_ONE_HOME` to override it.
+
+Installation does not activate a checkpoint. Run
+`node harness-everything/scripts/system-one/install.js activate <id>` to switch
+the atomic `active.json` pointer; it records the prior version for
+`rollback`. `status` reports active and previous versions, verifies their
+checkpoint hashes, and prints the `HARNESS_SYSTEM_ONE_MODE=live` opt-in hint.
+The router remains off by default; set `HARNESS_SYSTEM_ONE_MODE=live` only on
+machines where System One is opted in. The public plugin contains the installer
+code but no private weights.
 
 The adapter verifies both files before `load_checkpoint(..., 'cpu')`, sets one
 torch thread and deterministic inference, calls the upstream collator/model,
