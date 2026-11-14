@@ -7,6 +7,8 @@ Gold labels follow [system-one-corpus.md](system-one-corpus.md). The owner-revie
 holdout in that document is used only for evaluation. It is never used for training,
 threshold selection or labeler tuning.
 
+For the owner-started monthly collection-to-package workflow, see [System One monthly training cycle](system-one-cycle.md).
+
 ## Pipeline
 
 1. **Collect**: copy the owner's own prompts from local assistant histories into a local
