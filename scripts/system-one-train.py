@@ -17,10 +17,10 @@ DEFAULT_HOLDOUT = REPO / 'benchmarks' / 'fixtures' / 'system-one-holdout.json'
 DEFAULT_INTENT_HOLDOUT = REPO / 'benchmarks' / 'fixtures' / 'system-one-intent-holdout.json'
 TIER_IDS = ('tier1', 'tier2', 'tier3')
 OPTION_TOKENS = 96
-# Whole-forward-pass budget: prompt tokens plus one pass over every option, per example. 84,000 is the
-# smallest round budget that keeps validity's largest v1 batch (703 examples of 23-token prompts at 96
-# option tokens each, ~83.7k tokens) inside the 6 GB guard at the 5.0 GB peak already observed.
-TOKEN_BUDGET = 84000
+# Whole-forward-pass budget: prompt tokens plus one pass over every option, per example. Attention memory
+# grows with the square of the sequence length, so a large budget packs many long prompts into one batch
+# and OOMs the 6 GB guard; 16,384 keeps the observed peak near 1.0-1.7 GB.
+TOKEN_BUDGET = 16384
 
 
 def load_jsonl(path):

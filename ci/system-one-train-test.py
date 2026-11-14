@@ -79,7 +79,7 @@ except ValueError:
     pass
 
 lengths = [10, 1024, 300, 5, 700, 1024, 50] * 20
-assert trainer.TOKEN_BUDGET == 84000, trainer.TOKEN_BUDGET
+assert trainer.TOKEN_BUDGET == 16384, trainer.TOKEN_BUDGET
 
 
 def batch_cost(items, lengths, n_options):
@@ -93,13 +93,15 @@ assert all(batch_cost(b, lengths, 12) <= 16384 for b in intent_batches), 'whole 
 assert intent_batches == trainer.make_batches(lengths, 16384, 12, trainer.OPTION_TOKENS), 'deterministic'
 print('PASS batches: 12 options count toward the budget, every example once, deterministic')
 
-# v1 shape (witness): the largest batch was 703 examples whose longest prompt is 23 tokens.
-v1 = [23] * 703 + [24] + [1024] * 40
-validation = trainer.make_batches(v1, trainer.TOKEN_BUDGET, 1, trainer.OPTION_TOKENS)
-prompt_only = trainer.make_batches(v1, 16384, 1, 0)
-assert max(len(b) for b in prompt_only) == max(len(b) for b in validation) == 703
-assert all(batch_cost(b, v1, 1) <= trainer.TOKEN_BUDGET for b in validation)
-print('PASS batches: 1 option keeps the v1 largest batch (703) inside the new default')
+# Default budget caps long-prompt batches tightly: a 1024-token prompt plus every option pass must fit.
+long_prompts = [1024] * 64
+one_option = trainer.make_batches(long_prompts, trainer.TOKEN_BUDGET, 1, trainer.OPTION_TOKENS)
+twelve_options = trainer.make_batches(long_prompts, trainer.TOKEN_BUDGET, 12, trainer.OPTION_TOKENS)
+assert max(len(b) for b in one_option) == 16384 // (1024 + 96), max(len(b) for b in one_option)
+assert max(len(b) for b in twelve_options) == 16384 // (1024 + 1152), max(len(b) for b in twelve_options)
+assert all(batch_cost(b, long_prompts, 1) <= trainer.TOKEN_BUDGET for b in one_option)
+assert all(batch_cost(b, long_prompts, 12) <= trainer.TOKEN_BUDGET for b in twelve_options)
+print('PASS batches: default 16384 budget caps 1024-token prompts at 14 examples (1 option) and 7 (12 options)')
 
 with tempfile.TemporaryDirectory() as tmp:
     p = Path(tmp) / 'rows.jsonl'
