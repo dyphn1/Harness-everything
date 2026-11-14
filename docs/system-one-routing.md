@@ -399,6 +399,18 @@ scores. System One does not choose workflow strategies or skill paths in this
 contract; explicit workflow requests, action gates, memory ownership, the Rule
 of 3 and the active-step binding contract remain deterministic.
 
+In opt-in `live` mode, System One may also read up to three file paths written
+in the prompt: absolute paths, or paths relative to the session working
+directory that stay within it. It considers only existing regular files up to
+1 MiB and reads at most the first 2 KiB with the shared
+[`handoff-file.js`](../scripts/handoff-file.js) parser. A valid
+`harness-handoff` header adds one `[handoff] kind=... title=... summary=...`
+line per file to the System One scoring input; file bodies are never read.
+The host prompt, lexical routing input and stored prompt observation remain
+unchanged. `workflowPlan.systemOne.inputEnrichment.handoffFiles` records how
+many headers were added. Invalid files and read errors are ignored, and mode
+`off` keeps its existing byte-identical behavior.
+
 ## Rollout and evaluation
 
 The measurement definitions in

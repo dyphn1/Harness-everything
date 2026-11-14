@@ -1,6 +1,7 @@
 'use strict';
 const { createRequest, decide } = require('./contract');
 const provider = require('./provider');
+const { prepareHandoffInput } = require('./handoff-input');
 const TIER_OPTIONS = Object.freeze([
   { id: 'tier1', text: 'A small bounded edit or operation with clear scope.' },
   { id: 'tier2', text: 'Implementation or bug fix needing iterative testing.' },
@@ -52,6 +53,8 @@ function routeLive(input, result) {
     version: result.version,
     sha256: result.sha256,
     mode: 'live',
+    inputEnrichment: { handoffFiles: Number.isSafeInteger(result.inputEnrichment?.handoffFiles)
+      ? result.inputEnrichment.handoffFiles : 0 },
     validity: validityScores,
     intents,
     tier: tierScores,
@@ -67,9 +70,13 @@ function routeLive(input, result) {
   const applied = floorValid && validity === 'actionable' && selectedTier !== null && !input.explicit && !belowFloor;
   return { tier: applied ? LABELS[selectedTier] : input.tier, systemOne, reference, applied };
 }
-async function prescoreLive(prompt, env = process.env, score = provider.scoreLive) {
+async function prescoreLive(prompt, env = process.env, score = provider.scoreLive, cwd = process.cwd()) {
   if (env.HARNESS_SYSTEM_ONE_MODE !== 'live') return null;
-  try { return await score(prompt, env, liveOptions()); }
+  try {
+    const prepared = prepareHandoffInput(prompt, cwd);
+    const result = await score(prepared.input, env, liveOptions());
+    return result ? { ...result, inputEnrichment: { handoffFiles: prepared.handoffFiles } } : result;
+  }
   catch (_) { return null; }
 }
 // input.floor is the deterministic structural minimum; a scorer may raise the tier, never lower it below the floor.

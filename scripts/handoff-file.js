@@ -30,12 +30,11 @@ const BODY = [
 ].join('\n');
 
 function fail(message) {
-  process.stderr.write(`handoff-file: ${message}\n`);
-  process.exit(1);
+  throw new Error(message);
 }
 
 function usage() {
-  process.stderr.write([
+  const error = new Error([
     'Usage:',
     '  handoff-file.js new --kind <implement|test|review|design|question|answer>',
     '                     --title "<text>" --summary "<text>" --out <file.md>',
@@ -44,7 +43,8 @@ function usage() {
     '  handoff-file.js check <file.md>',
     '',
   ].join('\n'));
-  process.exit(1);
+  error.code = 'HANDOFF_USAGE';
+  throw error;
 }
 
 function plainSafe(value) {
@@ -198,19 +198,26 @@ function createHandoff(args) {
 }
 
 function main() {
-  const [command, ...rest] = process.argv.slice(2);
-  if (command === 'new') {
-    createHandoff(rest);
-  } else if (command === 'header' || command === 'check') {
-    const file = rest[0];
-    if (!file) fail(`${command} requires <file.md>`);
-    const header = loadHeader(file);
-    process.stdout.write(
-      command === 'header' ? `${JSON.stringify(header, null, 2)}\n` : `${file}: ok (kind=${header.kind})\n`,
-    );
-  } else {
-    usage();
+  try {
+    const [command, ...rest] = process.argv.slice(2);
+    if (command === 'new') {
+      createHandoff(rest);
+    } else if (command === 'header' || command === 'check') {
+      const file = rest[0];
+      if (!file) fail(`${command} requires <file.md>`);
+      const header = loadHeader(file);
+      process.stdout.write(
+        command === 'header' ? `${JSON.stringify(header, null, 2)}\n` : `${file}: ok (kind=${header.kind})\n`,
+      );
+    } else {
+      usage();
+    }
+  } catch (error) {
+    process.stderr.write(error.code === 'HANDOFF_USAGE' ? error.message : `handoff-file: ${error.message}\n`);
+    process.exitCode = 1;
   }
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = { loadHeader };

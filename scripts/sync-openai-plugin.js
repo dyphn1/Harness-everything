@@ -57,6 +57,10 @@ for (const name of fs.readdirSync(pluginSkillsRoot)) {
   if (!expected.has(name)) fs.rmSync(path.join(pluginSkillsRoot, name), { recursive: true, force: true });
 }
 
+// The System One router uses the hand-off reader as a shared runtime module.
+syncTree(path.join(ROOT, 'scripts', 'handoff-file.js'),
+  path.join(pluginRoot, 'scripts', 'handoff-file.js'));
+
 // The Claude hook definitions are host-specific, but their enforcement
 // scripts are shared. Package the scripts plus the small runtime libraries
 // they require so every OpenAI hook is self-contained under PLUGIN_ROOT.
