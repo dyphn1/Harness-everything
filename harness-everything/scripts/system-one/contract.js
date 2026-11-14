@@ -39,7 +39,7 @@ function decide(req, res, policy = {}) {
   const { domain = 'harness-routing-v1', minConfidence = 0.9, minMargin = 0.2 } = policy;
   if (!text(domain) || !probability(minConfidence) || !probability(minMargin)) fail('invalid-policy');
   const empty = { status: 'invalid-output', reason: 'invalid-response', selectedId: null, confidence: null, margin: null, model: null };
-  if (!responseValid(req, res)) return empty;
+  if (!responseValid(req, res) || Math.abs(res.scores.reduce((sum, score) => sum + score.probability, 0) - 1) > 1e-6) return empty;
   const ranked = [...res.scores].sort((a, b) => b.probability - a.probability);
   const confidence = ranked[0].probability;
   const margin = confidence - ranked[1].probability;

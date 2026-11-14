@@ -44,6 +44,16 @@ test('S1-R03 the simplex rule does not apply to relevance vectors', () => {
   assert.equal(decide(request, res, {}).status, 'invalid-output', 'single-winner still demands the simplex');
 });
 
+test('F1 single-winner and relevance decisions keep separate score contracts', () => {
+  const simplex = responseFor(Object.fromEntries(IDS.map(id => [id, id === 'fix' ? 0.9 : id === 'test' ? 0.1 : 0])));
+  assert.equal(decide(request, simplex).status, 'accepted');
+
+  const relevance = responseFor({ fix: 0.9, test: 0.8, docs: 0.7 });
+  assert.ok(relevance.scores.reduce((sum, score) => sum + score.probability, 0) > 1);
+  assert.equal(decide(request, relevance).status, 'invalid-output');
+  assert.equal(decideIntents(request, relevance, { thresholds: thresholds() }).status, 'accepted');
+});
+
 test('S1-R04 malformed relevance inputs fail closed', () => {
   const good = responseFor({ fix: 0.9 });
   const tau = thresholds();

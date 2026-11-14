@@ -63,6 +63,29 @@ test('S1-T07 validity and intent use the task-specific option catalogs', () => {
   assert.ok(Object.values(intent.thresholds).every(threshold => threshold === 0.95));
 });
 
+test('F1 calibration keeps legacy simplex rows separate from sigmoid option scores', () => {
+  const intentIds = CATALOGS.intent.map(option => option.id);
+  const legacyProbs = masses => {
+    const rest = (1 - Object.values(masses).reduce((sum, value) => sum + value, 0))
+      / (intentIds.length - Object.keys(masses).length);
+    return intentIds.map(id => Object.hasOwn(masses, id) ? masses[id] : rest);
+  };
+  const legacy = calibrate([
+    { gold: 'fix', secondary: ['test'], probs: legacyProbs({ fix: 0.6, test: 0.3 }) },
+    { gold: 'test', secondary: ['fix'], probs: legacyProbs({ fix: 0.55, test: 0.35 }) },
+    { gold: 'docs', secondary: [], probs: legacyProbs({ git: 0.4, docs: 0.35 }) },
+  ], { task: 'intent' });
+  assert.deepEqual([legacy.secondaryThreshold, legacy.minConfidence, legacy.minMargin], [0.05, 0.5, 0.25]);
+
+  const sigmoid = calibrate([
+    { gold: 'fix', scores: Object.fromEntries(intentIds.map(id => [id, id === 'fix' ? 0.95 : 0.1])) },
+    { gold: 'docs', scores: Object.fromEntries(intentIds.map(id => [id, id === 'docs' ? 0.95 : 0.1])) },
+  ], { task: 'intent' });
+  assert.equal(sigmoid.thresholds.fix, 0.95);
+  assert.equal(sigmoid.thresholds.docs, 0.95);
+  assert.equal(sigmoid.secondaryThreshold, undefined);
+});
+
 test('S1-T06 the default calibration target is the owner advisory 85%', () => {
   const c = calibrate(tierRows(10), { task: 'tier' });
   assert.equal(c.minPrecision, 0.85);

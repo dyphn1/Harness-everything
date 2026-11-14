@@ -136,6 +136,50 @@ function activeFixtureHash(fixture) {
   return JSON.parse(fs.readFileSync(path.join(fixture.dir, 'manifest.json'), 'utf8')).stages.tier.sha256.slice(0, 16);
 }
 
+test('F1 provider keeps adapter vectors and projects live sigmoid stages to option keys', async () => {
+  const { validateResponse } = require('../harness-everything/scripts/system-one/contract');
+  const fixture = activeFixture();
+  try {
+    const catalogs = {
+      validity: router.VALIDITY_OPTIONS,
+      intent: require('../harness-everything/scripts/system-one/catalogs').INTENT_OPTIONS,
+      tier: router.TIER_OPTIONS,
+    };
+    const adapterResponses = [];
+    const result = await provider.scoreLive('fixture context', fixture.env, catalogs, async (stage, request) => {
+      const values = stage === 'validity' ? [0.9, 0.1]
+        : stage === 'intent' ? request.options.map(option => ({ fix: 0.9, test: 0.8 })[option.id] || 0.1)
+          : [0.2, 0.76, 0.9, 0.1];
+      const scored = response(request, values);
+      adapterResponses.push({ request, scored });
+      return { status: 'scored', response: scored };
+    });
+
+    assert.ok(adapterResponses.every(({ request, scored }) => Array.isArray(scored.scores) && validateResponse(request, scored)));
+    assert.deepEqual(result.stageScores.validity, { invalid: 0.1 });
+    assert.equal(result.stageScores.intent.fix, 0.9);
+    assert.equal(result.stageScores.intent.test, 0.8);
+    assert.deepEqual(result.stageScores.tier, { tier1: 0.2, tier2: 0.76, tier3: 0.9 });
+    assert.ok(Object.values(result.stageScores.tier).reduce((sum, score) => sum + score, 0) > 1);
+  } finally {
+    fs.rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('F1 router keeps legacy simplex selection separate from live keyed sigmoid routing', () => {
+  const legacy = router.selectTier({ tier: 'Tier 3 (Macro Task)', prompt: 'fixture context', floor: null, explicit: false },
+    { HARNESS_SYSTEM_ONE_MODE: 'prefer' }, request => ({ status: 'scored', response: response(request, [0.95, 0.03, 0.01, 0.01]) }));
+  assert.equal(legacy.tier, 'Tier 1 (Trivial)');
+
+  const live = router.routeLive({ tier: 'Tier 2 (Standard Task)', floor: null, explicit: false }, {
+    version: 'v1', sha256: '0123456789abcdef',
+    stageScores: { validity: { invalid: 0.1 }, intent: intentScores(), tier: { tier1: 0.2, tier2: 0.76, tier3: 0.9 } },
+    thresholds: { validity: { invalid: 0.55 }, intent: stages.intent.thresholds, tier: stages.tier.thresholds },
+  });
+  assert.equal(live.tier, 'Tier 3 (Macro Task)');
+  assert.equal(live.systemOne.decision.tier, 'tier3');
+});
+
 test('S1-L03 precedence keeps explicit choices and the structural floor, otherwise applies a scored tier', () => {
     const result = {
     version: 'v1', sha256: '0123456789abcdef',

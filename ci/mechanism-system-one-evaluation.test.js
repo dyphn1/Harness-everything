@@ -45,6 +45,23 @@ test('S1-E10 sigmoid scores and holdout gates are reported without a rollout blo
   assert.equal(report.gates.reviewedHoldout, false);
   assert.equal(Object.hasOwn(report, 'rolloutReady'), false);
 });
+
+test('F1 evaluator keeps single-winner vectors and independent relevance vectors distinct', () => {
+  const { gradeRelevance } = require('../harness-everything/scripts/system-one/evaluate');
+  const { INTENT_OPTIONS } = require('../harness-everything/scripts/system-one/catalogs');
+  assert.equal(evaluate(make(), records()).model.acceptedPrecision, 1);
+
+  const labels = [...INTENT_OPTIONS.map(option => option.id).filter(id => id !== 'unclassified'), null];
+  const ids = labels.map(id => id === null ? 'unclassified' : id);
+  const caseRow = { id: 'r', gold: 'fix', secondary: ['test'] };
+  const scores = ids.map(id => ({ fix: 0.9, test: 0.8 })[id] || 0.1);
+  assert.ok(scores.reduce((sum, score) => sum + score, 0) > 1);
+  const thresholds = Object.fromEntries(ids.filter(id => id !== 'unclassified').map(id => [id, 0.4]));
+  const report = gradeRelevance([caseRow], new Map([['r', { scores }]]), labels, thresholds);
+  assert.equal(report.cardinality.predicted, 2);
+  assert.equal(report.perIntent.fix.tp, 1);
+  assert.equal(report.perIntent.test.tp, 1);
+});
 test('S1-E06 repeatability compares the full score vector, not only top-2 summaries', () => {
   const r = records();
   const accepted = { status: 'accepted', reason: 'scored', selectedId: 'tier1', confidence: 0.9, margin: 0.85, model: { id: 'fixture', revision: 'v1', domain: 'harness-routing-v1' } };
