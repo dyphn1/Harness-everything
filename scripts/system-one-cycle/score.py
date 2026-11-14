@@ -1,14 +1,44 @@
 #!/usr/bin/env python3
-"""Write per-option sigmoid scores for a fixed System One holdout."""
+"""Write per-option sigmoid scores for a fixed System One holdout.
+
+Options come from the same catalog the trainer built for the task (scripts/system-one-train.py) and are
+ordered by the version manifest, so the score keys match what the stage was trained on. The fixture
+supplies only request.context and the gold label. A holdout case whose gold is not a catalog id (for
+example a tier case with no tier) is skipped and counted in the printed `skipped` field.
+"""
 
 import argparse
+import importlib.util
 import json
 import os
 from pathlib import Path
 import sys
 
 sys.dont_write_bytecode = True
-INVALID_OPTION = {'id': 'invalid', 'text': 'Needs previous conversation context to understand; the current text alone is insufficient.'}
+
+
+def trained_catalog(weights, task, holdout):
+    """Option id/text pairs the stage was trained on, in the version manifest's option order."""
+    trainer_path = Path(__file__).resolve().parents[2] / 'scripts' / 'system-one-train.py'
+    spec = importlib.util.spec_from_file_location('system_one_train', trainer_path)
+    trainer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(trainer)
+    texts = {option['id']: option['text'] for option in trainer.catalog_for(task, holdout)}
+    manifest = json.loads((Path(weights).parent / 'manifest.json').read_text(encoding='utf-8'))
+    ids = manifest['stages'][task]['options']
+    missing = [option_id for option_id in ids if option_id not in texts]
+    if missing:
+        raise ValueError(f'{task} manifest options are not in the trained catalog: {missing!r}')
+    return [{'id': option_id, 'text': texts[option_id]} for option_id in ids]
+
+
+def eligible(case, task, ids):
+    """A case is scored when its gold label is a catalog id; validity always scores."""
+    if task == 'validity':
+        return True
+    gold = case.get('gold')
+    labels = gold if isinstance(gold, list) else [gold]
+    return bool(labels) and all(label in ids for label in labels)
 
 
 def main():
@@ -26,33 +56,36 @@ def main():
     torch.use_deterministic_algorithms(True)
     model, collator, _ = load_checkpoint(args.weights, 'cpu')
     model.eval()
+    catalog = trained_catalog(args.weights, args.task, args.holdout)
+    ids = {option['id'] for option in catalog}
+    options = tuple(option['text'] for option in catalog)
+
     corpus = json.loads(Path(args.holdout).read_text(encoding='utf-8'))
     cases = [case for case in corpus.get('cases', []) if case.get('split') == 'holdout']
     if not cases:
         raise ValueError('holdout has no holdout cases')
+    scored = [case for case in cases if eligible(case, args.task, ids)]
+    skipped = len(cases) - len(scored)
     rows = []
     with torch.inference_mode():
-        for start in range(0, len(cases), 32):
-            batch = cases[start:start + 32]
+        for start in range(0, len(scored), 32):
+            batch = scored[start:start + 32]
             examples = []
             for case in batch:
                 request = case.get('request', {})
                 if not isinstance(request.get('context'), str):
                     raise ValueError('holdout case has no request.context')
-                options = [INVALID_OPTION] if args.task == 'validity' else request.get('options')
-                if not isinstance(options, list) or not options:
-                    raise ValueError('holdout case has no options')
-                examples.append(ChoiceExample(context=request['context'], options=tuple(option['text'] for option in options), label=0))
+                examples.append(ChoiceExample(context=request['context'], options=options, label=0))
             scores = model(collator(examples)).sigmoid().tolist()
-            for case, options, values in zip(batch, ([INVALID_OPTION] if args.task == 'validity' else c['request']['options'] for c in batch), scores, strict=True):
+            for case, values in zip(batch, scores, strict=True):
                 gold = ('invalid' if case['gold'] is None else 'actionable') if args.task == 'validity' else case['gold']
-                rows.append({'id': case['id'], 'gold': gold, 'scores': {option['id']: value for option, value in zip(options, values, strict=True)}})
+                rows.append({'id': case['id'], 'gold': gold, 'scores': {option['id']: value for option, value in zip(catalog, values, strict=True)}})
 
     output = Path(args.out)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(''.join(json.dumps(row, separators=(',', ':')) + '\n' for row in rows), encoding='utf-8')
     if os.name != 'nt': output.chmod(0o600)
-    print(json.dumps({'task': args.task, 'rows': len(rows)}))
+    print(json.dumps({'task': args.task, 'rows': len(rows), 'skipped': skipped}))
 
 
 if __name__ == '__main__':

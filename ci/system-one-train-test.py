@@ -109,4 +109,30 @@ with tempfile.TemporaryDirectory() as tmp:
     assert trainer.load_jsonl(p) == prompts
     assert len(trainer.sha256_file(p)) == 64
 
+# Holdout scoring must key scores by the trained catalog in manifest order, not the fixture's own options.
+score_spec = importlib.util.spec_from_file_location('scorer', ROOT / 'scripts' / 'system-one-cycle' / 'score.py')
+scorer = importlib.util.module_from_spec(score_spec)
+score_spec.loader.exec_module(scorer)
+assert 'torch' not in sys.modules, 'importing the scorer must not import torch'
+
+stage_options = {'validity': ['invalid'], 'intent': [o['id'] for o in intent_catalog], 'tier': ['tier1', 'tier2', 'tier3']}
+holdouts = {'validity': trainer.DEFAULT_HOLDOUT, 'intent': trainer.DEFAULT_INTENT_HOLDOUT, 'tier': trainer.DEFAULT_HOLDOUT}
+with tempfile.TemporaryDirectory() as tmp:
+    manifest = Path(tmp) / 'manifest.json'
+    manifest.write_text(json.dumps({'stages': {task: {'options': ids} for task, ids in stage_options.items()}}), encoding='utf-8')
+    weights = str(Path(tmp) / 'tier.safetensors')
+    for task, options in stage_options.items():
+        catalog = scorer.trained_catalog(weights, task, str(holdouts[task]))
+        assert [o['id'] for o in catalog] == options, (task, catalog)
+        assert {o['id']: o['text'] for o in catalog} == {o['id']: o['text'] for o in trainer.catalog_for(task, str(holdouts[task]))}, task
+    tier_ids = set(stage_options['tier'])
+    tier_cases = json.loads(trainer.DEFAULT_HOLDOUT.read_text(encoding='utf-8'))['cases']
+    assert all(scorer.eligible(c, 'tier', tier_ids) == (c['gold'] in tier_ids) for c in tier_cases)
+    assert any(not scorer.eligible(c, 'tier', tier_ids) for c in tier_cases), 'tier holdout must carry skipped cases'
+    intent_ids = set(stage_options['intent'])
+    intent_cases = json.loads(trainer.DEFAULT_INTENT_HOLDOUT.read_text(encoding='utf-8'))['cases']
+    assert all(scorer.eligible(c, 'intent', intent_ids) for c in intent_cases)
+    assert scorer.eligible({'gold': None}, 'validity', set())
+print('PASS holdout scores use the trained catalog in manifest order; non-catalog golds are skipped')
+
 print('system-one trainer data tests passed')
