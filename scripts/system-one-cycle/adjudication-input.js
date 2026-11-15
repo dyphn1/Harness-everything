@@ -2,8 +2,14 @@
 
 const path = require('node:path');
 const { readJsonl, writeJsonl, assertPrivateDataDir } = require('./common');
+const { CATALOGS } = require('../../harness-everything/scripts/system-one/catalogs');
 
 const TIERS = new Set(['tier1', 'tier2', 'tier3']);
+const INTENTS = new Set(CATALOGS.intent.map(option => option.id));
+
+function intentDisagrees(self, lunaIntent) {
+  return Array.isArray(self?.intents) && lunaIntent !== undefined && (self.intents[0] ?? null) !== lunaIntent;
+}
 
 function buildAdjudicationInput({ dataDir }) {
   const privateDir = assertPrivateDataDir(dataDir);
@@ -19,8 +25,10 @@ function buildAdjudicationInput({ dataDir }) {
   };
   const observedFile = path.join(training, 'observed', 'labels-observed.jsonl');
   const lunaFile = path.join(training, 'relabel-luna', 'labels.jsonl');
+  const lunaIntentFile = path.join(training, 'relabel-luna', 'labels-intent.jsonl');
   const observed = index(readJsonl(observedFile, true), observedFile);
   const luna = index(readJsonl(lunaFile), lunaFile);
+  const lunaIntents = index(readJsonl(lunaIntentFile), lunaIntentFile);
   const rows = [];
   const seen = new Set();
 
@@ -30,13 +38,23 @@ function buildAdjudicationInput({ dataDir }) {
     seen.add(prompt.id);
     const self = observed.get(prompt.id);
     const textLabel = luna.get(prompt.id);
+    const intentLabel = lunaIntents.get(prompt.id);
     if (!self || self.tier === undefined || !textLabel) continue;
     if ((self.tier !== null && !TIERS.has(self.tier)) || (textLabel.gold !== null && !TIERS.has(textLabel.gold))) {
       throw new Error('invalid tier label for adjudication input');
     }
-    if (self.tier !== textLabel.gold) {
+    if (intentLabel && (!Object.hasOwn(intentLabel, 'gold') || (intentLabel.gold !== null && !INTENTS.has(intentLabel.gold)))) {
+      throw new Error('invalid intent label for adjudication input');
+    }
+    const hasSelfIntent = Array.isArray(self.intents);
+    const selfIntent = hasSelfIntent ? (self.intents[0] ?? null) : null;
+    if (selfIntent !== null && !INTENTS.has(selfIntent)) throw new Error('invalid self intent for adjudication input');
+    const tierDisagrees = self.tier !== textLabel.gold;
+    const intentsDisagree = intentLabel && intentDisagrees(self, intentLabel.gold);
+    if (tierDisagrees || intentsDisagree) {
       if (typeof prompt.text !== 'string' || !prompt.text) throw new Error('observed prompt is missing text');
-      rows.push({ id: prompt.id, text: prompt.text, selfTier: self.tier, lunaTier: textLabel.gold });
+      rows.push({ id: prompt.id, text: prompt.text, selfTier: self.tier, lunaTier: textLabel.gold,
+        ...(intentsDisagree ? { selfIntent, lunaIntent: intentLabel.gold } : {}) });
     }
   }
 
@@ -44,4 +62,4 @@ function buildAdjudicationInput({ dataDir }) {
   return { candidates: rows.length };
 }
 
-module.exports = { buildAdjudicationInput };
+module.exports = { buildAdjudicationInput, intentDisagrees };

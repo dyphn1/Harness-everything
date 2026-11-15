@@ -61,8 +61,8 @@ Repository-local build input is accepted only under `.s1-work/` and only when ea
 ## Label and privacy policy
 
 - Luna sees only each current text. Agent-dispatch requests remain valid when their text states the requested work. A `null` tier is reserved for text that requires prior conversation context to understand.
-- The self `contextDependent` flag does not affect labels. Only a disagreement between the self tier and Luna's tier enters the two-judge vote.
+- The self `contextDependent` flag does not affect labels. Self tier disagreements and primary-intent disagreements with Luna enter the two-judge vote.
 - If a majority exists, build uses that tier; with no majority or no vote, it drops the disagreement. A `tier1-with-writes` behavior contradiction raises the final tier to `tier2`.
-- Validity uses Luna's original text-only tier result: null means invalid and any tier means actionable, even if the adjudicated tier differs. Tier uses consensus; intent comes from Luna. No-majority rows are excluded from all training datasets.
+- Validity uses Luna's original text-only tier result: null means invalid and any tier means actionable, even if the adjudicated tier differs. Tier uses consensus; intent uses Luna on agreement or an intent-vote majority, and an unresolved intent is omitted from intent training only.
 - Reports and failure records contain counts, ids, field names, or reason codes only. Current and previous prompt text stays in the private cycle files and is not printed by the cycle commands.
 - The cycle trains only CUA-S1 validity, intent, and tier stages. It does not train ngram or Laya models, create a new owner-reviewed holdout, publish weights to Git, or activate a version. `publish` copies the package inside the private data directory; installation and active-pointer changes are handled by the opt-in runtime workflow.

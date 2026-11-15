@@ -7,6 +7,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { test } = require('node:test');
 const { buildDataset } = require('../scripts/system-one-cycle/build');
+const { collect } = require('../scripts/system-one-cycle/collect');
 const { judgeRows } = require('../scripts/system-one-cycle/judge');
 const { runGuarded, processTreeRssMb } = require('../scripts/system-one-cycle/train');
 const { buildVersion, trainerCatalogs } = require('../scripts/system-one-cycle/package');
@@ -27,6 +28,10 @@ function syntheticCycle(dir) {
   const prompts = [
     { id: 'agent-dispatch', family: 'family-agent', source: 'agent-dispatch', split: 'train', text: 'synthetic-agent-dispatch-case', previous: 'synthetic-previous-field' },
     { id: 'agrees', family: 'family-agrees', source: 'observation', split: 'train', text: 'synthetic-agreement-case', previous: 'synthetic-previous-field' },
+    { id: 'legacy-intent-shape', family: 'family-legacy-intent', source: 'observation', split: 'train', text: 'synthetic-legacy-intent-case' },
+    { id: 'intent-majority', family: 'family-intent-majority', source: 'observation', split: 'train', text: 'synthetic-intent-majority-case' },
+    { id: 'intent-no-majority', family: 'family-intent-no-majority', source: 'observation', split: 'train', text: 'synthetic-intent-no-majority-case' },
+    { id: 'tier-only', family: 'family-tier-only', source: 'observation', split: 'train', text: 'synthetic-tier-only-case' },
     { id: 'writes', family: 'family-writes', source: 'observation', split: 'train', text: 'synthetic-write-evidence-case' },
     { id: 'vote', family: 'family-vote', source: 'observation', split: 'train', text: 'synthetic-majority-vote-case' },
     { id: 'null-vote', family: 'family-null-vote', source: 'observation', split: 'train', text: 'synthetic-null-consensus-case' },
@@ -40,28 +45,43 @@ function syntheticCycle(dir) {
   ];
   writeJsonl(path.join(training, 'observed/prompts-observed.jsonl'), prompts);
   writeJsonl(path.join(training, 'observed/labels-observed.jsonl'), [
-    { id: 'agrees', tier: 'tier2', contextDependent: true, contradictions: [], behaviorEvidence: 'unobserved' },
-    { id: 'writes', tier: 'tier1', contextDependent: true, contradictions: ['tier1-with-writes'], behaviorEvidence: 'observed' },
-    { id: 'vote', tier: 'tier1', contextDependent: true, contradictions: [], behaviorEvidence: 'unobserved' },
-    { id: 'null-vote', tier: 'tier2', contextDependent: false, contradictions: [], behaviorEvidence: 'unobserved' },
-    { id: 'validity-conflict', tier: 'tier2', contextDependent: true, contradictions: [], behaviorEvidence: 'unobserved' },
-    { id: 'split-train', tier: 'tier2', contextDependent: false, contradictions: [], behaviorEvidence: 'observed' },
-    { id: 'split-validation', tier: 'tier2', contextDependent: false, contradictions: [], behaviorEvidence: 'observed' },
-    { id: 'no-majority', tier: 'tier1', contextDependent: false, contradictions: [], behaviorEvidence: 'observed' },
-    { id: 'no-vote', tier: 'tier1', contextDependent: false, contradictions: [], behaviorEvidence: 'observed' },
-    { id: 'invalid', tier: null, contextDependent: true, contradictions: [], behaviorEvidence: 'unobserved' },
+    { id: 'agrees', tier: 'tier2', intents: ['feature'], contextDependent: true, contradictions: [], behaviorEvidence: 'unobserved' },
+    { id: 'legacy-intent-shape', tier: 'tier2', contradictions: [], behaviorEvidence: 'unobserved' },
+    { id: 'intent-majority', tier: 'tier2', intents: ['fix'], contradictions: [], behaviorEvidence: 'unobserved' },
+    { id: 'intent-no-majority', tier: 'tier2', intents: ['edit'], contradictions: [], behaviorEvidence: 'unobserved' },
+    { id: 'tier-only', tier: 'tier1', intents: ['review'], contradictions: [], behaviorEvidence: 'unobserved' },
+    { id: 'writes', tier: 'tier1', intents: ['feature'], contextDependent: true, contradictions: ['tier1-with-writes'], behaviorEvidence: 'observed' },
+    { id: 'vote', tier: 'tier1', intents: ['feature'], contextDependent: true, contradictions: [], behaviorEvidence: 'unobserved' },
+    { id: 'null-vote', tier: 'tier2', intents: ['feature'], contextDependent: false, contradictions: [], behaviorEvidence: 'unobserved' },
+    { id: 'validity-conflict', tier: 'tier2', intents: [], contextDependent: true, contradictions: [], behaviorEvidence: 'unobserved' },
+    { id: 'split-train', tier: 'tier2', intents: ['feature'], contextDependent: false, contradictions: [], behaviorEvidence: 'observed' },
+    { id: 'split-validation', tier: 'tier2', intents: ['feature'], contextDependent: false, contradictions: [], behaviorEvidence: 'observed' },
+    { id: 'no-majority', tier: 'tier1', intents: ['feature'], contextDependent: false, contradictions: [], behaviorEvidence: 'observed' },
+    { id: 'no-vote', tier: 'tier1', intents: ['feature'], contextDependent: false, contradictions: [], behaviorEvidence: 'observed' },
+    { id: 'invalid', tier: null, intents: [], contextDependent: true, contradictions: [], behaviorEvidence: 'unobserved' },
   ]);
   writeJsonl(path.join(training, 'relabel-luna/labels.jsonl'), [
-    ...['agent-dispatch', 'agrees', 'writes', 'split-train', 'split-validation'].map(id => ({ id, gold: id === 'writes' ? 'tier1' : id === 'agrees' || id.startsWith('split') ? 'tier2' : 'tier3' })),
+    ...['agent-dispatch', 'agrees', 'legacy-intent-shape', 'intent-majority', 'intent-no-majority', 'writes', 'split-train', 'split-validation'].map(id => ({ id, gold: id === 'writes' ? 'tier1' : id === 'agrees' || id === 'legacy-intent-shape' || id.startsWith('intent-') || id.startsWith('split') ? 'tier2' : 'tier3' })),
+    { id: 'tier-only', gold: 'tier2' },
     { id: 'vote', gold: 'tier2' }, { id: 'null-vote', gold: 'tier1' }, { id: 'validity-conflict', gold: null },
     { id: 'no-majority', gold: 'tier2' }, { id: 'no-vote', gold: 'tier2' },
     { id: 'holdout-copy', gold: 'tier2' }, { id: 'invalid', gold: null },
   ]);
   writeJsonl(path.join(training, 'relabel-luna/labels-intent.jsonl'), prompts.map(row => ({
-    id: row.id, gold: row.id === 'invalid' || row.id === 'holdout-copy' || row.id === 'validity-conflict' ? null : 'feature', secondary: [],
+    id: row.id,
+    gold: row.id === 'invalid' || row.id === 'holdout-copy' || row.id === 'validity-conflict' ? null
+      : row.id === 'intent-no-majority' ? 'explain' : row.id === 'tier-only' ? 'review'
+        : row.id === 'legacy-intent-shape' ? 'explain' : 'feature',
+    secondary: [],
   })));
   writeJsonl(path.join(training, 'adjudication/consensus.jsonl'), [
     { id: 'vote', status: 'majority', consensus: 'tier3', votes: [{ judge: 'luna', tier: 'tier3' }, { judge: 'opencode', tier: 'tier3' }] },
+    { id: 'intent-majority', status: 'majority', consensus: 'tier2', intentStatus: 'majority', intentConsensus: 'fix',
+      votes: [{ judge: 'luna', tier: 'tier2', intent: 'fix' }, { judge: 'opencode', tier: 'tier2', intent: 'fix' }] },
+    { id: 'intent-no-majority', status: 'majority', consensus: 'tier2', intentStatus: 'no-majority', intentConsensus: null,
+      votes: [{ judge: 'luna', tier: 'tier2', intent: 'edit' }, { judge: 'opencode', tier: 'tier2', intent: 'feature' }] },
+    { id: 'tier-only', status: 'majority', consensus: 'tier3',
+      votes: [{ judge: 'luna', tier: 'tier3' }, { judge: 'opencode', tier: 'tier3' }] },
     { id: 'null-vote', status: 'unanimous', consensus: null, votes: [{ judge: 'luna', tier: null }, { judge: 'opencode', tier: null }] },
     { id: 'validity-conflict', status: 'majority', consensus: 'tier2', votes: [{ judge: 'luna', tier: 'tier2' }, { judge: 'opencode', tier: 'tier2' }] },
     { id: 'no-majority', status: 'no-majority', consensus: null, votes: [{ judge: 'luna', tier: 'tier2' }, { judge: 'opencode', tier: 'tier3' }] },
@@ -93,10 +113,15 @@ test('cycle dataset uses text-only labels, consensus, behavior evidence, holdout
 
     assert.equal(ids.has('agent-dispatch'), true);
     assert.equal(labels.get('agrees'), 'tier2');
+    assert.equal(intents.get('agrees').gold, 'feature');
+    assert.equal(intents.get('legacy-intent-shape').gold, 'explain');
     assert.equal(labels.get('vote'), 'tier3');
     assert.equal(labels.get('null-vote'), null);
     assert.equal(labels.get('validity-conflict'), 'tier2');
     assert.equal(validityLabels.get('validity-conflict'), null);
+    assert.equal(labels.has('intent-no-majority'), true);
+    assert.equal(validityLabels.get('intent-no-majority'), 'tier2');
+    assert.equal(labels.get('tier-only'), 'tier3');
     assert.equal(labels.get('writes'), 'tier2');
     assert.equal(labels.has('no-majority'), false);
     assert.equal(labels.has('no-vote'), false);
@@ -105,10 +130,44 @@ test('cycle dataset uses text-only labels, consensus, behavior evidence, holdout
     assert.equal(labels.has('split-validation'), true);
     assert.equal(labels.get('invalid'), null);
     assert.deepEqual(intents.get('invalid'), { id: 'invalid', gold: null, secondary: [] });
+    assert.equal(intents.get('intent-majority').gold, 'fix');
+    assert.equal(intents.has('intent-no-majority'), false);
+    assert.equal(intents.get('tier-only').gold, 'review');
     assert.ok(prompts.every(row => Object.keys(row).sort().join(',') === 'family,id,source,split,text'));
     assert.equal(fs.readFileSync(path.join(output, 'report.json'), 'utf8').includes('synthetic-'), false);
     assert.equal(report.droppedByReason['no-majority'], 1);
+    assert.equal(report.droppedByReason['intent-no-majority'], 1);
     assert.equal(report.droppedByReason['no-vote'], 1);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('collect preserves self-reported intents from the actual session export shape', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'system-one-cycle-collect-'));
+  const sessions = path.join(dir, 'sessions');
+  try {
+    fs.mkdirSync(sessions, { recursive: true });
+    const startedAt = new Date(Date.now() - 60_000).toISOString();
+    const completedAt = new Date(Date.now() - 30_000).toISOString();
+    const label = { v: 1, validity: 'actionable', tier: 'tier2', intents: ['fix', 'explain'], workflow: null, skills: [] };
+    const session = [
+      { type: 'session_meta', payload: { session_id: 'synthetic-collect-session' } },
+      { type: 'event_msg', timestamp: startedAt, payload: { type: 'task_started', turn_id: 'synthetic-turn', started_at: startedAt } },
+      { type: 'response_item', timestamp: startedAt, payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'synthetic collect intent case' }] } },
+      { type: 'event_msg', timestamp: completedAt, payload: { type: 'task_complete', turn_id: 'synthetic-turn', completed_at: completedAt,
+        last_agent_message: `Synthetic response\n<!-- harness-label ${JSON.stringify(label)} -->` } },
+    ];
+    fs.writeFileSync(path.join(sessions, 'synthetic.jsonl'), session.map(row => JSON.stringify(row)).join('\n') + '\n');
+    const since = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    const dataDir = path.join(dir, 'cycle');
+
+    collect({ dataDir, since, sessionsDir: sessions });
+
+    const labels = fs.readFileSync(path.join(dataDir, 'training/observed/labels-observed.jsonl'), 'utf8')
+      .trim().split('\n').map(JSON.parse);
+    assert.equal(labels.length, 1);
+    assert.deepEqual(labels[0].intents, ['fix', 'explain']);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -233,12 +292,21 @@ test('judge resumes completed rows and records no-majority without prompt text',
     writeJsonl(path.join(training, 'observed/prompts-observed.jsonl'), [
       { id: 'done', family: 'f1', source: 'observation', split: 'train', text: 'synthetic-completed-case', previous: 'synthetic-private-context' },
       { id: 'todo', family: 'f2', source: 'observation', split: 'train', text: 'synthetic-pending-case', previous: 'synthetic-private-context' },
+      { id: 'intent-only', family: 'f3', source: 'observation', split: 'train', text: 'synthetic-intent-disagreement-case' },
+      { id: 'tier-only-no-intent-label', family: 'f4', source: 'observation', split: 'train', text: 'synthetic-tier-disagreement-case' },
     ]);
     writeJsonl(path.join(training, 'observed/labels-observed.jsonl'), [
-      { id: 'done', tier: 'tier1' }, { id: 'todo', tier: 'tier1' },
+      { id: 'done', tier: 'tier1', intents: ['feature'] }, { id: 'todo', tier: 'tier1', intents: ['feature'] },
+      { id: 'intent-only', tier: 'tier2', intents: ['fix'] },
+      { id: 'tier-only-no-intent-label', tier: 'tier1', intents: ['feature'] },
     ]);
     writeJsonl(path.join(training, 'relabel-luna/labels.jsonl'), [
-      { id: 'done', gold: 'tier2' }, { id: 'todo', gold: 'tier2' },
+      { id: 'done', gold: 'tier2' }, { id: 'todo', gold: 'tier2' }, { id: 'intent-only', gold: 'tier2' },
+      { id: 'tier-only-no-intent-label', gold: 'tier2' },
+    ]);
+    writeJsonl(path.join(training, 'relabel-luna/labels-intent.jsonl'), [
+      { id: 'done', gold: 'feature', secondary: [] }, { id: 'todo', gold: 'feature', secondary: [] },
+      { id: 'intent-only', gold: 'feature', secondary: [] },
     ]);
     writeJsonl(path.join(training, 'adjudication/consensus.jsonl'), [
       { id: 'done', status: 'majority', consensus: 'tier2', votes: [{ judge: 'luna', tier: 'tier2' }, { judge: 'opencode', tier: 'tier2' }] },
@@ -246,18 +314,29 @@ test('judge resumes completed rows and records no-majority without prompt text',
     const calls = [];
     const report = await judgeRows({ dataDir: dir, runJudge: async (engine, batch) => {
       calls.push(engine);
-      assert.deepEqual(batch.map(row => row.id), ['todo']);
-      return [{ i: 0, tier: engine === 'luna' ? 'tier2' : 'tier3' }];
+      assert.deepEqual(batch.map(row => row.id), ['todo', 'intent-only', 'tier-only-no-intent-label']);
+      return batch.map((row, i) => ({ i,
+        tier: row.id === 'intent-only' ? 'tier2' : (engine === 'luna' ? 'tier2' : 'tier3'),
+        ...(row.selfIntent === undefined ? {} : { intent: 'fix' }),
+      }));
     } });
     const saved = fs.readFileSync(path.join(training, 'adjudication/consensus.jsonl'), 'utf8');
     const rows = saved.trim().split('\n').map(JSON.parse);
     const input = fs.readFileSync(path.join(training, 'adjudication/input.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
 
     assert.deepEqual(calls, ['luna', 'opencode']);
-    assert.equal(report.voted, 1);
+    assert.equal(report.voted, 3);
     assert.equal(rows.find(row => row.id === 'todo').status, 'no-majority');
+    assert.equal(rows.find(row => row.id === 'intent-only').intentStatus, 'majority');
+    assert.equal(rows.find(row => row.id === 'intent-only').intentConsensus, 'fix');
     assert.equal(saved.includes('synthetic-'), false);
+    assert.deepEqual(input.map(row => row.id), ['done', 'todo', 'intent-only', 'tier-only-no-intent-label']);
+    assert.equal(new Set(input.map(row => row.id)).size, input.length);
     assert.deepEqual(Object.keys(input[0]).sort(), ['id', 'lunaTier', 'selfTier', 'text']);
+    assert.deepEqual(Object.keys(input.find(row => row.id === 'intent-only')).sort(),
+      ['id', 'lunaIntent', 'lunaTier', 'selfIntent', 'selfTier', 'text']);
+    assert.deepEqual(Object.keys(input.find(row => row.id === 'tier-only-no-intent-label')).sort(),
+      ['id', 'lunaTier', 'selfTier', 'text']);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

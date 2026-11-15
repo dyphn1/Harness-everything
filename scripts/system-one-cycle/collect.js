@@ -28,6 +28,7 @@ function collect({ dataDir, since, sessionsDir }) {
   const labels = readJsonl(labelsFile).map(row => ({
     id: row.id,
     tier: row.tier ?? null,
+    intents: Array.isArray(row.intents) ? row.intents : [],
     behaviorEvidence: row.behaviorEvidence || 'unobserved',
     contradictions: Array.isArray(row.contradictions) ? row.contradictions : [],
   }));

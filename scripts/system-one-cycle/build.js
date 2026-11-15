@@ -3,10 +3,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { REPO, readJsonl, writeJsonl, writeJson, assertPrivateDataDir, isSyntheticBuildDataDir } = require('./common');
+const { intentDisagrees } = require('./adjudication-input');
 const { CATALOGS, validSecondary } = require('../../harness-everything/scripts/system-one/catalogs');
 
 const TIERS = new Set(['tier1', 'tier2', 'tier3']);
-const DROP_REASONS = ['no-majority', 'no-vote', 'holdout-overlap', 'split-overlap'];
+const DROP_REASONS = ['no-majority', 'no-vote', 'intent-no-majority', 'holdout-overlap', 'split-overlap'];
 
 function indexById(rows, file) {
   const map = new Map();
@@ -94,17 +95,31 @@ function buildDataset({ dataDir, holdoutFiles = defaultHoldouts(), outDir, valid
       gold = requireTier(vote.consensus, consensusFile);
     }
     if (gold === 'tier1' && self?.contradictions?.includes('tier1-with-writes')) gold = 'tier2';
-    const intentGold = intentLabel.gold;
-    const secondary = Array.isArray(intentLabel.secondary) ? intentLabel.secondary : [];
+    let intentGold = intentLabel.gold;
+    let secondary = Array.isArray(intentLabel.secondary) ? intentLabel.secondary : [];
     if ((intentGold !== null && !CATALOGS.intent.some(option => option.id === intentGold)) || !validSecondary('intent', intentGold, secondary)) {
       throw new Error(`${path.basename(intentFile)} has an invalid intent label`);
     }
+    let intent = { gold: intentGold, secondary };
+    if (self && intentDisagrees(self, intentGold)) {
+      const vote = votes.get(prompt.id);
+      if (!['majority', 'unanimous'].includes(vote?.intentStatus)) {
+        droppedByReason['intent-no-majority']++;
+        intent = null;
+      } else {
+        intentGold = vote.intentConsensus;
+        secondary = intentGold === null ? [] : secondary.filter(value => value !== intentGold);
+        if ((intentGold !== null && !CATALOGS.intent.some(option => option.id === intentGold))
+            || !validSecondary('intent', intentGold, secondary)) {
+          throw new Error(`${path.basename(consensusFile)} has an invalid intent consensus`);
+        }
+        intent = { gold: intentGold, secondary };
+      }
+    }
+    if (gold === null && intent) intent = { gold: null, secondary: [] };
 
     candidates.push({ prompt, gold, validityGold: textLabel.gold,
-      intent: gold === null ? { gold: null, secondary: [] } : {
-        gold: intentGold,
-        secondary,
-      } });
+      intent });
   }
 
   const validationText = new Set(candidates.filter(row => row.prompt.split === 'validation').map(row => normalize(row.prompt.text)));
@@ -119,7 +134,7 @@ function buildDataset({ dataDir, holdoutFiles = defaultHoldouts(), outDir, valid
   const prompts = retained.map(row => row.prompt);
   const labels = retained.map(row => ({ id: row.prompt.id, gold: row.gold }));
   const validityLabels = retained.map(row => ({ id: row.prompt.id, gold: row.validityGold }));
-  const intentRows = retained.map(row => ({ id: row.prompt.id, ...row.intent }));
+  const intentRows = retained.filter(row => row.intent).map(row => ({ id: row.prompt.id, ...row.intent }));
   const ids = new Set(prompts.map(row => row.id));
   if (ids.size !== prompts.length || labels.some(row => !ids.has(row.id)) || validityLabels.some(row => !ids.has(row.id)) || intentRows.some(row => !ids.has(row.id))) {
     throw new Error('output id integrity check failed');
