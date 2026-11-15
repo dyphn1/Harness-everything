@@ -54,7 +54,7 @@ function collect({ dataDir, since, sessionsDir }) {
   const exportReportFile = path.join(observed, 'export-report.json');
   const exported = JSON.parse(fs.readFileSync(exportReportFile, 'utf8'));
   writeJson(exportReportFile, Object.fromEntries(['schemaVersion', 'records', 'exported', 'skippedBeforeSince', 'skippedUnlabeled',
-    'skippedNoText', 'validationRows', 'withSelfReport'].filter(key => Object.hasOwn(exported, key)).map(key => [key, exported[key]])));
+    'skippedNoText', 'validationRows', 'withSelfReport', 'hostAcceptance'].filter(key => Object.hasOwn(exported, key)).map(key => [key, exported[key]])));
   for (const dir of [training, path.dirname(store), store, observed]) {
     try { fs.chmodSync(dir, 0o700); } catch { /* Windows does not expose POSIX modes. */ }
   }
