@@ -135,6 +135,50 @@ async function waitFor(predicate) {
   }
 }
 
+async function waitUntil(predicate, timeout = 3000) {
+  const deadline = Date.now() + timeout;
+  while (!predicate()) {
+    if (Date.now() >= deadline) return false;
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  return true;
+}
+
+function stateDir(workspace, sessionID) {
+  return path.dirname(editStateArtifact(workspace, sessionID));
+}
+
+function readJson(file) {
+  return JSON.parse(fs.readFileSync(file, 'utf8'));
+}
+
+function makeWorkspace(f, name) {
+  const workspace = path.join(f.dir, name);
+  fs.mkdirSync(workspace, { recursive: true });
+  const gitInit = spawnSync('git', ['init', '-q', workspace], { encoding: 'utf8' });
+  assert.equal(gitInit.status, 0, gitInit.stderr);
+  return workspace;
+}
+
+function writeVerificationPackage(f, source) {
+  fs.writeFileSync(path.join(f.workspace, 'package.json'), JSON.stringify({
+    name: 'opencode-v2-consumer-fixture', version: '1.0.0', scripts: { test: 'node verify.js' },
+  }));
+  fs.writeFileSync(path.join(f.workspace, 'verify.js'), source);
+}
+
+async function sendEdit(f, sessionID, id) {
+  const event = { tool: 'edit', sessionID, id, messageID: `assistant-${id}`, input: { filePath: 'changed.js' } };
+  await f.toolHooks.get('execute.before')(event);
+  await f.toolHooks.get('execute.after')({ ...event, status: 'completed', result: {} });
+}
+
+function completionEvent(kind, sessionID) {
+  return kind === 'idle'
+    ? { type: 'session.idle', sessionID }
+    : v2Event('session.execution.succeeded', sessionID);
+}
+
 test('inject: the documented OpenCode hooks deliver the kernel router output and exact label line', { concurrency: false }, async () => {
   const f = fixture();
   let dispose;
@@ -701,4 +745,371 @@ test('control: the V1 HarnessEnforcement factory export remains available', { co
   const mod = await import(pathToFileURL(PLUGIN).href);
   assert.equal(typeof mod.HarnessEnforcement, 'function');
   assert.equal(typeof mod.default.setup, 'function');
+});
+
+test('V2 consumers α1: flat execution.succeeded verifies the edit in its session once', { concurrency: false }, async () => {
+  const f = fixture('off');
+  const sessionID = 'flat-v2-verification';
+  const checkLog = path.join(f.dir, 'check-runs.txt');
+  writeVerificationPackage(f, `require('node:fs').appendFileSync(${JSON.stringify(checkLog)}, 'check\\n')`);
+  let dispose;
+  try {
+    dispose = await install(f);
+    await sendEdit(f, sessionID, 'flat-edit');
+    const editFile = editStateArtifact(f.workspace, sessionID);
+    assert.equal(readJson(editFile).verificationPending, true, 'the V2 edit created pending enforcement state');
+
+    f.push(v2Event('session.execution.succeeded', sessionID));
+    const verified = await waitUntil(() => fs.existsSync(checkLog) && !readJson(editFile).verificationPending);
+    assert.equal(verified, true, 'flat data.sessionID completion runs the real check and clears the session edit state');
+    assert.equal(fs.readFileSync(checkLog, 'utf8').trim().split(/\r?\n/).length, 1, 'one completion runs the check once');
+    assert.equal(readJson(path.join(stateDir(f.workspace, sessionID), 'compliance.json')).verifiedEdits, 1);
+    assert.equal(readJson(editFile).editsSinceVerification, 0);
+  } finally {
+    if (dispose) await dispose();
+    f.restore();
+  }
+});
+
+async function flatLifecycleReset(type) {
+  const f = fixture('off');
+  const sessionID = `flat-reset-${type}`;
+  const unrelated = 'unrelated-session';
+  const ready = path.join(f.dir, 'verification-ready');
+  const heartbeat = path.join(f.dir, 'verification-heartbeat');
+  writeVerificationPackage(f, `const fs=require('node:fs');fs.writeFileSync(${JSON.stringify(ready)},'ready');setInterval(()=>fs.appendFileSync(${JSON.stringify(heartbeat)},'x'),20)`);
+  let dispose;
+  try {
+    dispose = await install(f);
+    await sendEdit(f, unrelated, 'unrelated-edit');
+    const defaultFile = editStateArtifact(f.workspace, 'default');
+    fs.mkdirSync(path.dirname(defaultFile), { recursive: true });
+    fs.writeFileSync(defaultFile, '{"sentinel":true}');
+
+    await sendEdit(f, sessionID, `${type}-edit`);
+    f.push(completionEvent('idle', sessionID));
+    assert.equal(await waitUntil(() => fs.existsSync(ready)), true, 'legacy idle started the deliberately pending check');
+    f.push(completionEvent('succeeded', sessionID));
+    await new Promise(resolve => setTimeout(resolve, 50));
+    f.push(v2Event(type, sessionID));
+    await new Promise(resolve => setTimeout(resolve, 250));
+    const heartbeatAtReset = fs.existsSync(heartbeat) ? fs.statSync(heartbeat).size : 0;
+    await new Promise(resolve => setTimeout(resolve, 120));
+
+    const actual = {
+      sessionRemoved: !fs.existsSync(stateDir(f.workspace, sessionID)),
+      unrelatedPreserved: fs.existsSync(editStateArtifact(f.workspace, unrelated)),
+      defaultPreserved: fs.existsSync(defaultFile),
+      processStopped: fs.existsSync(heartbeat) && fs.statSync(heartbeat).size === heartbeatAtReset,
+    };
+    assert.deepEqual(actual, { sessionRemoved: true, unrelatedPreserved: true, defaultPreserved: true, processStopped: true },
+      `flat ${type} must reset/cancel only ${sessionID}; actual=${JSON.stringify(actual)}`);
+  } finally {
+    if (dispose) await dispose();
+    f.restore();
+  }
+}
+
+test('V2 consumers α2: flat session.created cancels and resets only its bound session', { concurrency: false }, async () => {
+  await flatLifecycleReset('session.created');
+});
+
+test('V2 consumers α2: flat session.deleted cancels and resets only its bound session', { concurrency: false }, async () => {
+  await flatLifecycleReset('session.deleted');
+});
+
+test('V2 consumers α3: both completion orders and a post-completion counterpart verify one revision once', { concurrency: false }, async () => {
+  const f = fixture('off');
+  const sessionID = 'v2-double-completion';
+  const checkLog = path.join(f.dir, 'check-runs.txt');
+  writeVerificationPackage(f, `require('node:fs').appendFileSync(${JSON.stringify(checkLog)}, 'check\\n')`);
+  let dispose;
+  try {
+    dispose = await install(f);
+    const orders = [
+      { first: 'succeeded', second: 'idle', sequential: false },
+      { first: 'idle', second: 'succeeded', sequential: false },
+      { first: 'idle', second: 'succeeded', sequential: true },
+    ];
+    for (let i = 0; i < orders.length; i++) {
+      const order = orders[i];
+      await sendEdit(f, sessionID, `success-edit-${i + 1}`);
+      f.push(completionEvent(order.first, sessionID));
+      if (order.sequential) {
+        const completed = await waitUntil(() => fs.existsSync(checkLog)
+          && fs.readFileSync(checkLog, 'utf8').trim().split(/\r?\n/).length === i + 1
+          && readJson(editStateArtifact(f.workspace, sessionID)).verificationPending === false);
+        assert.equal(completed, true, 'the first end notification completed the check');
+        f.push(completionEvent(order.second, sessionID));
+      } else {
+        f.push(completionEvent(order.second, sessionID));
+      }
+      await waitUntil(() => fs.existsSync(checkLog)
+        && fs.readFileSync(checkLog, 'utf8').trim().split(/\r?\n/).length >= i + 1);
+      await new Promise(resolve => setTimeout(resolve, 80));
+      assert.equal(fs.readFileSync(checkLog, 'utf8').trim().split(/\r?\n/).length, i + 1,
+        `completion pair ${order.first}/${order.second} ran one check`);
+      assert.equal(readJson(path.join(stateDir(f.workspace, sessionID), 'compliance.json')).verifiedEdits, i + 1,
+        'compliance advances once for each new edit revision');
+      assert.equal(readJson(editStateArtifact(f.workspace, sessionID)).editsSinceVerification, 0);
+    }
+  } finally {
+    if (dispose) await dispose();
+    f.restore();
+  }
+});
+
+test('V2 consumers α3: duplicate completion notifications do not advance Rule-of-3', { concurrency: false }, async () => {
+  const f = fixture('off');
+  const sessionID = 'v2-rule-of-three';
+  const checkLog = path.join(f.dir, 'check-runs.txt');
+  writeVerificationPackage(f, `const fs=require('node:fs');fs.appendFileSync(${JSON.stringify(checkLog)},'x\\n');console.error('AssertionError [ERR_ASSERTION]: stable fixture failure');process.exit(1)`);
+  let dispose;
+  try {
+    dispose = await install(f);
+    const orders = [
+      { first: 'succeeded', second: 'idle', sequential: false },
+      { first: 'idle', second: 'succeeded', sequential: false },
+      { first: 'idle', second: 'succeeded', sequential: true },
+    ];
+    for (let i = 0; i < orders.length; i++) {
+      const order = orders[i];
+      await sendEdit(f, sessionID, `failure-edit-${i + 1}`);
+      f.push(completionEvent(order.first, sessionID));
+      if (order.sequential) {
+        assert.equal(await waitUntil(() => readJson(editStateArtifact(f.workspace, sessionID)).followUpPending === true), true,
+          'the first end notification delivered its follow-up');
+        f.push(completionEvent(order.second, sessionID));
+      } else {
+        f.push(completionEvent(order.second, sessionID));
+      }
+      assert.equal(await waitUntil(() => fs.existsSync(editStateArtifact(f.workspace, sessionID))
+        && readJson(editStateArtifact(f.workspace, sessionID)).followUpPending === true), true,
+      `revision ${i + 1} recorded one completed failing check`);
+      const breaker = readJson(path.join(stateDir(f.workspace, sessionID), 'circuit-breaker.json'));
+      const count = Object.values(breaker.failures)[0]?.count;
+      assert.equal(count, i + 1, `duplicate completion for revision ${i + 1} does not add a failure`);
+      assert.equal(breaker.reflectionPending, i === 2, 'reflection is forced only on the third separate failed revision');
+      assert.equal(fs.readFileSync(checkLog, 'utf8').trim().split(/\r?\n/).length, i + 1, 'one check ran per edit revision');
+      assert.equal(readJson(path.join(stateDir(f.workspace, sessionID), 'compliance.json')).circuitBreakerTrips, i === 2 ? 1 : 0);
+    }
+  } finally {
+    if (dispose) await dispose();
+    f.restore();
+  }
+});
+
+test('V2 consumers β1: failed next-prompt identity cannot reuse the previous workspace binding', { concurrency: false }, async () => {
+  const f = fixture();
+  const sessionID = 'failed-next-prompt';
+  const serverWorkspace = makeWorkspace(f, 'server-c');
+  const originalCwd = process.cwd();
+  let lookups = 0;
+  f.ctx.location = undefined;
+  f.ctx.directory = undefined;
+  f.setSessionLookup(async () => {
+    lookups++;
+    if (lookups === 1) return { id: sessionID, location: { directory: f.workspace } };
+    throw new Error('private lookup detail');
+  });
+  process.chdir(serverWorkspace);
+  let dispose;
+  try {
+    dispose = await install(f);
+    await f.sessionHooks.get('prompt')({ sessionID, messageID: 'user-turn-a', prompt: { text: 'first turn in A' } });
+    await sendEdit(f, sessionID, 'turn-a-edit');
+    const editFile = editStateArtifact(f.workspace, sessionID);
+    const captureFile = path.join(stateDir(f.workspace, sessionID), 'opencode-captures.jsonl');
+    const observationFile = path.join(f.store, 'sessions', `${observations.sha(sessionID, 32)}.json`);
+    const before = {
+      edit: fs.readFileSync(editFile, 'utf8'),
+      compliance: fs.readFileSync(path.join(stateDir(f.workspace, sessionID), 'compliance.json'), 'utf8'),
+      capture: fs.readFileSync(captureFile, 'utf8'),
+      observation: fs.readFileSync(observationFile, 'utf8'),
+    };
+
+    await f.sessionHooks.get('prompt')({ sessionID, messageID: 'user-turn-b', prompt: { text: 'next turn has failed identity' } });
+    const context = { sessionID, kind: 'primary', system: [], messages: [] };
+    await f.sessionHooks.get('context')(context);
+    await sendEdit(f, sessionID, 'turn-b-edit');
+    f.push(v2Event('session.execution.succeeded', sessionID));
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    const actual = {
+      noStaleContext: context.system.length === 0,
+      workspaceAUnchanged: fs.readFileSync(editFile, 'utf8') === before.edit
+        && fs.readFileSync(path.join(stateDir(f.workspace, sessionID), 'compliance.json'), 'utf8') === before.compliance,
+      noStaleCapture: fs.readFileSync(captureFile, 'utf8') === before.capture,
+      noStaleObservation: fs.readFileSync(observationFile, 'utf8') === before.observation,
+      noServerWorkspaceState: !fs.existsSync(routerArtifact(serverWorkspace, sessionID)),
+    };
+    assert.deepEqual(actual, {
+      noStaleContext: true, workspaceAUnchanged: true, noStaleCapture: true, noStaleObservation: true, noServerWorkspaceState: true,
+    }, `failed P2 identity must skip workspace-dependent work; actual=${JSON.stringify(actual)}`);
+  } finally {
+    if (dispose) await dispose();
+    process.chdir(originalCwd);
+    f.restore();
+  }
+});
+
+test('V2 consumers β1 control: a resolved next prompt binds tools only to workspace B', { concurrency: false }, async () => {
+  const f = fixture();
+  const sessionID = 'resolved-next-prompt';
+  const workspaceB = makeWorkspace(f, 'session-b');
+  const serverWorkspace = makeWorkspace(f, 'server-c');
+  const originalCwd = process.cwd();
+  let lookups = 0;
+  f.ctx.location = undefined;
+  f.ctx.directory = undefined;
+  f.setSessionLookup(async () => {
+    lookups++;
+    return { id: sessionID, location: { directory: lookups === 1 ? f.workspace : workspaceB } };
+  });
+  process.chdir(serverWorkspace);
+  let dispose;
+  try {
+    dispose = await install(f);
+    await f.sessionHooks.get('prompt')({ sessionID, messageID: 'resolved-turn-a', prompt: { text: 'first turn in A' } });
+    await sendEdit(f, sessionID, 'resolved-turn-a-edit');
+    const editA = editStateArtifact(f.workspace, sessionID);
+    const beforeA = fs.readFileSync(editA, 'utf8');
+
+    await f.sessionHooks.get('prompt')({ sessionID, messageID: 'resolved-turn-b', prompt: { text: 'second turn in B' } });
+    await sendEdit(f, sessionID, 'resolved-turn-b-edit');
+    const pendingFile = path.join(f.store, 'sessions', `${observations.sha(sessionID, 32)}.json`);
+    const actual = {
+      workspaceAUnchanged: fs.readFileSync(editA, 'utf8') === beforeA,
+      workspaceBRevision: readJson(editStateArtifact(workspaceB, sessionID)).editRevision,
+      observationCwd: readJson(pendingFile).pending.cwd,
+      expectedObservationCwd: observations.sha(workspaceB, 16),
+      noServerWorkspaceState: !fs.existsSync(routerArtifact(serverWorkspace, sessionID)),
+    };
+    assert.deepEqual(actual, {
+      workspaceAUnchanged: true,
+      workspaceBRevision: 1,
+      observationCwd: observations.sha(workspaceB, 16),
+      expectedObservationCwd: observations.sha(workspaceB, 16),
+      noServerWorkspaceState: true,
+    }, `resolved P2 identity binds only to B; actual=${JSON.stringify(actual)}`);
+  } finally {
+    if (dispose) await dispose();
+    process.chdir(originalCwd);
+    f.restore();
+  }
+});
+
+test('V2 consumers β2: a pending identity makes prior-turn tool events safely skip', { concurrency: false }, async () => {
+  const f = fixture('off');
+  const sessionID = 'pending-next-prompt';
+  const serverWorkspace = makeWorkspace(f, 'pending-server-c');
+  const originalCwd = process.cwd();
+  let lookupCount = 0;
+  let resolvePending;
+  let lookupStarted = false;
+  f.ctx.location = undefined;
+  f.ctx.directory = undefined;
+  f.setSessionLookup(async () => {
+    lookupCount++;
+    if (lookupCount === 1) return { id: sessionID, location: { directory: f.workspace } };
+    return new Promise(resolve => { resolvePending = resolve; lookupStarted = true; });
+  });
+  process.chdir(serverWorkspace);
+  let dispose;
+  let pendingPrompt;
+  try {
+    dispose = await install(f);
+    await f.sessionHooks.get('prompt')({ sessionID, messageID: 'user-turn-a', prompt: { text: 'first turn in A' } });
+    await sendEdit(f, sessionID, 'pending-turn-a-edit');
+    const editFile = editStateArtifact(f.workspace, sessionID);
+    const captureFile = path.join(stateDir(f.workspace, sessionID), 'opencode-captures.jsonl');
+    const beforeEdit = fs.readFileSync(editFile, 'utf8');
+    const beforeCapture = fs.readFileSync(captureFile, 'utf8');
+
+    pendingPrompt = f.sessionHooks.get('prompt')({ sessionID, messageID: 'user-turn-b', prompt: { text: 'identity remains pending' } });
+    assert.equal(await waitUntil(() => lookupStarted), true, 'P2 lookup is pending');
+    await sendEdit(f, sessionID, 'ambiguous-assistant-tool');
+    const actual = {
+      workspaceAUnchanged: fs.readFileSync(editFile, 'utf8') === beforeEdit,
+      noStaleCapture: fs.readFileSync(captureFile, 'utf8') === beforeCapture,
+      noServerWorkspaceState: !fs.existsSync(routerArtifact(serverWorkspace, sessionID)),
+    };
+    assert.deepEqual(actual, { workspaceAUnchanged: true, noStaleCapture: true, noServerWorkspaceState: true },
+      `an uncorrelated tool messageID cannot select the old binding; actual=${JSON.stringify(actual)}`);
+  } finally {
+    if (resolvePending) resolvePending({});
+    if (pendingPrompt) await pendingPrompt;
+    if (dispose) await dispose();
+    process.chdir(originalCwd);
+    f.restore();
+  }
+});
+
+test('V2 consumers β2: a prompt cache miss does not trigger a fallback identity lookup', { concurrency: false }, async () => {
+  const f = fixture('off');
+  const sessionID = 'pending-without-binding';
+  const workspaceB = makeWorkspace(f, 'fallback-b');
+  let lookupCount = 0;
+  let resolvePending;
+  f.setSessionLookup(async () => {
+    lookupCount++;
+    if (lookupCount === 1) return new Promise(resolve => { resolvePending = resolve; });
+    return { id: sessionID, location: { directory: workspaceB } };
+  });
+  let dispose;
+  let pendingPrompt;
+  try {
+    dispose = await install(f);
+    pendingPrompt = f.sessionHooks.get('prompt')({ sessionID, messageID: 'user-pending', prompt: { text: 'identity is unresolved' } });
+    assert.equal(await waitUntil(() => lookupCount === 1 && typeof resolvePending === 'function'), true);
+    await sendEdit(f, sessionID, 'cache-miss-tool');
+    const actual = {
+      lookupCount,
+      fallbackWorkspaceState: fs.existsSync(editStateArtifact(workspaceB, sessionID)),
+    };
+    assert.deepEqual(actual, { lookupCount: 1, fallbackWorkspaceState: false },
+      `current unresolved prompt blocks a generic cache-miss lookup; actual=${JSON.stringify(actual)}`);
+  } finally {
+    if (resolvePending) resolvePending({});
+    if (pendingPrompt) await pendingPrompt;
+    if (dispose) await dispose();
+    f.restore();
+  }
+});
+
+test('V2 consumers β2: a late session lookup cannot resurrect a deleted session', { concurrency: false }, async () => {
+  const f = fixture('off');
+  const sessionID = 'late-lookup-deleted-session';
+  let lookupCount = 0;
+  let resolvePending;
+  let lookupStarted = false;
+  f.setSessionLookup(async () => {
+    lookupCount++;
+    if (lookupCount === 1) return { id: sessionID, location: { directory: f.workspace } };
+    return new Promise(resolve => { resolvePending = resolve; lookupStarted = true; });
+  });
+  let dispose;
+  let pendingPrompt;
+  try {
+    dispose = await install(f);
+    await f.sessionHooks.get('prompt')({ sessionID, messageID: 'user-turn-a', prompt: { text: 'workspace A' } });
+    const routerFile = routerArtifact(f.workspace, sessionID);
+    assert.equal(fs.existsSync(routerFile), true, 'P1 published its workspace route');
+    pendingPrompt = f.sessionHooks.get('prompt')({ sessionID, messageID: 'user-turn-b', prompt: { text: 'lookup will finish after deletion' } });
+    assert.equal(await waitUntil(() => lookupStarted), true, 'P2 lookup is pending');
+
+    f.push({ type: 'session.deleted', properties: { sessionID } });
+    const deleted = await waitUntil(() => !fs.existsSync(routerFile));
+    assert.equal(deleted, true, 'the known owner binding resets the session without waiting for P2 lookup');
+    resolvePending({ id: sessionID, location: { directory: f.workspace } });
+    await pendingPrompt;
+    pendingPrompt = null;
+    await new Promise(resolve => setTimeout(resolve, 80));
+    assert.equal(fs.existsSync(routerFile), false, 'the late P2 result cannot republish routing state after deletion');
+  } finally {
+    if (resolvePending) resolvePending({});
+    if (pendingPrompt) await pendingPrompt;
+    if (dispose) await dispose();
+    f.restore();
+  }
 });

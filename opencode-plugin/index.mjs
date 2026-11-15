@@ -1284,6 +1284,8 @@ export default {
     const events = new AbortController()
     const promptRoutes = new Map()
     const sessionBindings = new Map()
+    const sessionOwners = new Map()
+    const invalidatedSessions = new Set()
     const enforcementByWorkspace = new Map()
     let unresolvedIdentityCount = 0
 
@@ -1340,8 +1342,22 @@ export default {
       }
       return enforcementByWorkspace.get(workspace)
     }
+    const bindSessionWorkspace = (sessionID, workspace, hooks) => {
+      const owners = sessionOwners.get(sessionID) || new Set()
+      let binding = [...owners].find(owner => owner.workspace === workspace)
+      if (!binding) {
+        binding = { workspace, hooks }
+        owners.add(binding)
+        sessionOwners.set(sessionID, owners)
+      }
+      sessionBindings.set(sessionID, binding)
+      return binding
+    }
     const bindingForSession = async sessionID => {
       if (typeof sessionID !== "string" || !sessionID) return null
+      if (invalidatedSessions.has(sessionID)) return null
+      const prompt = promptRoutes.get(sessionID)
+      if (prompt && prompt.status !== "resolved") return null
       const existing = sessionBindings.get(sessionID)
       if (existing) return existing
       const identity = await resolveSessionWorkspace(sessionID)
@@ -1349,11 +1365,11 @@ export default {
         unresolvedIdentity(identity.reason)
         return null
       }
+      if (invalidatedSessions.has(sessionID) || promptRoutes.get(sessionID) !== prompt) return null
       let hooks = null
       try { hooks = await enforcementFor(identity.workspace) } catch {}
-      const binding = { workspace: identity.workspace, hooks }
-      sessionBindings.set(sessionID, binding)
-      return binding
+      if (invalidatedSessions.has(sessionID) || promptRoutes.get(sessionID) !== prompt) return null
+      return bindSessionWorkspace(sessionID, identity.workspace, hooks)
     }
 
     await ctx.session.hook("prompt", async event => {
@@ -1365,19 +1381,25 @@ export default {
           await previous.routerPromise
           return
         }
-        const prompt = { messageID, text: event.prompt.text, routerOutput: null, routerPromise: null, workspace: null, hooks: null }
+        invalidatedSessions.delete(event.sessionID)
+        const prompt = { messageID, text: event.prompt.text, routerOutput: null, routerPromise: null,
+          workspace: null, hooks: null, status: "pending" }
         promptRoutes.set(event.sessionID, prompt)
         prompt.routerPromise = (previous?.routerPromise || Promise.resolve())
           .catch(() => null)
           .then(async () => {
             const identity = await resolveSessionWorkspace(event.sessionID)
+            if (promptRoutes.get(event.sessionID) !== prompt) return
             if (!identity.workspace) {
+              prompt.status = "failed"
               unresolvedIdentity(identity.reason)
               return
             }
             prompt.workspace = identity.workspace
             try { prompt.hooks = await enforcementFor(prompt.workspace) } catch {}
-            sessionBindings.set(event.sessionID, { workspace: prompt.workspace, hooks: prompt.hooks })
+            if (promptRoutes.get(event.sessionID) !== prompt) return
+            bindSessionWorkspace(event.sessionID, prompt.workspace, prompt.hooks)
+            prompt.status = "resolved"
             try {
               const observations = systemOneObservations()
               if (observations && observations.enabled()) {
@@ -1387,7 +1409,8 @@ export default {
             } catch { /* turn observation is always fail-open */ }
             const routerPayload = { host: "opencode", session_id: event.sessionID,
               ...(prompt.messageID ? { turn_id: prompt.messageID } : {}), cwd: prompt.workspace, prompt: event.prompt.text }
-            prompt.routerOutput = await runKernelRouter(routerPayload)
+            const routerOutput = await runKernelRouter(routerPayload)
+            if (promptRoutes.get(event.sessionID) === prompt) prompt.routerOutput = routerOutput
           })
         await prompt.routerPromise
       } catch { /* routing context is fail-open; do not reject prompt admission */ }
@@ -1407,7 +1430,7 @@ export default {
       const prompt = promptRoutes.get(event?.sessionID)
       const binding = await bindingForSession(event?.sessionID)
       if (!binding?.workspace) return
-      if (prompt?.workspace) observeOpenCodeTool(event, prompt.workspace)
+      if (prompt?.status === "resolved" && prompt.workspace) observeOpenCodeTool(event, prompt.workspace)
       if (!binding.hooks) return
       return binding.hooks["tool.execute.after"](toolEventInput(event), {
         args: event.input,
@@ -1418,7 +1441,7 @@ export default {
       })
     })
 
-    const pendingIdles = new Set()
+    const pendingEvents = new Set()
     void (async () => {
       try {
         for await (const raw of ctx.event.subscribe({ signal: events.signal })) {
@@ -1429,39 +1452,47 @@ export default {
           const sessionID = raw.sessionID || (raw.data && raw.data.sessionID)
             || (raw.properties && (raw.properties.sessionID || raw.properties.info?.id))
           const turnEnded = raw.type === "session.idle" || raw.type === "session.execution.succeeded"
-          const prompt = typeof sessionID === "string" ? promptRoutes.get(sessionID) : null
-          let binding = typeof sessionID === "string" ? sessionBindings.get(sessionID) : null
           const lifecycleEvent = ["session.idle", "session.created", "session.deleted"].includes(raw.type)
-          if (!binding && lifecycleEvent && typeof sessionID === "string") {
-            binding = await bindingForSession(sessionID)
-          }
-          if (turnEnded && prompt) {
+          if ((!turnEnded && !lifecycleEvent) || typeof sessionID !== "string" || !sessionID) continue
+          if (raw.type === "session.deleted") invalidatedSessions.add(sessionID)
+          else if (raw.type === "session.created") invalidatedSessions.delete(sessionID)
+          if (raw.type === "session.created" || raw.type === "session.deleted") promptRoutes.delete(sessionID)
+          const prompt = promptRoutes.get(sessionID)
+          if (turnEnded && prompt?.status === "resolved") {
             const observation = observeOpenCodeCompletion(sessionID, ctx, promptRoutes)
               .catch(() => {})
-              .finally(() => pendingIdles.delete(observation))
-            pendingIdles.add(observation)
-          } else if (["session.created", "session.deleted"].includes(raw.type) && sessionID) {
-            promptRoutes.delete(sessionID)
+              .finally(() => pendingEvents.delete(observation))
+            pendingEvents.add(observation)
           }
-          const delivery = binding?.hooks ? binding.hooks.event({
-            event: {
-              type: raw.type,
-              // V1 event handlers read {type, properties}; V2 events are flat
-              // objects, so pass both shapes.
-              properties: raw.properties ?? raw,
-            },
-          }) : Promise.resolve()
-          if (raw.type === "session.idle") {
-            // Awaiting verification here would prevent the same event stream
-            // from delivering the reset/delete which must cancel it.
-            const pending = delivery.catch(() => {}).finally(() => pendingIdles.delete(pending))
-            pendingIdles.add(pending)
+          let bindings
+          if (raw.type === "session.created" || raw.type === "session.deleted") {
+            bindings = [...(sessionOwners.get(sessionID) || [])]
+            if (!bindings.length && !invalidatedSessions.has(sessionID)) {
+              const binding = await bindingForSession(sessionID)
+              if (binding) bindings = [binding]
+            }
           } else {
-            try { await delivery } catch { /* fail open */ }
+            const binding = await bindingForSession(sessionID)
+            bindings = binding ? [binding] : []
           }
-          if (["session.created", "session.deleted"].includes(raw.type) && sessionID) {
+          const event = {
+            type: turnEnded ? "session.idle" : raw.type,
+            properties: { ...raw, ...(isRecord(raw.properties) ? raw.properties : {}), sessionID },
+          }
+          const delivery = Promise.allSettled(bindings.filter(binding => binding?.hooks?.event)
+            .map(binding => Promise.resolve().then(() => binding.hooks.event({ event }))))
+          if (turnEnded) {
+            // Both completion notifications are asynchronous so reset/delete
+            // can still cancel the active verification in this event stream.
+            const pending = delivery.finally(() => pendingEvents.delete(pending))
+            pendingEvents.add(pending)
+          } else {
+            await delivery
+          }
+          if (raw.type === "session.created" || raw.type === "session.deleted") {
             promptRoutes.delete(sessionID)
             sessionBindings.delete(sessionID)
+            sessionOwners.delete(sessionID)
           }
         }
       } catch { /* aborting the host subscription is normal shutdown */ }
@@ -1469,7 +1500,7 @@ export default {
     })()
     return async () => {
       events.abort()
-      await Promise.allSettled([...pendingIdles])
+      await Promise.allSettled([...pendingEvents])
     }
   },
 }
