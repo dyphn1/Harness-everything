@@ -2,6 +2,7 @@
 import hashlib
 import hmac
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -13,6 +14,9 @@ import sys
 import tempfile
 import threading
 import time
+
+ACTIVE_STAGES = ('validity', 'intent', 'tier')
+LEGACY_ROUTING_METADATA = frozenset(('domain', 'bestEpoch', 'validation', 'datasets', 'seed', 'catalog'))
 
 
 def verify_artifacts(manifest):
@@ -37,8 +41,42 @@ def check_limits(request, config):
         raise ValueError('input-too-long')
 
 
+def _score_semantics(weights, manifest):
+    config_path = Path(manifest.get('config', Path(weights).with_suffix('.json')))
+    try:
+        document = json.loads(config_path.read_text(encoding='utf-8'))
+    except (OSError, TypeError, ValueError):
+        raise ValueError('checkpoint-semantics') from None
+    if not isinstance(document, dict):
+        raise ValueError('checkpoint-semantics')
+    metadata = document.get('metadata', {})
+    if not isinstance(metadata, dict):
+        raise ValueError('checkpoint-semantics')
+    if manifest.get('modelId') == 'cua-ai/cua-s1-forms' and manifest.get('domain') == 'forms-v1':
+        loss = metadata.get('loss')
+        if metadata.get('domain') not in (None, 'forms-v1') or loss not in (None, 'cross_entropy'):
+            raise ValueError('checkpoint-semantics')
+        return 'categorical', 'tier'
+    if manifest.get('domain') == 'harness-routing-v1' and metadata.get('domain') == 'harness-routing-v1':
+        if metadata.get('task') in ACTIVE_STAGES and metadata.get('loss') == 'binary_cross_entropy':
+            return 'independent', metadata['task']
+        # The old tier trainer emitted this exact sidecar shape after categorical cross-entropy training.
+        validation = metadata.get('validation')
+        datasets = metadata.get('datasets')
+        if (set(metadata) == LEGACY_ROUTING_METADATA and metadata.get('catalog') == ['tier1', 'tier2', 'tier3']
+                and isinstance(metadata.get('bestEpoch'), int) and not isinstance(metadata['bestEpoch'], bool)
+                and metadata['bestEpoch'] > 0 and isinstance(metadata.get('seed'), int) and not isinstance(metadata['seed'], bool)
+                and isinstance(validation, dict) and set(validation) == {'nll', 'accuracy'}
+                and all(isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) for value in validation.values())
+                and isinstance(datasets, dict) and {'prompts.jsonl', 'labels.jsonl'} <= datasets.keys()
+                and all(isinstance(value, str) and re.fullmatch(r'[0-9a-f]{64}', value) for value in datasets.values())):
+            return 'categorical', 'tier'
+    raise ValueError('checkpoint-semantics')
+
+
 def load_scorer(weights, manifest):
-    """Load the verified checkpoint once; return independent per-option probabilities."""
+    """Load a verified checkpoint and apply its declared training objective."""
+    semantics, task = _score_semantics(weights, manifest)
     import torch
     from cua_s1.model import ChoiceExample, load_checkpoint
 
@@ -54,9 +92,14 @@ def load_scorer(weights, manifest):
         model, collator, config = load_checkpoint(weights, 'cpu')
 
     def score(request):
+        if request.get('task') != task:
+            raise ValueError('checkpoint-semantics')
         example = ChoiceExample(context=request['context'], options=tuple(o['text'] for o in request['options']), label=0)
         with torch.inference_mode():
-            return model(collator([example])).sigmoid()[0].tolist()
+            logits = model(collator([example]))
+            return (logits.softmax(-1) if semantics == 'categorical' else logits.sigmoid())[0].tolist()
+    score.score_semantics = semantics
+    score.training_task = task
     return score, config
 
 
@@ -73,9 +116,6 @@ def infer(request, manifest):
     score, config = load_scorer(weights, manifest)
     check_limits(request, config)
     return build_response(request, manifest, score(request))
-
-
-ACTIVE_STAGES = ('validity', 'intent', 'tier')
 
 
 def validate_shared_manifest(manifest):
@@ -165,6 +205,8 @@ def load_active_bundle(active_path, expected_fingerprint=None, scorer_loader=Non
             'domain': 'harness-routing-v1',
         }
         score, config = loader(weights, stage_manifest)
+        if scorer_loader is None and (score.score_semantics != 'independent' or score.training_task != stage):
+            raise ValueError('active-stage')
         scorers[stage] = {**entry, 'manifest': stage_manifest, 'score': score, 'config': config,
                           'weights': weights, 'configPath': config_path}
     fingerprint = _active_fingerprint(pointer['version'], pointer['dir'], scorers)

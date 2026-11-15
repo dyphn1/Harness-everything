@@ -37,16 +37,17 @@ function routeLive(input, result) {
     && isProbability(thresholds.validity?.invalid) ? { invalid: stages.validity.invalid } : null;
   const validity = validityScores === null || referenceOnly.validity.includes('invalid') ? 'abstain'
     : validityScores.invalid >= thresholds.validity.invalid ? 'invalid' : 'actionable';
-  const intentCatalogIds = options.intent.map(option => option.id);
-  const intentIds = intentCatalogIds.filter(id => id !== 'unclassified');
-  const intents = validity === 'actionable' && exactScores(stages.intent, intentCatalogIds)
-    && intentCatalogIds.every(id => isProbability(thresholds.intent?.[id]))
-    ? Object.fromEntries(intentIds.map(id => [id, stages.intent[id]])) : null;
+  const intentCatalogIds = options.intent.map(option => option.id).filter(id => id !== 'unclassified');
+  // A packaged checkpoint may omit the non-selectable unclassified option from its intent scores.
+  const intentScores = stages.intent && typeof stages.intent === 'object' && !Array.isArray(stages.intent)
+    ? Object.fromEntries(Object.entries(stages.intent).filter(([id]) => id !== 'unclassified')) : null;
+  const intents = validity === 'actionable' && exactScores(intentScores, intentCatalogIds)
+    && intentCatalogIds.every(id => isProbability(thresholds.intent?.[id])) ? intentScores : null;
   const tierIds = ['tier1', 'tier2', 'tier3'];
   const tierScores = validity === 'actionable' && exactScores(stages.tier, tierIds)
     && tierIds.every(id => isProbability(thresholds.tier?.[id])) ? stages.tier : null;
-  const selectedIntents = intents ? intentIds.filter(id => !referenceOnly.intent.includes(id) && intents[id] >= thresholds.intent[id])
-    .sort((a, b) => (intents[b] - intents[a]) || (intentIds.indexOf(a) - intentIds.indexOf(b))).slice(0, 3) : [];
+  const selectedIntents = intents ? intentCatalogIds.filter(id => !referenceOnly.intent.includes(id) && intents[id] >= thresholds.intent[id])
+    .sort((a, b) => (intents[b] - intents[a]) || (intentCatalogIds.indexOf(a) - intentCatalogIds.indexOf(b))).slice(0, 3) : [];
   const rankedTiers = tierScores ? tierIds.filter(id => !referenceOnly.tier.includes(id)).sort((a, b) => (tierScores[b] - tierScores[a])
     || (tierIds.indexOf(a) - tierIds.indexOf(b))) : [];
   const bestTier = rankedTiers[0];

@@ -28,6 +28,8 @@ const stages = {
 };
 const intentScores = () => Object.fromEntries(stages.intent.options
   .map(id => [id, id === 'unclassified' ? 0.99 : ({ feature: 0.91, fix: 0.8, docs: 0.72 })[id] || 0.1]));
+// A packaged checkpoint may omit the non-selectable unclassified intent option (cycle/package.js legacyOptions).
+const trainedIntentIds = INTENT_OPTIONS.map(option => option.id).filter(id => id !== 'unclassified');
 
 function activeFixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'system-one-live-'));
@@ -65,6 +67,18 @@ function activeFixture() {
     activatedAt: '2026-11-14T00:00:00.000Z',
   }));
   return { root, dir, env: { HARNESS_SYSTEM_ONE_HOME: root } };
+}
+
+// The same active home, but the packaged intent stage predates the unclassified option.
+function trainedIntentFixture() {
+  const fixture = activeFixture();
+  const manifestFile = path.join(fixture.dir, 'manifest.json');
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+  manifest.stages.intent.options = trainedIntentIds;
+  manifest.stages.intent.thresholds = Object.fromEntries(trainedIntentIds.map(id => [id, 0.55]));
+  delete manifest.stages.intent.referenceOnly;
+  fs.writeFileSync(manifestFile, JSON.stringify(manifest));
+  return fixture;
 }
 
 function response(request, probabilities) {
@@ -299,5 +313,49 @@ test('S1-L05 explicit off is byte-identical to the historical default and omits 
     assert.equal(Object.hasOwn(explicitOff.contract.workflowPlan, 'systemOne'), false);
   } finally {
     if (prior === undefined) delete env.HARNESS_SYSTEM_ONE_MODE; else env.HARNESS_SYSTEM_ONE_MODE = prior;
+  }
+});
+
+test('S1-L06 a packaged intent catalog without the unclassified option still scores live and routes', async () => {
+  const fixture = trainedIntentFixture();
+  try {
+    const liveCatalogs = { validity: router.VALIDITY_OPTIONS, intent: INTENT_OPTIONS, tier: router.TIER_OPTIONS };
+    const runWithFake = async (stage, request) => {
+      const values = stage === 'validity' ? [0.18]
+        : stage === 'intent' ? request.options.map(option => ({ feature: 0.91, fix: 0.8, docs: 0.72 })[option.id] || 0.1)
+          : [0.2, 0.76, 0.9, 0.1];
+      return { status: 'scored', response: response(request, values) };
+    };
+    const result = await provider.scoreLive('fixture context', fixture.env, liveCatalogs, runWithFake);
+    assert.ok(result, 'a packaged 12-option intent catalog must still score');
+    assert.deepEqual(Object.keys(result.stageScores.intent), trainedIntentIds);
+    assert.deepEqual(result.stageScores.tier, { tier1: 0.2, tier2: 0.76, tier3: 0.9 });
+    const routed = router.routeLive({ tier: 'Tier 2 (Standard Task)', floor: null, explicit: false }, result);
+    assert.deepEqual(Object.keys(routed.systemOne.intents), trainedIntentIds);
+    assert.deepEqual(routed.systemOne.decision, { validity: 'actionable', intents: ['feature', 'fix', 'docs'], tier: 'tier3' });
+  } finally {
+    fs.rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('S1-L07 a different intent id set stays null and invalid validity still stops the live path', async () => {
+  const fixture = trainedIntentFixture();
+  try {
+    const liveCatalogs = { validity: router.VALIDITY_OPTIONS, intent: INTENT_OPTIONS, tier: router.TIER_OPTIONS };
+    const stopOnInvalid = async (stage, request) => ({ status: 'scored', response: response(request, [0.9]) });
+    const stopped = await provider.scoreLive('fixture context', fixture.env, liveCatalogs, stopOnInvalid);
+    assert.deepEqual(stopped.stageScores, { validity: { invalid: 0.9 }, intent: null, tier: null });
+
+    const manifestFile = path.join(fixture.dir, 'manifest.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+    const renamed = ['explain2', ...trainedIntentIds.slice(1)];
+    manifest.stages.intent.options = renamed;
+    manifest.stages.intent.thresholds = Object.fromEntries(renamed.map(id => [id, 0.55]));
+    fs.writeFileSync(manifestFile, JSON.stringify(manifest));
+    const actionable = async (stage, request) => ({ status: 'scored', response: response(request,
+      stage === 'validity' ? [0.18] : request.options.map(() => 0.5)) });
+    assert.equal(await provider.scoreLive('fixture context', fixture.env, liveCatalogs, actionable), null);
+  } finally {
+    fs.rmSync(fixture.root, { recursive: true, force: true });
   }
 });

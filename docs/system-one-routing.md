@@ -22,8 +22,7 @@ fingerprint grants permission or authenticates a model.
 The provider response has exactly `schemaVersion`, `requestHash`, `catalogHash`,
 `model`, and `scores`. Model has nonempty `id`, `revision`, and `domain` strings.
 Scores have exactly `{id, probability}` in request order. All candidates occur
-exactly once; probabilities are finite independent values in [0, 1] and do not
-sum to one. Unknown fields, stale request/catalog hashes, and version mismatches fail.
+exactly once; probabilities are finite values in [0, 1], as a categorical simplex for legacy checkpoints or independent scores for staged checkpoints. Unknown fields, stale request/catalog hashes, and version mismatches fail.
 
 `decide(request, response, policy)` returns exactly `status`, `reason`,
 `selectedId`, `confidence`, `margin`, and `model`. Status is `accepted`, `abstain`,
