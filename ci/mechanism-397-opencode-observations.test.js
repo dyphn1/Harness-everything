@@ -286,6 +286,59 @@ test('record: a V2 flat session.execution.succeeded after the prompt hook closes
   }
 });
 
+test('record: V2 context uses the final text after tool steps and anchors it to the prompted turn', { concurrency: false }, async () => {
+  const f = fixture();
+  let dispose;
+  try {
+    dispose = await install(f);
+    f.ctx.session.context = async () => [
+      { id: 'previous-user', time: { created: 0 }, text: 'previous turn', files: [], type: 'user' },
+      { id: 'previous-assistant', time: { created: 0, streamed: 0, completed: 0 }, type: 'assistant', agent: 'test', model: { id: 'test', providerID: 'test', variant: 'default' }, content: [{ type: 'text', text: VALID_LABEL }], finish: 'stop', rawFinish: 'stop', cost: 0, tokens: {} },
+      { id: 'v2-context-turn', time: { created: 0 }, text: 'current turn', files: [], type: 'user' },
+      { id: 'tool-step', time: { created: 0, streamed: 0, completed: 0 }, type: 'assistant', agent: 'test', model: { id: 'test', providerID: 'test', variant: 'default' }, content: [{ type: 'tool', name: 'search' }], finish: 'tool-calls', rawFinish: 'tool-calls', cost: 0, tokens: {} },
+      { id: 'final-assistant', time: { created: 0, streamed: 0, completed: 0 }, type: 'assistant', agent: 'test', model: { id: 'test', providerID: 'test', variant: 'default' }, content: [{ type: 'text', text: `Done.\n${SECOND_LABEL}` }], finish: 'stop', rawFinish: 'stop', cost: 0, tokens: {} },
+      { id: 'idle', time: { created: 0 }, type: 'idle', outcome: 'success' },
+    ];
+    await f.sessionHooks.get('prompt')({ sessionID: 'v2-context', messageID: 'v2-context-turn', prompt: { text: 'record the final V2 message' } });
+    f.push(v2Event('session.step.ended', 'v2-context', { assistantMessageID: 'final-assistant', finish: 'stop', rawFinish: 'stop', cost: 0, tokens: {} }));
+    f.push(v2Event('session.execution.succeeded', 'v2-context'));
+    await waitFor(() => recordList(f.store).length === 1);
+
+    const [record] = recordList(f.store);
+    assert.equal(record.host, 'opencode');
+    assert.equal(record.writer.turnId, 'v2-context-turn');
+    assert.equal(record.selfReportReason, null);
+    assert.deepEqual(record.selfReport?.intents, ['edit'], 'the final assistant text is used instead of the earlier turn label');
+  } finally {
+    if (dispose) await dispose();
+    f.restore();
+  }
+});
+
+test('control: V2 context never reuses an assistant label from before the prompted message', { concurrency: false }, async () => {
+  const f = fixture();
+  let dispose;
+  try {
+    dispose = await install(f);
+    f.ctx.session.context = async () => [
+      { id: 'previous-user', time: { created: 0 }, text: 'previous turn', files: [], type: 'user' },
+      { id: 'previous-assistant', time: { created: 0, streamed: 0, completed: 0 }, type: 'assistant', agent: 'test', model: { id: 'test', providerID: 'test', variant: 'default' }, content: [{ type: 'text', text: VALID_LABEL }], finish: 'stop', rawFinish: 'stop', cost: 0, tokens: {} },
+      { id: 'v2-no-final-turn', time: { created: 0 }, text: 'current turn', files: [], type: 'user' },
+      { id: 'idle', time: { created: 0 }, type: 'idle', outcome: 'success' },
+    ];
+    await f.sessionHooks.get('prompt')({ sessionID: 'v2-no-final', messageID: 'v2-no-final-turn', prompt: { text: 'do not reuse a previous label' } });
+    f.push(v2Event('session.execution.succeeded', 'v2-no-final'));
+    await waitFor(() => recordList(f.store).length === 1);
+
+    const [record] = recordList(f.store);
+    assert.equal(record.selfReport, null);
+    assert.equal(record.selfReportReason, 'final-message-unavailable');
+  } finally {
+    if (dispose) await dispose();
+    f.restore();
+  }
+});
+
 test('record: two consecutive V2 turns in one session each produce a completed record', { concurrency: false }, async () => {
   const f = fixture();
   let dispose;

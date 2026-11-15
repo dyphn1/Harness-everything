@@ -118,19 +118,22 @@ function runKernelRouter(payload) {
 
 function assistantTextForCurrentTurn(messages, userMessageID) {
   const items = Array.isArray(messages) ? messages : Array.isArray(messages?.data) ? messages.data : []
+  const role = message => message?.info?.role || message?.info?.type || message?.role || message?.type
+  const messageID = message => message?.info?.id ?? message?.id
   let lastUser = userMessageID
-    ? items.findIndex(message => (message?.info || message)?.id === userMessageID && (message?.info || message)?.role === "user")
+    ? items.findIndex(message => messageID(message) === userMessageID && role(message) === "user")
     : -1
   if (!userMessageID) {
     for (let i = items.length - 1; i >= 0; i--) {
-      if ((items[i]?.info || items[i])?.role === "user") { lastUser = i; break }
+      if (role(items[i]) === "user") { lastUser = i; break }
     }
   }
   if (lastUser < 0) return null
   for (let i = items.length - 1; i > lastUser; i--) {
     const message = items[i]
-    if ((message?.info || message)?.role !== "assistant") continue
-    const text = (Array.isArray(message.parts) ? message.parts : [])
+    if (role(message) !== "assistant") continue
+    const parts = Array.isArray(message.parts) ? message.parts : Array.isArray(message.content) ? message.content : []
+    const text = parts
       .filter(part => part?.type === "text" && typeof part.text === "string")
       .map(part => part.text).join("")
     if (text) return text
