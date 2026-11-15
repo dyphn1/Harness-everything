@@ -141,6 +141,39 @@ test('inject: the documented OpenCode hooks deliver the kernel router output and
   }
 });
 
+test('runtime: a non-Node host binary still runs the router on Node and injects its output', { concurrency: false }, async () => {
+  const f = fixture();
+  let dispose;
+  const originalExecPath = process.execPath;
+  const hadBun = Object.hasOwn(process.versions, 'bun');
+  const originalBun = process.versions.bun;
+  try {
+    // Reproduce the live witness: OpenCode is a compiled Bun binary, so the
+    // plugin's process.execPath is the opencode executable - not node - and the
+    // Bun runtime shows up as process.versions.bun. The stub below is a real,
+    // executable, non-node program that exits non-zero, so the current code's
+    // spawn(process.execPath, ['.js']) cannot produce router output.
+    const stubRuntime = path.join(f.dir, process.platform === 'win32' ? 'stub-runtime.cmd' : 'stub-runtime');
+    fs.writeFileSync(stubRuntime, process.platform === 'win32' ? '@exit /b 1\r\n' : '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    Object.defineProperty(process, 'execPath', { value: stubRuntime, configurable: true, writable: true });
+    Object.defineProperty(process.versions, 'bun', { value: '1.2.0', configurable: true });
+
+    dispose = await install(f);
+    const prompt = { sessionID: 'runtime-session', messageID: 'runtime-turn', prompt: { text: 'add a small behavior change' } };
+    await f.sessionHooks.get('prompt')(prompt);
+    const context = { sessionID: 'runtime-session', kind: 'primary', system: [], messages: [] };
+    await f.sessionHooks.get('context')(context);
+    const injected = context.system.map(part => part.text || '').join('\n');
+    assert.match(injected, /=> ROUTER WORKFLOW PLAN/, 'the router ran on Node despite a non-Node host binary');
+  } finally {
+    if (dispose) await dispose();
+    Object.defineProperty(process, 'execPath', { value: originalExecPath, configurable: true, writable: true });
+    if (hadBun) Object.defineProperty(process.versions, 'bun', { value: originalBun, configurable: true });
+    else delete process.versions.bun;
+    f.restore();
+  }
+});
+
 test('record: OpenCode prompt, tool and idle events append one host-tagged record to the shared store', { concurrency: false }, async () => {
   const f = fixture();
   let dispose;

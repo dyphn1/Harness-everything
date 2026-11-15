@@ -77,6 +77,16 @@ function systemOneObservations() {
   return observationsApi
 }
 
+// OpenCode's host process is a compiled Bun binary, so process.execPath is the
+// opencode executable. That binary cannot run a Node .js script - it treats the
+// script path as a project directory (ENOTDIR) - so a non-Node host must run
+// Harness scripts with `node` from PATH. Under Node the checked-in runtime is
+// used as before; a Node that cannot be found stays fail-open, because the
+// spawn error yields no injection and blocks no turn.
+function harnessRuntime() {
+  return process.versions.bun ? "node" : process.execPath
+}
+
 function runKernelRouter(payload) {
   if (!ROUTER_FILE) return Promise.resolve(null)
   return new Promise(resolveOutput => {
@@ -88,7 +98,7 @@ function runKernelRouter(payload) {
       clearTimeout(timeout)
       resolveOutput(value)
     }
-    const child = spawn(process.execPath, [ROUTER_FILE], {
+    const child = spawn(harnessRuntime(), [ROUTER_FILE], {
       cwd: payload.cwd || HARNESS_ROOT,
       env: process.env,
       stdio: ["pipe", "pipe", "ignore"],
