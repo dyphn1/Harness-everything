@@ -11,6 +11,11 @@ sites:
   - harness-everything/scripts/system-one/provider.js
   - scripts/system-one-cycle/score.py
   - scripts/system-one-curves.js
+  - scripts/system-one-train.py
+  - harness-everything/scripts/system-one/router.js
+  - harness-everything/scripts/system-one/catalogs.js
+  - opencode-plugin/index.mjs
+  - "ci/mechanism-397-cycle-import.test.js (PR #448 branch; not on main at bd986013)"
 violates: "#325 H3: claims alone, unavailable observations, stale bindings, unsupported waivers and contradictory runs cannot become a false PASS."
 scope: in
 status: lesson
@@ -79,6 +84,27 @@ episodes:
         change: "Commit 1c0d8fcf: the trained catalog and `manifest.js` are the single source of stage options"
         review: unknown
         result: "All five sites read one source; episode open pending a closing review."
+      - round: 3
+        change: null
+        review: "owner independent review of c5a2747d (P2-1: validity option text in training differs from the served text)"
+        result: "Observed, not fixed in this episode. Owner decision 2026-11-15 in issue #445: observe first, do not start the class fix without an owner go. 0 decision flips measured on 163 holdout and 1034 validation scorable pairs."
+      - round: 4
+        change: "F13 (input c5a2747d): scoreLive and routeLive accept the 12-id trained intent manifest, excluding unclassified as tier already does; RED S1-L06, control S1-L07"
+        review: "live witness on the active s1-2026-11-15 package with the real resident: an actionable prompt returned null from scoreLive (13 serving intent ids against 12 trained); reported on #442 comment 6888498770"
+        result: "Live path passes after the minimal fix. The class stays open in issue #445, which states five rounds on it and lists R1, F6, F7, F8, owner P2-1 and this live finding. F7 (commit 55e96b6e, fallout of the F6 validator) is not listed as a separate round here."
+  - episode: 397-p1w-consumer-inventory
+    feature: "#397 / PR #448 P1W OpenCode prompt binding"
+    date: 2026-11-15
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: "local verify:all at 93ad886f and independent review R2 (one incident, one episode)"
+        result: "P1W (861e55ec) made OpenCode V2 prompts require ctx.session.get. ci/mechanism-397-cycle-import.test.js was outside P1W's write-set because parallel packet W1 owned it, so P1W's consumer inventory skipped it. Local verify:all reported 'OpenCode observations were not captured'. R2 reported it as P2 (violates: unresolved)."
+      - round: 1
+        change: "Commit 5a55a8f7: the cycle-import v2 fixture gets the session lookup"
+        review: unknown
+        result: "Fixed on the branch. No closing review is recorded, so the episode stays open."
 ---
 
 ## Cue
@@ -103,3 +129,11 @@ Episode 3 adds: a version-manifest identity was decided at five sites (`package.
 - Round 1 review at `bb23ea1`; resolver commit `0308386`.
 - Episode 2 (2026-10-23): the first live normal-session credit run at `0308386` was withheld because the single resolver treated any rejected command as a doc-check candidate, so a workflow `plan` command whose JSON mentioned doc-check was projected as stale doc-check evidence. One resolver is not enough: it also needs a precise candidate boundary (an explicit command target, never a data argument). The diagnosis came from a packet that consulted this record first, which pointed straight at the shared decision instead of a consumer patch.
 - Episode 3 (2026-11-15, #442): version-manifest identity at five sites; R1 independent review found the missed `system-one-curves.js`; fix commit `1c0d8fcf`.
+
+## Episode 3 extension (2026-11-15, #445)
+
+Issue #445 groups R1, F6, F7, F8, owner review P2-1 and the live intent finding (F13) as one class of stage option catalogs. Rounds 3 and 4 add P2-1 (observed, no fix) and F13 (minimal live fix). The class fix is not started and needs an owner go. The live finding is recorded as a round of this episode, not as a second #442 episode.
+
+## Episode 4 (2026-11-15, #397 / PR #448)
+
+P1W (`861e55ec`) made V2 prompts require `ctx.session.get`. Its consumer inventory skipped `ci/mechanism-397-cycle-import.test.js`, because a parallel packet owned that file. Inventorying every consumer, including unchanged ones and regardless of write-set, would have caught it. Fixed in `5a55a8f7`.

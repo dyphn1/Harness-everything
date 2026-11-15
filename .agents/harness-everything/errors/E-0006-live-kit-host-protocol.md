@@ -6,6 +6,7 @@ title: "Operator live-run kits repeatedly mismatched the real host and provider 
 sites:
   - "live operator kit (watcher, run script, prompts, agent definitions)"
   - hooks/scripts/lib/doc-reconciliation-provider.js
+  - "opencode-plugin/index.mjs (OpenCode V2 event loop and router runtime, #397)"
 violates: "Advisor answer 13: \"Checks, final quality review, reconciliation and Stop | Execute and capture through the real host and shipped consumers.\""
 scope: in
 status: lesson
@@ -40,6 +41,27 @@ episodes:
         change: "Coordinator limited to Read and Agent; exact skill path supplied"
         review: live-run
         result: "Run 11 FEASIBLE; later the outline reviewer lacked the owner VERI-to-EVID provenance, fixed by giving it the decision text and pinned mapping"
+  - episode: 397-opencode-v2-host-shape
+    feature: "#397 OpenCode V2 observation (fix/397-opencode-router-node)"
+    date: 2026-11-15
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: live-run
+        result: "Live O1 attempt on OpenCode 2.1.4 produced 0 host records. Traced to the router spawn using process.execPath, which is the opencode binary under Bun (O2)."
+      - round: 1
+        change: "O2 (input 2fa9d6d4): harnessRuntime() runs the router with node when process.versions.bun is set"
+        review: unknown
+        result: "Next host shape: V2 sends no session.idle. The turn ends on session.execution.succeeded, with the id at data.sessionID (O3)."
+      - round: 2
+        change: "O3 (input f7addfc0): the V2 loop resolves the session id from data.sessionID and treats session.execution.succeeded as a turn end"
+        review: unknown
+        result: "Next host shape: V2 context messages use type and content[], not role and parts (O4)."
+      - round: 3
+        change: "O4 rev 2 (input 9051c28e): assistantTextForCurrentTurn reads V2 type and content[] text items"
+        review: unknown
+        result: "The point rounds ended once a key-only trace of the real V2 shapes was recorded (per the 2026-11-15 test-oracle lesson). That trace is not a closing review and the packet sources do not re-record it, so the episode stays closed false."
 ---
 
 ## Cue
@@ -57,3 +79,7 @@ Before spending a live run, preflight the kit against the shipped consumers: res
 ## Evidence
 
 - #341, PR #393; stage-1 verdict run 11 (FEASIBLE) after runs 1-10.
+
+## Episode 2 (2026-11-15, #397)
+
+Three host-shape findings after discovery: the router runtime under Bun, the V2 turn-end event, and the V2 message shape. The lesson above applies as written. Record one live trace of the real shapes before writing the fix packet.

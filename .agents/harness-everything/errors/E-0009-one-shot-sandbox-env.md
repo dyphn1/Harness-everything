@@ -5,6 +5,7 @@ class: tooling-friction
 title: "One-shot sandboxed workers lost time to environment limits rather than the task"
 sites:
   - "one-shot dispatch command (codex exec)"
+  - "claude -p one-shot dispatch command (prompt directly after -p, flags after it)"
   - "read-only reviewer dispatch (fixture scratch directory and report write)"
   - ci/mechanism-system-one-provider.test.js
 violates: "Shared agent standard: \"Verification includes the CI-equivalent gates ... not only unit tests.\""
@@ -87,6 +88,15 @@ episodes:
         change: "coordinator ran `verify:all -- --fast` outside the sandbox; packets now say \"coordinator runs verify:all\""
         review: coordinator
         result: "5 PASS / 0 FAIL"
+  - episode: 2026-11-12-claude-p-prompt-after-variadic-flag
+    feature: unknown
+    date: 2026-11-12
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "A claude -p dispatch lost its prompt because a variadic --add-dir came before it. Rule: the prompt goes directly after -p, and the flags after it."
 ---
 
 ## Cue
@@ -101,6 +111,7 @@ Dispatch one-shot `codex exec` with a TMPDIR outside every repository and stdin 
 - Free reviewer models can stop on quota or end without a report: ping the model first, and after one failed delivery prefer a paid runner over a third free attempt.
 - Re-violated 2026-11-08: the stdin rule lives only in prose; a dispatch wrapper that always closes stdin would make it a mechanism (not built).
 - Recurred 2026-11-10/11 (#341 kit re-pin and #425 W6): `verify:all` fast and full both remain unrunnable inside `codex exec -s workspace-write`. Dispatch arrangement: packets say "coordinator runs verify:all" and workers report the sandbox-UNCHECKED/BLOCKED disposition instead of retrying inside the sandbox.
+- Put the prompt directly after `-p` in `claude -p`, and the flags after it. A variadic `--add-dir` placed before the prompt swallowed the prompt on 2026-11-12. Feature and PR unknown.
 
 ## Stage 2 read-only review scratch (#396, 2026-11-07)
 
