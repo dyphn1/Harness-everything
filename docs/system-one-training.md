@@ -7,6 +7,8 @@ Gold labels follow [system-one-corpus.md](system-one-corpus.md). The owner-revie
 holdout in that document is used only for evaluation. It is never used for training,
 threshold selection or labeler tuning.
 
+For the owner-started monthly collection-to-package workflow, see [System One monthly training cycle](system-one-cycle.md).
+
 ## Pipeline
 
 1. **Collect**: copy the owner's own prompts from local assistant histories into a local
@@ -159,17 +161,25 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
     same logits, which ranks the intents in relevance order, so the contract's
     probability vector and the calibration below stay as they are. Handing the absolute
     relevance bands to the skills stage is a separate contract change.
-- The `tinyx` path below is kept for comparison. Its first checkpoint learned little beyond
-  class priors.
-- **Model** (`tinyx`): a new `cua_s1` `tinyx` scorer built with `make_system`.
+- **CUA-S1 trainer**: `scripts/system-one-train.py` builds a new `cua_s1` `tinyx` scorer
+  with `make_system`. `--task {validity,intent,tier}` selects the head (default `tier`);
+  `--target {label,scores}` selects hard labels or scored intent labels (default `label`).
+  `--target scores` requires `--task intent` and reads `labels-intent-scores.jsonl`.
   - Config: `width` 128, `rank` 128, `layers` 2, `heads` 4, `context_tokens` 1024 and
     `option_tokens` 96.
   - Weights are initialized fresh, not from the forms checkpoint, whose domain and
     positional range differ.
-- **Target**: each example is the fixed tier catalog with the index of the gold option.
-  `null` maps to `unclassified`.
-- **Optimization**:
-  - Cross-entropy, AdamW, a fixed seed and CPU.
+- **Targets**: each option is an independent binary target. The validity head uses all
+  `labels.jsonl` rows and scores one `invalid` option: a `null` tier gold maps to 1, and a
+  tier gold maps to 0. The tier head uses valid `labels.jsonl` rows, the three options
+  `tier1`, `tier2` and `tier3`, and a one-hot target. The intent head uses valid
+  `labels-intent.jsonl` rows and the fixed intent catalog; its hard target is multi-hot for
+  `gold` plus `secondary`. With `--target scores`, each intent's value from
+  `labels-intent-scores.jsonl` is its soft target.
+- **Optimization**: per-option binary cross-entropy with logits, AdamW, a fixed seed and CPU.
+  Validation applies sigmoid independently to each option; `val-scores.jsonl` stores rows as
+  `{id, gold, scores: {option: probability}}`; option probabilities are independent and do
+  not have to sum to one.
   - The epoch with the lowest validation negative log-likelihood is kept.
   - The checkpoint metadata records the dataset hashes, the config and the validation metrics.
 - **Calibration**: `minConfidence` and `minMargin` are chosen on validation to maximize
@@ -191,3 +201,30 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
 - **Release**: the `.safetensors` and `.json` files are attached to a GitHub release. The
   installer's pins gain the new model ID, revision, `domain: "harness-routing-v1"` and both
   SHA-256 values. Until every rollout gate passes, the router default stays `off`.
+
+## Evaluating a version over time
+
+Run `scripts/system-one-curves.js` with a version directory, one or more validation score
+files, an optional matching set of holdout score files, a history JSONL file and an output
+directory. Each score row has `{id, gold, scores: {option: probability}}`. Options are
+scored independently: log loss, Brier score and 10-bin ECE use every option-row pair, while
+the confidence curve measures top-choice accuracy as its score threshold sweeps from 0 to 1.
+The report also keeps reliability bins and five score quantiles per option.
+
+```mermaid
+flowchart LR
+  V[Validation scores] --> C[Compare AUC, log loss and ECE]
+  H[Old holdout scores] --> F{Checked floor has no regression?}
+  C --> P{Candidate no worse on all curves?}
+  F --> P
+  P -->|yes| Promote[Promote]
+  P -->|no, two consecutive declines| Rollback[Rollback]
+  P -->|otherwise| Hold[Hold]
+```
+
+Promotion requires the candidate to tie or improve the previous version on coverage-accuracy
+area, log loss and ECE, and a checked old-holdout floor with no regression. Missing holdout
+scores leave the floor unknown and block promotion. A rollback requires two consecutive
+history comparisons where the active trend is dominated across those same curves. The
+verdict is based on the whole curve; System One scores remain reference confidence, not
+absolute answers.

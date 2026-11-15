@@ -1,6 +1,7 @@
 'use strict';
 const { createRequest, decide } = require('./contract');
 const provider = require('./provider');
+const { prepareHandoffInput } = require('./handoff-input');
 const TIER_OPTIONS = Object.freeze([
   { id: 'tier1', text: 'A small bounded edit or operation with clear scope.' },
   { id: 'tier2', text: 'Implementation or bug fix needing iterative testing.' },
@@ -9,6 +10,84 @@ const TIER_OPTIONS = Object.freeze([
 ].map(Object.freeze));
 const LABELS = { tier1: 'Tier 1 (Trivial)', tier2: 'Tier 2 (Standard Task)', tier3: 'Tier 3 (Macro Task)' };
 const RANK = { tier1: 1, tier2: 2, tier3: 3 };
+const VALIDITY_OPTIONS = Object.freeze([
+  { id: 'actionable', text: 'The current prompt contains an actionable request.' },
+  { id: 'invalid', text: 'The request needs conversation context to understand.' },
+].map(Object.freeze));
+const isProbability = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+function liveOptions() {
+  const { INTENT_OPTIONS } = require('./catalogs');
+  return { validity: VALIDITY_OPTIONS, intent: INTENT_OPTIONS, tier: TIER_OPTIONS };
+}
+function exactScores(value, ids) {
+  return value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === ids.length
+    && ids.every(id => Object.hasOwn(value, id) && isProbability(value[id]));
+}
+function routeLive(input, result) {
+  if (!result || typeof result.version !== 'string' || !result.version
+    || typeof result.sha256 !== 'string' || !/^[a-f0-9]{16}$/.test(result.sha256)) {
+    return { tier: input.tier, reference: { available: false } };
+  }
+  const options = liveOptions();
+  const stages = result.stageScores || {};
+  const thresholds = result.thresholds || {};
+  const referenceOnly = Object.fromEntries(['validity', 'intent', 'tier'].map(stage => [stage,
+    Array.isArray(result.referenceOnly?.[stage]) ? result.referenceOnly[stage].filter(id => typeof id === 'string') : []]));
+  const validityScores = exactScores(stages.validity, ['invalid'])
+    && isProbability(thresholds.validity?.invalid) ? { invalid: stages.validity.invalid } : null;
+  const validity = validityScores === null || referenceOnly.validity.includes('invalid') ? 'abstain'
+    : validityScores.invalid >= thresholds.validity.invalid ? 'invalid' : 'actionable';
+  const intentCatalogIds = options.intent.map(option => option.id).filter(id => id !== 'unclassified');
+  // A packaged checkpoint may omit the non-selectable unclassified option from its intent scores.
+  const intentScores = stages.intent && typeof stages.intent === 'object' && !Array.isArray(stages.intent)
+    ? Object.fromEntries(Object.entries(stages.intent).filter(([id]) => id !== 'unclassified')) : null;
+  const intents = validity === 'actionable' && exactScores(intentScores, intentCatalogIds)
+    && intentCatalogIds.every(id => isProbability(thresholds.intent?.[id])) ? intentScores : null;
+  const tierIds = ['tier1', 'tier2', 'tier3'];
+  const tierScores = validity === 'actionable' && exactScores(stages.tier, tierIds)
+    && tierIds.every(id => isProbability(thresholds.tier?.[id])) ? stages.tier : null;
+  const selectedIntents = intents ? intentCatalogIds.filter(id => !referenceOnly.intent.includes(id) && intents[id] >= thresholds.intent[id])
+    .sort((a, b) => (intents[b] - intents[a]) || (intentCatalogIds.indexOf(a) - intentCatalogIds.indexOf(b))).slice(0, 3) : [];
+  const rankedTiers = tierScores ? tierIds.filter(id => !referenceOnly.tier.includes(id)).sort((a, b) => (tierScores[b] - tierScores[a])
+    || (tierIds.indexOf(a) - tierIds.indexOf(b))) : [];
+  const bestTier = rankedTiers[0];
+  const selectedTier = bestTier && tierScores[bestTier] >= thresholds.tier[bestTier]
+    && (rankedTiers.length === 1 || tierScores[bestTier] !== tierScores[rankedTiers[1]]) ? bestTier : null;
+  const systemOne = {
+    version: result.version,
+    sha256: result.sha256,
+    mode: 'live',
+    inputEnrichment: { handoffFiles: Number.isSafeInteger(result.inputEnrichment?.handoffFiles)
+      ? result.inputEnrichment.handoffFiles : 0 },
+    referenceOnly,
+    validity: validityScores,
+    intents,
+    tier: tierScores,
+    decision: { validity, intents: selectedIntents, tier: selectedTier },
+  };
+  const top = (stage, scores) => scores ? Object.entries(scores).sort((a, b) => b[1] - a[1]
+    || Object.keys(scores).indexOf(a[0]) - Object.keys(scores).indexOf(b[0])).slice(0, 3)
+    .map(([id, probability]) => ({ stage, id, probability })) : [];
+  const referenceOnlyOptions = Object.entries(referenceOnly).flatMap(([stage, ids]) => ids
+    .filter(id => isProbability(stages[stage]?.[id]))
+    .map(id => ({ stage, id, probability: stages[stage][id] })));
+  const reference = { version: result.version, sha256: result.sha256,
+    topOptions: [...top('validity', validityScores), ...top('intent', intents), ...top('tier', tierScores)],
+    referenceOnlyOptions };
+  const floorValid = input.floor == null || Object.hasOwn(RANK, input.floor);
+  const belowFloor = selectedTier && input.floor != null && RANK[selectedTier] < RANK[input.floor];
+  const applied = floorValid && validity === 'actionable' && selectedTier !== null && !input.explicit && !belowFloor;
+  return { tier: applied ? LABELS[selectedTier] : input.tier, systemOne, reference, applied };
+}
+async function prescoreLive(prompt, env = process.env, score = provider.scoreLive, cwd = process.cwd()) {
+  if (env.HARNESS_SYSTEM_ONE_MODE !== 'live') return null;
+  try {
+    const prepared = prepareHandoffInput(prompt, cwd);
+    const result = await score(prepared.input, env, liveOptions());
+    return result ? { ...result, inputEnrichment: { handoffFiles: prepared.handoffFiles } } : result;
+  }
+  catch (_) { return null; }
+}
 // input.floor is the deterministic structural minimum; a scorer may raise the tier, never lower it below the floor.
 function selectTier(input, env = process.env, scorer = provider.score) {
   const mode = env.HARNESS_SYSTEM_ONE_MODE || 'off';
@@ -50,4 +129,4 @@ async function prescoreTier(prompt, env = process.env, scoreAsync = provider.sco
     return result;
   };
 }
-module.exports = { selectTier, prescoreTier, TIER_OPTIONS };
+module.exports = { selectTier, prescoreTier, prescoreLive, routeLive, TIER_OPTIONS, VALIDITY_OPTIONS };

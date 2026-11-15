@@ -11,6 +11,9 @@ import tempfile
 import threading
 import time
 import unittest
+from contextlib import nullcontext
+from types import ModuleType
+from unittest.mock import patch
 
 sys.dont_write_bytecode = True  # never leave __pycache__ in the source tree that packaging copies
 path = Path(__file__).resolve().parents[1] / 'harness-everything/scripts/system-one/cua_adapter.py'
@@ -18,8 +21,336 @@ spec = importlib.util.spec_from_file_location('adapter', path)
 adapter = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(adapter)
 
+ACTIVE_OPTIONS = {
+    'validity': ['invalid'],
+    'intent': ['explain', 'discuss', 'git', 'fix', 'edit', 'feature', 'refactor', 'review', 'test', 'docs', 'plan', 'investigate'],
+    'tier': ['tier1', 'tier2', 'tier3'],
+}
+
+
+def write_active_fixture(root):
+    thresholds = {
+        'validity': {'invalid': 0.55},
+        'intent': {key: 0.55 for key in ACTIVE_OPTIONS['intent']},
+        'tier': {key: 0.55 for key in ACTIVE_OPTIONS['tier']},
+    }
+    thresholds['intent']['fix'] = 1
+    version_dir = Path(root) / 'v1'
+    version_dir.mkdir()
+    stages = {}
+    for stage in ('validity', 'intent', 'tier'):
+        weights = f'{stage}-weights.safetensors'
+        config = f'{stage}-config.json'
+        weight_bytes = f'{stage}-weights'.encode()
+        config_bytes = json.dumps({'stage': stage}).encode()
+        (version_dir / weights).write_bytes(weight_bytes)
+        (version_dir / config).write_bytes(config_bytes)
+        stages[stage] = {
+            'weights': weights, 'config': config,
+            'sha256': hashlib.sha256(weight_bytes).hexdigest(),
+            'options': ACTIVE_OPTIONS[stage], 'thresholds': thresholds[stage],
+        }
+        if stage == 'intent':
+            stages[stage]['referenceOnly'] = ['fix']
+    (version_dir / 'manifest.json').write_text(json.dumps({
+        'schemaVersion': 1, 'version': 'v1', 'createdAt': '2026-11-14T00:00:00Z',
+        'stages': stages, 'evaluation': None,
+    }), encoding='utf-8')
+    pointer = Path(root) / 'active.json'
+    pointer.write_text(json.dumps({
+        'schemaVersion': 1, 'version': 'v1', 'dir': str(version_dir),
+        'previous': None, 'activatedAt': '2026-11-14T00:00:00Z',
+    }), encoding='utf-8')
+    return pointer
+
+
+class RequestSocket:
+    def __init__(self, message):
+        self.data = (json.dumps(message) + '\n').encode()
+
+    def recv(self, size):
+        result, self.data = self.data[:size], self.data[size:]
+        return result
+
 
 class AdapterTests(unittest.TestCase):
+    def test_active_pointer_loads_all_stage_checkpoints_from_separate_files(self):
+        with tempfile.TemporaryDirectory() as root:
+            pointer = write_active_fixture(root)
+            loaded = []
+
+            def fake_loader(weights, manifest):
+                loaded.append((weights.name, Path(manifest['config']).name))
+                return (lambda _request: []), {'context_tokens': 8, 'option_tokens': 8}
+
+            bundle = adapter.load_active_bundle(pointer, scorer_loader=fake_loader)
+            self.assertEqual(bundle['version'], 'v1')
+            self.assertEqual(list(bundle['scorers']), ['validity', 'intent', 'tier'])
+            self.assertEqual(bundle['scorers']['intent']['referenceOnly'], ['fix'])
+            self.assertEqual(loaded, [(f'{stage}-weights.safetensors', f'{stage}-config.json') for stage in ('validity', 'intent', 'tier')])
+
+    def test_active_manifest_uses_shared_reference_only_validation(self):
+        with tempfile.TemporaryDirectory() as root:
+            pointer = write_active_fixture(root)
+            manifest_path = pointer.parent / 'v1' / 'manifest.json'
+            manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+            manifest['stages']['intent']['thresholds']['fix'] = 0.99
+            manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, 'active-manifest'):
+                adapter.load_active_bundle(pointer, scorer_loader=lambda *_: (lambda _request: [] , {}))
+
+    def test_active_stage_protocol_scores_independent_values_and_checks_catalog(self):
+        with tempfile.TemporaryDirectory() as root:
+            pointer = write_active_fixture(root)
+
+            def fake_loader(_weights, _manifest):
+                return (lambda request: [0.2, 0.76, 0.9, 0.1][:len(request['options'])]), {'context_tokens': 64, 'option_tokens': 64}
+
+            bundle = adapter.load_active_bundle(pointer, scorer_loader=fake_loader)
+            token = 'a' * 64
+
+            def request(ids):
+                return {
+                    'schemaVersion': 1, 'task': 'tier', 'context': 'fixture',
+                    'options': [{'id': option, 'text': option} for option in ids],
+                    'catalogHash': 'b' * 64, 'requestHash': 'c' * 64,
+                }
+
+            def handle(ids):
+                message = {'token': token, 'op': 'score', 'stage': 'tier', 'request': request(ids)}
+                score = lambda req, stage: bundle['scorers'][stage]['score'](req)
+                return adapter._handle(RequestSocket(message), token, bundle['manifest'], None, bundle['stamp'], score, None, bundle)
+
+            reply, stop = handle(ACTIVE_OPTIONS['tier'])
+            self.assertFalse(stop)
+            self.assertTrue(reply['ok'])
+            probabilities = [score['probability'] for score in reply['response']['scores']]
+            self.assertEqual(probabilities, [0.2, 0.76, 0.9])
+            self.assertGreater(sum(probabilities), 1)
+            bad, stop = handle(['tier1', 'tier2'])
+            self.assertFalse(stop)
+            self.assertEqual(bad, {'ok': False, 'reason': 'invalid-request'})
+
+    def test_load_scorer_uses_independent_sigmoid_probabilities(self):
+        class Logits:
+            def sigmoid(self):
+                class Probabilities:
+                    def __getitem__(self, _index):
+                        return self
+
+                    def tolist(self):
+                        return [0.91, 0.28]
+
+                return Probabilities()
+
+            def softmax(self, *_args):
+                raise AssertionError('softmax is not the per-option readout')
+
+        class FakeModel:
+            def __call__(self, _batch):
+                return Logits()
+
+        torch = ModuleType('torch')
+        torch.set_num_threads = lambda _count: None
+        torch.use_deterministic_algorithms = lambda _enabled: None
+        torch.inference_mode = nullcontext
+        cua_s1 = ModuleType('cua_s1')
+        model = ModuleType('cua_s1.model')
+        model.ChoiceExample = lambda **values: values
+        model.load_checkpoint = lambda _weights, _device: (FakeModel(), lambda examples: examples, {'context_tokens': 10, 'option_tokens': 10})
+        with tempfile.TemporaryDirectory() as root:
+            weights = Path(root) / 'unused.safetensors'
+            weights.with_suffix('.json').write_text(json.dumps({'metadata': {
+                'domain': 'harness-routing-v1', 'task': 'tier', 'loss': 'binary_cross_entropy',
+            }}), encoding='utf-8')
+            manifest = {'modelId': 'fixture-v1', 'domain': 'harness-routing-v1'}
+            with patch.dict(sys.modules, {'torch': torch, 'cua_s1': cua_s1, 'cua_s1.model': model}):
+                score, _config = adapter.load_scorer(weights, manifest)
+        self.assertEqual(score({'task': 'tier', 'context': 'fixture', 'options': [{'text': 'a'}, {'text': 'b'}]}), [0.91, 0.28])
+
+    def test_unknown_checkpoint_semantics_remain_unavailable(self):
+        with tempfile.TemporaryDirectory() as root:
+            weights = Path(root) / 'model.safetensors'
+            weights.with_suffix('.json').write_text(json.dumps({'metadata': {
+                'domain': 'harness-routing-v1', 'task': 'tier', 'loss': 'cross_entropy',
+            }}), encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, 'checkpoint-semantics'):
+                adapter.load_scorer(weights, {'modelId': 'unknown-v1', 'domain': 'harness-routing-v1'})
+
+    def test_supported_forms_checkpoint_semantics_remain_categorical(self):
+        with tempfile.TemporaryDirectory() as root:
+            weights = Path(root) / 'model.safetensors'
+            weights.with_suffix('.json').write_text(json.dumps({'metadata': {
+                'domain': 'forms-v1', 'loss': 'cross_entropy',
+            }}), encoding='utf-8')
+            self.assertEqual(adapter._score_semantics(weights, {
+                'modelId': 'cua-ai/cua-s1-forms', 'domain': 'forms-v1',
+            }), ('categorical', 'tier'))
+
+    def test_staged_checkpoint_readout_is_independent_in_oneshot_and_active_bundle(self):
+        try:
+            import torch
+            import torch.nn.functional as functional
+            from cua_s1.model import ChoiceExample, make_system, save_checkpoint
+        except ImportError as exc:
+            self.skipTest(f'real CUA checkpoint dependencies unavailable: {exc}')
+
+        stage_options = {
+            'validity': [('invalid', 'The request is invalid.')],
+            'intent': [('explain', 'Explain'), ('fix', 'Fix')],
+            'tier': [('tier1', 'Small change'), ('tier2', 'Iterative change'), ('tier3', 'Macro change')],
+        }
+        torch.set_num_threads(1)
+        torch.use_deterministic_algorithms(True)
+        with tempfile.TemporaryDirectory(prefix='harness-s1-stages-') as root:
+            root = Path(root)
+            version_dir = root / 'v1'
+            version_dir.mkdir()
+            stage_manifests, one_shot_scores = {}, {}
+            for index, (stage, options) in enumerate(stage_options.items()):
+                torch.manual_seed(20261115 + index)
+                config = {'encoder': 'tiny', 'width': 8, 'rank': 8, 'context_tokens': 64, 'option_tokens': 64}
+                model, collator = make_system(config, 'cpu')
+                example = ChoiceExample(context='fixture context', options=tuple(text for _, text in options), label=0)
+                batch = collator([example])
+                target = torch.zeros((1, len(options)), dtype=torch.float32)
+                target[0, 0] = 1.0
+                optimizer = torch.optim.AdamW(model.parameters(), lr=0.01, weight_decay=0.0)
+                for _ in range(2):
+                    model.train()
+                    optimizer.zero_grad()
+                    loss = functional.binary_cross_entropy_with_logits(model(batch), target)
+                    loss.backward()
+                    optimizer.step()
+                model.eval()
+                weights, config_path = save_checkpoint(version_dir / f'{stage}.safetensors', model, config, {
+                    'domain': 'harness-routing-v1', 'task': stage, 'loss': 'binary_cross_entropy',
+                })
+                option_rows = [{'id': option_id, 'text': text} for option_id, text in options]
+                request = {'schemaVersion': 1, 'task': stage, 'context': 'fixture context', 'options': option_rows,
+                           'catalogHash': 'a' * 64, 'requestHash': 'b' * 64}
+                manifest = {
+                    'checkpoint': str(weights), 'weightsSha256': hashlib.sha256(weights.read_bytes()).hexdigest(),
+                    'configSha256': hashlib.sha256(config_path.read_bytes()).hexdigest(),
+                    'modelId': f'fixture-{stage}', 'revision': 'v1', 'domain': 'harness-routing-v1',
+                }
+                response = adapter.infer(request, manifest)
+                one_shot_scores[stage] = [item['probability'] for item in response['scores']]
+                with torch.inference_mode():
+                    expected = model(batch).sigmoid()[0].tolist()
+                for actual, expected_value in zip(one_shot_scores[stage], expected):
+                    self.assertAlmostEqual(actual, expected_value, places=6)
+                stage_manifests[stage] = {
+                    'weights': weights.name, 'config': config_path.name,
+                    'sha256': manifest['weightsSha256'], 'options': [option_id for option_id, _ in options],
+                    'thresholds': {option_id: 0.5 for option_id, _ in options},
+                }
+
+            (version_dir / 'manifest.json').write_text(json.dumps({
+                'schemaVersion': 1, 'version': 'v1', 'createdAt': '2026-11-15T00:00:00Z',
+                'stages': stage_manifests, 'evaluation': None,
+            }), encoding='utf-8')
+            pointer = root / 'active.json'
+            pointer.write_text(json.dumps({
+                'schemaVersion': 1, 'version': 'v1', 'dir': str(version_dir),
+                'previous': None, 'activatedAt': '2026-11-15T00:00:00Z',
+            }), encoding='utf-8')
+            bundle = adapter.load_active_bundle(pointer)
+            token = 'c' * 64
+            resident_sums = []
+            for stage, options in stage_options.items():
+                request = {'schemaVersion': 1, 'task': stage, 'context': 'fixture context',
+                           'options': [{'id': option_id, 'text': text} for option_id, text in options],
+                           'catalogHash': 'a' * 64, 'requestHash': 'b' * 64}
+                message = {'token': token, 'op': 'score', 'stage': stage, 'request': request}
+                score = lambda req, selected_stage: bundle['scorers'][selected_stage]['score'](req)
+                reply, stop = adapter._handle(RequestSocket(message), token, bundle['manifest'], None,
+                                              bundle['stamp'], score, None, bundle)
+                self.assertFalse(stop)
+                self.assertTrue(reply['ok'], reply)
+                resident = [item['probability'] for item in reply['response']['scores']]
+                self.assertEqual(resident, one_shot_scores[stage])
+                resident_sums.append(sum(resident))
+            self.assertTrue(any(abs(total - 1.0) > 1e-6 for total in resident_sums), resident_sums)
+
+    def test_real_categorical_checkpoint_adapter_round_trip_reaches_legacy_decide(self):
+        try:
+            import torch
+            import torch.nn.functional as functional
+            from cua_s1.model import ChoiceExample, load_checkpoint, make_system, save_checkpoint
+        except ImportError as exc:
+            self.skipTest(f'real CUA checkpoint dependencies unavailable: {exc}')
+
+        repo = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory(prefix='harness-s1-legacy-') as root:
+            root = Path(root)
+            torch.set_num_threads(1)
+            torch.use_deterministic_algorithms(True)
+            torch.manual_seed(20261115)
+            config = {'encoder': 'tinyx', 'width': 128, 'rank': 128, 'layers': 2, 'heads': 4,
+                      'dropout': 0.1, 'context_tokens': 224, 'option_tokens': 96}
+            options = (
+                'A small bounded edit or operation with clear scope.',
+                'Implementation or bug fix needing iterative testing.',
+                'Architecture, repository-wide change or multi-stage engineering.',
+                'Unclear intent, insufficient context or outside these categories.',
+            )
+            model, collator = make_system(config, 'cpu')
+            example = ChoiceExample(context='repair typo', options=options, label=0)
+            batch = collator([example])
+            optimizer = torch.optim.AdamW(model.parameters(), lr=0.02, weight_decay=0.0)
+            for _ in range(40):
+                model.train()
+                optimizer.zero_grad()
+                loss = functional.cross_entropy(model(batch), batch['labels'])
+                loss.backward()
+                optimizer.step()
+                model.eval()
+                with torch.inference_mode():
+                    categorical = model(batch)[0].softmax(-1)
+                ranked = categorical.sort(descending=True).values
+                if ranked[0] >= 0.9 and ranked[0] - ranked[1] >= 0.2:
+                    break
+            self.assertGreaterEqual(float(ranked[0]), 0.9)
+            self.assertGreaterEqual(float(ranked[0] - ranked[1]), 0.2)
+            weights, config_path = save_checkpoint(root / 'model.safetensors', model, config, {
+                'domain': 'harness-routing-v1', 'bestEpoch': _ + 1,
+                'validation': {'nll': float(loss.detach()), 'accuracy': 1.0},
+                'datasets': {'prompts.jsonl': 'a' * 64, 'labels.jsonl': 'b' * 64},
+                'seed': 20261115, 'catalog': ['tier1', 'tier2', 'tier3'],
+            })
+            manifest = {
+                'schemaVersion': 1, 'python': sys.executable, 'checkpoint': str(weights),
+                'weightsSha256': hashlib.sha256(weights.read_bytes()).hexdigest(),
+                'configSha256': hashlib.sha256(config_path.read_bytes()).hexdigest(),
+                'modelId': 'legacy-tier-fixture-v1', 'revision': 'f12-categorical-fixture-v1',
+                'domain': 'harness-routing-v1', 'timeoutMs': 10000,
+            }
+            self.assertEqual(adapter.verify_artifacts(manifest), weights)
+            loaded, _loaded_collator, loaded_config = load_checkpoint(weights, 'cpu')
+            self.assertEqual(loaded_config, config)
+            with torch.inference_mode():
+                loaded_softmax = loaded(collator([example]))[0].softmax(-1)
+            self.assertAlmostEqual(float(loaded_softmax.sum()), 1.0, places=6)
+
+            request_script = "const {createRequest}=require('./harness-everything/scripts/system-one/contract'); const {TIER_OPTIONS}=require('./harness-everything/scripts/system-one/router'); process.stdout.write(JSON.stringify(createRequest('tier','repair typo',TIER_OPTIONS)));"
+            request_result = subprocess.run(['node', '-e', request_script], cwd=repo, capture_output=True, text=True, check=True)
+            request = json.loads(request_result.stdout)
+            adapter_result = subprocess.run(
+                [sys.executable, str(path), json.dumps(manifest)], input=json.dumps(request),
+                cwd=repo, capture_output=True, text=True, timeout=15,
+            )
+            self.assertEqual(adapter_result.returncode, 0, adapter_result.stderr)
+            response = json.loads(adapter_result.stdout)
+            decide_script = "const fs=require('node:fs'); const input=JSON.parse(fs.readFileSync(0,'utf8')); const {decide}=require('./harness-everything/scripts/system-one/contract'); const decision=decide(input.request,input.response,{minConfidence:0.9,minMargin:0.2}); process.stdout.write(JSON.stringify({decision,scores:input.response.scores.map(x=>x.probability)}));"
+            decision_result = subprocess.run(
+                ['node', '-e', decide_script], input=json.dumps({'request': request, 'response': response}),
+                cwd=repo, capture_output=True, text=True, check=True,
+            )
+            outcome = json.loads(decision_result.stdout)
+            self.assertEqual(outcome['decision']['status'], 'accepted', outcome)
+            self.assertEqual(outcome['decision']['selectedId'], 'tier1', outcome)
+
     def test_artifact_hash_and_pickle_rejection(self):
         with tempfile.TemporaryDirectory() as root:
             weights = Path(root) / 'model.safetensors'

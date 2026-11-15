@@ -1,8 +1,11 @@
 'use strict';
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
+const { createHash } = require('node:crypto');
 const { spawnSync } = require('node:child_process');
-const { validateRequest } = require('./contract');
+const { createRequest, validateRequest, validateResponse } = require('./contract');
+const { STAGES, validateVersionManifest } = require('./manifest');
 // Upstream cua_s1 source revision documented in docs/system-one-routing.md.
 const PINNED_CUA_S1_REVISION = 'b7f7e2d8714609853a29c7d049140bc46aec0954';
 const ADAPTER = path.join(__dirname, 'cua_adapter.py');
@@ -14,6 +17,9 @@ const label = value => typeof value === 'string' && value.length > 0 && value.le
 const adapterName = value => typeof value === 'string' && /^[a-z][a-z0-9_-]{0,63}\.py$/.test(value);
 // Thresholds calibrated on validation for this checkpoint (docs/system-one-training.md).
 const inRange = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+const LIVE_STAGES = STAGES;
+const SAFE_ID = /^[a-z0-9._-]{1,80}$/;
+const sha256 = value => createHash('sha256').update(value).digest('hex');
 // secondaryThreshold is optional and belongs to intent checkpoints (docs/system-one-intent.md#scoring).
 const validAcceptance = a => (exact(a, ['minConfidence', 'minMargin']) || (exact(a, ['minConfidence', 'minMargin', 'secondaryThreshold']) && inRange(a.secondaryThreshold, 0.05, 0.5)))
   && inRange(a.minConfidence, 0.5, 0.99) && inRange(a.minMargin, 0, 0.9);
@@ -112,4 +118,92 @@ function provenance(manifestPath) {
   try { return { status: 'recorded', provenance: validateProvenance(result.value) }; }
   catch (_) { return unavailable('provider-json'); }
 }
-module.exports = { score, scoreAsync, runProvider, validateManifest, readManifest, provenance, validateProvenance, decisionPolicy, PINNED_CUA_S1_REVISION };
+
+function liveHome(env) {
+  return env.HARNESS_SYSTEM_ONE_HOME || path.join(os.homedir(), '.agents', 'harness-everything', 'system-one');
+}
+function readableFile(dir, name, extension) {
+  if (typeof name !== 'string' || !/^[A-Za-z0-9._-]+$/.test(name) || path.basename(name) !== name
+    || name === '.' || name === '..' || path.extname(name) !== extension) return null;
+  const file = path.join(dir, name);
+  try {
+    const stat = fs.lstatSync(file);
+    return stat.isFile() && !stat.isSymbolicLink() ? file : null;
+  } catch (_) { return null; }
+}
+function readActive(env = process.env) {
+  try {
+    const home = liveHome(env);
+    if (!path.isAbsolute(home)) return null;
+    const pointerPath = path.join(home, 'active.json');
+    const pointerStat = fs.lstatSync(pointerPath);
+    if (!pointerStat.isFile() || pointerStat.isSymbolicLink() || pointerStat.size > 65536) return null;
+    const pointer = JSON.parse(fs.readFileSync(pointerPath, 'utf8'));
+    if (!exact(pointer, ['schemaVersion', 'version', 'dir', 'previous', 'activatedAt']) || pointer.schemaVersion !== 1
+      || typeof pointer.version !== 'string' || !SAFE_ID.test(pointer.version)
+      || typeof pointer.dir !== 'string' || !path.isAbsolute(pointer.dir)
+      || !(pointer.previous === null || (typeof pointer.previous === 'string' && SAFE_ID.test(pointer.previous)))
+      || typeof pointer.activatedAt !== 'string' || !Number.isFinite(Date.parse(pointer.activatedAt))) return null;
+    const dir = pointer.dir;
+    const dirStat = fs.lstatSync(dir);
+    if (!dirStat.isDirectory() || dirStat.isSymbolicLink()) return null;
+    const manifestPath = path.join(dir, 'manifest.json');
+    const manifestStat = fs.lstatSync(manifestPath);
+    if (!manifestStat.isFile() || manifestStat.isSymbolicLink() || manifestStat.size > 131072) return null;
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    validateVersionManifest(manifest, pointer.version);
+    const loadedStages = {};
+    for (const stageName of LIVE_STAGES) {
+      const stage = manifest.stages[stageName];
+      const weightsPath = readableFile(dir, stage.weights, '.safetensors');
+      const configPath = readableFile(dir, stage.config, '.json');
+      if (!weightsPath || !configPath || sha256(fs.readFileSync(weightsPath)) !== stage.sha256) return null;
+      loadedStages[stageName] = { ...stage, referenceOnly: stage.referenceOnly ?? [], weightsPath, configPath,
+        configSha256: sha256(fs.readFileSync(configPath)) };
+    }
+    const fingerprint = sha256(`${pointer.version}\0${dir}\0${LIVE_STAGES.map(stage => `${stage}\0${loadedStages[stage].sha256}\0${loadedStages[stage].configSha256}`).join('\0')}`);
+    const python = env.HARNESS_SYSTEM_ONE_PYTHON || env.PYTHON || path.join(home, 'venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
+    return { home, pointerPath, pointer, version: pointer.version, dir, manifest, stages: loadedStages,
+      fingerprint, python, sha256: loadedStages.tier.sha256.slice(0, 16) };
+  } catch (_) { return null; }
+}
+async function scoreLive(prompt, env = process.env, catalogs, scoreStage = (stage, request, active) =>
+  require('./resident').scoreActiveStage(active, stage, request)) {
+  const active = readActive(env);
+  if (!active || typeof prompt !== 'string' || !catalogs) return null;
+  const stageScores = { validity: null, intent: null, tier: null };
+  for (const stage of LIVE_STAGES) {
+    const catalog = catalogs[stage];
+    const ids = active.stages[stage].options;
+    // A packaged intent checkpoint may omit the non-selectable unclassified option (cycle/package.js legacyOptions).
+    const manifestIds = ids.filter(id => id !== 'unclassified');
+    const expectedIds = Array.isArray(catalog) ? catalog.map(option => option?.id)
+      .filter(id => !(stage === 'validity' && id === 'actionable')
+        && !((stage === 'intent' || stage === 'tier') && id === 'unclassified')) : [];
+    if (!Array.isArray(catalog) || manifestIds.length !== expectedIds.length
+      || manifestIds.some((id, index) => id !== expectedIds[index])) return null;
+    const options = ids.map(id => catalog.find(option => option?.id === id));
+    let result;
+    let request;
+    try {
+      request = createRequest(stage, prompt, options, stage === 'validity' ? { minOptions: 1 } : undefined);
+      result = await scoreStage(stage, request, active);
+    } catch (_) { result = null; }
+    if (!result || result.status !== 'scored' || !validateResponse(request, result.response)) {
+      if (stage === 'validity') break;
+      continue;
+    }
+    stageScores[stage] = Object.fromEntries(result.response.scores
+      .filter(score => !(stage === 'validity' && score.id === 'actionable'))
+      .map(score => [score.id, score.probability]));
+    if (stage === 'validity' && (active.stages.validity.referenceOnly.includes('invalid')
+      || stageScores.validity.invalid >= active.stages.validity.thresholds.invalid)) break;
+  }
+  const current = readActive(env);
+  if (!current || current.fingerprint !== active.fingerprint) return null;
+  return { version: active.version, sha256: active.sha256, stageScores,
+    thresholds: Object.fromEntries(LIVE_STAGES.map(stage => [stage, { ...active.stages[stage].thresholds }])),
+    referenceOnly: Object.fromEntries(LIVE_STAGES.map(stage => [stage, [...active.stages[stage].referenceOnly]])) };
+}
+module.exports = { score, scoreAsync, runProvider, validateManifest, readManifest, provenance, validateProvenance,
+  decisionPolicy, readActive, scoreLive, PINNED_CUA_S1_REVISION };
