@@ -13,6 +13,14 @@ const exporter = require('../scripts/system-one-observations-export');
 const ROOT = path.resolve(__dirname, '..');
 const PLUGIN = path.join(ROOT, 'opencode-plugin', 'index.mjs');
 const VALID_LABEL = '<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier2","intents":["fix","test"],"workflow":"iterative-single","skills":["tdd"]} -->';
+const SECOND_LABEL = '<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier2","intents":["edit"],"workflow":"iterative-single","skills":[]} -->';
+
+// OpenCode 2.x events are flat: {id, created, type, durable, [location], data},
+// the session id lives at data.sessionID, and a completed turn ends with
+// session.execution.succeeded because V2 hosts do not send session.idle.
+function v2Event(type, sessionID, data = {}) {
+  return { id: `evt-${type}-${sessionID}`, created: Date.now(), type, durable: true, data: { sessionID, ...data } };
+}
 
 function fixture(observationMode = 'on') {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-observations-'));
@@ -252,4 +260,90 @@ test('opt-out: HARNESS_OBSERVATIONS=off disables capture while prompt routing st
     if (dispose) await dispose();
     f.restore();
   }
+});
+
+test('record: a V2 flat session.execution.succeeded after the prompt hook closes the turn with the parsed label', { concurrency: false }, async () => {
+  const f = fixture();
+  let dispose;
+  try {
+    dispose = await install(f);
+    await f.sessionHooks.get('prompt')({ sessionID: 'v2-session', messageID: 'v2-turn-1', prompt: { text: 'close the observed v2 turn' } });
+    // Witness stream: session.step.ended then session.execution.succeeded, flat
+    // events with the session id at data.sessionID.
+    f.push(v2Event('session.step.ended', 'v2-session', { assistantMessageID: 'assistant-message', finish: 'stop', rawFinish: 'stop', cost: 0, tokens: {} }));
+    f.push(v2Event('session.execution.succeeded', 'v2-session'));
+    await waitFor(() => recordList(f.store).length === 1);
+    const [record] = recordList(f.store);
+    assert.equal(record.host, 'opencode');
+    assert.equal(record.writer.sessionId, 'v2-session');
+    assert.equal(record.writer.turnId, 'v2-turn-1');
+    assert.notEqual(record.selfReportReason, 'stop-missing', 'the V2 turn end must close the record, not leave it pending');
+    assert.equal(record.selfReport?.tier, 'tier2');
+    assert.equal(record.selfReportReason, null);
+  } finally {
+    if (dispose) await dispose();
+    f.restore();
+  }
+});
+
+test('record: two consecutive V2 turns in one session each produce a completed record', { concurrency: false }, async () => {
+  const f = fixture();
+  let dispose;
+  try {
+    dispose = await install(f);
+    await f.sessionHooks.get('prompt')({ sessionID: 'v2-multi', messageID: 'v2-multi-1', prompt: { text: 'first observed v2 turn' } });
+    f.push(v2Event('session.execution.succeeded', 'v2-multi'));
+    await waitFor(() => recordList(f.store).length === 1);
+
+    await f.sessionHooks.get('prompt')({ sessionID: 'v2-multi', messageID: 'v2-multi-2', prompt: { text: 'second observed v2 turn' } });
+    f.setFinal(SECOND_LABEL);
+    f.push(v2Event('session.execution.succeeded', 'v2-multi'));
+    await waitFor(() => recordList(f.store).length === 2);
+
+    const records = recordList(f.store);
+    assert.deepEqual(records.map(record => record.turn), [1, 2]);
+    assert.deepEqual(records.map(record => record.writer.turnId), ['v2-multi-1', 'v2-multi-2']);
+    assert.ok(records.every(record => record.selfReportReason === null && record.selfReport?.tier === 'tier2'));
+  } finally {
+    if (dispose) await dispose();
+    f.restore();
+  }
+});
+
+test('control: a V2 turn end without a prompt route records nothing', { concurrency: false }, async () => {
+  const f = fixture();
+  let dispose;
+  try {
+    dispose = await install(f);
+    f.push(v2Event('session.execution.succeeded', 'no-route'));
+    await new Promise(resolve => setTimeout(resolve, 80));
+    assert.deepEqual(recordList(f.store), []);
+  } finally {
+    if (dispose) await dispose();
+    f.restore();
+  }
+});
+
+test('control: a legacy session.idle and a V2 session.execution.succeeded for one turn record it once', { concurrency: false }, async () => {
+  const f = fixture();
+  let dispose;
+  try {
+    dispose = await install(f);
+    await f.sessionHooks.get('prompt')({ sessionID: 'dedupe', messageID: 'dedupe-1', prompt: { text: 'dedupe the turn end' } });
+    f.push(v2Event('session.execution.succeeded', 'dedupe'));
+    f.push({ type: 'session.idle', sessionID: 'dedupe' });
+    await waitFor(() => recordList(f.store).length === 1);
+    await new Promise(resolve => setTimeout(resolve, 80));
+    assert.equal(recordList(f.store).length, 1, 'the same turn must not be recorded twice');
+    assert.equal(recordList(f.store)[0].selfReportReason, null);
+  } finally {
+    if (dispose) await dispose();
+    f.restore();
+  }
+});
+
+test('control: the V1 HarnessEnforcement factory export remains available', { concurrency: false }, async () => {
+  const mod = await import(pathToFileURL(PLUGIN).href);
+  assert.equal(typeof mod.HarnessEnforcement, 'function');
+  assert.equal(typeof mod.default.setup, 'function');
 });

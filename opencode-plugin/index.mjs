@@ -1341,8 +1341,13 @@ export default {
       try {
         for await (const raw of ctx.event.subscribe({ signal: events.signal })) {
           if (events.signal.aborted) break
-          const sessionID = raw.sessionID || (raw.properties && (raw.properties.sessionID || raw.properties.info?.id))
-          if (raw.type === "session.idle" && typeof sessionID === "string" && promptRoutes.has(sessionID)) {
+          // OpenCode 2.x events are flat with the session id at data.sessionID;
+          // V1 hosts keep it top-level. V2 hosts send no session.idle, so a
+          // completed turn ends with session.execution.succeeded.
+          const sessionID = raw.sessionID || (raw.data && raw.data.sessionID)
+            || (raw.properties && (raw.properties.sessionID || raw.properties.info?.id))
+          const turnEnded = raw.type === "session.idle" || raw.type === "session.execution.succeeded"
+          if (turnEnded && typeof sessionID === "string" && promptRoutes.has(sessionID)) {
             const observation = observeOpenCodeCompletion(sessionID, ctx, workspace, promptRoutes)
               .catch(() => {})
               .finally(() => pendingIdles.delete(observation))
