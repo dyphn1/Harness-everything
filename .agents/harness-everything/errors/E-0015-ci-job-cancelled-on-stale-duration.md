@@ -20,6 +20,15 @@ episodes:
         change: null
         review: coordinator
         result: "Windows `self-regression` job cancelled at 41 min as hung. The remembered figure (10-13 min) was stale; the same job had run 38-53 min on recent completed runs and passes. Cost: a rerun (about 40+ min) and corrections posted on #349 and #392."
+  - episode: 2026-11-12-merge-waiter-exited-early
+    feature: unknown
+    date: 2026-11-12
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "The first merge waiter exited before hosted CI finished, because it polled gh pr checks for pending, which exits early on a cancelled run. This repeats the waiter rule in the Lesson below: poll gh run view <id> --json status until completed."
 ---
 
 ## Cue
@@ -43,3 +52,7 @@ Wait for a run with `gh run view <id> --json status` until it is `completed`. A 
 - PR #430; Windows `self-regression` cancelled at 41 minutes on 2026-11-11, then rerun.
 - Corrections posted on #349 (CI duration) and #392 (test-environment watch list).
 - `.github/workflows/ci.yml`: the `self-regression` job has no `timeout-minutes` (checked 2026-11-11).
+
+## Episode 2 (2026-11-12)
+
+The merge waiter polled `gh pr checks` for `pending`, exited early, and reported before hosted CI had finished. This lesson already covers it: poll `gh run view <id> --json status` until `completed`. The rule was not applied, so the episode stays open.
