@@ -12,6 +12,15 @@ const observations = require('../hooks/scripts/lib/observations');
 
 const ROOT = path.resolve(__dirname, '..');
 const PLUGIN = path.join(ROOT, 'opencode-plugin', 'index.mjs');
+function isOutside(root, dir, pathApi = path) {
+  const relative = pathApi.relative(root, dir);
+  return relative.startsWith('..') || pathApi.isAbsolute(relative);
+}
+
+const win32Root = 'D:\\a\\Harness-everything\\Harness-everything';
+assert.equal(isOutside(win32Root, 'C:\\Users\\runner\\AppData\\Local\\Temp\\fixture', path.win32), true, 'cross-drive temp path is outside the repository');
+assert.equal(isOutside(win32Root, path.win32.join(win32Root, 'ci'), path.win32), false, 'same-drive child is inside the repository');
+
 const LABELS = [
   '<!-- harness-label {"v":1,"validity":"actionable","tier":"tier2","intents":["fix"],"workflow":"iterative-single","skills":[]} -->',
   '<!-- harness-label {"v":1,"validity":"actionable","tier":"tier2","intents":["edit"],"workflow":"iterative-single","skills":[]} -->',
@@ -24,7 +33,7 @@ function recordList(store) {
 
 function fixture() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mechanism-397-cycle-import-'));
-  assert.ok(path.relative(ROOT, dir).startsWith('..'), 'fixture data must stay outside the repository');
+  assert.ok(isOutside(ROOT, dir), 'fixture data must stay outside the repository');
   const workspace = path.join(dir, 'workspace');
   const store = path.join(dir, 'live-observations');
   const sessions = path.join(dir, 'codex-sessions');
