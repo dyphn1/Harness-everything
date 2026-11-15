@@ -84,6 +84,15 @@ episodes:
         change: null
         review: coordinator
         result: "Three `codex exec -o` reports (cycle B final review, cycle B re-check, cycle B outline review 1). The first two each ended with a column-zero `STATUS: DONE` followed by a hidden harness-label line: delivered, not terminal. Cycle B outline review 1 ended with a false `STATUS: BLOCKED` citing the label/STATUS rule conflict, then a label line. No corrective change happened between the reports. The packets stated the terminal-line condition, yet it did not hold for `-o` reports, because the `-o` report file is the final message."
+  - episode: 442-r1-label-after-status
+    feature: "#442 R1 review report"
+    date: 2026-11-15
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "The R1 review report (2026-11-15) ended with a column-zero `STATUS: DONE` followed by a hidden harness-label line, so STATUS was not the terminal line: delivered, not terminal. The same label/STATUS conflict as episodes 412, 425, 430 and 431, in another independent feature."
 ---
 
 ## Cue
@@ -112,3 +121,7 @@ The coordinator itself, not a dispatched agent, broke the rule by appending a se
 ## Episode 3 (2026-11-11, #430/#431)
 
 Five `codex exec -o` reports ended with a harness-label line after the terminal `STATUS:` line. They form two independent episodes on the same day with the same cause, one per feature, because each feature is an independent occurrence (see the README): cycle A (#430, 2 reports) and cycle B (#431, 3 reports). Each episode is recorded as a single round 0 because no corrective change happened between its reports. One cycle B report also carried a false `STATUS: BLOCKED`. The owner ruling is recorded in `docs/adr/ROUTE-001-error-lesson-delivery.md`: a report file ends with the raw STATUS line, and the turn message ends with the label. The rule change to AGENTS.md and `docs/routing.md` is a follow-up, so both episodes stay open.
+
+## Episode 4 (2026-11-15, #442)
+
+The R1 review report ended with a harness-label line after its column-zero `STATUS: DONE`. Same label/STATUS conflict as episodes 412, 425, 430 and 431, in another independent feature.
