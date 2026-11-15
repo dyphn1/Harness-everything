@@ -175,11 +175,13 @@ async function scoreLive(prompt, env = process.env, catalogs, scoreStage = (stag
   for (const stage of LIVE_STAGES) {
     const catalog = catalogs[stage];
     const ids = active.stages[stage].options;
+    // A packaged intent checkpoint may omit the non-selectable unclassified option (cycle/package.js legacyOptions).
+    const manifestIds = ids.filter(id => id !== 'unclassified');
     const expectedIds = Array.isArray(catalog) ? catalog.map(option => option?.id)
       .filter(id => !(stage === 'validity' && id === 'actionable')
-        && !(stage === 'tier' && id === 'unclassified')) : [];
-    if (!Array.isArray(catalog) || ids.length !== expectedIds.length
-      || ids.some((id, index) => id !== expectedIds[index])) return null;
+        && !((stage === 'intent' || stage === 'tier') && id === 'unclassified')) : [];
+    if (!Array.isArray(catalog) || manifestIds.length !== expectedIds.length
+      || manifestIds.some((id, index) => id !== expectedIds[index])) return null;
     const options = ids.map(id => catalog.find(option => option?.id === id));
     let result;
     let request;
