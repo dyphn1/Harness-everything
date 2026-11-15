@@ -64,6 +64,7 @@ function fixture() {
         return { dispose: async () => {} };
       },
       prompt: async () => ({}),
+      get: async ({ sessionID }) => ({ id: sessionID, location: { directory: workspace } }),
       context: async () => [
         { info: { role: 'user', id: currentTurn.messageID }, parts: [{ type: 'text', text: currentTurn.prompt }] },
         { info: { role: 'assistant', id: `assistant-${currentTurn.messageID}` }, parts: [{ type: 'text', text: currentTurn.final }] },
