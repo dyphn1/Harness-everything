@@ -45,6 +45,8 @@ import { createRequire } from "node:module"
 import { fileURLToPath } from "node:url"
 
 const EDIT_TOOLS = new Set(["edit", "write", "apply_patch"])
+// shortcut: the 5s race cannot cancel a pending host lookup, upgrade when OpenCode exposes session.get cancellation.
+const SESSION_LOOKUP_TIMEOUT_MS = 5000
 const OPENCODE_CAPTURE_FILE = "opencode-captures.jsonl"
 const OPENCODE_CAPTURE_LIMIT_BYTES = 4 * 1024 * 1024
 const OPENCODE_CAPTURE_RECORD_LIMIT_BYTES = 16 * 1024
@@ -167,9 +169,10 @@ function observeOpenCodeTool(event, workspace) {
   } catch { /* turn observation is always fail-open */ }
 }
 
-async function observeOpenCodeCompletion(sessionID, ctx, workspace, promptRoutes) {
+async function observeOpenCodeCompletion(sessionID, ctx, promptRoutes) {
   const prompt = promptRoutes.get(sessionID)
   promptRoutes.delete(sessionID)
+  if (!prompt?.workspace) return
   try {
     const observations = systemOneObservations()
     if (!observations || !observations.enabled()) return
@@ -180,7 +183,7 @@ async function observeOpenCodeCompletion(sessionID, ctx, workspace, promptRoutes
       host: "opencode",
       session_id: sessionID,
       ...(prompt?.messageID ? { turn_id: prompt.messageID } : {}),
-      cwd: workspace,
+      cwd: prompt.workspace,
       ...(lastMessage === null ? {} : { last_assistant_message: lastMessage }),
     }
     observations.handle(payload)
@@ -1279,23 +1282,79 @@ export default {
   id: "harness.enforcement",
   async setup(ctx) {
     const events = new AbortController()
-    const workspace = (ctx.location && ctx.location.directory) || ctx.directory || process.cwd()
     const promptRoutes = new Map()
-    const hooks = await HarnessEnforcement({
-      signal: events.signal,
-      client: {
-        session: {
-          // V1 shutdown path calls client.session.prompt({path, body}) twice;
-          // map it onto the V2 session API instead of duplicating the code.
-          prompt: ({ path, body }) =>
-            ctx.session.prompt({
-              sessionID: path && path.id,
-              text: (body && body.parts || []).map((part) => part && part.text || "").join(""),
-            }),
-        },
-      },
-      directory: workspace,
+    const sessionBindings = new Map()
+    const enforcementByWorkspace = new Map()
+    let unresolvedIdentityCount = 0
+
+    const unresolvedIdentity = reason => {
+      unresolvedIdentityCount++
+      try { console.warn(`[Harness] OpenCode session workspace unresolved (${reason}; count=${unresolvedIdentityCount}); workspace-dependent handling skipped.`) } catch {}
+    }
+    const resolveSessionWorkspace = sessionID => new Promise(resolveIdentity => {
+      let settled = false
+      const finish = result => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        resolveIdentity(result)
+      }
+      const timer = setTimeout(() => finish({ reason: "session-lookup-timeout" }), SESSION_LOOKUP_TIMEOUT_MS)
+      if (typeof ctx.session?.get !== "function") {
+        finish({ reason: "session-lookup-unavailable" })
+        return
+      }
+      let lookup
+      try { lookup = ctx.session.get({ sessionID }) } catch {
+        finish({ reason: "session-lookup-failed" })
+        return
+      }
+      Promise.resolve(lookup).then(session => {
+        const directory = session?.location?.directory
+        if (typeof directory !== "string" || !directory.trim()) {
+          finish({ reason: "session-directory-unavailable" })
+        } else if (!isAbsolute(directory)) {
+          finish({ reason: "session-directory-invalid" })
+        } else {
+          finish({ workspace: resolve(directory) })
+        }
+      }, () => finish({ reason: "session-lookup-failed" }))
     })
+    const enforcementFor = workspace => {
+      if (!enforcementByWorkspace.has(workspace)) {
+        enforcementByWorkspace.set(workspace, HarnessEnforcement({
+          signal: events.signal,
+          client: {
+            session: {
+              // V1 shutdown path calls client.session.prompt({path, body}) twice;
+              // map it onto the V2 session API instead of duplicating the code.
+              prompt: ({ path, body }) =>
+                ctx.session.prompt({
+                  sessionID: path && path.id,
+                  text: (body && body.parts || []).map((part) => part && part.text || "").join(""),
+                }),
+            },
+          },
+          directory: workspace,
+        }))
+      }
+      return enforcementByWorkspace.get(workspace)
+    }
+    const bindingForSession = async sessionID => {
+      if (typeof sessionID !== "string" || !sessionID) return null
+      const existing = sessionBindings.get(sessionID)
+      if (existing) return existing
+      const identity = await resolveSessionWorkspace(sessionID)
+      if (!identity.workspace) {
+        unresolvedIdentity(identity.reason)
+        return null
+      }
+      let hooks = null
+      try { hooks = await enforcementFor(identity.workspace) } catch {}
+      const binding = { workspace: identity.workspace, hooks }
+      sessionBindings.set(sessionID, binding)
+      return binding
+    }
 
     await ctx.session.hook("prompt", async event => {
       try {
@@ -1306,20 +1365,31 @@ export default {
           await previous.routerPromise
           return
         }
-        const prompt = { messageID, text: event.prompt.text, routerOutput: null, routerPromise: null }
+        const prompt = { messageID, text: event.prompt.text, routerOutput: null, routerPromise: null, workspace: null, hooks: null }
         promptRoutes.set(event.sessionID, prompt)
-        try {
-          const observations = systemOneObservations()
-          if (observations && observations.enabled()) {
-            observations.handle({ hook_event_name: "UserPromptSubmit", host: "opencode", session_id: event.sessionID,
-              ...(prompt.messageID ? { turn_id: prompt.messageID } : {}), cwd: workspace, prompt: event.prompt.text })
-          }
-        } catch { /* turn observation is always fail-open */ }
-        const routerPayload = { host: "opencode", session_id: event.sessionID,
-          ...(prompt.messageID ? { turn_id: prompt.messageID } : {}), cwd: workspace, prompt: event.prompt.text }
         prompt.routerPromise = (previous?.routerPromise || Promise.resolve())
-          .catch(() => null).then(() => runKernelRouter(routerPayload))
-        prompt.routerOutput = await prompt.routerPromise
+          .catch(() => null)
+          .then(async () => {
+            const identity = await resolveSessionWorkspace(event.sessionID)
+            if (!identity.workspace) {
+              unresolvedIdentity(identity.reason)
+              return
+            }
+            prompt.workspace = identity.workspace
+            try { prompt.hooks = await enforcementFor(prompt.workspace) } catch {}
+            sessionBindings.set(event.sessionID, { workspace: prompt.workspace, hooks: prompt.hooks })
+            try {
+              const observations = systemOneObservations()
+              if (observations && observations.enabled()) {
+                observations.handle({ hook_event_name: "UserPromptSubmit", host: "opencode", session_id: event.sessionID,
+                  ...(prompt.messageID ? { turn_id: prompt.messageID } : {}), cwd: prompt.workspace, prompt: event.prompt.text })
+              }
+            } catch { /* turn observation is always fail-open */ }
+            const routerPayload = { host: "opencode", session_id: event.sessionID,
+              ...(prompt.messageID ? { turn_id: prompt.messageID } : {}), cwd: prompt.workspace, prompt: event.prompt.text }
+            prompt.routerOutput = await runKernelRouter(routerPayload)
+          })
+        await prompt.routerPromise
       } catch { /* routing context is fail-open; do not reject prompt admission */ }
     })
     await ctx.session.hook("context", event => {
@@ -1328,16 +1398,25 @@ export default {
       if (!event.system.some(part => part && part.text === output)) event.system.push({ type: "text", text: output })
     })
 
-    await ctx.tool.hook("execute.before", (event) =>
-      hooks["tool.execute.before"](toolEventInput(event), { args: event.input }))
-    await ctx.tool.hook("execute.after", (event) =>
-      (observeOpenCodeTool(event, workspace), hooks["tool.execute.after"](toolEventInput(event), {
+    await ctx.tool.hook("execute.before", async event => {
+      const binding = await bindingForSession(event?.sessionID)
+      if (!binding?.workspace || !binding.hooks) return
+      return binding.hooks["tool.execute.before"](toolEventInput(event), { args: event.input })
+    })
+    await ctx.tool.hook("execute.after", async event => {
+      const prompt = promptRoutes.get(event?.sessionID)
+      const binding = await bindingForSession(event?.sessionID)
+      if (!binding?.workspace) return
+      if (prompt?.workspace) observeOpenCodeTool(event, prompt.workspace)
+      if (!binding.hooks) return
+      return binding.hooks["tool.execute.after"](toolEventInput(event), {
         args: event.input,
         status: event.status,
         result: event.result,
         error: event.error,
         messageID: event.messageID,
-      })))
+      })
+    })
 
     const pendingIdles = new Set()
     void (async () => {
@@ -1350,22 +1429,28 @@ export default {
           const sessionID = raw.sessionID || (raw.data && raw.data.sessionID)
             || (raw.properties && (raw.properties.sessionID || raw.properties.info?.id))
           const turnEnded = raw.type === "session.idle" || raw.type === "session.execution.succeeded"
-          if (turnEnded && typeof sessionID === "string" && promptRoutes.has(sessionID)) {
-            const observation = observeOpenCodeCompletion(sessionID, ctx, workspace, promptRoutes)
+          const prompt = typeof sessionID === "string" ? promptRoutes.get(sessionID) : null
+          let binding = typeof sessionID === "string" ? sessionBindings.get(sessionID) : null
+          const lifecycleEvent = ["session.idle", "session.created", "session.deleted"].includes(raw.type)
+          if (!binding && lifecycleEvent && typeof sessionID === "string") {
+            binding = await bindingForSession(sessionID)
+          }
+          if (turnEnded && prompt) {
+            const observation = observeOpenCodeCompletion(sessionID, ctx, promptRoutes)
               .catch(() => {})
               .finally(() => pendingIdles.delete(observation))
             pendingIdles.add(observation)
           } else if (["session.created", "session.deleted"].includes(raw.type) && sessionID) {
             promptRoutes.delete(sessionID)
           }
-          const delivery = hooks.event({
+          const delivery = binding?.hooks ? binding.hooks.event({
             event: {
               type: raw.type,
               // V1 event handlers read {type, properties}; V2 events are flat
               // objects, so pass both shapes.
               properties: raw.properties ?? raw,
             },
-          })
+          }) : Promise.resolve()
           if (raw.type === "session.idle") {
             // Awaiting verification here would prevent the same event stream
             // from delivering the reset/delete which must cancel it.
@@ -1373,6 +1458,10 @@ export default {
             pendingIdles.add(pending)
           } else {
             try { await delivery } catch { /* fail open */ }
+          }
+          if (["session.created", "session.deleted"].includes(raw.type) && sessionID) {
+            promptRoutes.delete(sessionID)
+            sessionBindings.delete(sessionID)
           }
         }
       } catch { /* aborting the host subscription is normal shutdown */ }

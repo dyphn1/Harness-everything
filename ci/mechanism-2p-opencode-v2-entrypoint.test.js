@@ -55,6 +55,7 @@ helper.check(
       },
     },
     session: {
+      get: async ({ sessionID }) => ({ id: sessionID, location: { directory: workspace } }),
       prompt: async (input) => {
         prompts.push(input);
         return {};

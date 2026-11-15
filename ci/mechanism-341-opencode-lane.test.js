@@ -149,6 +149,7 @@ async function startPlugin(workspace) {
     location: { directory: workspace },
     tool: { hook: async (name, callback) => registered.set(name, callback) },
     session: {
+      get: async ({ sessionID }) => ({ id: sessionID, location: { directory: workspace } }),
       hook: async (name, callback) => { sessionHooks.set(name, callback); return { dispose: async () => {} }; },
       prompt: async () => ({}),
       context: async () => [],
