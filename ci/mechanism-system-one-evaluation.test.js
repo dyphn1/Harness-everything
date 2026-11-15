@@ -21,7 +21,7 @@ test('S1-E01 exact paired metrics, no promotion from fixtures or cold timing', (
   assert.equal(result.model.acceptedPrecision, 1); assert.equal(result.model.acceptedErrorRate, 0);
   assert.equal(result.model.macroF1, 0.5); assert.equal(result.baseline.accuracy, 0);
   assert.equal(result.agreement, 1); assert.equal(result.latency.coldP95Ms, 20); assert.equal(result.latency.warmP95Ms, null);
-  assert.equal(result.rolloutReady, false); assert.equal(result.gates.reviewedHoldout, false);
+  assert.equal(Object.hasOwn(result, 'rolloutReady'), false); assert.equal(result.gates.reviewedHoldout, false);
   assert.equal(result.gates.policyEvidence, false); assert.equal(result.gates.liveHostEvidence, false);
   assert.deepEqual(evaluate(make(), records()), evaluate(make(), records()));
 });
@@ -31,9 +31,36 @@ test('S1-E02 corpus completeness, family leakage and no duplicated prompts', () 
 });
 test('S1-E03 missing/extra/invalid predictions cannot silently improve scores', () => {
   for (const mutate of [r => r.pop(), r => r.push(r[0]), r => { r[0].id = 'unknown'; }, r => { r[0].runs.pop(); }, r => { r[0].runs[0].decision.selectedId = 'unknown'; }, r => { r[0].runs[0].latencyMs = NaN; }, r => { r[0].runs[0].latencyMs = -1; }, r => { r[0].runs[0].coldStart = 'false'; }, r => { r[0].runs[0].decision.status = 'abstain'; }, r => { r[0].baseline = 'unknown'; }, r => { r[0].runs[0].decision.model.revision = 'v2'; }]) { const r = records(); mutate(r); assert.throws(() => evaluate(make(), r)); }
-  for (const mutate of [r => { delete r[0].runs[0].scores; }, r => { r[0].runs[0].scores = [1, 0, 0]; }, r => { r[0].runs[0].scores = [0.5, 0.5, 0, 0]; }, r => { r[0].runs[0].scores = [1, 0, 0, NaN]; }, r => { r[0].runs[0].scores = null; }, r => { r[0].runs[0].decision = { status: 'unavailable', reason: 'provider-timeout' }; }]) { const r = records(); mutate(r); assert.throws(() => evaluate(make(), r)); }
+  for (const mutate of [r => { delete r[0].runs[0].scores; }, r => { r[0].runs[0].scores = [1, 0, 0]; }, r => { r[0].runs[0].scores = [0.5, 0.5, 0, 0]; }, r => { r[0].runs[0].scores = [1, 0, 0, NaN]; }, r => { r[0].runs[0].scores = [1.1, 0, 0, 0]; }, r => { r[0].runs[0].scores = [-0.1, 1.1, 0, 0]; }, r => { r[0].runs[0].scores = null; }, r => { r[0].runs[0].decision = { status: 'unavailable', reason: 'provider-timeout' }; }]) { const r = records(); mutate(r); assert.throws(() => evaluate(make(), r)); }
   const r = records(); r[0].runs[1].decision = decision('tier3'); r[0].runs[1].scores = oneHot('tier3');
   assert.equal(evaluate(make(), r).agreement, 0.5);
+});
+test('S1-E10 sigmoid scores and holdout gates are reported without a rollout blocker', () => {
+  const r = records();
+  const accepted = { ...decision('tier1'), confidence: 0.9, margin: 0.9 - 0.8 };
+  for (const run of r[0].runs) { run.decision = accepted; run.scores = [0.9, 0.8, 0.4, 0.1]; }
+  const report = evaluate(make(), r);
+  assert.equal(report.model.coverage, 0.5);
+  assert.equal(report.baseline.accuracy, 0);
+  assert.equal(report.gates.reviewedHoldout, false);
+  assert.equal(Object.hasOwn(report, 'rolloutReady'), false);
+});
+
+test('F1 evaluator keeps single-winner vectors and independent relevance vectors distinct', () => {
+  const { gradeRelevance } = require('../harness-everything/scripts/system-one/evaluate');
+  const { INTENT_OPTIONS } = require('../harness-everything/scripts/system-one/catalogs');
+  assert.equal(evaluate(make(), records()).model.acceptedPrecision, 1);
+
+  const labels = [...INTENT_OPTIONS.map(option => option.id).filter(id => id !== 'unclassified'), null];
+  const ids = labels.map(id => id === null ? 'unclassified' : id);
+  const caseRow = { id: 'r', gold: 'fix', secondary: ['test'] };
+  const scores = ids.map(id => ({ fix: 0.9, test: 0.8 })[id] || 0.1);
+  assert.ok(scores.reduce((sum, score) => sum + score, 0) > 1);
+  const thresholds = Object.fromEntries(ids.filter(id => id !== 'unclassified').map(id => [id, 0.4]));
+  const report = gradeRelevance([caseRow], new Map([['r', { scores }]]), labels, thresholds);
+  assert.equal(report.cardinality.predicted, 2);
+  assert.equal(report.perIntent.fix.tp, 1);
+  assert.equal(report.perIntent.test.tp, 1);
 });
 test('S1-E06 repeatability compares the full score vector, not only top-2 summaries', () => {
   const r = records();
@@ -50,7 +77,7 @@ test('S1-E06 repeatability compares the full score vector, not only top-2 summar
 test('S1-E04 zero coverage and wrong accepted predictions fail quality gates', () => {
   const r = records(); r.forEach(x => x.runs.forEach(v => { v.decision = { status: 'unavailable', reason: 'provider-config' }; v.scores = null; }));
   const report = evaluate(make(), r);
-  assert.equal(report.model.coverage, 0); assert.equal(report.model.acceptedPrecision, null); assert.equal(report.rolloutReady, false);
+  assert.equal(report.model.coverage, 0); assert.equal(report.model.acceptedPrecision, null); assert.equal(Object.hasOwn(report, 'rolloutReady'), false);
   const wrong = records(); wrong.forEach(x => x.runs.forEach(v => { v.decision = decision('tier3'); v.scores = oneHot('tier3'); }));
   assert.equal(evaluate(make(), wrong).model.acceptedErrorRate, 1);
 });
@@ -64,7 +91,7 @@ test('S1-E05 real evaluation CLI repeats with only documented timing volatility'
       const child = spawnSync(process.execPath, [path.join(root, 'scripts/evaluate-system-one.js'), input, path.join(dir, 'missing.json'), output], { encoding: 'utf8', cwd: root });
       assert.equal(child.status, 0, child.stderr);
       const report = JSON.parse(fs.readFileSync(output, 'utf8'));
-      assert.equal(report.model.coverage, 0); assert.equal(report.rolloutReady, false);
+      assert.equal(report.model.coverage, 0); assert.equal(Object.hasOwn(report, 'rolloutReady'), false);
       assert.equal(report.records[0].runs[0].decision.reason, 'provider-config');
       assert.equal(report.records[0].runs[0].scores, null);
       assert.deepEqual(report.evidence.source, { status: 'unavailable', reason: 'provider-config' });
@@ -83,7 +110,7 @@ test('S1-E07 source provenance gate requires the pinned cua_s1 revision', () => 
   assert.equal(evaluate(make(), records(), { status: 'unavailable', reason: 'provider-exit' }).gates.sourceProvenance, false);
   for (const status of ['unavailable', 'mismatch']) assert.equal(evaluate(make(), records(), recorded(status)).gates.sourceProvenance, false);
   assert.equal(evaluate(make(), records(), recorded('pinned')).gates.sourceProvenance, true);
-  assert.equal(evaluate(make(), records(), recorded('pinned')).rolloutReady, false);
+  assert.equal(Object.hasOwn(evaluate(make(), records(), recorded('pinned')), 'rolloutReady'), false);
 });
 test('S1-E09 an ngram source passes provenance only with a verified artifact', () => {
   const ngramSource = verified => ({ status: 'recorded', transport: 'ngram', artifactVerified: verified });

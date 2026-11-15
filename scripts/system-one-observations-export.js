@@ -30,8 +30,7 @@ function family(text) {
 function validDecision(d) {
   return d && typeof d.id === 'string'
     && [undefined, null, 'actionable', 'invalid', 'unsure'].includes(d.validity)
-    && [undefined, null, ...obs.TIERS].includes(d.tier)
-    && [undefined, null, true, false].includes(d.contextDependent);
+    && [undefined, null, ...obs.TIERS].includes(d.tier);
 }
 
 function loadReview(file) {
@@ -47,15 +46,13 @@ function derive(record, owner) {
   const self = record.selfReport;
   const behavior = record.captureMethod === 'session-backfill' ? null : record.behavior;
   let validity = self ? self.validity : null;
-  let contextDependent = self ? self.contextDependent : null;
   if (owner && owner.validity && owner.validity !== 'unsure') validity = owner.validity;
-  if (owner && typeof owner.contextDependent === 'boolean') contextDependent = owner.contextDependent;
   let { tier, source: tierSource } = obs.labelTier(self, owner);
   if (validity === 'invalid' && !(owner && obs.TIERS.includes(owner.tier))) { tier = null; tierSource = tierSource && 'self-report'; }
   const skills = record.behavior && record.behavior.skills && record.behavior.skills.length
     ? record.behavior.skills : (self ? self.skills : []);
   return {
-    id: record.id, validity, contextDependent, tier, tierSource,
+    id: record.id, validity, tier, tierSource,
     intents: self ? self.intents : [], workflow: (self && self.workflow) || (record.router && record.router.strategy) || null,
     skills,
     behaviorEvidence: behavior ? 'observed' : 'unobserved',
@@ -66,6 +63,11 @@ function derive(record, owner) {
 
 function rate(pairs) {
   return pairs.length ? pairs.filter(([a, b]) => a === b).length / pairs.length : null;
+}
+
+function exportSystemOne(record) {
+  const systemOne = obs.normalizeSystemOne(record && record.router && record.router.systemOne);
+  return systemOne ? { version: systemOne.version, sha256: systemOne.sha256, mode: systemOne.mode, decision: systemOne.decision } : null;
 }
 
 function run(args) {
@@ -110,7 +112,9 @@ function run(args) {
   const prompts = rows.map((r, i) => JSON.stringify({ id: r.record.id, family: family(r.text.prompt), source: 'observation',
     split: i >= rows.length - validation ? 'validation' : 'train', text: r.text.prompt, previous: r.text.previous || '' }));
   fs.writeFileSync(path.join(out, 'prompts-observed.jsonl'), prompts.join('\n') + (prompts.length ? '\n' : ''));
-  fs.writeFileSync(path.join(out, 'labels-observed.jsonl'), rows.map(r => JSON.stringify(r.label)).join('\n') + (rows.length ? '\n' : ''));
+  fs.writeFileSync(path.join(out, 'labels-observed.jsonl'), rows.map(r => JSON.stringify({
+    ...r.label, systemOne: exportSystemOne(r.record),
+  })).join('\n') + (rows.length ? '\n' : ''));
   const withSelf = rows.filter(r => r.record.selfReport);
   // Only turns where the router chose a tier; 'unclassified' is not one.
   const routerSelf = withSelf.filter(r => r.record.router && obs.TIERS.includes(r.record.router.tier)).map(r => [r.record.router.tier, r.record.selfReport.tier]);
@@ -118,6 +122,24 @@ function run(args) {
   const contradictions = {};
   for (const r of rows) for (const c of r.label.contradictions) contradictions[c] = (contradictions[c] || 0) + 1;
   const count = key => rows.reduce((acc, r) => { const k = String(key(r)); acc[k] = (acc[k] || 0) + 1; return acc; }, {});
+  const systemOneVersions = new Map();
+  for (const r of rows) {
+    const systemOne = obs.normalizeSystemOne(r.record.router && r.record.router.systemOne);
+    if (!systemOne) continue;
+    const version = systemOneVersions.get(systemOne.version) || { rows: 0, matches: 0, comparisons: 0 };
+    version.rows++;
+    const selfTier = r.record.selfReport && r.record.selfReport.tier;
+    if (obs.TIERS.includes(systemOne.decision.tier) && obs.TIERS.includes(selfTier)) {
+      version.comparisons++;
+      if (systemOne.decision.tier === selfTier) version.matches++;
+    }
+    systemOneVersions.set(systemOne.version, version);
+  }
+  const systemOneReport = Object.fromEntries([...systemOneVersions].map(([version, counts]) => [version, {
+    rows: counts.rows,
+    tierAgreement: { matches: counts.matches, comparisons: counts.comparisons,
+      rate: counts.comparisons ? counts.matches / counts.comparisons : null },
+  }]));
   const report = {
     schemaVersion: 1, exportedAt: new Date().toISOString(), records: index.records.length, exported: rows.length,
     since: sinceText, selfReportOnly, skippedBeforeSince, skippedUnlabeled,
@@ -131,6 +153,7 @@ function run(args) {
     },
     contradictionEvidence: 'observed-behavior-only',
     ownerDecisions: Object.keys(owner).length, agreement, contradictions,
+    systemOne: { versions: systemOneReport },
   };
   fs.writeFileSync(path.join(out, 'export-report.json'), JSON.stringify(report, null, 2) + '\n');
   return report;

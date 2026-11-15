@@ -344,15 +344,24 @@ function run(userPrompt, context, options = {}) {
     }
   }
 
-  const { selectTier } = require('./system-one/router');
+  const { selectTier, routeLive } = require('./system-one/router');
   const structuralFloor = hasMacroSignal ? 'tier3'
     : !isTrivialDocsEdit && hasMultipleTasks && hasMultipleSentences ? 'tier2' : null;
-  const semantic = selectTier({ prompt: userPrompt, tier: recommendedTier, floor: structuralFloor,
-    explicit: profileLookup || Boolean(detectExplicitStrategy(userPrompt, detectFableModel(userPrompt))) }, process.env, options.systemOneScorer || undefined);
+  const routeInput = { prompt: userPrompt, tier: recommendedTier, floor: structuralFloor,
+    explicit: profileLookup || Boolean(detectExplicitStrategy(userPrompt, detectFableModel(userPrompt))) };
+  const liveMode = process.env.HARNESS_SYSTEM_ONE_MODE === 'live';
+  const semantic = liveMode ? routeLive(routeInput, options.systemOneResult)
+    : selectTier(routeInput, process.env, options.systemOneScorer || undefined);
   if (semantic.diagnostic) console.log(`\n=> SYSTEM ONE: ${JSON.stringify(semantic.diagnostic)}`);
-  if (semantic.diagnostic?.applied) {
+  if (liveMode && semantic.reference?.available === false) {
+    console.log('\n=> SYSTEM ONE REFERENCE CONFIDENCE unavailable; lexical routing retained.');
+  } else if (liveMode && semantic.reference) {
+    console.log(`\n=> SYSTEM ONE REFERENCE CONFIDENCE (not a verdict): ${JSON.stringify(semantic.reference)}`);
+  }
+  const systemOneApplied = liveMode ? semantic.applied : semantic.diagnostic?.applied;
+  if (systemOneApplied) {
     recommendedTier = semantic.tier;
-    rationale = 'System One selected a tier from the fixed catalog; deterministic policy remains authoritative.';
+    rationale = 'System One reference confidence informed the default tier; deterministic routing constraints remain authoritative.';
     reasonCodes.splice(loadedConfig.reasonCodes.length);
     addReason(reasonCodes, 'system-one-tier');
   }
@@ -466,6 +475,8 @@ function run(userPrompt, context, options = {}) {
     },
   });
 
+  if (semantic.systemOne) contract.workflowPlan.systemOne = semantic.systemOne;
+
   if (knowledgeSignals.length > 0) {
     console.log(`\n=> KNOWLEDGE SIGNALS (STEP INPUT ONLY): ${knowledgeSignals.join(', ')}`);
     console.log('   These normalized prompt signals help compose requirement steps; they do not select or load documents.');
@@ -508,7 +519,11 @@ async function main(prompt, context) {
   if (['shadow', 'prefer'].includes(process.env.HARNESS_SYSTEM_ONE_MODE)) {
     try { systemOneScorer = await require('./system-one/router').prescoreTier(prompt); } catch (_) { /* the sync path still scores */ }
   }
-  run(prompt, context, { systemOneScorer });
+  let systemOneResult = null;
+  if (process.env.HARNESS_SYSTEM_ONE_MODE === 'live') {
+    try { systemOneResult = await require('./system-one/router').prescoreLive(prompt); } catch (_) { /* lexical route remains available */ }
+  }
+  run(prompt, context, { systemOneScorer, systemOneResult });
 }
 
 if (require.main === module) {

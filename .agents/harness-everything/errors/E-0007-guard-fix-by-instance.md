@@ -5,6 +5,11 @@ class: fix-loop
 title: "A dependency-exclusion overlap guard was fixed one field or spelling at a time instead of by predicate class, leaving false positives and wildcard false negatives"
 sites:
   - hooks/scripts/lib/doc-reconciliation-producer.js
+  - scripts/system-one-cycle/package.js
+  - harness-everything/scripts/system-one/install.js
+  - harness-everything/scripts/system-one/provider.js
+  - scripts/system-one-cycle/score.py
+  - scripts/system-one-curves.js
 violates: "Advisor answer 18 section 1: \"an explicit task/requirement input intersecting it blocks the exclusion\" (only genuine inputs, not identity metadata, may block); and \"Broad/unknown selectors that may intersect are not evidence of disjointness.\" The record covers both false positives and false negatives in this input class."
 scope: in
 status: lesson
@@ -81,6 +86,19 @@ episodes:
         change: "Commit `c6dab126`: third caller `reviewRecordIndependent()` fixed"
         review: "coordinator gates"
         result: "`agentResultSurface()` had 0 callers; episode closed"
+  - episode: 442-version-manifest-fix-by-sites
+    feature: "#442 version-manifest contract"
+    date: 2026-11-15
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: "R1 independent review on #442"
+        result: "F4 changed only the manifest producer and the installer rejected it; F6 unified three sites but left `system-one-curves.js`. The fixes named failing sites, not the class of producers and consumers."
+      - round: 1
+        change: "Commit 1c0d8fcf: the trained catalog and `manifest.js` are the single source for every site"
+        review: unknown
+        result: "The class collapses to one source; episode open pending a closing review."
 ---
 
 ## Cue
@@ -95,6 +113,8 @@ Re-violated 2026-11-08 (#412): after the second round on the same decision, swit
 
 Re-violated 2026-11-11 (#425): the same class on a repair packet — it named two seams instead of the class. Lesson addition: a repair packet for a decision class must require a pre/post caller inventory of the shared helper, pasted in the report.
 
+Re-violated 2026-11-15 (#442): a five-site version-manifest contract (`package.js`, `install.js`, `provider.js`, `score.py`, `system-one-curves.js`) was repaired per failing site; `system-one-curves.js` escaped two fixes until an independent review (R1) found it. The successful correction (commit `1c0d8fcf`) removed the class by reducing every site to one shared source.
+
 ## Status and promotion
 
 - `closed: false`. Round 6 is closed by review-8. Round 7 (review-9) found a symlink hole; round 8 merged in #396 with no independent review after it.
@@ -108,3 +128,4 @@ Re-violated 2026-11-11 (#425): the same class on a repair packet — it named tw
 - #341; live runs 12-14 of the row-17 kit; review finding on the absolute `?` selector.
 - #396 reviews review-5, review-6 and review-7 (D7 sweeps); commits `3732b134`, `59037db8`, `2eb19883`, `b6aa96a3`; advisor adjudication (answer 21).
 - #396 review-9 (OpenCode): symlinked entry under a disjoint prefix; commits `bd00a796`, `2514056f`; merged at `f571ec68`.
+- #442 (2026-11-15): version-manifest fix-by-site; R1 independent review; fix commit `1c0d8fcf`.

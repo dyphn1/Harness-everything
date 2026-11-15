@@ -12,7 +12,7 @@ const IMPORTER = path.join(ROOT, 'scripts', 'system-one-observations-import-code
 const EXPORTER = path.join(ROOT, 'scripts', 'system-one-observations-export.js');
 const REVIEW = path.join(ROOT, 'scripts', 'system-one-observations-review.js');
 const obs = require('../hooks/scripts/lib/observations');
-const LABEL = '<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier2","intents":["fix"],"workflow":null,"skills":[]} -->';
+const LABEL = '<!-- harness-label {"v":1,"validity":"actionable","tier":"tier2","intents":["fix"],"workflow":null,"skills":[]} -->';
 const TIER1_LABEL = '<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier1","intents":["fix"],"workflow":null,"skills":[]} -->';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-session-label-import-'));
@@ -110,6 +110,7 @@ try {
   const liveRecord = index.records.find(entry => entry.writer && entry.writer.turnId === 'included');
   assert(liveRecord, 'live records retain Codex turn IDs for cross-source dedupe');
   assert.strictEqual(liveRecord.behavior.filesWritten, 1, 'the live fixture contains an observed file write');
+  assert(!Object.hasOwn(liveRecord.selfReport, 'contextDependent'), 'legacy fields do not enter new self-reports');
   assert.deepStrictEqual(obs.contradictions(liveRecord.selfReport, liveRecord.behavior), ['tier1-with-writes']);
   assert.strictEqual(index.records.filter(entry => entry.writer && entry.writer.sessionId === 'fixture-session' && entry.writer.turnId === 'included').length, 1,
     'live capture and session backfill leave one record for a turn');
@@ -120,6 +121,7 @@ try {
   assert.strictEqual(fallbackText.prompt, 'fallback prompt from the rollout message');
   const backfilledTier1 = index.records.find(entry => entry.captureMethod === 'session-backfill' && entry.selfReport.tier === 'tier1');
   assert(backfilledTier1, 'the tier1 label from the rollout is imported');
+  assert(!Object.hasOwn(backfilledTier1.selfReport, 'contextDependent'), 'the legacy field is ignored during session import');
   assert.strictEqual(backfilledTier1.behavior, null, 'session backfill records behavior as unobserved rather than zero');
   assert(!index.records.some(entry => entry.writer && entry.writer.turnId === 'ambiguous-summary'),
     'a differing completion string must not inherit the assistant message label');
@@ -139,6 +141,7 @@ try {
   assert.strictEqual(exported.status, 0, 'export after backfill failed:\n' + exported.stdout + '\n' + exported.stderr);
   const labels = fs.readFileSync(path.join(exportDir, 'labels-observed.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
   const exportReport = JSON.parse(fs.readFileSync(path.join(exportDir, 'export-report.json'), 'utf8'));
+  assert(labels.every(label => !Object.hasOwn(label, 'contextDependent')), 'legacy values are absent from exported labels');
   assert.strictEqual(labels.filter(label => label.behaviorEvidence === 'unobserved').length, 5);
   assert.deepStrictEqual(exportReport.behaviorEvidence, { observed: 1, unobserved: 5 });
   assert.strictEqual(exportReport.contradictions['tier1-with-writes'], 1, 'only the observed live write contributes a contradiction');

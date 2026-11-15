@@ -43,6 +43,7 @@ A turn runs from `UserPromptSubmit` to `Stop`. Its record:
 | `prompt` | `UserPromptSubmit` | stored in the private text store only (see Storage) |
 | `previous` | the last assistant message before the prompt | truncated to 2 KB; text store only |
 | `router` | kernel-router output | lexical tier, strategy, normalized knowledge signals, active step/stage bindings; System One shadow scores when present |
+| `router.systemOne` | `workflow-run.json` → `workflowPlan.systemOne` | bounded version, hash, mode, scores and decision; unknown keys are dropped, scores are clamped to 0..1, and malformed or missing input is stored as `null`. Scores remain in the private store only. |
 | `behavior` | `PostToolUse`, `PostToolUseFailure` | counts and categories, never arguments: files written, distinct repositories written, files created, commands by class (git, gh, test, build, package, shell), skills loaded or read, subagents started. Failed attempts are counted separately (`toolFailures`, `failedWrites`, `failedSkillLoads`) and never count as a write or a load. `null` means the capture source did not observe tool events; it is not a zero count. |
 | `workflow` | `workflow-run.json` / `workflow-disposition` | selected and confirmed strategy |
 | `selfReport` | label line in the final message | see below; `null` if missing or invalid |
@@ -54,13 +55,12 @@ At the end of the final message of each turn the agent writes one line,
 which is invisible in rendered Markdown:
 
 ```
-<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier2","intents":["fix","test"],"workflow":"iterative-single","skills":["tdd"]} -->
+<!-- harness-label {"v":1,"validity":"actionable","tier":"tier2","intents":["fix","test"],"workflow":"iterative-single","skills":["tdd"]} -->
 ```
 
 | Key | Values |
 | --- | --- |
-| `validity` | `actionable` or `invalid` (continuation, feedback on earlier work, pointer to earlier content, paste or chatter) |
-| `contextDependent` | `true` when the prompt text alone would not have been enough to know the task |
+| `validity` | `actionable` or `invalid`; invalid means the prompt cannot be understood from its own text and needs conversation context. Agent-written dispatches and worker instructions are ordinary prompts. |
 | `tier` | `tier1` (no file change), `tier2` (bounded file change: code, config or docs), `tier3` (feature, refactor, redefinition, cross-component) or `null` (only for `invalid`), under tier rules v2 |
 | `intents` | up to 3 of the 12 intent ids, strongest first |
 | `workflow` | a router strategy id or `null` |
@@ -76,13 +76,13 @@ accepted when it ends the message.
 
 ## Labels and how much to trust them
 
-The label is the host LLM's own judgement. It saw the whole conversation and
-did the work, so no fixed rule replaces it (owner decision, 2026-09-27: no
-file-count threshold for tier).
+Validity is judged from the prompt text alone, even when the agent saw the
+whole conversation. The other keys are the host LLM's own judgement; no
+fixed rule replaces tier (owner decision, 2026-09-27: no file-count threshold).
 
 | Label | Source | Override |
 | --- | --- | --- |
-| validity, contextDependent | self-report | owner review |
+| validity | self-report, judged from prompt text alone | owner review |
 | intents | self-report | — |
 | tier | self-report (tier rules v2) | owner review |
 | workflow | self-report, else the confirmed strategy | — |
@@ -203,7 +203,8 @@ The importer accepts only valid label lines, applies the same email/home-path re
 repository:
 
 - `prompts-observed.jsonl`: `{id, family, source: "observation", split, text}`
-- `labels-observed.jsonl`: `{id, validity, contextDependent, tier, tierSource, intents, workflow, skills, behaviorEvidence, contradictions}`
+- `labels-observed.jsonl`: `{id, validity, tier, tierSource, intents, workflow, skills, behaviorEvidence, contradictions, systemOne}`. `systemOne` is `{version, sha256, mode, decision}` or `null`; score maps stay in the private observation store.
+- `export-report.json`: `systemOne.versions[version]` counts exported rows for each version and reports tier agreement (`matches`, `comparisons`, `rate`) between the router decision and self-report. Comparisons include only rows where both tiers are known.
 
 The text-free `export-report.json` includes `malformedLabelsByHost` for invalid
 or unparseable self-reports, including those omitted by `--self-report-only`.

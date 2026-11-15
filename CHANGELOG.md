@@ -2,6 +2,36 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.52.0](https://github.com/dyphn1/Harness-everything/compare/v0.51.0...v0.52.0) (2026-11-15)
+
+### Features
+
+* **observations:** drop the context-dependent label field ([a722bae](https://github.com/dyphn1/Harness-everything/commit/a722bae340431b2e8fe488de00f30ccc535e3190))
+* **observations:** record the system one version and suggestion per turn ([56e27c0](https://github.com/dyphn1/Harness-everything/commit/56e27c0872cc429e8464612909c23895e366ec9d))
+* **system-one:** add the owner-started training cycle kit and runbook ([4ebde21](https://github.com/dyphn1/Harness-everything/commit/4ebde21b43316d5634f36ff8deeb335a9c00cbac))
+* **system-one:** install, activate and roll back private weight versions ([207b3dd](https://github.com/dyphn1/Harness-everything/commit/207b3ddeb673096d6a32f5d9bcbf49b32e2666a4))
+* **system-one:** judge versions by long-term calibration and coverage curves ([a647de9](https://github.com/dyphn1/Harness-everything/commit/a647de9334fe583f1652fa0f92de02b7aee5121f))
+* **system-one:** read hand-off file headers as system one input ([444a889](https://github.com/dyphn1/Harness-everything/commit/444a889cde392974c6b23d02841c977931823513))
+* **system-one:** read per-option sigmoid scores and record gates as baseline ([a32ae49](https://github.com/dyphn1/Harness-everything/commit/a32ae49b1cb3125803292283d6b31541d183c3e1))
+* **system-one:** run validity, intent and tier live with explicit precedence ([8d2e66e](https://github.com/dyphn1/Harness-everything/commit/8d2e66ef83c3b7d3a69aede41d98c2ac4f822268))
+* **system-one:** train validity, intent and tier with per-option sigmoid ([3e14598](https://github.com/dyphn1/Harness-everything/commit/3e14598efb345d13054f2ec87cfde29244180615)), closes [#264](https://github.com/dyphn1/Harness-everything/issues/264)
+* **workflow:** generate hand-off files with a short yaml header ([3a1c779](https://github.com/dyphn1/Harness-everything/commit/3a1c7797873173964bbfe3d4ea0705154d110d84))
+
+### Bug Fixes
+
+* **system-one:** count correct actionable validity decisions in curves ([0c9c127](https://github.com/dyphn1/Harness-everything/commit/0c9c127bb285721fb8e3391c5edaadb7a2d24747))
+* **system-one:** count option tokens in the training batch budget ([dde4e07](https://github.com/dyphn1/Harness-everything/commit/dde4e0735eefd32cd17594d29d24199d86cc7517))
+* **system-one:** keep legacy score contracts beside per-option sigmoid scores ([8a5522d](https://github.com/dyphn1/Harness-everything/commit/8a5522d4407fc5726b42c6d2bbe10f8c22341059))
+* **system-one:** let live score the trained intent catalog ([61d17f8](https://github.com/dyphn1/Harness-everything/commit/61d17f8fc42725cf4c195638b622f7c81567bd0a))
+* **system-one:** make the trained catalog the single source of stage options ([1c0d8fc](https://github.com/dyphn1/Harness-everything/commit/1c0d8fcf7179192d02e6fceddc98da22a11ee17f)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+* **system-one:** package infeasible thresholds as reference-only options ([ce94f57](https://github.com/dyphn1/Harness-everything/commit/ce94f57c5f9cf6f038be7b30e662d95a7eb5c2d6))
+* **system-one:** resolve the private data destination before writing prompts ([13b97c8](https://github.com/dyphn1/Harness-everything/commit/13b97c881083ca03a1676155a07d43b2b18866e7)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+* **system-one:** restore the 16384 default training batch budget ([ff1cd93](https://github.com/dyphn1/Harness-everything/commit/ff1cd93f14bf6d6bd154e19bfeed7bab4850bc46))
+* **system-one:** score holdouts with the trained option catalog ([8f44f59](https://github.com/dyphn1/Harness-everything/commit/8f44f59dcfe2504c2375dabfd2b8cd16d5e970be))
+* **system-one:** score legacy categorical checkpoints with softmax again ([7cfb1bb](https://github.com/dyphn1/Harness-everything/commit/7cfb1bb91bbc4efb3d33c7936f96aac448994048))
+* **system-one:** send intent disagreements to the judge vote ([c5a2747](https://github.com/dyphn1/Harness-everything/commit/c5a2747deab92f3156011ce360950412561b55e5)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+* **system-one:** share one version manifest contract across kit and runtime ([55e96b6](https://github.com/dyphn1/Harness-everything/commit/55e96b6e9c590ba677f5ff6e938649a4b95c852b))
+
 ## [0.51.0](https://github.com/dyphn1/Harness-everything/compare/v0.50.0...v0.51.0) (2026-11-11)
 
 ### Features
@@ -18,6 +48,9 @@ All notable changes to this project are documented in this file.
 
 ### Features
 
+* **system-one:** Opt-in machines can run System One live (`HARNESS_SYSTEM_ONE_MODE=live`): CUA-S1 validity → intent → tier with independent per-option sigmoid scores shown as reference confidence, explicit choices and the structural floor ahead of it, the lexical tier as fallback. Weights are private versions installed, activated and rolled back with `install.js`; nothing is enabled by default.
+* **system-one:** Owner-started training cycle (`scripts/system-one-cycle.js`, runbook `docs/system-one-cycle.md`): collect, label, judge, build, train under a CPU/memory guard, evaluate by long-term calibration and coverage curves, package and publish. Hand-off files can carry a short YAML header (`scripts/handoff-file.js`) that System One reads as input.
+* **observations:** The turn label line drops `contextDependent`; `invalid` now means only that the prompt needs conversation context, and agent-written prompts are ordinary prompts. Turn records keep the System One version and suggestion.
 * **CI:** Skip the three-platform Node 24 self-regression matrix for pull requests limited to approved documentation, benchmark results, error ledger, or changelog paths.
 * **doc-reconciliation:** credit only correlated, bounded workflow-state operations for the approved row-17 outline cycle
 
