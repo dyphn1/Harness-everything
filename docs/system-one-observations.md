@@ -2,9 +2,10 @@
 
 Status: **accepted**, 2026-09-27. Owner decisions are recorded below.
 Implementation: `hooks/scripts/observation-hook.js`,
-`hooks/scripts/lib/observations.js`, `scripts/system-one-observations-export.js`, `scripts/system-one-observations-import-codex-sessions.js` and
+`hooks/scripts/lib/observations.js`, `scripts/system-one-observations-export.js`, `scripts/system-one-observations-import-codex-sessions.js`,
+`scripts/system-one-observations-import-store.js` and
 `scripts/system-one-observations-review.js`; tests in
-`ci/mechanism-34-observations.test.js`. Issue
+`ci/mechanism-34-observations.test.js` and `ci/mechanism-397-cycle-import.test.js`. Issue
 [#233](https://github.com/dyphn1/Harness-everything/issues/233).
 
 ## Why
@@ -29,7 +30,7 @@ validity, intent, tier, workflow and skills.
 - Collection is **on by default**, with no environment variable needed to
   enable it. `HARNESS_OBSERVATIONS=off` turns it off; this opt-out exists
   because the plugin ships to other users.
-- Hosts: **Claude Code** and **Codex** first.
+- Hosts: **Claude Code**, **Codex** and **OpenCode**.
 - This document is the specification; implementation follows
   docs → RED → GREEN.
 
@@ -197,13 +198,38 @@ The importer scans local Codex rollout files and pairs each completed turn with 
 
 The importer accepts only valid label lines, applies the same email/home-path redaction, and appends idempotently to the private observations store. Backfill and live hook records deduplicate by `(host, writer.sessionId, writer.turnId)`. For older live records without a turn ID, an exact turn-and-text match is skipped; a partial match is counted as ambiguous and skipped to avoid silently duplicating training data. Duplicate and ambiguous legacy live matches are checked atomically under the store lock. A bounded lock timeout is reported as a persistence failure, not as a duplicate, and gives the importer a nonzero exit status; migration lock timeouts are reported the same way. Existing backfill behavior placeholders are migrated to `null`. Reports contain counts and generic error descriptions without printing session text. The cutoff defaults to the date the label contract was accepted. The importer never uploads or writes session content into the repository.
 
+## Cycle import boundary
+
+The `collect` step writes only to its private cycle directory. It runs Codex
+session backfill, then imports every in-window record from the live store at
+`observations.storeRoot()` (overridable with `HARNESS_OBSERVATIONS_DIR`). The
+store importer preserves unlabeled and malformed-label metadata, including
+its reason code, and deduplicates through `appendRecordDetailed` by host,
+session and turn. It copies text only while the source record's original
+retention deadline permits it; missing or expired text stays unavailable.
+
+```mermaid
+flowchart LR
+  OC[OpenCode and other live capture] --> LS[Private live observation store]
+  CS[Codex session backfill] --> CY[Private cycle observation store]
+  LS --> IM[Cycle store importer]
+  IM --> CY
+  CY --> EX[Prompt and label exports]
+  IM --> IR[Text-free import-report.json]
+```
+
+`import-report.json` records each source's status and per-host persisted,
+duplicate, ambiguous and failed import counts. It contains a stable label for
+the live store rather than its path. Final label rows retain their `host` so
+OpenCode and Codex examples remain attributable after collection.
+
 ## Export
 
 `scripts/system-one-observations-export.js` writes to the private data
 repository:
 
 - `prompts-observed.jsonl`: `{id, family, source: "observation", split, text}`
-- `labels-observed.jsonl`: `{id, validity, tier, tierSource, intents, workflow, skills, behaviorEvidence, contradictions, systemOne}`. `systemOne` is `{version, sha256, mode, decision}` or `null`; score maps stay in the private observation store.
+- `labels-observed.jsonl`: `{id, validity, tier, tierSource, intents, workflow, skills, behaviorEvidence, contradictions, host, systemOne}`. `systemOne` is `{version, sha256, mode, decision}` or `null`; score maps stay in the private observation store.
 - `export-report.json`: `systemOne.versions[version]` counts exported rows for each version and reports tier agreement (`matches`, `comparisons`, `rate`) between the router decision and self-report. Comparisons include only rows where both tiers are known.
 
 The text-free `export-report.json` includes `malformedLabelsByHost` for invalid
