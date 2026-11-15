@@ -122,6 +122,11 @@ function routerArtifact(workspace, sessionID) {
   return path.join(stateDir, 'workflow-run.json');
 }
 
+function editStateArtifact(workspace, sessionID) {
+  const stateDir = path.join(workspaceState.getWorkspaceStateDir(workspace), 'state', 'sessions', harnessState.sessionDirectoryName(sessionID));
+  return path.join(stateDir, 'edit-state.json');
+}
+
 async function waitFor(predicate) {
   const deadline = Date.now() + 3000;
   while (!predicate()) {
@@ -274,6 +279,14 @@ test('workspace: V2 prompt and observations bind to the session directory when s
     assert.equal(record.behavior.filesWritten, 1);
     assert.equal(record.selfReportReason, null);
     assert.equal(f.sessionLookupCount(), 1, 'one session lookup is used for the distinct prompt');
+    const editStatePaths = {
+      setupA: editStateArtifact(f.workspace, sessionID),
+      sessionB: editStateArtifact(sessionWorkspace, sessionID),
+      serverC: editStateArtifact(serverWorkspace, sessionID),
+    };
+    const editStates = Object.fromEntries(Object.entries(editStatePaths).map(([key, file]) => [key, fs.existsSync(file)]));
+    assert.deepEqual(editStates, { setupA: false, sessionB: true, serverC: false },
+      `edit state from the completed edit must follow session B; actual=${JSON.stringify({ editStates, editStatePaths })}`);
   } finally {
     if (dispose) await dispose();
     process.chdir(originalCwd);
