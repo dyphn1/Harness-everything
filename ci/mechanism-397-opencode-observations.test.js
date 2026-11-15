@@ -787,10 +787,8 @@ async function flatLifecycleReset(type) {
     fs.writeFileSync(defaultFile, '{"sentinel":true}');
 
     await sendEdit(f, sessionID, `${type}-edit`);
-    f.push(completionEvent('idle', sessionID));
-    assert.equal(await waitUntil(() => fs.existsSync(ready)), true, 'legacy idle started the deliberately pending check');
-    f.push(completionEvent('succeeded', sessionID));
-    await new Promise(resolve => setTimeout(resolve, 50));
+    f.push(v2Event('session.execution.succeeded', sessionID));
+    assert.equal(await waitUntil(() => fs.existsSync(ready)), true, 'V2 completion started the deliberately pending check');
     f.push(v2Event(type, sessionID));
     await new Promise(resolve => setTimeout(resolve, 250));
     const heartbeatAtReset = fs.existsSync(heartbeat) ? fs.statSync(heartbeat).size : 0;
@@ -803,7 +801,7 @@ async function flatLifecycleReset(type) {
       processStopped: fs.existsSync(heartbeat) && fs.statSync(heartbeat).size === heartbeatAtReset,
     };
     assert.deepEqual(actual, { sessionRemoved: true, unrelatedPreserved: true, defaultPreserved: true, processStopped: true },
-      `flat ${type} must reset/cancel only ${sessionID}; actual=${JSON.stringify(actual)}`);
+      `flat ${type} must cancel a V2-started check and reset only ${sessionID}; actual=${JSON.stringify(actual)}`);
   } finally {
     if (dispose) await dispose();
     f.restore();
@@ -816,6 +814,56 @@ test('V2 consumers α2: flat session.created cancels and resets only its bound s
 
 test('V2 consumers α2: flat session.deleted cancels and resets only its bound session', { concurrency: false }, async () => {
   await flatLifecycleReset('session.deleted');
+});
+
+test('V2 consumers α: flat lifecycle and completion events without an id leave default state untouched', { concurrency: false }, async () => {
+  const f = fixture('off');
+  const checkLog = path.join(f.dir, 'check-runs.txt');
+  writeVerificationPackage(f, `require('node:fs').appendFileSync(${JSON.stringify(checkLog)}, 'check\\n')`);
+  const defaultSession = 'default';
+  const defaultEdit = editStateArtifact(f.workspace, defaultSession);
+  const defaultSentinel = path.join(stateDir(f.workspace, defaultSession), 'sentinel.json');
+  let dispose;
+  try {
+    dispose = await install(f);
+    await sendEdit(f, defaultSession, 'default-edit');
+    fs.writeFileSync(defaultSentinel, 'keep');
+    const defaultBefore = fs.readFileSync(defaultEdit, 'utf8');
+    const missingIDEvent = type => ({ id: `evt-${type}-missing-id`, created: Date.now(), type, durable: true, data: {} });
+
+    const flushThrough = async suffix => {
+      const sessionID = `flush-${suffix}`;
+      const markerFile = editStateArtifact(f.workspace, sessionID);
+      fs.mkdirSync(path.dirname(markerFile), { recursive: true });
+      fs.writeFileSync(markerFile, '{"sentinel":true}');
+      f.push(v2Event('session.created', sessionID));
+      assert.equal(await waitUntil(() => !fs.existsSync(stateDir(f.workspace, sessionID))), true,
+        'a later valid lifecycle event confirms the missing-id event was consumed');
+    };
+
+    f.push(missingIDEvent('session.execution.succeeded'));
+    await flushThrough('completion');
+    assert.deepEqual({
+      defaultEditUnchanged: fs.readFileSync(defaultEdit, 'utf8') === defaultBefore,
+      defaultSentinelPreserved: fs.existsSync(defaultSentinel),
+      checkNotRun: !fs.existsSync(checkLog),
+    }, { defaultEditUnchanged: true, defaultSentinelPreserved: true, checkNotRun: true },
+    'execution.succeeded without data.sessionID must not verify the fabricated default session');
+
+    for (const type of ['session.created', 'session.deleted']) {
+      f.push(missingIDEvent(type));
+      await flushThrough(type);
+    }
+    assert.deepEqual({
+      defaultEditUnchanged: fs.readFileSync(defaultEdit, 'utf8') === defaultBefore,
+      defaultSentinelPreserved: fs.existsSync(defaultSentinel),
+      checkNotRun: !fs.existsSync(checkLog),
+    }, { defaultEditUnchanged: true, defaultSentinelPreserved: true, checkNotRun: true },
+    'flat lifecycle events without data.sessionID must not reset the fabricated default session');
+  } finally {
+    if (dispose) await dispose();
+    f.restore();
+  }
 });
 
 test('V2 consumers α3: both completion orders and a post-completion counterpart verify one revision once', { concurrency: false }, async () => {
@@ -921,6 +969,11 @@ test('V2 consumers β1: failed next-prompt identity cannot reuse the previous wo
     const editFile = editStateArtifact(f.workspace, sessionID);
     const captureFile = path.join(stateDir(f.workspace, sessionID), 'opencode-captures.jsonl');
     const observationFile = path.join(f.store, 'sessions', `${observations.sha(sessionID, 32)}.json`);
+    const serverEnforcementFiles = [
+      editStateArtifact(serverWorkspace, sessionID),
+      path.join(stateDir(serverWorkspace, sessionID), 'compliance.json'),
+      path.join(stateDir(serverWorkspace, sessionID), 'opencode-captures.jsonl'),
+    ];
     const before = {
       edit: fs.readFileSync(editFile, 'utf8'),
       compliance: fs.readFileSync(path.join(stateDir(f.workspace, sessionID), 'compliance.json'), 'utf8'),
@@ -941,10 +994,12 @@ test('V2 consumers β1: failed next-prompt identity cannot reuse the previous wo
         && fs.readFileSync(path.join(stateDir(f.workspace, sessionID), 'compliance.json'), 'utf8') === before.compliance,
       noStaleCapture: fs.readFileSync(captureFile, 'utf8') === before.capture,
       noStaleObservation: fs.readFileSync(observationFile, 'utf8') === before.observation,
+      noServerEnforcementState: serverEnforcementFiles.every(file => !fs.existsSync(file)),
       noServerWorkspaceState: !fs.existsSync(routerArtifact(serverWorkspace, sessionID)),
     };
     assert.deepEqual(actual, {
-      noStaleContext: true, workspaceAUnchanged: true, noStaleCapture: true, noStaleObservation: true, noServerWorkspaceState: true,
+      noStaleContext: true, workspaceAUnchanged: true, noStaleCapture: true, noStaleObservation: true,
+      noServerEnforcementState: true, noServerWorkspaceState: true,
     }, `failed P2 identity must skip workspace-dependent work; actual=${JSON.stringify(actual)}`);
   } finally {
     if (dispose) await dispose();
