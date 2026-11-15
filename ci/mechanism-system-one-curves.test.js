@@ -152,6 +152,46 @@ test('curves reports zero coverage when every intent option is reference-only', 
   assert.ok(curves.stages.intent.coverageCurve.every(([, coverage]) => coverage === 0));
 });
 
+// F11 (#442 P1-1): validity correctness is predicted-vs-gold validity equivalence,
+// not membership in the one-option catalog's positive set (Set([]) for gold actionable).
+const validityCell = (t, rows, options) => {
+  const f = fixture(t, options);
+  const { stdout, curves } = f.run({ val: validityRows(rows) });
+  return { point: curves.stages.validity.coverageCurve[80], auc: JSON.parse(stdout).stages.validity.coverageAccuracyAuc };
+};
+
+test('validity cell 1: gold invalid, high p(invalid) predicts invalid and is correct', t => {
+  const cell = validityCell(t, [['invalid', 0.8]]);
+  assert.deepEqual(cell.point, [0.8, 1, 1]);
+  assert.equal(cell.auc, 1);
+});
+
+test('validity cell 2: gold invalid, low p(invalid) predicts actionable and is wrong', t => {
+  const cell = validityCell(t, [['invalid', 0.2]]);
+  assert.deepEqual(cell.point, [0.8, 1, 0]);
+  assert.equal(cell.auc, 0);
+});
+
+test('validity cell 3: gold actionable, low p(invalid) predicts actionable and is correct', t => {
+  const cell = validityCell(t, [['actionable', 0.2]]);
+  assert.deepEqual(cell.point, [0.8, 1, 1]);
+  assert.equal(cell.auc, 1);
+});
+
+test('validity cell 4: gold actionable, high p(invalid) predicts invalid and is wrong', t => {
+  const cell = validityCell(t, [['actionable', 0.8]]);
+  assert.deepEqual(cell.point, [0.8, 1, 0]);
+  assert.equal(cell.auc, 0);
+});
+
+test('validity reference-only invalid keeps its established semantics (unchanged control)', t => {
+  const f = fixture(t, { referenceOnly: ['invalid'] });
+  const { curves } = f.run({ val: validityRows([['invalid', 0.75], ['actionable', 0.25]]) });
+  const curve = curves.stages.validity.coverageCurve;
+  assert.deepEqual(curve[75], [0.75, 0.5, 1]);
+  assert.deepEqual(curve[25], [0.25, 1, 0.5]);
+});
+
 test('active trend rolls back after two consecutive worsening cycles', t => {
   const f = fixture(t);
   const cycles = [

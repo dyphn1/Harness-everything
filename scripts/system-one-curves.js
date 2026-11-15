@@ -70,7 +70,8 @@ function decision(row, stage, options, referenceOnly) {
     const probability = row.scores.invalid;
     if (referenceOnly.includes('invalid')) return { confidence: 1 - probability, correct: !row.positive.has('invalid') };
     const id = probability >= 0.5 ? 'invalid' : 'actionable';
-    return { confidence: Math.max(probability, 1 - probability), correct: row.positive.has(id) };
+    // gold actionable has positive = Set([]), so compare predicted-vs-gold validity equivalence.
+    return { confidence: Math.max(probability, 1 - probability), correct: (id === 'invalid') === row.positive.has('invalid') };
   }
   const selectable = options.filter(option => !referenceOnly.includes(option) && !(stage === 'intent' && option === 'unclassified'));
   if (!selectable.length) return { confidence: null, correct: false };
