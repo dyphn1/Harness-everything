@@ -9,6 +9,8 @@ const { spawnSync } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
 const observations = require('../hooks/scripts/lib/observations');
 const exporter = require('../scripts/system-one-observations-export');
+const workspaceState = require('../scripts/lib/workspace');
+const harnessState = require('../hooks/scripts/lib/harness-state');
 
 const ROOT = path.resolve(__dirname, '..');
 const PLUGIN = path.join(ROOT, 'opencode-plugin', 'index.mjs');
@@ -44,9 +46,12 @@ function fixture(observationMode = 'on') {
   let contextMessageID = 'user-message';
   let contextPrompt = 'fix the observed turn';
   let finalText = VALID_LABEL;
+  let sessionLookup = async ({ sessionID }) => ({ id: sessionID, location: { directory: workspace } });
+  let sessionLookups = 0;
   const ctx = {
     location: { directory: workspace },
     session: {
+      get: async input => { sessionLookups++; return sessionLookup(input); },
       hook: async (name, callback) => {
         sessionHooks.set(name, event => {
           if (name === 'prompt') {
@@ -90,6 +95,8 @@ function fixture(observationMode = 'on') {
   return {
     dir, workspace, store, ctx, sessionHooks, toolHooks, push,
     setFinal(text) { finalText = text; },
+    setSessionLookup(lookup) { sessionLookup = lookup; },
+    sessionLookupCount() { return sessionLookups; },
     restore() {
       for (const [key, value] of Object.entries(envBefore)) {
         if (value === undefined) delete process.env[key];
@@ -108,6 +115,11 @@ async function install(f) {
 function recordList(store) {
   const file = path.join(store, 'observations-index.json');
   return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')).records : [];
+}
+
+function routerArtifact(workspace, sessionID) {
+  const stateDir = path.join(workspaceState.getWorkspaceStateDir(workspace), 'state', 'sessions', harnessState.sessionDirectoryName(sessionID));
+  return path.join(stateDir, 'workflow-run.json');
 }
 
 async function waitFor(predicate) {
@@ -202,8 +214,285 @@ test('record: OpenCode prompt, tool and idle events append one host-tagged recor
     assert.equal(record.turn, 1, 'a repeated admission with the same message id does not start a second turn');
     assert.equal(record.selfReport.tier, 'tier2');
     assert.equal(record.behavior.filesWritten, 1);
+    assert.equal(f.sessionLookupCount(), 1, 'a duplicate prompt reuses the existing session binding');
     const text = JSON.parse(fs.readFileSync(path.join(f.store, 'text', `${record.contentSha256}.json`), 'utf8'));
     assert.equal(text.prompt, 'fix the observed turn');
+  } finally {
+    if (dispose) await dispose();
+    f.restore();
+  }
+});
+
+test('workspace: V2 prompt and observations bind to the session directory when setup and server workspaces differ', { concurrency: false }, async () => {
+  const f = fixture();
+  const sessionWorkspace = path.join(f.dir, 'session-workspace');
+  const serverWorkspace = path.join(f.dir, 'server-workspace');
+  for (const workspace of [sessionWorkspace, serverWorkspace]) {
+    fs.mkdirSync(workspace, { recursive: true });
+    const gitInit = spawnSync('git', ['init', '-q', workspace], { encoding: 'utf8' });
+    assert.equal(gitInit.status, 0, gitInit.stderr);
+  }
+  f.setSessionLookup(async ({ sessionID }) => ({ id: sessionID, location: { directory: sessionWorkspace } }));
+  const originalCwd = process.cwd();
+  let dispose;
+  try {
+    process.chdir(serverWorkspace);
+    dispose = await install(f);
+    const sessionID = 'cross-workspace-session';
+    const messageID = 'cross-workspace-turn';
+    await f.sessionHooks.get('prompt')({ sessionID, messageID, prompt: { text: 'record the authoritative session workspace' } });
+    await f.sessionHooks.get('prompt')({ sessionID, messageID, prompt: { text: 'record the authoritative session workspace' } });
+
+    const pendingFile = path.join(f.store, 'sessions', `${observations.sha(sessionID, 32)}.json`);
+    const pendingCwd = JSON.parse(fs.readFileSync(pendingFile, 'utf8')).pending?.cwd;
+    const context = { sessionID, kind: 'primary', system: [], messages: [] };
+    await f.sessionHooks.get('context')(context);
+    assert.match(context.system.map(part => part.text || '').join('\n'), /=> ROUTER WORKFLOW PLAN/);
+    await f.toolHooks.get('execute.after')({
+      status: 'completed', tool: 'edit', sessionID, id: 'cross-workspace-call', input: { filePath: 'changed.js' }, result: {},
+    });
+    f.push(v2Event('session.execution.succeeded', sessionID));
+    await waitFor(() => recordList(f.store).length === 1);
+
+    const [record] = recordList(f.store);
+    const artifactPaths = {
+      setupA: routerArtifact(f.workspace, sessionID),
+      sessionB: routerArtifact(sessionWorkspace, sessionID),
+      serverC: routerArtifact(serverWorkspace, sessionID),
+    };
+    const artifacts = Object.fromEntries(Object.entries(artifactPaths).map(([key, file]) => [key, fs.existsSync(file)]));
+    const actual = { artifacts, artifactPaths, observationCwdHash: pendingCwd, recordRouter: record.router };
+    assert.deepEqual(artifacts, { setupA: false, sessionB: true, serverC: false },
+      `router workspace artifacts must follow session B; actual=${JSON.stringify(actual)}`);
+    assert.equal(pendingCwd, observations.sha(sessionWorkspace, 16),
+      `the completed turn's observation must start with session B attribution; actual=${JSON.stringify(actual)}`);
+    const sessionRun = JSON.parse(fs.readFileSync(artifactPaths.sessionB, 'utf8'));
+    assert.equal(record.router?.tier, sessionRun.workflowPlan?.tier || sessionRun.tier,
+      `the production observation router field must reflect session B state; actual=${JSON.stringify(actual)}`);
+    assert.equal(record.writer.sessionId, sessionID);
+    assert.equal(record.writer.turnId, messageID);
+    assert.equal(record.behavior.filesWritten, 1);
+    assert.equal(record.selfReportReason, null);
+    assert.equal(f.sessionLookupCount(), 1, 'one session lookup is used for the distinct prompt');
+  } finally {
+    if (dispose) await dispose();
+    process.chdir(originalCwd);
+    f.restore();
+  }
+});
+
+test('workspace: session directory is used when setup provides no location', { concurrency: false }, async () => {
+  const f = fixture();
+  const sessionWorkspace = path.join(f.dir, 'session-workspace');
+  const serverWorkspace = path.join(f.dir, 'server-workspace');
+  for (const workspace of [sessionWorkspace, serverWorkspace]) {
+    fs.mkdirSync(workspace, { recursive: true });
+    const gitInit = spawnSync('git', ['init', '-q', workspace], { encoding: 'utf8' });
+    assert.equal(gitInit.status, 0, gitInit.stderr);
+  }
+  f.ctx.location = undefined;
+  f.ctx.directory = undefined;
+  f.setSessionLookup(async ({ sessionID }) => ({ id: sessionID, location: { directory: sessionWorkspace } }));
+  const originalCwd = process.cwd();
+  let dispose;
+  try {
+    process.chdir(serverWorkspace);
+    dispose = await install(f);
+    const sessionID = 'session-without-setup-location';
+    await f.sessionHooks.get('prompt')({ sessionID, messageID: 'without-setup-turn', prompt: { text: 'use the host session directory' } });
+    f.push(v2Event('session.execution.succeeded', sessionID));
+    await waitFor(() => recordList(f.store).length === 1);
+
+    const artifactPaths = [f.workspace, sessionWorkspace, serverWorkspace].map(workspace => routerArtifact(workspace, sessionID));
+    assert.deepEqual(artifactPaths.map(file => fs.existsSync(file)), [false, true, false]);
+    assert.equal(recordList(f.store)[0].writer.turnId, 'without-setup-turn');
+    assert.equal(recordList(f.store)[0].selfReportReason, null);
+    assert.equal(f.sessionLookupCount(), 1);
+  } finally {
+    if (dispose) await dispose();
+    process.chdir(originalCwd);
+    f.restore();
+  }
+});
+
+test('workspace: interleaved sessions keep their own router, tool and completion bindings', { concurrency: false }, async () => {
+  const f = fixture();
+  const workspaceB = path.join(f.dir, 'workspace-b');
+  fs.mkdirSync(workspaceB, { recursive: true });
+  const gitInit = spawnSync('git', ['init', '-q', workspaceB], { encoding: 'utf8' });
+  assert.equal(gitInit.status, 0, gitInit.stderr);
+  f.setSessionLookup(async ({ sessionID }) => ({ id: sessionID, location: { directory: sessionID === 'session-b' ? workspaceB : f.workspace } }));
+  let dispose;
+  try {
+    dispose = await install(f);
+    for (const [sessionID, messageID] of [['session-a', 'turn-a'], ['session-b', 'turn-b']]) {
+      await f.sessionHooks.get('prompt')({ sessionID, messageID, prompt: { text: `capture ${sessionID}` } });
+    }
+    const pendingA = JSON.parse(fs.readFileSync(path.join(f.store, 'sessions', `${observations.sha('session-a', 32)}.json`), 'utf8')).pending;
+    const pendingB = JSON.parse(fs.readFileSync(path.join(f.store, 'sessions', `${observations.sha('session-b', 32)}.json`), 'utf8')).pending;
+    assert.equal(pendingA.cwd, observations.sha(f.workspace, 16));
+    assert.equal(pendingB.cwd, observations.sha(workspaceB, 16));
+
+    for (const sessionID of ['session-a', 'session-b']) {
+      await f.toolHooks.get('execute.after')({
+        status: 'completed', tool: 'edit', sessionID, id: `call-${sessionID}`, input: { filePath: `${sessionID}.js` }, result: {},
+      });
+    }
+    f.push(v2Event('session.execution.succeeded', 'session-b'));
+    await waitFor(() => recordList(f.store).length === 1);
+    f.push(v2Event('session.execution.succeeded', 'session-a'));
+    await waitFor(() => recordList(f.store).length === 2);
+
+    const bySession = Object.fromEntries(recordList(f.store).map(record => [record.writer.sessionId, record]));
+    assert.deepEqual(Object.keys(bySession).sort(), ['session-a', 'session-b']);
+    assert.equal(bySession['session-a'].writer.turnId, 'turn-a');
+    assert.equal(bySession['session-b'].writer.turnId, 'turn-b');
+    assert.equal(bySession['session-a'].behavior.filesWritten, 1);
+    assert.equal(bySession['session-b'].behavior.filesWritten, 1);
+    assert.ok(bySession['session-a'].router?.tier);
+    assert.ok(bySession['session-b'].router?.tier);
+    assert.equal(f.sessionLookupCount(), 2);
+  } finally {
+    if (dispose) await dispose();
+    f.restore();
+  }
+});
+
+test('workspace: unresolved identity skips state and observations and does not inject a stale route', { concurrency: false }, async () => {
+  const f = fixture();
+  const serverWorkspace = path.join(f.dir, 'server-workspace');
+  fs.mkdirSync(serverWorkspace, { recursive: true });
+  const originalCwd = process.cwd();
+  const originalWarn = console.warn;
+  const warnings = [];
+  let dispose;
+  try {
+    dispose = await install(f);
+    const sessionID = 'unresolved-session';
+    await f.sessionHooks.get('prompt')({ sessionID, messageID: 'known-turn', prompt: { text: 'known workspace route' } });
+    const firstContext = { sessionID, kind: 'primary', system: [], messages: [] };
+    await f.sessionHooks.get('context')(firstContext);
+    const oldRoute = firstContext.system.map(part => part.text || '').join('\n');
+    assert.match(oldRoute, /=> ROUTER WORKFLOW PLAN/);
+    const stateFile = routerArtifact(f.workspace, sessionID);
+    const stateBefore = fs.readFileSync(stateFile, 'utf8');
+
+    process.chdir(serverWorkspace);
+    f.ctx.location = undefined;
+    f.ctx.directory = undefined;
+    f.setSessionLookup(async () => { throw new Error('private lookup detail'); });
+    console.warn = message => warnings.push(String(message));
+    await f.sessionHooks.get('prompt')({ sessionID, messageID: 'unresolved-turn', prompt: { text: 'must not reuse the previous route' } });
+    const nextContext = { sessionID, kind: 'primary', system: [], messages: [] };
+    await f.sessionHooks.get('context')(nextContext);
+    assert.deepEqual(nextContext.system, [], 'a previous router payload is not reused after identity fails');
+    assert.equal(fs.readFileSync(stateFile, 'utf8'), stateBefore, 'the failed lookup does not rerun the router in workspace A');
+    assert.equal(fs.existsSync(routerArtifact(serverWorkspace, sessionID)), false, 'the server cwd receives no router state');
+    assert.deepEqual(recordList(f.store), [], 'the unresolved prompt creates no completed observation');
+    assert.match(warnings.join('\n'), /session-lookup-failed; count=1/);
+    assert.doesNotMatch(warnings.join('\n'), /unresolved-session|must not reuse|private lookup detail|server-workspace/);
+    f.push(v2Event('session.execution.succeeded', sessionID));
+    await new Promise(resolve => setTimeout(resolve, 50));
+    assert.deepEqual(recordList(f.store), []);
+  } finally {
+    if (dispose) await dispose();
+    console.warn = originalWarn;
+    process.chdir(originalCwd);
+    f.restore();
+  }
+});
+
+test('workspace: rejected, empty and relative session identities fail open without cwd state', { concurrency: false }, async () => {
+  const cases = [
+    { name: 'rejected', reason: 'session-lookup-failed', lookup: async () => { throw new Error('private lookup detail'); } },
+    { name: 'empty', reason: 'session-directory-unavailable', lookup: async () => ({}) },
+    { name: 'relative', reason: 'session-directory-invalid', lookup: async () => ({ location: { directory: 'relative/session' } }) },
+  ];
+  for (const item of cases) {
+    const f = fixture();
+    const serverWorkspace = path.join(f.dir, 'server-workspace');
+    fs.mkdirSync(serverWorkspace, { recursive: true });
+    f.ctx.location = undefined;
+    f.ctx.directory = undefined;
+    f.setSessionLookup(item.lookup);
+    const originalCwd = process.cwd();
+    const originalWarn = console.warn;
+    const warnings = [];
+    let dispose;
+    try {
+      process.chdir(serverWorkspace);
+      console.warn = message => warnings.push(String(message));
+      dispose = await install(f);
+      const sessionID = `identity-${item.name}`;
+      await f.sessionHooks.get('prompt')({ sessionID, messageID: 'unresolved-turn', prompt: { text: 'admission stays open' } });
+      const context = { sessionID, kind: 'primary', system: [], messages: [] };
+      await f.sessionHooks.get('context')(context);
+      assert.deepEqual(context.system, [], `${item.name} identity does not inject routing context`);
+      f.push(v2Event('session.execution.succeeded', sessionID));
+      await new Promise(resolve => setTimeout(resolve, 50));
+      assert.deepEqual(recordList(f.store), [], `${item.name} identity does not create observations`);
+      assert.equal(fs.existsSync(path.join(f.dir, 'harness-state', 'workspaces')), false,
+        `${item.name} identity does not initialize setup or cwd enforcement state`);
+      assert.match(warnings.join('\n'), new RegExp(`${item.reason}; count=1`));
+      assert.doesNotMatch(warnings.join('\n'), new RegExp(`${sessionID}|admission stays open|private lookup detail|server-workspace`));
+      assert.equal(f.sessionLookupCount(), 1);
+    } finally {
+      if (dispose) await dispose();
+      console.warn = originalWarn;
+      process.chdir(originalCwd);
+      f.restore();
+    }
+  }
+});
+
+test('workspace: a session lookup that never settles releases prompt admission without cwd fallback', { concurrency: false }, async () => {
+  const f = fixture();
+  const serverWorkspace = path.join(f.dir, 'server-workspace');
+  fs.mkdirSync(serverWorkspace, { recursive: true });
+  f.ctx.location = undefined;
+  f.ctx.directory = undefined;
+  f.setSessionLookup(() => new Promise(() => {}));
+  const originalCwd = process.cwd();
+  const originalWarn = console.warn;
+  const warnings = [];
+  let dispose;
+  try {
+    process.chdir(serverWorkspace);
+    console.warn = message => warnings.push(String(message));
+    dispose = await install(f);
+    const started = Date.now();
+    await f.sessionHooks.get('prompt')({ sessionID: 'pending-identity', messageID: 'pending-turn', prompt: { text: 'do not wait forever' } });
+    assert.ok(Date.now() - started < 6000, 'prompt admission is released by the bounded identity lookup');
+    assert.equal(f.sessionLookupCount(), 1);
+    assert.equal(fs.existsSync(path.join(f.dir, 'harness-state', 'workspaces')), false);
+    assert.deepEqual(recordList(f.store), []);
+    assert.match(warnings.join('\n'), /session-lookup-timeout; count=1/);
+    assert.doesNotMatch(warnings.join('\n'), /pending-identity|do not wait forever|server-workspace/);
+  } finally {
+    if (dispose) await dispose();
+    console.warn = originalWarn;
+    process.chdir(originalCwd);
+    f.restore();
+  }
+});
+
+test('workspace: an unbound session lifecycle event resolves its own workspace before resetting state', { concurrency: false }, async () => {
+  const f = fixture();
+  const sessionWorkspace = path.join(f.dir, 'session-workspace');
+  fs.mkdirSync(sessionWorkspace, { recursive: true });
+  f.setSessionLookup(async ({ sessionID }) => ({ id: sessionID, location: { directory: sessionWorkspace } }));
+  const sessionID = 'created-session';
+  const stateFile = routerArtifact(sessionWorkspace, sessionID);
+  const stateDir = path.dirname(stateFile);
+  fs.mkdirSync(stateDir, { recursive: true });
+  fs.writeFileSync(stateFile, '{"stale":true}');
+  let dispose;
+  try {
+    dispose = await install(f);
+    f.push({ type: 'session.created', sessionID });
+    await waitFor(() => f.sessionLookupCount() === 1 && !fs.existsSync(stateDir));
+    assert.equal(fs.existsSync(routerArtifact(f.workspace, sessionID)), false);
+    assert.deepEqual(recordList(f.store), []);
   } finally {
     if (dispose) await dispose();
     f.restore();

@@ -166,6 +166,7 @@ const helper = require('./test-helper');
     location: { directory: workspace },
     tool: { hook: async (name, callback) => { registrations.set(name, callback); } },
     session: {
+      get: async ({ sessionID }) => ({ id: sessionID, location: { directory: workspace } }),
       hook: async (name, callback) => { sessionHooks.set(name, callback); return { dispose: async () => {} }; },
       prompt: async value => { prompts.push(value.text); },
       context: async () => [],
