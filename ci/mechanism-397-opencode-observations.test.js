@@ -14,8 +14,12 @@ const harnessState = require('../hooks/scripts/lib/harness-state');
 
 const ROOT = path.resolve(__dirname, '..');
 const PLUGIN = path.join(ROOT, 'opencode-plugin', 'index.mjs');
+const VERIFY_KILL_GRACE_MS = Number(fs.readFileSync(PLUGIN, 'utf8').match(/const VERIFY_KILL_GRACE_MS = (\d+)/)?.[1]);
+const HEARTBEAT_INTERVAL_MS = 20;
+const HEARTBEAT_POLL_MS = 10;
 const VALID_LABEL = '<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier2","intents":["fix","test"],"workflow":"iterative-single","skills":["tdd"]} -->';
 const SECOND_LABEL = '<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier2","intents":["edit"],"workflow":"iterative-single","skills":[]} -->';
+assert.ok(Number.isFinite(VERIFY_KILL_GRACE_MS), 'the verification runner exposes its process-group grace in source');
 
 // OpenCode 2.x events are flat: {id, created, type, durable, [location], data},
 // the session id lives at data.sessionID, and a completed turn ends with
@@ -43,6 +47,7 @@ function fixture(observationMode = 'on') {
   const toolHooks = new Map();
   const events = [];
   const waiters = [];
+  let deliveredEvent = null;
   let contextMessageID = 'user-message';
   let contextPrompt = 'fix the observed turn';
   let finalText = VALID_LABEL;
@@ -75,10 +80,18 @@ function fixture(observationMode = 'on') {
       subscribe: ({ signal }) => ({
         [Symbol.asyncIterator]: () => ({
           next: () => {
-            if (events.length) return Promise.resolve({ value: events.shift(), done: false });
+            if (deliveredEvent) {
+              deliveredEvent.consumed();
+              deliveredEvent = null;
+            }
+            const deliver = item => {
+              deliveredEvent = item;
+              return { value: item.event, done: false };
+            };
+            if (events.length) return Promise.resolve(deliver(events.shift()));
             if (signal.aborted) return Promise.resolve({ done: true });
             return new Promise(resolve => {
-              waiters.push(resolve);
+              waiters.push(item => resolve(deliver(item)));
               signal.addEventListener('abort', () => resolve({ done: true }), { once: true });
             });
           },
@@ -87,9 +100,12 @@ function fixture(observationMode = 'on') {
     },
   };
   const push = event => {
-    const waiter = waiters.shift();
-    if (waiter) waiter({ value: event, done: false });
-    else events.push(event);
+    return new Promise(consumed => {
+      const item = { event, consumed };
+      const waiter = waiters.shift();
+      if (waiter) waiter(item);
+      else events.push(item);
+    });
   };
 
   return {
@@ -131,7 +147,7 @@ async function waitFor(predicate) {
   const deadline = Date.now() + 3000;
   while (!predicate()) {
     if (Date.now() >= deadline) throw new Error('OpenCode observation was not written');
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise(resolve => setTimeout(resolve, HEARTBEAT_POLL_MS));
   }
 }
 
@@ -139,9 +155,41 @@ async function waitUntil(predicate, timeout = 3000) {
   const deadline = Date.now() + timeout;
   while (!predicate()) {
     if (Date.now() >= deadline) return false;
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise(resolve => setTimeout(resolve, HEARTBEAT_POLL_MS));
   }
   return true;
+}
+
+async function waitForProcessStop(pid, heartbeat, timeout) {
+  const deadline = Date.now() + timeout;
+  let previousSize = fs.statSync(heartbeat).size;
+  let stableSince = null;
+  while (Date.now() < deadline) {
+    let running = true;
+    try { process.kill(pid, 0); } catch (error) { if (error.code === 'ESRCH') running = false; }
+    const size = fs.existsSync(heartbeat) ? fs.statSync(heartbeat).size : 0;
+    if (!running && size === previousSize) {
+      stableSince ??= Date.now();
+      if (Date.now() - stableSince >= HEARTBEAT_INTERVAL_MS * 2) return true;
+    } else {
+      previousSize = size;
+      stableSince = null;
+    }
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  return false;
+}
+
+async function resolvesWithin(promise, timeout) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise.then(() => true, () => false),
+      new Promise(resolve => { timer = setTimeout(() => resolve(false), timeout); }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function stateDir(workspace, sessionID) {
@@ -771,14 +819,16 @@ test('V2 consumers α1: flat execution.succeeded verifies the edit in its sessio
   }
 });
 
-async function flatLifecycleReset(type) {
+async function flatLifecycleReset(startType, lifecycleType) {
   const f = fixture('off');
-  const sessionID = `flat-reset-${type}`;
+  const sessionID = `flat-reset-${startType}-${lifecycleType}`;
   const unrelated = 'unrelated-session';
   const ready = path.join(f.dir, 'verification-ready');
   const heartbeat = path.join(f.dir, 'verification-heartbeat');
-  writeVerificationPackage(f, `const fs=require('node:fs');fs.writeFileSync(${JSON.stringify(ready)},'ready');setInterval(()=>fs.appendFileSync(${JSON.stringify(heartbeat)},'x'),20)`);
+  const workerPIDFile = path.join(f.dir, 'verification-worker.pid');
+  writeVerificationPackage(f, `const fs=require('node:fs');fs.writeFileSync(${JSON.stringify(workerPIDFile)},String(process.pid));fs.writeFileSync(${JSON.stringify(ready)},'ready');setInterval(()=>fs.appendFileSync(${JSON.stringify(heartbeat)},'x'),${HEARTBEAT_INTERVAL_MS})`);
   let dispose;
+  let workerPID;
   try {
     dispose = await install(f);
     await sendEdit(f, unrelated, 'unrelated-edit');
@@ -786,34 +836,108 @@ async function flatLifecycleReset(type) {
     fs.mkdirSync(path.dirname(defaultFile), { recursive: true });
     fs.writeFileSync(defaultFile, '{"sentinel":true}');
 
-    await sendEdit(f, sessionID, `${type}-edit`);
-    f.push(v2Event('session.execution.succeeded', sessionID));
-    assert.equal(await waitUntil(() => fs.existsSync(ready)), true, 'V2 completion started the deliberately pending check');
-    f.push(v2Event(type, sessionID));
-    await new Promise(resolve => setTimeout(resolve, 250));
-    const heartbeatAtReset = fs.existsSync(heartbeat) ? fs.statSync(heartbeat).size : 0;
-    await new Promise(resolve => setTimeout(resolve, 120));
+    await sendEdit(f, sessionID, `${lifecycleType}-edit`);
+    f.push(v2Event(startType, sessionID));
+    assert.equal(await waitUntil(() => fs.existsSync(ready) && fs.existsSync(heartbeat) && fs.statSync(heartbeat).size > 0), true,
+      'the check is running and has produced a heartbeat before cancellation');
+    workerPID = Number(fs.readFileSync(workerPIDFile, 'utf8'));
+    assert.ok(Number.isSafeInteger(workerPID) && workerPID > 0, 'the running check process has a valid PID');
+    const cleanupBound = process.platform === 'win32'
+      ? 3000 // Windows taskkill is awaited by the runner and has no configured SIGTERM grace.
+      : VERIFY_KILL_GRACE_MS + HEARTBEAT_INTERVAL_MS * 2 + HEARTBEAT_POLL_MS;
+    const lifecycleConsumed = await resolvesWithin(f.push(v2Event(lifecycleType, sessionID)), cleanupBound);
+    const processStopped = await waitForProcessStop(workerPID, heartbeat, cleanupBound);
 
     const actual = {
+      lifecycleConsumed,
       sessionRemoved: !fs.existsSync(stateDir(f.workspace, sessionID)),
       unrelatedPreserved: fs.existsSync(editStateArtifact(f.workspace, unrelated)),
       defaultPreserved: fs.existsSync(defaultFile),
-      processStopped: fs.existsSync(heartbeat) && fs.statSync(heartbeat).size === heartbeatAtReset,
+      processStopped,
     };
-    assert.deepEqual(actual, { sessionRemoved: true, unrelatedPreserved: true, defaultPreserved: true, processStopped: true },
-      `flat ${type} must cancel a V2-started check and reset only ${sessionID}; actual=${JSON.stringify(actual)}`);
+    assert.deepEqual(actual, { lifecycleConsumed: true, sessionRemoved: true, unrelatedPreserved: true, defaultPreserved: true, processStopped: true },
+      `flat ${lifecycleType} must cancel a check started by flat ${startType} and reset only ${sessionID}; actual=${JSON.stringify(actual)}`);
   } finally {
+    if (workerPID) {
+      try { process.kill(workerPID, process.platform === 'win32' ? undefined : 'SIGKILL'); } catch { /* test failure cleanup */ }
+    }
     if (dispose) await dispose();
     f.restore();
   }
 }
 
-test('V2 consumers α2: flat session.created cancels and resets only its bound session', { concurrency: false }, async () => {
-  await flatLifecycleReset('session.created');
-});
+for (const startType of ['session.idle', 'session.execution.succeeded']) {
+  for (const lifecycleType of ['session.created', 'session.deleted']) {
+    test(`V2 consumers α2: flat ${startType} check is cancelled by flat ${lifecycleType}`, { concurrency: false }, async () => {
+      await flatLifecycleReset(startType, lifecycleType);
+    });
+  }
+}
 
-test('V2 consumers α2: flat session.deleted cancels and resets only its bound session', { concurrency: false }, async () => {
-  await flatLifecycleReset('session.deleted');
+test('V2 consumers α2: old same-ID completion cannot clear a recreated session check', { concurrency: false }, async () => {
+  const f = fixture('off');
+  const sessionID = 'flat-recreated-session';
+  const newReady = path.join(f.dir, 'new-verification-ready');
+  const newHeartbeat = path.join(f.dir, 'new-verification-heartbeat');
+  const newPIDFile = path.join(f.dir, 'new-verification-worker.pid');
+  let startOldPrompt;
+  const oldPromptStarted = new Promise(resolve => { startOldPrompt = resolve; });
+  let resolveOldPrompt;
+  const oldPromptCompletion = new Promise(resolve => { resolveOldPrompt = resolve; });
+  f.ctx.session.prompt = async ({ text }) => {
+    if (text.includes('first generation failure')) {
+      startOldPrompt();
+      await oldPromptCompletion;
+    }
+  };
+  writeVerificationPackage(f, "console.error('AssertionError: first generation failure');process.exit(1)");
+  let dispose;
+  let newPID;
+  try {
+    dispose = await install(f);
+    await sendEdit(f, sessionID, 'old-generation-edit');
+    f.push(v2Event('session.execution.succeeded', sessionID));
+    assert.equal(await resolvesWithin(oldPromptStarted, 3000), true,
+      'the first generation is held in asynchronous follow-up delivery');
+
+    const cleanupBound = process.platform === 'win32' ? 3000
+      : VERIFY_KILL_GRACE_MS + HEARTBEAT_INTERVAL_MS * 2 + HEARTBEAT_POLL_MS;
+    const oldDeleteConsumed = await resolvesWithin(f.push(v2Event('session.deleted', sessionID)), cleanupBound);
+    const recreateConsumed = await resolvesWithin(f.push(v2Event('session.created', sessionID)), cleanupBound);
+    writeVerificationPackage(f,
+      `const fs=require('node:fs');fs.writeFileSync(${JSON.stringify(newPIDFile)},String(process.pid));fs.writeFileSync(${JSON.stringify(newReady)},'ready');setInterval(()=>fs.appendFileSync(${JSON.stringify(newHeartbeat)},'x'),${HEARTBEAT_INTERVAL_MS})`);
+    await sendEdit(f, sessionID, 'new-generation-edit');
+    f.push(v2Event('session.execution.succeeded', sessionID));
+    assert.equal(await waitUntil(() => fs.existsSync(newReady) && fs.existsSync(newHeartbeat) && fs.statSync(newHeartbeat).size > 0), true,
+      'the recreated generation starts a check while old completion delivery is pending');
+    newPID = Number(fs.readFileSync(newPIDFile, 'utf8'));
+    resolveOldPrompt();
+    await new Promise(resolve => setImmediate(resolve));
+
+    const newDeleteConsumed = await resolvesWithin(f.push(v2Event('session.deleted', sessionID)), cleanupBound);
+    const newProcessStopped = await waitForProcessStop(newPID, newHeartbeat, cleanupBound);
+    const actual = {
+      oldDeleteConsumed,
+      recreateConsumed,
+      newDeleteConsumed,
+      newSessionRemoved: !fs.existsSync(stateDir(f.workspace, sessionID)),
+      newProcessStopped,
+    };
+    assert.deepEqual(actual, {
+      oldDeleteConsumed: true,
+      recreateConsumed: true,
+      newDeleteConsumed: true,
+      newSessionRemoved: true,
+      newProcessStopped: true,
+    }, `an old same-ID completion must not clear the recreated controller; actual=${JSON.stringify(actual)}`);
+  } finally {
+    resolveOldPrompt();
+    if (newPID) {
+      try { process.kill(newPID, process.platform === 'win32' ? undefined : 'SIGKILL'); } catch { /* test failure cleanup */ }
+    }
+    if (dispose) await dispose();
+    f.restore();
+  }
 });
 
 test('V2 consumers α: flat lifecycle and completion events without an id leave default state untouched', { concurrency: false }, async () => {
