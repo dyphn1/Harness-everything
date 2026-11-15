@@ -161,11 +161,15 @@ const helper = require('./test-helper');
 
   // The V2 adapter must keep consuming reset/delete events while idle
   // verification is pending, and its disposer must await child cleanup.
-  const queue = [], registrations = new Map();
+  const queue = [], registrations = new Map(), sessionHooks = new Map();
   const dispose = await mod.default.setup({
     location: { directory: workspace },
     tool: { hook: async (name, callback) => { registrations.set(name, callback); } },
-    session: { prompt: async value => { prompts.push(value.text); } },
+    session: {
+      hook: async (name, callback) => { sessionHooks.set(name, callback); return { dispose: async () => {} }; },
+      prompt: async value => { prompts.push(value.text); },
+      context: async () => [],
+    },
     event: { subscribe: async function* ({ signal }) {
       while (!signal.aborted) {
         if (queue.length) yield queue.shift();
