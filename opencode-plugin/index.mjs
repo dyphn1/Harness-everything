@@ -89,32 +89,47 @@ function harnessRuntime() {
   return process.versions.bun ? "node" : process.execPath
 }
 
-function runKernelRouter(payload) {
-  if (!ROUTER_FILE) return Promise.resolve(null)
+function runKernelRouter(payload, signal) {
+  if (!ROUTER_FILE || signal?.aborted) return Promise.resolve(null)
   return new Promise(resolveOutput => {
     let stdout = ""
-    let settled = false
-    const finish = value => {
+    let child, timeout, termination, spawnError = false, timedOut = false, cancelled = false, settled = false
+    const terminate = () => {
+      if (!termination && child) termination = terminateVerificationChild(child)
+    }
+    const finish = async code => {
       if (settled) return
       settled = true
       clearTimeout(timeout)
-      resolveOutput(value)
+      signal?.removeEventListener("abort", abort)
+      if (termination) await termination
+      resolveOutput(!spawnError && !timedOut && !cancelled && code === 0 ? stdout.trim() : null)
     }
-    const child = spawn(harnessRuntime(), [ROUTER_FILE], {
-      cwd: payload.cwd || HARNESS_ROOT,
-      env: process.env,
-      stdio: ["pipe", "pipe", "ignore"],
-      windowsHide: true,
-    })
-    const timeout = setTimeout(() => {
-      try { child.kill() } catch {}
-      finish(null)
-    }, 5000)
+    const abort = () => { cancelled = true; terminate() }
+    try {
+      child = spawn(harnessRuntime(), [ROUTER_FILE], {
+        cwd: payload.cwd || HARNESS_ROOT,
+        env: process.env,
+        detached: process.platform !== "win32",
+        stdio: ["pipe", "pipe", "ignore"],
+        windowsHide: true,
+      })
+    } catch {
+      resolveOutput(null)
+      return
+    }
     child.stdout.on("data", chunk => { stdout += chunk })
-    child.stdin.on("error", () => finish(null))
-    child.on("error", () => finish(null))
-    child.on("close", code => finish(code === 0 ? stdout.trim() : null))
-    try { child.stdin.end(JSON.stringify(payload)) } catch { finish(null) }
+    child.stdin.on("error", () => { spawnError = true; terminate() })
+    child.once("error", () => {
+      spawnError = true
+      if (!child.pid) void finish(null)
+      else terminate()
+    })
+    child.once("close", code => { void finish(code) })
+    signal?.addEventListener("abort", abort, { once: true })
+    if (signal?.aborted) abort()
+    timeout = setTimeout(() => { timedOut = true; terminate() }, 5000)
+    try { child.stdin.end(JSON.stringify(payload)) } catch { spawnError = true; terminate() }
   })
 }
 
@@ -169,10 +184,10 @@ function observeOpenCodeTool(event, workspace) {
   } catch { /* turn observation is always fail-open */ }
 }
 
-async function observeOpenCodeCompletion(sessionID, ctx, promptRoutes) {
+async function observeOpenCodeCompletion(sessionID, ctx, promptRoutes, signal) {
   const prompt = promptRoutes.get(sessionID)
   promptRoutes.delete(sessionID)
-  if (!prompt?.workspace) return
+  if (!prompt?.workspace || signal?.aborted) return
   try {
     const observations = systemOneObservations()
     if (!observations || !observations.enabled()) return
@@ -186,6 +201,7 @@ async function observeOpenCodeCompletion(sessionID, ctx, promptRoutes) {
       cwd: prompt.workspace,
       ...(lastMessage === null ? {} : { last_assistant_message: lastMessage }),
     }
+    if (signal?.aborted) return
     observations.handle(payload)
   } catch { /* turn observation is always fail-open */ }
 }
@@ -1287,6 +1303,13 @@ export default {
     const sessionOwners = new Map()
     const invalidatedSessions = new Set()
     const enforcementByWorkspace = new Map()
+    const pendingEvents = new Set()
+    const trackPending = work => {
+      const pending = Promise.resolve().then(work)
+      pendingEvents.add(pending)
+      pending.then(() => pendingEvents.delete(pending), () => pendingEvents.delete(pending))
+      return pending
+    }
     let unresolvedIdentityCount = 0
 
     const unresolvedIdentity = reason => {
@@ -1294,14 +1317,26 @@ export default {
       try { console.warn(`[Harness] OpenCode session workspace unresolved (${reason}; count=${unresolvedIdentityCount}); workspace-dependent handling skipped.`) } catch {}
     }
     const resolveSessionWorkspace = sessionID => new Promise(resolveIdentity => {
+      if (events.signal.aborted) {
+        resolveIdentity({ reason: "plugin-disposed" })
+        return
+      }
       let settled = false
+      let timer
+      const onAbort = () => finish({ reason: "plugin-disposed" })
       const finish = result => {
         if (settled) return
         settled = true
         clearTimeout(timer)
+        events.signal.removeEventListener("abort", onAbort)
         resolveIdentity(result)
       }
-      const timer = setTimeout(() => finish({ reason: "session-lookup-timeout" }), SESSION_LOOKUP_TIMEOUT_MS)
+      timer = setTimeout(() => finish({ reason: "session-lookup-timeout" }), SESSION_LOOKUP_TIMEOUT_MS)
+      events.signal.addEventListener("abort", onAbort, { once: true })
+      if (events.signal.aborted) {
+        onAbort()
+        return
+      }
       if (typeof ctx.session?.get !== "function") {
         finish({ reason: "session-lookup-unavailable" })
         return
@@ -1323,6 +1358,7 @@ export default {
       }, () => finish({ reason: "session-lookup-failed" }))
     })
     const enforcementFor = workspace => {
+      if (events.signal.aborted) return Promise.resolve(null)
       if (!enforcementByWorkspace.has(workspace)) {
         enforcementByWorkspace.set(workspace, HarnessEnforcement({
           signal: events.signal,
@@ -1354,95 +1390,109 @@ export default {
       return binding
     }
     const bindingForSession = async sessionID => {
-      if (typeof sessionID !== "string" || !sessionID) return null
+      if (events.signal.aborted || typeof sessionID !== "string" || !sessionID) return null
       if (invalidatedSessions.has(sessionID)) return null
       const prompt = promptRoutes.get(sessionID)
       if (prompt && prompt.status !== "resolved") return null
       const existing = sessionBindings.get(sessionID)
       if (existing) return existing
       const identity = await resolveSessionWorkspace(sessionID)
-      if (!identity.workspace) {
-        unresolvedIdentity(identity.reason)
+      if (events.signal.aborted || !identity.workspace) {
+        if (!events.signal.aborted) unresolvedIdentity(identity.reason)
         return null
       }
       if (invalidatedSessions.has(sessionID) || promptRoutes.get(sessionID) !== prompt) return null
       let hooks = null
       try { hooks = await enforcementFor(identity.workspace) } catch {}
-      if (invalidatedSessions.has(sessionID) || promptRoutes.get(sessionID) !== prompt) return null
+      if (events.signal.aborted || invalidatedSessions.has(sessionID) || promptRoutes.get(sessionID) !== prompt) return null
       return bindSessionWorkspace(sessionID, identity.workspace, hooks)
     }
 
-    await ctx.session.hook("prompt", async event => {
-      try {
-        if (typeof event?.sessionID !== "string" || typeof event.prompt?.text !== "string") return
-        const messageID = event.messageID || event.messageId || null
-        const previous = promptRoutes.get(event.sessionID)
-        if (messageID && previous?.messageID === messageID) {
-          await previous.routerPromise
-          return
-        }
-        invalidatedSessions.delete(event.sessionID)
-        const prompt = { messageID, text: event.prompt.text, routerOutput: null, routerPromise: null,
-          workspace: null, hooks: null, status: "pending" }
-        promptRoutes.set(event.sessionID, prompt)
-        prompt.routerPromise = (previous?.routerPromise || Promise.resolve())
-          .catch(() => null)
-          .then(async () => {
-            const identity = await resolveSessionWorkspace(event.sessionID)
-            if (promptRoutes.get(event.sessionID) !== prompt) return
-            if (!identity.workspace) {
-              prompt.status = "failed"
-              unresolvedIdentity(identity.reason)
-              return
-            }
-            prompt.workspace = identity.workspace
-            try { prompt.hooks = await enforcementFor(prompt.workspace) } catch {}
-            if (promptRoutes.get(event.sessionID) !== prompt) return
-            bindSessionWorkspace(event.sessionID, prompt.workspace, prompt.hooks)
-            prompt.status = "resolved"
-            try {
-              const observations = systemOneObservations()
-              if (observations && observations.enabled()) {
-                observations.handle({ hook_event_name: "UserPromptSubmit", host: "opencode", session_id: event.sessionID,
-                  ...(prompt.messageID ? { turn_id: prompt.messageID } : {}), cwd: prompt.workspace, prompt: event.prompt.text })
+    await ctx.session.hook("prompt", event => {
+      if (events.signal.aborted) return
+      return trackPending(async () => {
+        try {
+          if (events.signal.aborted || typeof event?.sessionID !== "string" || typeof event.prompt?.text !== "string") return
+          const messageID = event.messageID || event.messageId || null
+          const previous = promptRoutes.get(event.sessionID)
+          if (messageID && previous?.messageID === messageID) {
+            await previous.routerPromise
+            return
+          }
+          invalidatedSessions.delete(event.sessionID)
+          const prompt = { messageID, text: event.prompt.text, routerOutput: null, routerPromise: null,
+            workspace: null, hooks: null, status: "pending" }
+          promptRoutes.set(event.sessionID, prompt)
+          prompt.routerPromise = (previous?.routerPromise || Promise.resolve())
+            .catch(() => null)
+            .then(async () => {
+              if (events.signal.aborted || promptRoutes.get(event.sessionID) !== prompt) return
+              const identity = await resolveSessionWorkspace(event.sessionID)
+              if (events.signal.aborted || promptRoutes.get(event.sessionID) !== prompt) return
+              if (!identity.workspace) {
+                prompt.status = "failed"
+                unresolvedIdentity(identity.reason)
+                return
               }
-            } catch { /* turn observation is always fail-open */ }
-            const routerPayload = { host: "opencode", session_id: event.sessionID,
-              ...(prompt.messageID ? { turn_id: prompt.messageID } : {}), cwd: prompt.workspace, prompt: event.prompt.text }
-            const routerOutput = await runKernelRouter(routerPayload)
-            if (promptRoutes.get(event.sessionID) === prompt) prompt.routerOutput = routerOutput
-          })
-        await prompt.routerPromise
-      } catch { /* routing context is fail-open; do not reject prompt admission */ }
+              prompt.workspace = identity.workspace
+              try { prompt.hooks = await enforcementFor(prompt.workspace) } catch {}
+              if (events.signal.aborted || promptRoutes.get(event.sessionID) !== prompt) return
+              bindSessionWorkspace(event.sessionID, prompt.workspace, prompt.hooks)
+              prompt.status = "resolved"
+              try {
+                if (events.signal.aborted) return
+                const observations = systemOneObservations()
+                if (observations && observations.enabled()) {
+                  observations.handle({ hook_event_name: "UserPromptSubmit", host: "opencode", session_id: event.sessionID,
+                    ...(prompt.messageID ? { turn_id: prompt.messageID } : {}), cwd: prompt.workspace, prompt: event.prompt.text })
+                }
+              } catch { /* turn observation is always fail-open */ }
+              if (events.signal.aborted) return
+              const routerPayload = { host: "opencode", session_id: event.sessionID,
+                ...(prompt.messageID ? { turn_id: prompt.messageID } : {}), cwd: prompt.workspace, prompt: event.prompt.text }
+              const routerOutput = await runKernelRouter(routerPayload, events.signal)
+              if (!events.signal.aborted && promptRoutes.get(event.sessionID) === prompt) prompt.routerOutput = routerOutput
+            })
+          await prompt.routerPromise
+        } catch { /* routing context is fail-open; do not reject prompt admission */ }
+      })
     })
     await ctx.session.hook("context", event => {
+      if (events.signal.aborted) return
       const output = promptRoutes.get(event?.sessionID)?.routerOutput
       if (!output || (event.kind && event.kind !== "primary") || !Array.isArray(event.system)) return
       if (!event.system.some(part => part && part.text === output)) event.system.push({ type: "text", text: output })
     })
 
-    await ctx.tool.hook("execute.before", async event => {
-      const binding = await bindingForSession(event?.sessionID)
-      if (!binding?.workspace || !binding.hooks) return
-      return binding.hooks["tool.execute.before"](toolEventInput(event), { args: event.input })
+    await ctx.tool.hook("execute.before", event => {
+      if (events.signal.aborted) return
+      return trackPending(async () => {
+        if (events.signal.aborted) return
+        const binding = await bindingForSession(event?.sessionID)
+        if (events.signal.aborted || !binding?.workspace || !binding.hooks) return
+        return binding.hooks["tool.execute.before"](toolEventInput(event), { args: event.input })
+      })
     })
-    await ctx.tool.hook("execute.after", async event => {
-      const prompt = promptRoutes.get(event?.sessionID)
-      const binding = await bindingForSession(event?.sessionID)
-      if (!binding?.workspace) return
-      if (prompt?.status === "resolved" && prompt.workspace) observeOpenCodeTool(event, prompt.workspace)
-      if (!binding.hooks) return
-      return binding.hooks["tool.execute.after"](toolEventInput(event), {
-        args: event.input,
-        status: event.status,
-        result: event.result,
-        error: event.error,
-        messageID: event.messageID,
+    await ctx.tool.hook("execute.after", event => {
+      if (events.signal.aborted) return
+      return trackPending(async () => {
+        if (events.signal.aborted) return
+        const prompt = promptRoutes.get(event?.sessionID)
+        const binding = await bindingForSession(event?.sessionID)
+        if (events.signal.aborted || !binding?.workspace) return
+        if (prompt?.status === "resolved" && prompt.workspace) observeOpenCodeTool(event, prompt.workspace)
+        if (!binding.hooks) return
+        return binding.hooks["tool.execute.after"](toolEventInput(event), {
+          args: event.input,
+          status: event.status,
+          result: event.result,
+          error: event.error,
+          messageID: event.messageID,
+        })
       })
     })
 
-    const pendingEvents = new Set()
-    void (async () => {
+    trackPending(async () => {
       try {
         for await (const raw of ctx.event.subscribe({ signal: events.signal })) {
           if (events.signal.aborted) break
@@ -1459,10 +1509,7 @@ export default {
           if (raw.type === "session.created" || raw.type === "session.deleted") promptRoutes.delete(sessionID)
           const prompt = promptRoutes.get(sessionID)
           if (turnEnded && prompt?.status === "resolved") {
-            const observation = observeOpenCodeCompletion(sessionID, ctx, promptRoutes)
-              .catch(() => {})
-              .finally(() => pendingEvents.delete(observation))
-            pendingEvents.add(observation)
+            trackPending(() => observeOpenCodeCompletion(sessionID, ctx, promptRoutes, events.signal))
           }
           let bindings
           if (raw.type === "session.created" || raw.type === "session.deleted") {
@@ -1479,16 +1526,13 @@ export default {
             type: turnEnded ? "session.idle" : raw.type,
             properties: { ...raw, ...(isRecord(raw.properties) ? raw.properties : {}), sessionID },
           }
-          const delivery = Promise.allSettled(bindings.filter(binding => binding?.hooks?.event)
-            .map(binding => Promise.resolve().then(() => binding.hooks.event({ event }))))
-          if (turnEnded) {
-            // Both completion notifications are asynchronous so reset/delete
-            // can still cancel the active verification in this event stream.
-            const pending = delivery.finally(() => pendingEvents.delete(pending))
-            pendingEvents.add(pending)
-          } else {
-            await delivery
-          }
+          const cleanupDelivery = raw.type === "session.created" || raw.type === "session.deleted"
+          const delivery = trackPending(() => Promise.allSettled(bindings.filter(binding => binding?.hooks?.event)
+            .map(binding => Promise.resolve().then(() => {
+              if (events.signal.aborted && !cleanupDelivery) return
+              return binding.hooks.event({ event })
+            }))))
+          if (!turnEnded) await delivery
           if (raw.type === "session.created" || raw.type === "session.deleted") {
             promptRoutes.delete(sessionID)
             sessionBindings.delete(sessionID)
@@ -1497,10 +1541,10 @@ export default {
         }
       } catch { /* aborting the host subscription is normal shutdown */ }
       finally { events.abort() }
-    })()
+    })
     return async () => {
       events.abort()
-      await Promise.allSettled([...pendingEvents])
+      while (pendingEvents.size) await Promise.allSettled([...pendingEvents])
     }
   },
 }

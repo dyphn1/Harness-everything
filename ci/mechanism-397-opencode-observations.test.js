@@ -48,6 +48,8 @@ function fixture(observationMode = 'on') {
   const events = [];
   const waiters = [];
   let deliveredEvent = null;
+  let beforeEventConsumed = null;
+  let eventStreamEnded = false;
   let contextMessageID = 'user-message';
   let contextPrompt = 'fix the observed turn';
   let finalText = VALID_LABEL;
@@ -89,11 +91,28 @@ function fixture(observationMode = 'on') {
               return { value: item.event, done: false };
             };
             if (events.length) return Promise.resolve(deliver(events.shift()));
-            if (signal.aborted) return Promise.resolve({ done: true });
+            if (signal.aborted) {
+              eventStreamEnded = true;
+              return Promise.resolve({ done: true });
+            }
             return new Promise(resolve => {
-              waiters.push(item => resolve(deliver(item)));
-              signal.addEventListener('abort', () => resolve({ done: true }), { once: true });
+              const waiter = item => {
+                signal.removeEventListener('abort', onAbort);
+                resolve(deliver(item));
+              };
+              const onAbort = () => {
+                const index = waiters.indexOf(waiter);
+                if (index >= 0) waiters.splice(index, 1);
+                eventStreamEnded = true;
+                resolve({ done: true });
+              };
+              waiters.push(waiter);
+              signal.addEventListener('abort', onAbort, { once: true });
             });
+          },
+          return: async () => {
+            eventStreamEnded = true;
+            return { done: true };
           },
         }),
       }),
@@ -101,7 +120,11 @@ function fixture(observationMode = 'on') {
   };
   const push = event => {
     return new Promise(consumed => {
-      const item = { event, consumed };
+      const item = { event, consumed: () => {
+        const before = beforeEventConsumed;
+        beforeEventConsumed = null;
+        try { before?.(); } finally { consumed(); }
+      } };
       const waiter = waiters.shift();
       if (waiter) waiter(item);
       else events.push(item);
@@ -113,6 +136,8 @@ function fixture(observationMode = 'on') {
     setFinal(text) { finalText = text; },
     setSessionLookup(lookup) { sessionLookup = lookup; },
     sessionLookupCount() { return sessionLookups; },
+    setBeforeEventConsumed(callback) { beforeEventConsumed = callback; },
+    eventStreamEnded() { return eventStreamEnded; },
     restore() {
       for (const [key, value] of Object.entries(envBefore)) {
         if (value === undefined) delete process.env[key];
@@ -1288,6 +1313,518 @@ test('V2 consumers β2: a late session lookup cannot resurrect a deleted session
   } finally {
     if (resolvePending) resolvePending({});
     if (pendingPrompt) await pendingPrompt;
+    if (dispose) await dispose();
+    f.restore();
+  }
+});
+
+test('D1 disposal: a held lookup and queued prompt do not construct or publish after abort', { concurrency: false }, async () => {
+  const f = fixture();
+  const sessionID = 'd1-disposal-late-prompt';
+  let releaseLookup;
+  let lookupStarted = false;
+  f.setSessionLookup(() => {
+    if (lookupStarted) return { id: sessionID, location: { directory: f.workspace } };
+    return new Promise(resolve => {
+      releaseLookup = resolve;
+      lookupStarted = true;
+    });
+  });
+  const legacyDir = path.join(f.dir, '.harness-state');
+  const legacyFile = path.join(legacyDir, 'migration-witness.json');
+  fs.mkdirSync(legacyDir, { recursive: true });
+  fs.writeFileSync(legacyFile, '{"mustRemain":true}');
+
+  let dispose;
+  let firstPrompt;
+  let queuedPrompt;
+  let disposing;
+  let firstSettled = false;
+  let queuedSettled = false;
+  try {
+    dispose = await install(f);
+    firstPrompt = f.sessionHooks.get('prompt')({
+      sessionID, messageID: 'd1-first', prompt: { text: 'held lookup' },
+    });
+    firstPrompt.then(() => { firstSettled = true; }, () => { firstSettled = true; });
+    assert.equal(await waitUntil(() => lookupStarted), true, 'the first prompt reached the held identity lookup');
+    queuedPrompt = f.sessionHooks.get('prompt')({
+      sessionID, messageID: 'd1-queued', prompt: { text: 'queued behind lookup' },
+    });
+    queuedPrompt.then(() => { queuedSettled = true; }, () => { queuedSettled = true; });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(f.sessionLookupCount(), 1, 'the next prompt is queued behind the held lookup');
+
+    disposing = dispose();
+    releaseLookup({ id: sessionID, location: { directory: f.workspace } });
+    await disposing;
+    const chainsSettledAtDispose = firstSettled && queuedSettled;
+    await Promise.all([firstPrompt, queuedPrompt, disposing]);
+    await new Promise(resolve => setImmediate(resolve));
+
+    const promptState = path.join(f.store, 'sessions', `${observations.sha(sessionID, 32)}.json`);
+    const actual = {
+      factoryNotConstructed: fs.existsSync(legacyFile),
+      routerNotStarted: !fs.existsSync(routerArtifact(f.workspace, sessionID)),
+      promptNotObserved: !fs.existsSync(promptState),
+      lookupCount: f.sessionLookupCount(),
+      chainsSettledAtDispose,
+    };
+    assert.deepEqual(actual, {
+      factoryNotConstructed: true,
+      routerNotStarted: true,
+      promptNotObserved: true,
+      lookupCount: 1,
+      chainsSettledAtDispose: true,
+    }, `disposed prompt chains must settle without publication; actual=${JSON.stringify(actual)}`);
+  } finally {
+    if (releaseLookup) releaseLookup({});
+    if (firstPrompt) await firstPrompt;
+    if (queuedPrompt) await queuedPrompt;
+    if (dispose) await dispose();
+    f.restore();
+  }
+});
+
+test('D1 disposal: abort before the enforcement continuation does not publish its binding', { concurrency: false }, async () => {
+  const f = fixture();
+  const sessionID = 'd1-disposal-enforcement-continuation';
+  const legacyDir = path.join(f.dir, '.harness-state');
+  const legacyFile = path.join(legacyDir, 'migration-witness.json');
+  fs.mkdirSync(legacyDir, { recursive: true });
+  fs.writeFileSync(legacyFile, '{"mustMoveOnlyIfConstructed":true}');
+
+  const NativeAbortController = global.AbortController;
+  let instrument = false;
+  let addedAfterSetup = 0;
+  let dispose;
+  let disposing;
+  let prompt;
+  global.AbortController = class extends NativeAbortController {
+    constructor() {
+      super();
+      const addEventListener = this.signal.addEventListener.bind(this.signal);
+      this.signal.addEventListener = (type, listener, options) => {
+        const result = addEventListener(type, listener, options);
+        if (instrument && type === 'abort' && ++addedAfterSetup === 2) {
+          queueMicrotask(() => { disposing = dispose(); });
+        }
+        return result;
+      };
+    }
+  };
+  try {
+    dispose = await install(f);
+    await new Promise(resolve => setImmediate(resolve));
+    instrument = true;
+    prompt = f.sessionHooks.get('prompt')({
+      sessionID, messageID: 'd1-enforcement', prompt: { text: 'resolve identity then abort at factory handoff' },
+    });
+    assert.equal(await waitUntil(() => Boolean(disposing)), true, 'the real factory registered its abort listener');
+    await Promise.all([prompt, disposing]);
+
+    const actual = {
+      factoryWasConstructed: !fs.existsSync(legacyFile),
+      routerNotPublished: !fs.existsSync(routerArtifact(f.workspace, sessionID)),
+      promptNotObserved: !fs.existsSync(path.join(f.store, 'sessions', `${observations.sha(sessionID, 32)}.json`)),
+      editStateNotPublished: !fs.existsSync(editStateArtifact(f.workspace, sessionID)),
+    };
+    assert.deepEqual(actual, {
+      factoryWasConstructed: true,
+      routerNotPublished: true,
+      promptNotObserved: true,
+      editStateNotPublished: true,
+    }, `the factory continuation must not publish after disposal; actual=${JSON.stringify(actual)}`);
+  } finally {
+    global.AbortController = NativeAbortController;
+    if (prompt) await prompt;
+    if (dispose) await dispose();
+    f.restore();
+  }
+});
+
+test('D1 disposal: a running router publishes no context and is reaped before dispose resolves', { concurrency: false }, async () => {
+  const f = fixture();
+  const sessionID = 'd1-disposal-router-child';
+  const preload = path.join(f.dir, 'hold-router-child.cjs');
+  const readyFile = path.join(f.dir, 'router-child.pid');
+  const outputFile = path.join(f.dir, 'router-child-output-held');
+  const closedFile = path.join(f.dir, 'router-child-closed');
+  const previousEnv = Object.fromEntries(['NODE_OPTIONS', 'D1_ROUTER_READY', 'D1_ROUTER_OUTPUT', 'D1_ROUTER_CLOSED']
+    .map(key => [key, process.env[key]]));
+  fs.writeFileSync(preload, [
+    "const fs = require('node:fs');",
+    "fs.writeFileSync(process.env.D1_ROUTER_READY, String(process.pid));",
+    "const write = process.stdout.write.bind(process.stdout);",
+    "process.stdout.write = (chunk, ...args) => { fs.appendFileSync(process.env.D1_ROUTER_OUTPUT, String(chunk)); return write(chunk, ...args); };",
+    "process.on('SIGTERM', () => setTimeout(() => { try { fs.writeFileSync(process.env.D1_ROUTER_CLOSED, 'closed'); } finally { process.exit(0); } }, 80));",
+    'setInterval(() => {}, 1000);',
+  ].join('\n'));
+  process.env.NODE_OPTIONS = `--require=${preload}`;
+  process.env.D1_ROUTER_READY = readyFile;
+  process.env.D1_ROUTER_OUTPUT = outputFile;
+  process.env.D1_ROUTER_CLOSED = closedFile;
+  let dispose;
+  let prompt;
+  let childPID;
+  try {
+    dispose = await install(f);
+    prompt = f.sessionHooks.get('prompt')({
+      sessionID, messageID: 'd1-router-child', prompt: { text: 'hold router output until cleanup' },
+    });
+    assert.equal(await waitUntil(() => fs.existsSync(readyFile) && fs.existsSync(outputFile)), true,
+      'the real router child produced its result but remained alive at the held output boundary');
+    assert.ok(fs.readFileSync(outputFile, 'utf8').trim().length > 0, 'the child has a real route result buffered for publication');
+    childPID = Number(fs.readFileSync(readyFile, 'utf8'));
+    const processAlive = () => {
+      try { process.kill(childPID, 0); return true; }
+      catch (error) { return error.code !== 'ESRCH'; }
+    };
+    const context = { sessionID, kind: 'primary', system: [] };
+    f.sessionHooks.get('context')(context);
+    assert.deepEqual(context.system, [], 'a route is not injected while its child result is pending');
+
+    await dispose();
+    const childClosedWhenDisposeResolved = !processAlive();
+    await prompt;
+    const contextAfterDispose = { sessionID, kind: 'primary', system: [] };
+    f.sessionHooks.get('context')(contextAfterDispose);
+    const actual = {
+      childClosed: !processAlive(),
+      childClosedWhenDisposeResolved,
+      delayedCloseObserved: process.platform === 'win32' || fs.existsSync(closedFile),
+      contextStillEmpty: context.system.length === 0,
+      noPostDisposeInjection: contextAfterDispose.system.length === 0,
+    };
+    assert.deepEqual(actual, {
+      childClosed: true,
+      childClosedWhenDisposeResolved: true,
+      delayedCloseObserved: true,
+      contextStillEmpty: true,
+      noPostDisposeInjection: true,
+    },
+      `disposal waits for child cleanup before resolving; actual=${JSON.stringify(actual)}`);
+  } finally {
+    if (dispose) await dispose();
+    if (prompt) await prompt;
+    if (childPID && !fs.existsSync(closedFile)) {
+      try { process.kill(childPID, 'SIGKILL'); } catch {}
+      await waitUntil(() => {
+        try { process.kill(childPID, 0); return false; }
+        catch (error) { return error.code === 'ESRCH'; }
+      }, 1000);
+    }
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    f.restore();
+  }
+});
+
+test('D1 disposal: pending execute.before and execute.after bindings settle without enforcement', { concurrency: false }, async () => {
+  const f = fixture();
+  const sessionID = 'd1-disposal-pending-tools';
+  const legacyDir = path.join(f.dir, '.harness-state');
+  const legacyFile = path.join(legacyDir, 'migration-witness.json');
+  fs.mkdirSync(legacyDir, { recursive: true });
+  fs.writeFileSync(legacyFile, '{"mustRemain":true}');
+  let releaseLookup;
+  const lookup = new Promise(resolve => { releaseLookup = resolve; });
+  f.setSessionLookup(() => lookup);
+  let dispose;
+  let before;
+  let after;
+  let disposing;
+  let beforeSettled = false;
+  let afterSettled = false;
+  try {
+    dispose = await install(f);
+    const event = { tool: 'edit', sessionID, id: 'd1-tool', input: { filePath: 'changed.js' } };
+    before = f.toolHooks.get('execute.before')(event);
+    after = f.toolHooks.get('execute.after')({ ...event, status: 'completed', result: {} });
+    before.then(() => { beforeSettled = true; }, () => { beforeSettled = true; });
+    after.then(() => { afterSettled = true; }, () => { afterSettled = true; });
+    assert.equal(await waitUntil(() => f.sessionLookupCount() === 2), true, 'both tool hooks reached their pending binding lookup');
+
+    disposing = dispose();
+    releaseLookup({ id: sessionID, location: { directory: f.workspace } });
+    await disposing;
+    const hooksSettledAtDispose = beforeSettled && afterSettled;
+    await Promise.all([before, after, disposing]);
+    await new Promise(resolve => setImmediate(resolve));
+
+    const actual = {
+      factoryNotConstructed: fs.existsSync(legacyFile),
+      editStateNotCreated: !fs.existsSync(editStateArtifact(f.workspace, sessionID)),
+      complianceNotCreated: !fs.existsSync(path.join(stateDir(f.workspace, sessionID), 'compliance.json')),
+      observationsEmpty: recordList(f.store).length === 0,
+      hooksSettledAtDispose,
+    };
+    assert.deepEqual(actual, {
+      factoryNotConstructed: true,
+      editStateNotCreated: true,
+      complianceNotCreated: true,
+      observationsEmpty: true,
+      hooksSettledAtDispose: true,
+    }, `tool hooks admitted before disposal must not publish after the pending binding; actual=${JSON.stringify(actual)}`);
+  } finally {
+    releaseLookup({});
+    if (before) await before;
+    if (after) await after;
+    if (dispose) await dispose();
+    f.restore();
+  }
+});
+
+test('D1 disposal: the event consumer settles when its session binding is pending', { concurrency: false }, async () => {
+  const f = fixture('off');
+  const sessionID = 'd1-disposal-event-binding';
+  const legacyDir = path.join(f.dir, '.harness-state');
+  const legacyFile = path.join(legacyDir, 'migration-witness.json');
+  fs.mkdirSync(legacyDir, { recursive: true });
+  fs.writeFileSync(legacyFile, '{"mustRemain":true}');
+  let releaseLookup;
+  let lookupStarted = false;
+  f.setSessionLookup(() => new Promise(resolve => {
+    releaseLookup = resolve;
+    lookupStarted = true;
+  }));
+  let dispose;
+  let consumed;
+  let disposing;
+  try {
+    dispose = await install(f);
+    consumed = f.push(v2Event('session.execution.succeeded', sessionID));
+    assert.equal(await waitUntil(() => lookupStarted), true, 'the event loop is waiting for its session binding');
+    disposing = dispose();
+    releaseLookup({ id: sessionID, location: { directory: f.workspace } });
+    await disposing;
+    const eventConsumerSettledAtDispose = f.eventStreamEnded();
+    await consumed;
+
+    const actual = {
+      eventConsumerSettled: eventConsumerSettledAtDispose,
+      factoryNotConstructed: fs.existsSync(legacyFile),
+      noRouteState: !fs.existsSync(routerArtifact(f.workspace, sessionID)),
+      lookupCount: f.sessionLookupCount(),
+    };
+    assert.deepEqual(actual, {
+      eventConsumerSettled: true,
+      factoryNotConstructed: true,
+      noRouteState: true,
+      lookupCount: 1,
+    }, `dispose drains the event consumer without a late binding; actual=${JSON.stringify(actual)}`);
+  } finally {
+    if (releaseLookup) releaseLookup({});
+    if (consumed) await consumed;
+    if (dispose) await dispose();
+    f.restore();
+  }
+});
+
+test('D1 disposal: queued turn delivery cannot complete telemetry or start verification after abort', { concurrency: false }, async () => {
+  const f = fixture('off');
+  const sessionID = 'd1-disposal-deferred-delivery';
+  const verificationStarted = path.join(f.dir, 'verification-started');
+  const editFile = editStateArtifact(f.workspace, sessionID);
+  const complianceFile = path.join(stateDir(f.workspace, sessionID), 'compliance.json');
+  const telemetryFile = path.join(workspaceState.getWorkspaceStateDir(f.workspace), 'state', 'telemetry', 'events.jsonl');
+  const previousTelemetry = process.env.HARNESS_TELEMETRY;
+  process.env.HARNESS_TELEMETRY = 'local';
+  writeVerificationPackage(f, `require('node:fs').writeFileSync(${JSON.stringify(verificationStarted)}, 'started')`);
+  let dispose;
+  let consumed;
+  let disposing;
+  try {
+    dispose = await install(f);
+    await f.sessionHooks.get('prompt')({
+      sessionID, messageID: 'd1-deferred', prompt: { text: 'establish a real binding' },
+    });
+    const skill = { tool: 'skill', sessionID, id: 'd1-skill', input: { skill: 'ponytail' } };
+    await f.toolHooks.get('execute.before')(skill);
+    await f.toolHooks.get('execute.after')({ ...skill, status: 'completed', result: {} });
+    await sendEdit(f, sessionID, 'd1-edit');
+    const editBefore = fs.readFileSync(editFile, 'utf8');
+    const complianceBefore = fs.readFileSync(complianceFile, 'utf8');
+    assert.ok(fs.readFileSync(telemetryFile, 'utf8').includes('"event":"skill.loaded"'), 'the control created an active telemetry binding');
+
+    f.setBeforeEventConsumed(() => { disposing = dispose(); });
+    consumed = f.push(v2Event('session.execution.succeeded', sessionID));
+    assert.equal(await waitUntil(() => Boolean(disposing)), true, 'dispose starts after delivery is queued and before its callback');
+    await Promise.all([consumed, disposing]);
+    const telemetry = fs.readFileSync(telemetryFile, 'utf8').trim().split(/\r?\n/).filter(Boolean).map(JSON.parse);
+    const actual = {
+      noLateSkillCompletion: !telemetry.some(row => row.event === 'skill.complete' && row.sessionID === sessionID),
+      verificationNotStarted: !fs.existsSync(verificationStarted),
+      editStateUnchanged: fs.readFileSync(editFile, 'utf8') === editBefore,
+      complianceUnchanged: fs.readFileSync(complianceFile, 'utf8') === complianceBefore,
+      eventConsumerSettled: f.eventStreamEnded(),
+    };
+    assert.deepEqual(actual, {
+      noLateSkillCompletion: true,
+      verificationNotStarted: true,
+      editStateUnchanged: true,
+      complianceUnchanged: true,
+      eventConsumerSettled: true,
+    }, `deferred event work is suppressed after abort; actual=${JSON.stringify(actual)}`);
+  } finally {
+    if (consumed) await consumed;
+    if (dispose) await dispose();
+    if (previousTelemetry === undefined) delete process.env.HARNESS_TELEMETRY;
+    else process.env.HARNESS_TELEMETRY = previousTelemetry;
+    f.restore();
+  }
+});
+
+for (const outcome of ['resolved', 'rejected']) {
+  test(`D1 disposal: held completion context ${outcome} cannot publish a late Stop`, { concurrency: false }, async () => {
+    const f = fixture();
+    const sessionID = `d1-disposal-completion-${outcome}`;
+    let finishContext;
+    let contextStarted = false;
+    f.ctx.session.context = () => {
+      contextStarted = true;
+      return new Promise((resolve, reject) => {
+        finishContext = outcome === 'resolved' ? resolve : reject;
+      });
+    };
+    let dispose;
+    let completion;
+    let disposing;
+    try {
+      dispose = await install(f);
+      await f.sessionHooks.get('prompt')({
+        sessionID, messageID: 'd1-completion', prompt: { text: 'hold completion context across disposal' },
+      });
+      completion = f.push(v2Event('session.execution.succeeded', sessionID));
+      assert.equal(await waitUntil(() => contextStarted), true, 'the completion observation is waiting on host context');
+
+      disposing = dispose();
+      if (outcome === 'resolved') finishContext([
+        { info: { role: 'user', id: 'd1-completion' }, parts: [{ type: 'text', text: 'held completion context' }] },
+        { info: { role: 'assistant', id: 'd1-assistant' }, parts: [{ type: 'text', text: VALID_LABEL }] },
+      ]);
+      else finishContext(new Error('context unavailable after disposal'));
+      await Promise.all([completion, disposing]);
+
+      const actual = {
+        completedRecords: recordList(f.store).length,
+        pendingTurnRetained: fs.existsSync(path.join(f.store, 'sessions', `${observations.sha(sessionID, 32)}.json`)),
+      };
+      assert.deepEqual(actual, { completedRecords: 0, pendingTurnRetained: true },
+        `a disposed completion cannot publish Stop after context ${outcome}; actual=${JSON.stringify(actual)}`);
+    } finally {
+      if (finishContext && !disposing) finishContext([]);
+      if (completion) await completion;
+      if (dispose) await dispose();
+      f.restore();
+    }
+  });
+}
+
+test('D1 disposal: resolved callbacks cannot inject context, admit prompts, or update tool state', { concurrency: false }, async () => {
+  const f = fixture();
+  const sessionID = 'd1-disposal-after-callbacks';
+  const nextSessionID = 'd1-disposal-new-session';
+  const promptState = path.join(f.store, 'sessions', `${observations.sha(sessionID, 32)}.json`);
+  const nextPromptState = path.join(f.store, 'sessions', `${observations.sha(nextSessionID, 32)}.json`);
+  let dispose;
+  try {
+    dispose = await install(f);
+    await f.sessionHooks.get('prompt')({
+      sessionID, messageID: 'd1-before-dispose', prompt: { text: 'resolve route before teardown' },
+    });
+    const contextBefore = { sessionID, kind: 'primary', system: [] };
+    f.sessionHooks.get('context')(contextBefore);
+    assert.ok(contextBefore.system.length > 0, 'the normal resolved route is injectable before disposal');
+    await sendEdit(f, sessionID, 'd1-before-dispose-edit');
+    const editFile = editStateArtifact(f.workspace, sessionID);
+    const complianceFile = path.join(stateDir(f.workspace, sessionID), 'compliance.json');
+    const promptStateBefore = fs.readFileSync(promptState, 'utf8');
+    const editStateBefore = fs.readFileSync(editFile, 'utf8');
+    const complianceBefore = fs.readFileSync(complianceFile, 'utf8');
+    const lookupsBefore = f.sessionLookupCount();
+
+    await dispose();
+    const contextAfter = { sessionID, kind: 'primary', system: [] };
+    f.sessionHooks.get('context')(contextAfter);
+    await f.sessionHooks.get('prompt')({
+      sessionID, messageID: 'd1-after-dispose', prompt: { text: 'must not start a new prompt chain' },
+    });
+    const event = { tool: 'edit', sessionID, id: 'd1-after-dispose-edit', input: { filePath: 'changed.js' } };
+    await f.toolHooks.get('execute.before')(event);
+    await f.toolHooks.get('execute.after')({ ...event, status: 'completed', result: {} });
+
+    const actual = {
+      cachedContextNotInjected: contextAfter.system.length === 0,
+      noPromptAdmission: f.sessionLookupCount() === lookupsBefore,
+      noNewPromptObservation: !fs.existsSync(nextPromptState),
+      existingPromptObservationUnchanged: fs.readFileSync(promptState, 'utf8') === promptStateBefore,
+      editStateUnchanged: fs.readFileSync(editFile, 'utf8') === editStateBefore,
+      complianceUnchanged: fs.readFileSync(complianceFile, 'utf8') === complianceBefore,
+      eventConsumerSettled: f.eventStreamEnded(),
+    };
+    assert.deepEqual(actual, {
+      cachedContextNotInjected: true,
+      noPromptAdmission: true,
+      noNewPromptObservation: true,
+      existingPromptObservationUnchanged: true,
+      editStateUnchanged: true,
+      complianceUnchanged: true,
+      eventConsumerSettled: true,
+    }, `post-disposal callbacks stay closed; actual=${JSON.stringify(actual)}`);
+  } finally {
+    if (dispose) await dispose();
+    f.restore();
+  }
+});
+
+test('D1 disposal: a queued session deletion still cleans active work after abort', { concurrency: false }, async () => {
+  const f = fixture('off');
+  const sessionID = 'd1-disposal-admitted-delete';
+  const ready = path.join(f.dir, 'delete-verification-ready');
+  const heartbeat = path.join(f.dir, 'delete-verification-heartbeat');
+  writeVerificationPackage(f, `const fs=require('node:fs');fs.writeFileSync(${JSON.stringify(ready)},'ready');setInterval(()=>fs.appendFileSync(${JSON.stringify(heartbeat)},'x'),20)`);
+  let dispose;
+  let idleConsumed;
+  let deleteConsumed;
+  let disposing;
+  let promptCalls = 0;
+  f.ctx.session.prompt = async () => { promptCalls++; return {}; };
+  try {
+    dispose = await install(f);
+    await f.sessionHooks.get('prompt')({
+      sessionID, messageID: 'd1-delete', prompt: { text: 'start a real bound session' },
+    });
+    await sendEdit(f, sessionID, 'd1-delete-edit');
+    idleConsumed = f.push(v2Event('session.execution.succeeded', sessionID));
+    assert.equal(await waitUntil(() => fs.existsSync(ready) && fs.existsSync(heartbeat)), true,
+      'the V2 completion started real verification work');
+    await idleConsumed;
+
+    deleteConsumed = f.push(v2Event('session.deleted', sessionID));
+    queueMicrotask(() => { disposing = dispose(); });
+    assert.equal(await waitUntil(() => Boolean(disposing)), true, 'dispose starts after reset delivery is queued');
+    await Promise.all([deleteConsumed, disposing]);
+    const heartbeatAtClose = fs.statSync(heartbeat).size;
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    const actual = {
+      sessionStateRemoved: !fs.existsSync(stateDir(f.workspace, sessionID)),
+      verificationChildStopped: fs.statSync(heartbeat).size === heartbeatAtClose,
+      noFollowUpPrompt: promptCalls === 0,
+      eventConsumerSettled: f.eventStreamEnded(),
+    };
+    assert.deepEqual(actual, {
+      sessionStateRemoved: true,
+      verificationChildStopped: true,
+      noFollowUpPrompt: true,
+      eventConsumerSettled: true,
+    }, `cleanup already admitted before abort still completes; actual=${JSON.stringify(actual)}`);
+  } finally {
+    if (idleConsumed) await idleConsumed;
+    if (deleteConsumed) await deleteConsumed;
     if (dispose) await dispose();
     f.restore();
   }

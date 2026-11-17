@@ -201,9 +201,21 @@ const helper = require('./test-helper');
   queue.push({ type: 'session.idle', sessionID: 'v2-disposed' });
   await waitFor(() => fs.existsSync(v2Ready));
   await dispose();
+  const v2DisposedDir = path.join(sessions, 'v2-disposed');
+  const disposeStateFiles = ['edit-state.json', 'circuit-breaker.json', 'compliance.json']
+    .map(name => path.join(v2DisposedDir, name));
+  const stateAtDispose = disposeStateFiles.map(file => fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null);
   const stopped = fs.statSync(v2Heartbeat).size;
   await new Promise(resolve => setTimeout(resolve, 150));
-  helper.check('338. V2 disposal waits for active child cleanup without a stale follow-up', fs.statSync(v2Heartbeat).size === stopped && prompts.length === beforeConcurrent);
+  const stateStable = disposeStateFiles.every((file, index) =>
+    (fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null) === stateAtDispose[index]);
+  const editAtDispose = JSON.parse(stateAtDispose[0]);
+  const complianceAtDispose = JSON.parse(stateAtDispose[2]);
+  helper.check('338. V2 disposal waits for active child cleanup without late follow-up, breaker, or compliance writes',
+    fs.statSync(v2Heartbeat).size === stopped && prompts.length === beforeConcurrent && stateStable
+      && editAtDispose.verificationPending === true && editAtDispose.followUpPending === false
+      && complianceAtDispose.verifiedEdits === 0 && complianceAtDispose.circuitBreakerTrips === 0,
+    JSON.stringify({ stateStable, editAtDispose, complianceAtDispose, prompts: prompts.length - beforeConcurrent }));
   // A new idle can arrive while an edit-cancelled child is still being reaped.
   // That idle must verify the newer revision after cleanup, rather than vanish.
   fs.unlinkSync(path.join(workspace, 'ready.txt'));
