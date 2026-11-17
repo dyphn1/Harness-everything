@@ -97,6 +97,15 @@ episodes:
         change: null
         review: coordinator
         result: "A claude -p dispatch lost its prompt because a variadic --add-dir came before it. Rule: the prompt goes directly after -p, and the flags after it."
+  - episode: 2026-11-17-codex-log-sweep
+    feature: "Codex session-log sweep, 2026-11-10 to 2026-11-15 (all one-shot codex exec runs)"
+    date: 2026-11-17
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "The owner asked whether Codex kept failing on sandbox or Git boundaries. Git was not the problem: 1 of 252 git commands failed, and no worker ran a git write command. Sandbox EPERM persisted: Harness workflow-disposition could not write workflow-obligations under the Harness workspace state dir in 24 sessions (once each, still unfixed since the 2026-11-08 episode); loopback bind in 20 outputs over 9 sessions; `ps` blocked in 14 outputs over 12 sessions; `diff <(...)` process substitution blocked in 4. Workers recorded each as sandbox-UNCHECKED without retrying (max 6 per session)."
 ---
 
 ## Cue
@@ -111,6 +120,7 @@ Dispatch one-shot `codex exec` with a TMPDIR outside every repository and stdin 
 - Free reviewer models can stop on quota or end without a report: ping the model first, and after one failed delivery prefer a paid runner over a third free attempt.
 - Re-violated 2026-11-08: the stdin rule lives only in prose; a dispatch wrapper that always closes stdin would make it a mechanism (not built).
 - Recurred 2026-11-10/11 (#341 kit re-pin and #425 W6): `verify:all` fast and full both remain unrunnable inside `codex exec -s workspace-write`. Dispatch arrangement: packets say "coordinator runs verify:all" and workers report the sandbox-UNCHECKED/BLOCKED disposition instead of retrying inside the sandbox.
+- Swept 2026-11-17 (Codex logs 11-10 to 11-15): the workflow-state EPERM recurred in 24 sessions, so it has three episodes now (11-07, 11-08, 11-17) and is a `mechanism` candidate. Either the state dir is a writable root of the dispatch, or workflow-disposition degrades silently under a read-only state dir. `ps` and `diff <(...)` are also blocked in the sandbox; use them only outside it.
 - Put the prompt directly after `-p` in `claude -p`, and the flags after it. A variadic `--add-dir` placed before the prompt swallowed the prompt on 2026-11-12. Feature and PR unknown.
 
 ## Stage 2 read-only review scratch (#396, 2026-11-07)
