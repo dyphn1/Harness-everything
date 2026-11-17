@@ -145,7 +145,23 @@ function assertPrivateHistoryFile(file) {
 function appendPrivateHistory(file, text) {
   const target = assertPrivateHistoryFile(file);
   fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
-  fs.appendFileSync(assertPrivateHistoryFile(target), text, { encoding: 'utf8', mode: 0o600 });
+  let separator = '';
+  try {
+    const fd = fs.openSync(assertPrivateHistoryFile(target), 'r');
+    try {
+      const size = fs.fstatSync(fd).size;
+      if (size) {
+        const lastByte = Buffer.alloc(1);
+        fs.readSync(fd, lastByte, 0, 1, size - 1);
+        if (lastByte[0] !== 0x0a) separator = '\n';
+      }
+    } finally {
+      fs.closeSync(fd);
+    }
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  fs.appendFileSync(assertPrivateHistoryFile(target), `${separator}${text}`, { encoding: 'utf8', mode: 0o600 });
 }
 
 function resultSummary(step, details) {

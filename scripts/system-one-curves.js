@@ -141,7 +141,8 @@ function scoreRows(rows, stage, options, referenceOnly = []) {
 }
 
 function comparisonMetrics(metrics) {
-  return { auc: coverageAccuracyAuc(metrics.coverageCurve), logLoss: metrics.logLoss, ece: metrics.ece };
+  return { auc: Number.isFinite(metrics.coverageAccuracyAuc)
+    ? metrics.coverageAccuracyAuc : coverageAccuracyAuc(metrics.coverageCurve), logLoss: metrics.logLoss, ece: metrics.ece };
 }
 
 function metricDeltas(current, previous) {
@@ -302,6 +303,17 @@ function validateBaselineReferences(curves, history) {
   }
 }
 
+function validateResumeDecision(curves, trend, history) {
+  const candidateIndex = history.findIndex(row => row.version === curves.version);
+  const predecessor = candidateIndex < 0 ? history : history.slice(0, candidateIndex);
+  const compared = [...predecessor.slice(-3).map(row => row.version), curves.version];
+  if (!isDeepStrictEqual(trend.compared, compared)) fail();
+
+  const holdout = Object.keys(curves.floor.detail.stages).length ? curves.floor.detail.stages : null;
+  const floor = assessFloor(holdout, predecessor);
+  if (!isDeepStrictEqual(curves.floor, floor) || !isDeepStrictEqual(trend, decideTrend(curves, predecessor, floor))) fail();
+}
+
 function appendHistoryRow(file, history, curves) {
   if (assertVersionReusable(history, curves)) return;
   appendPrivateHistory(file, `${JSON.stringify(curves)}\n`);
@@ -406,6 +418,7 @@ function run(argv) {
     validateSavedTrend(trend, args.version);
     const history = readHistory(args.history);
     validateBaselineReferences(curves, history);
+    validateResumeDecision(curves, trend, history);
     appendHistoryRow(args.history, history, curves);
     console.log(JSON.stringify({ resumed: true, version: args.version }));
     return { curves, trend };

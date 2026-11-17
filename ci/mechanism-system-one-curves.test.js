@@ -122,6 +122,23 @@ test('one successful run appends exactly one history line', t => {
   assert.deepEqual(JSON.parse(lines[1]), second.curves);
 });
 
+test('446 H2: empty, LF, and CRLF histories append readable rows without rewriting prior bytes', t => {
+  const f = fixture(t);
+  const first = f.run({ version: 'v0', val: validityRows([['invalid', 0.8], ['actionable', 0.2]]) });
+  const initial = fs.readFileSync(f.history, 'utf8');
+  assert.ok(initial.endsWith('\n'));
+  assert.equal(initial.split(/\r?\n/).filter(Boolean).length, 1, 'an empty history gets no leading record');
+
+  const crlfPrefix = `${JSON.stringify(first.curves)}\r\n`;
+  fs.writeFileSync(f.history, crlfPrefix);
+  const second = f.run({ version: 'v1', val: validityRows([['invalid', 0.7], ['actionable', 0.3]]) });
+  const combined = fs.readFileSync(f.history, 'utf8');
+  assert.ok(combined.startsWith(crlfPrefix), 'CRLF history bytes remain unchanged');
+  assert.deepEqual(combined.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line).version), ['v0', 'v1']);
+  assert.ok(combined.endsWith('\n'));
+  assert.deepEqual(JSON.parse(combined.split(/\r?\n/).filter(Boolean)[1]), second.curves);
+});
+
 test('intent curves keep reference-only unclassified scores but never use them as the selected option', t => {
   const f = fixture(t, { stage: 'intent', options: ['fix', 'unclassified'], referenceOnly: ['unclassified'] });
   const { curves, trend } = f.run({ val: [

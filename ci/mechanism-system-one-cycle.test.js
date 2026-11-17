@@ -130,6 +130,19 @@ function rows446(history) {
   return fs.readFileSync(history, 'utf8').split(/\r?\n/).filter(Boolean).map(JSON.parse);
 }
 
+function writeRows446(history, rows, ending = '\n') {
+  fs.mkdirSync(path.dirname(history), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(history, rows.map(row => JSON.stringify(row)).join('\n') + (rows.length ? ending : ''));
+}
+
+function snapshot446(files) {
+  return new Map(files.map(file => [file, fs.readFileSync(file)]));
+}
+
+function assertSnapshot446(snapshot) {
+  for (const [file, bytes] of snapshot) assert.deepEqual(fs.readFileSync(file), bytes, `${file} changed`);
+}
+
 function evaluation446(dataDir, version) {
   const dir = path.join(dataDir, 'training', 'candidates', version, 'evaluation');
   return {
@@ -888,4 +901,181 @@ test('446 cross-cycle: default history remains local and explicit history valida
   });
   assert.notEqual(failedHistory.status, 0, 'history append failure must fail evaluation');
   assert.equal(fs.existsSync(path.join(appendFailure.dataDir, 'cycle-state.json')), false);
+});
+
+test('446 H2: rejects changed same-id baseline before append, including an existing identical candidate', t => {
+  const tmp = private446Root(t);
+  const originalHistory = path.join(tmp, 'original-history.jsonl');
+  const absentHistory = path.join(tmp, 'alternate-absent.jsonl');
+  const presentHistory = path.join(tmp, 'alternate-present.jsonl');
+  const monthA = setup446Cycle(t, path.join(tmp, 'month-a'), [{ version: 'v0', quality: 0.8 }], { all: true });
+  const monthB = setup446Cycle(t, path.join(tmp, 'month-b'), [{ version: 'v1', quality: 0.9 }], { all: true });
+  assert.equal(run446Cycle(monthA, 'v0', { history: originalHistory, quality: 0.8, all: true }).status, 0);
+  assert.equal(run446Cycle(monthB, 'v1', { history: originalHistory, quality: 0.9, all: true }).status, 0);
+  const candidate = rows446(originalHistory).find(row => row.version === 'v1');
+
+  const alternateA = setup446Cycle(t, path.join(tmp, 'alternate-a'), [{ version: 'v0', quality: 0.99 }], { all: true });
+  assert.equal(run446Cycle(alternateA, 'v0', { history: absentHistory, quality: 0.99, all: true }).status, 0);
+  const alternateBaseline = rows446(absentHistory)[0];
+  writeRows446(absentHistory, [alternateBaseline]);
+  const stateFile = path.join(monthB.dataDir, 'cycle-state.json');
+  const paths = [absentHistory, ...['curves.json', 'trend.json'].map(file =>
+    path.join(monthB.dataDir, 'training', 'candidates', 'v1', 'evaluation', file)),
+  path.join(monthB.dataDir, 'training', 'candidates', 'v1', 'manifest.json'),
+  stateFile, monthB.callLog];
+  const beforeAbsent = snapshot446(paths);
+  const absent = run446Cycle(monthB, 'v1', { history: absentHistory, quality: 0.9 });
+  assert.notEqual(absent.status, 0, 'a cached promotion must reject a changed same-id baseline');
+  assertSnapshot446(beforeAbsent);
+  assert.doesNotMatch(`${absent.stdout}\n${absent.stderr}`, /0\.99|synthetic-|holdout-|validation-/);
+
+  const freshHistory = path.join(tmp, 'fresh-diagnostic.jsonl');
+  writeRows446(freshHistory, [alternateBaseline]);
+  const freshB = setup446Cycle(t, path.join(tmp, 'fresh-b'), [{ version: 'v1', quality: 0.9 }], { all: true });
+  assert.equal(run446Cycle(freshB, 'v1', { history: freshHistory, quality: 0.9, all: true }).status, 0);
+  assert.equal(evaluation446(freshB.dataDir, 'v1').curves.floor.detail.status, 'regression');
+  assert.equal(evaluation446(freshB.dataDir, 'v1').trend.verdict, 'hold');
+
+  writeRows446(presentHistory, [alternateBaseline, candidate]);
+  const beforePresent = snapshot446([...paths.filter(file => file !== absentHistory), presentHistory]);
+  const present = run446Cycle(monthB, 'v1', { history: presentHistory, quality: 0.9 });
+  assert.notEqual(present.status, 0, 'an identical candidate row must not bypass baseline validation');
+  assertSnapshot446(beforePresent);
+  assert.doesNotMatch(`${present.stdout}\n${present.stderr}`, /0\.99|synthetic-|holdout-|validation-/);
+
+  const matching = fs.readFileSync(originalHistory, 'utf8');
+  const matchingResume = run446Cycle(monthB, 'v1', { history: originalHistory, quality: 0.9 });
+  assert.equal(matchingResume.status, 0, matchingResume.stderr || matchingResume.stdout);
+  assert.equal(fs.readFileSync(originalHistory, 'utf8'), matching, 'matching history resume stays byte-stable');
+});
+
+test('446 H2: rejects stale predecessor metrics and reordered trend rows before writes', t => {
+  const tmp = private446Root(t);
+  const originalHistory = path.join(tmp, 'original-history.jsonl');
+  const monthA = setup446Cycle(t, path.join(tmp, 'month-a'), [{ version: 'v0', quality: 0.9 }], { all: true });
+  const monthB = setup446Cycle(t, path.join(tmp, 'month-b'), [
+    { version: 'v1', quality: 0.8 }, { version: 'v2', quality: 0.7 }, { version: 'v3', quality: 0.6 },
+  ], { all: true });
+  for (const [fixture, version, quality] of [
+    [monthA, 'v0', 0.9], [monthB, 'v1', 0.8], [monthB, 'v2', 0.7], [monthB, 'v3', 0.6],
+  ]) assert.equal(run446Cycle(fixture, version, { history: originalHistory, quality, all: true }).status, 0);
+  assert.equal(evaluation446(monthB.dataDir, 'v3').trend.verdict, 'rollback');
+
+  const changedHistory = path.join(tmp, 'changed-prior-history.jsonl');
+  const changedB = setup446Cycle(t, path.join(tmp, 'changed-b'), [
+    { version: 'v1', quality: 0.8 }, { version: 'v2', quality: 0.9 },
+  ], { all: true });
+  const changedA = setup446Cycle(t, path.join(tmp, 'changed-a'), [{ version: 'v0', quality: 0.9 }], { all: true });
+  assert.equal(run446Cycle(changedA, 'v0', { history: changedHistory, quality: 0.9, all: true }).status, 0);
+  assert.equal(run446Cycle(changedB, 'v1', { history: changedHistory, quality: 0.8, all: true }).status, 0);
+  assert.equal(run446Cycle(changedB, 'v2', { history: changedHistory, quality: 0.9, all: true }).status, 0);
+  const changedBytes = fs.readFileSync(changedHistory, 'utf8');
+  const changedPaths = [changedHistory,
+    path.join(monthB.dataDir, 'training', 'candidates', 'v3', 'evaluation', 'curves.json'),
+    path.join(monthB.dataDir, 'training', 'candidates', 'v3', 'evaluation', 'trend.json'),
+    path.join(monthB.dataDir, 'training', 'candidates', 'v3', 'manifest.json'),
+    path.join(monthB.dataDir, 'cycle-state.json'), monthB.callLog];
+  const changedBefore = snapshot446(changedPaths);
+  const changed = run446Cycle(monthB, 'v3', { history: changedHistory, quality: 0.6 });
+  assert.notEqual(changed.status, 0, 'same baseline with changed prior comparison rows must reject a stale rollback');
+  assertSnapshot446(changedBefore);
+  assert.equal(fs.readFileSync(changedHistory, 'utf8'), changedBytes);
+
+  const reorderedHistory = path.join(tmp, 'reordered-history.jsonl');
+  writeRows446(reorderedHistory, [rows446(originalHistory)[0], rows446(originalHistory)[2], rows446(originalHistory)[1]]);
+  const reorderedBytes = fs.readFileSync(reorderedHistory, 'utf8');
+  const reordered = run446Cycle(monthB, 'v3', { history: reorderedHistory, quality: 0.6 });
+  assert.notEqual(reordered.status, 0, 'saved predecessor ids must retain their original order');
+  assert.equal(fs.readFileSync(reorderedHistory, 'utf8'), reorderedBytes);
+});
+
+test('446 H2: resumes bootstrap and older candidates against their original predecessor prefixes', t => {
+  const tmp = private446Root(t);
+  const history = path.join(tmp, 'shared-history.jsonl');
+  const monthA = setup446Cycle(t, path.join(tmp, 'month-a'), [{ version: 'v0', quality: 0.9 }], { all: true });
+  const monthB = setup446Cycle(t, path.join(tmp, 'month-b'), [
+    { version: 'v1', quality: 0.9 }, { version: 'v2', quality: 0.9 },
+  ], { all: true });
+  for (const [fixture, version] of [[monthA, 'v0'], [monthB, 'v1'], [monthB, 'v2']]) {
+    const result = run446Cycle(fixture, version, { history, quality: 0.9, all: true });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+  }
+  const original = fs.readFileSync(history, 'utf8');
+  const callsBefore = fs.readFileSync(monthB.callLog, 'utf8');
+  const bootstrap = evaluation446(monthA.dataDir, 'v0');
+  assert.equal(bootstrap.trend.verdict, 'hold');
+  assert.equal(run446Cycle(monthA, 'v0', { history, quality: 0.9 }).status, 0);
+  const older = evaluation446(monthB.dataDir, 'v1');
+  assert.equal(run446Cycle(monthB, 'v1', { history, quality: 0.9 }).status, 0);
+  assert.deepEqual(evaluation446(monthB.dataDir, 'v1').trend, older.trend);
+  assert.equal(fs.readFileSync(history, 'utf8'), original);
+  assert.equal(fs.readFileSync(monthB.callLog, 'utf8'), callsBefore, 'resume must not rescore');
+});
+
+test('446 H2: fresh append separates a valid history without LF and the next evaluation reads it', t => {
+  const tmp = private446Root(t);
+  const history = path.join(tmp, 'shared-history.jsonl');
+  const monthA = setup446Cycle(t, path.join(tmp, 'month-a'), [{ version: 'v0', quality: 0.9 }], { all: true });
+  const monthB = setup446Cycle(t, path.join(tmp, 'month-b'), [
+    { version: 'v1', quality: 0.9 }, { version: 'v2', quality: 0.9 },
+  ], { all: true });
+  assert.equal(run446Cycle(monthA, 'v0', { history, quality: 0.9, all: true }).status, 0);
+  const original = fs.readFileSync(history, 'utf8');
+  assert.ok(original.endsWith('\n'));
+  const prefix = original.slice(0, -1);
+  fs.writeFileSync(history, prefix);
+
+  const firstAppend = run446Cycle(monthB, 'v1', { history, quality: 0.9, all: true });
+  assert.equal(firstAppend.status, 0, firstAppend.stderr || firstAppend.stdout);
+  const afterFirst = fs.readFileSync(history, 'utf8');
+  assert.ok(afterFirst.startsWith(prefix), 'the original history bytes must remain a prefix');
+  assert.ok(afterFirst.slice(prefix.length).startsWith('\n{'), 'append must restore the missing JSONL separator');
+  assert.deepEqual(rows446(history).map(row => row.version), ['v0', 'v1']);
+
+  const secondAppend = run446Cycle(monthB, 'v2', { history, quality: 0.9, all: true });
+  assert.equal(secondAppend.status, 0, secondAppend.stderr || secondAppend.stdout);
+  assert.deepEqual(rows446(history).map(row => row.version), ['v0', 'v1', 'v2']);
+});
+
+test('446 H2: missing-append resume repairs no-LF once; duplicate and conflict no-ops preserve bytes', t => {
+  const tmp = private446Root(t);
+  const sourceHistory = path.join(tmp, 'source-history.jsonl');
+  const alternateHistory = path.join(tmp, 'alternate-history.jsonl');
+  const monthA = setup446Cycle(t, path.join(tmp, 'month-a'), [{ version: 'v0', quality: 0.9 }], { all: true });
+  const monthB = setup446Cycle(t, path.join(tmp, 'month-b'), [{ version: 'v1', quality: 0.9 }], { all: true });
+  assert.equal(run446Cycle(monthA, 'v0', { history: sourceHistory, quality: 0.9, all: true }).status, 0);
+  assert.equal(run446Cycle(monthB, 'v1', { history: sourceHistory, quality: 0.9, all: true }).status, 0);
+  const baseline = rows446(sourceHistory)[0];
+  writeRows446(alternateHistory, [baseline], '');
+  const callsBefore = fs.readFileSync(monthB.callLog, 'utf8');
+
+  const resume = run446Cycle(monthB, 'v1', { history: alternateHistory, quality: 0.9 });
+  assert.equal(resume.status, 0, resume.stderr || resume.stdout);
+  let bytes = fs.readFileSync(alternateHistory, 'utf8');
+  assert.ok(bytes.startsWith(JSON.stringify(baseline)));
+  assert.ok(bytes.slice(JSON.stringify(baseline).length).startsWith('\n{'), 'resume append must restore its missing separator');
+  assert.deepEqual(rows446(alternateHistory).map(row => row.version), ['v0', 'v1']);
+  assert.equal(fs.readFileSync(monthB.callLog, 'utf8'), callsBefore, 'cached resume must not rescore');
+
+  fs.writeFileSync(alternateHistory, bytes.slice(0, -1));
+  const noFinalLf = fs.readFileSync(alternateHistory, 'utf8');
+  const duplicate = run446Cycle(monthB, 'v1', { history: alternateHistory, quality: 0.9 });
+  assert.equal(duplicate.status, 0, duplicate.stderr || duplicate.stdout);
+  assert.equal(fs.readFileSync(alternateHistory, 'utf8'), noFinalLf, 'deduplication must not normalize a no-op');
+
+  const timestampRows = rows446(alternateHistory);
+  timestampRows.find(row => row.version === 'v1').createdAt = '2026-11-17T00:00:00.000Z';
+  writeRows446(alternateHistory, timestampRows, '');
+  const timestampBytes = fs.readFileSync(alternateHistory, 'utf8');
+  const timestampResume = run446Cycle(monthB, 'v1', { history: alternateHistory, quality: 0.9 });
+  assert.equal(timestampResume.status, 0, timestampResume.stderr || timestampResume.stdout);
+  assert.equal(fs.readFileSync(alternateHistory, 'utf8'), timestampBytes, 'timestamp-only identity remains a byte-stable no-op');
+
+  const conflictingRows = rows446(alternateHistory);
+  conflictingRows.find(row => row.version === 'v1').stages.validity.logLoss += 1;
+  writeRows446(alternateHistory, conflictingRows, '');
+  const conflictBytes = fs.readFileSync(alternateHistory, 'utf8');
+  const conflict = run446Cycle(monthB, 'v1', { history: alternateHistory, quality: 0.9 });
+  assert.notEqual(conflict.status, 0, 'conflicting duplicate must reject');
+  assert.equal(fs.readFileSync(alternateHistory, 'utf8'), conflictBytes, 'rejection must not normalize history');
 });

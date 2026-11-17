@@ -54,6 +54,7 @@ node scripts/system-one-cycle.js all --until publish --data-dir "<private-cycle-
 ## Cross-cycle history and floor baseline
 
 - History is append-only. Reusing a version id is allowed only when its saved curve content matches; duplicate or conflicting version rows fail without overwriting existing history.
+- Cached resume is accepted only when the selected history reproduces its saved baseline, ordered predecessor comparisons, and verdict; incompatible history is rejected without changing history or saved artifacts.
 - Each stage keeps the first compatible historical holdout row as its floor baseline. Later rows record the baseline version and compare against that same row, including after partial recovery.
 - A supplied history path must resolve outside the repository and name a file. Malformed history fails visibly. On POSIX, newly created history directories and files use `0700` and `0600`; existing shared parent permissions are left alone. Windows ACLs remain the operator's responsibility.
 - The two-consecutive-cycle detector uses the latest three evaluation rows as its active-trend proxy. It does not identify the version currently installed; active-version rollback semantics remain with #443.
