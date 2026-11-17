@@ -93,6 +93,15 @@ episodes:
         change: null
         review: coordinator
         result: "The R1 review report (2026-11-15) ended with a column-zero `STATUS: DONE` followed by a hidden harness-label line, so STATUS was not the terminal line: delivered, not terminal. The same label/STATUS conflict as episodes 412, 425, 430 and 431, in another independent feature."
+  - episode: 448-rd1-label-after-status
+    feature: "#448 RD1 disposal review report"
+    date: 2026-11-18
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "RD1's final message, captured with codex exec -o, ended with a column-zero STATUS: DONE followed by a hidden harness-label line: delivered, not terminal. Same cause as episodes 412, 425, 430, 431 and 442: the -o report file is the final message."
 ---
 
 ## Cue
@@ -125,3 +134,7 @@ Five `codex exec -o` reports ended with a harness-label line after the terminal 
 ## Episode 4 (2026-11-15, #442)
 
 The R1 review report ended with a harness-label line after its column-zero `STATUS: DONE`. Same label/STATUS conflict as episodes 412, 425, 430 and 431, in another independent feature.
+
+## Episode 5 (2026-11-18, PR #448)
+
+RD1's final message (captured with `codex exec -o`) ended with a harness-label line after its column-zero `STATUS: DONE`. Same label/STATUS conflict as episodes 412, 425, 430, 431 and 442.

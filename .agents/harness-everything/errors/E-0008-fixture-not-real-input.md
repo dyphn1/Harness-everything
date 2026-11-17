@@ -32,6 +32,19 @@ episodes:
         change: "D8 fix, commit `3732b134`: the fixture generates its own `.husky/_` by running the copied Husky package in its own repository. Clean-checkout acceptance recorded at `59037db8` (coordinator-reported, normal and `HUSKY=0 CI=true`, checkout `.husky/_` absent)."
         review: "review-6, review-7"
         result: "Review-7 reports no D8 finding under the adjudicated scope. Its deferred list has only D7 (a selector item, recorded on E-0007) and D8, so no other fixture subissue remains open; episode closed. The package-copy prerequisite is an out-of-scope known limit, not an open defect."
+  - episode: w3-heartbeat-sampling-oracle
+    feature: unknown
+    date: unknown
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: "W3 RED run on correct code"
+        result: "A cancellation test sampled heartbeat output after a fixed sleep and reported processStopped:false on correct code: a false RED from a timing-sampled proxy signal."
+      - round: 1
+        change: "Commit a8ef3d49 (test-only): prove cancellation via process exit instead of heartbeat sampling"
+        review: unknown
+        result: "Fixed on the branch. The false RED cost one diagnose round."
 ---
 
 ## Cue
@@ -48,6 +61,10 @@ The deterministic positive for a live-path feature loads a real artifact from th
 - #396 reviews review-6 and review-7; D8 fix `3732b134`; clean-checkout acceptance `59037db8` (coordinator-reported, not rerun by the reviewer).
 
 A second shape of the same class: a fixture that borrows real artifacts from the developer's own checkout is not self-contained. It passes where those artifacts happen to exist and fails in a clean root or CI. Generate incidental install outputs inside the fixture; declared, installed devDependency code may be an explicit fixture input.
+
+## Episode 2 (W3 cancellation test)
+
+A third shape: the oracle sampled a proxy signal — heartbeat output after a fixed sleep — and the sample disagreed with the real outcome, so correct code reported a false RED (`processStopped:false`). Assert the outcome itself: prove cancellation via process exit (fix `a8ef3d49`, test-only), not via a timing-dependent proxy. Cost: one diagnose round.
 
 ## Known limit (out of scope)
 
