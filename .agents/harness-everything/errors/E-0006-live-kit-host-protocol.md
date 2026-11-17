@@ -7,6 +7,7 @@ sites:
   - "live operator kit (watcher, run script, prompts, agent definitions)"
   - hooks/scripts/lib/doc-reconciliation-provider.js
   - "opencode-plugin/index.mjs (OpenCode V2 event loop and router runtime, #397)"
+  - "PR #448 enforcement handler (V2 lifecycle event/session-id translation)"
 violates: "Advisor answer 13: \"Checks, final quality review, reconciliation and Stop | Execute and capture through the real host and shipped consumers.\""
 scope: in
 status: lesson
@@ -62,6 +63,19 @@ episodes:
         change: "O4 rev 2 (input 9051c28e): assistantTextForCurrentTurn reads V2 type and content[] text items"
         review: unknown
         result: "The point rounds ended once a key-only trace of the real V2 shapes was recorded (per the 2026-11-15 test-oracle lesson). That trace is not a closing review and the packet sources do not re-record it, so the episode stays closed false."
+  - episode: 448-v2-consumer-translation
+    feature: "#448 V2 consumer translation (owner review round 2)"
+    date: 2026-11-15
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: "owner review round 2 of PR #448"
+        result: "The V2 lifecycle event and session id were not translated for the enforcement handler (one of two owner-round-2 P1s; the stale-binding P1 is recorded on E-0001)."
+      - round: 1
+        change: "Commit 5371ead2: translate the V2 lifecycle event and session id for the enforcement handler"
+        review: unknown
+        result: "Fixed on the branch. No closing review is recorded, so the episode stays open."
 ---
 
 ## Cue
@@ -83,3 +97,7 @@ Before spending a live run, preflight the kit against the shipped consumers: res
 ## Episode 2 (2026-11-15, #397)
 
 Three host-shape findings after discovery: the router runtime under Bun, the V2 turn-end event, and the V2 message shape. The lesson above applies as written. Record one live trace of the real shapes before writing the fix packet.
+
+## Episode 3 (2026-11-15, PR #448)
+
+The owner's round-2 review of PR #448 found the V2 lifecycle event and session id untranslated for the enforcement handler; fixed in `5371ead2`. Second owner round in this V2 class. The lesson above applies as written: translate the real host shapes at every consumer, including the enforcement handler.

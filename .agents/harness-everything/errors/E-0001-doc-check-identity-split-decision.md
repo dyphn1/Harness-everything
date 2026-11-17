@@ -16,6 +16,7 @@ sites:
   - harness-everything/scripts/system-one/catalogs.js
   - opencode-plugin/index.mjs
   - "ci/mechanism-397-cycle-import.test.js (PR #448 branch; not on main at bd986013)"
+  - "PR #448 plugin disposal and publication await sites"
 violates: "#325 H3: claims alone, unavailable observations, stale bindings, unsupported waivers and contradictory runs cannot become a false PASS."
 scope: in
 status: lesson
@@ -105,6 +106,32 @@ episodes:
         change: "Commit 5a55a8f7: the cycle-import v2 fixture gets the session lookup"
         review: unknown
         result: "Fixed on the branch. No closing review is recorded, so the episode stays open."
+  - episode: 448-v2-consumer-translation
+    feature: "#448 V2 consumer translation (owner review round 2)"
+    date: 2026-11-15
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: "owner review round 2 of PR #448"
+        result: "Owner round-2 review found a stale binding after a failed identity lookup (split-decision facet of two P1s; the V2 lifecycle event/session-id facet is recorded on E-0006)."
+      - round: 1
+        change: "Commit 5371ead2: clear the stale binding after a failed identity lookup and translate the V2 lifecycle event and session id for the enforcement handler"
+        review: unknown
+        result: "Fixed on the branch. No closing review is recorded, so the episode stays open."
+  - episode: 448-disposal-liveness
+    feature: "#448 plugin disposal liveness"
+    date: unknown
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: "R3 independent review on PR #448"
+        result: "R3 found late publication after plugin disposal — the second blocker on PR #448 after the repair budget."
+      - round: 1
+        change: "Commit a0f8204a: publication fixed across all await sites"
+        review: "RD1 independent review"
+        result: "RD1 found disposal still awaits an unresolved host session.context() read. Episode open; owner decision pending."
 ---
 
 ## Cue
@@ -137,3 +164,11 @@ Issue #445 groups R1, F6, F7, F8, owner review P2-1 and the live intent finding 
 ## Episode 4 (2026-11-15, #397 / PR #448)
 
 P1W (`861e55ec`) made V2 prompts require `ctx.session.get`. Its consumer inventory skipped `ci/mechanism-397-cycle-import.test.js`, because a parallel packet owned that file. Inventorying every consumer, including unchanged ones and regardless of write-set, would have caught it. Fixed in `5a55a8f7`.
+
+## Episode 5 (2026-11-15, PR #448 owner review round 2)
+
+The owner's round-2 review of PR #448 found two P1s: the V2 lifecycle event and session id were not translated for the enforcement handler, and a binding stayed stale after a failed identity lookup. Both were fixed in commit `5371ead2`. This record carries the stale-binding facet; the host-protocol facet is recorded on E-0006. Second owner round in this V2 class.
+
+## Episode 6 (PR #448, disposal liveness)
+
+R3 found late publication after plugin disposal — the second blocker on PR #448 after the repair budget. D1 (`a0f8204a`) fixed publication across all await sites; the independent review RD1 then found that disposal still awaits an unresolved host `session.context()` read. Episode open; owner decision pending.

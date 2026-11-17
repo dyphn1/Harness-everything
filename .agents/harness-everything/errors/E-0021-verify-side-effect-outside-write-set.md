@@ -21,6 +21,15 @@ episodes:
         change: null
         review: "worker self-disclosure in the F13 report"
         result: "The worker's report attributes the regeneration of the plugins/** copies of provider.js and router.js to the verification runs (npm run test:consistency and npm run verify:all). The report itself says verify:all -- --fast was not in the packet's list. The worker did not hand-edit the copies and reports that they match the canonical files. The packet's write-set excluded plugins/**, and the F13 packet does not assign plugin sync to the coordinator (the F12 packet did). No coordinator disposition is recorded."
+  - episode: 456-h1-preflight-git-probe
+    feature: "#456 H1 environment-detection preflight"
+    date: 2026-11-17
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "H1 for PR #456 was told 'no git commands'; its environment-detection preflight probed git (read-only). The probe crossed the briefed command boundary even though nothing was written."
 ---
 
 ## Cue
@@ -34,6 +43,10 @@ The F13 worker ran verification beyond the packet's list, including `verify:all 
 ## Lesson
 
 Write-sets must list the generated outputs a verification run produces, or the packet must say who runs the sync. Either the coordinator runs the sync and the worker runs only the gates the packet lists, or the worker restores the excluded paths and reports that it did.
+
+## Episode 2 (2026-11-17, PR #456)
+
+A second shape: not a write outside the write-set but a read-only probe outside the briefed command boundary. H1's environment-detection preflight ran git although the packet said "no git commands". Read-only does not exempt an auxiliary step from the briefed boundary: a preflight detects the environment with commands the packet allows, or the packet names the probe as allowed.
 
 ## Evidence
 
