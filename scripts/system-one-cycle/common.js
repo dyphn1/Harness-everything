@@ -127,11 +127,33 @@ function assertPrivateDataDir(dataDir, { allowSyntheticBuildRoot = false, create
   return target;
 }
 
+function assertPrivateHistoryFile(file) {
+  if (typeof file !== 'string' || !file.trim()) throw new Error('private history path must be nonempty');
+  let target;
+  try { target = canonicalDestination(file); }
+  catch { throw new Error('invalid private history path'); }
+  const repo = fs.realpathSync.native(REPO);
+  if (isWithin(repo, target)) throw new Error('private history must be stored outside the repository');
+  try {
+    if (!fs.statSync(target).isFile()) throw new Error('private history path must name a file');
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  return target;
+}
+
+function appendPrivateHistory(file, text) {
+  const target = assertPrivateHistoryFile(file);
+  fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
+  fs.appendFileSync(assertPrivateHistoryFile(target), text, { encoding: 'utf8', mode: 0o600 });
+}
+
 function resultSummary(step, details) {
   return { step, ...details };
 }
 
 module.exports = {
   REPO, STEPS, readJsonl, writeJsonl, writeJson, parseFlags, flag, required, dataPath,
-  readState, stepComplete, markStep, runNode, assertPrivateDataDir, isSyntheticBuildDataDir, resultSummary,
+  readState, stepComplete, markStep, runNode, assertPrivateDataDir, assertPrivateHistoryFile,
+  appendPrivateHistory, isSyntheticBuildDataDir, resultSummary,
 };

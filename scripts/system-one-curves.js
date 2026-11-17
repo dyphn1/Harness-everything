@@ -3,7 +3,9 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { isDeepStrictEqual } = require('node:util');
 const { STAGES, validateVersionManifest } = require('../harness-everything/scripts/system-one/manifest');
+const { assertPrivateHistoryFile, appendPrivateHistory } = require('./system-one-cycle/common');
 
 const STAGE_SET = new Set(STAGES);
 const EPSILON = 1e-12;
@@ -169,23 +171,54 @@ function assessFloor(holdout, history) {
   let baselineMissing = false;
   for (const [stage, metrics] of Object.entries(holdout)) {
     const current = comparisonMetrics(metrics);
-    const previous = [...history].reverse().find(item => Number.isFinite(item.floor?.detail?.stages?.[stage]?.coverageAccuracyAuc));
-    if (previous && !detail.baselineVersion) detail.baselineVersion = previous.version;
-    const baseline = previous?.floor.detail.stages[stage];
-    const prior = baseline && Number.isFinite(baseline.coverageAccuracyAuc)
-      ? { auc: baseline.coverageAccuracyAuc, logLoss: baseline.logLoss, ece: baseline.ece } : null;
+    const baseline = baselineForStage(history, stage);
+    const prior = baseline?.metrics ? {
+      auc: baseline.metrics.coverageAccuracyAuc,
+      logLoss: baseline.metrics.logLoss,
+      ece: baseline.metrics.ece,
+    } : null;
     if (!prior) {
       baselineMissing = true;
-      detail.stages[stage] = { coverageAccuracyAuc: current.auc, logLoss: current.logLoss, ece: current.ece, baselineAvailable: false };
+      detail.stages[stage] = { coverageAccuracyAuc: current.auc, logLoss: current.logLoss, ece: current.ece,
+        baselineAvailable: false, ...(baseline?.version ? { baselineVersion: baseline.version } : {}) };
       continue;
     }
+    detail.stages[stage] = { coverageAccuracyAuc: current.auc, logLoss: current.logLoss, ece: current.ece,
+      baselineAvailable: true, baselineVersion: baseline.version };
     const deltas = metricDeltas(current, prior);
     if (!noWorse(deltas)) oldHoldoutRegression = true;
-    detail.stages[stage] = { coverageAccuracyAuc: current.auc, logLoss: current.logLoss, ece: current.ece, deltas, baselineAvailable: true };
+    detail.stages[stage].deltas = deltas;
+  }
+  const baselineVersions = Object.values(detail.stages).map(stage => stage.baselineVersion);
+  if (baselineVersions.length && baselineVersions.every(isText) && new Set(baselineVersions).size === 1) {
+    detail.baselineVersion = baselineVersions[0];
   }
   if (oldHoldoutRegression) detail.status = 'regression';
   else if (baselineMissing || Object.keys(holdout).length === 0) detail.status = 'baseline-unavailable';
   return { oldHoldoutRegression, detail };
+}
+
+function floorMetrics(item, stage) {
+  const metrics = item?.floor?.detail?.stages?.[stage];
+  return metrics && [metrics.coverageAccuracyAuc, metrics.logLoss, metrics.ece].every(Number.isFinite) ? metrics : null;
+}
+
+function baselineForStage(history, stage) {
+  let version;
+  for (const item of history) {
+    const stageVersion = item.floor?.detail?.stages?.[stage]?.baselineVersion;
+    const legacyVersion = item.floor?.detail?.baselineVersion;
+    if (isText(stageVersion) || isText(legacyVersion)) {
+      version = isText(stageVersion) ? stageVersion : legacyVersion;
+      break;
+    }
+  }
+  if (version) {
+    const item = history.find(row => row.version === version);
+    return { version, metrics: floorMetrics(item, stage) };
+  }
+  const item = history.find(row => floorMetrics(row, stage));
+  return item ? { version: item.version, metrics: floorMetrics(item, stage) } : null;
 }
 
 function readHistory(file) {
@@ -194,9 +227,84 @@ function readHistory(file) {
   try { lines = fs.readFileSync(file, 'utf8').split(/\r?\n/).filter(line => line.trim()); } catch (_) { fail(); }
   try {
     const history = lines.map(line => JSON.parse(line));
-    if (history.some(item => !isObject(item) || item.schemaVersion !== 1 || !isText(item.version) || !isObject(item.stages))) fail();
+    const versions = new Set();
+    for (const item of history) {
+      validateCurveRecord(item);
+      if (versions.has(item.version)) fail();
+      versions.add(item.version);
+    }
     return history;
   } catch (_) { fail(); }
+}
+
+function validateCurveRecord(curves) {
+  if (!isObject(curves) || curves.schemaVersion !== 1 || !isText(curves.version) || !isText(curves.createdAt)
+    || !isObject(curves.stages) || !Object.keys(curves.stages).length
+    || !isObject(curves.floor) || typeof curves.floor.oldHoldoutRegression !== 'boolean'
+    || !isObject(curves.floor.detail) || !isObject(curves.floor.detail.stages)
+    || !['unknown', 'checked', 'regression', 'baseline-unavailable'].includes(curves.floor.detail.status)
+    || (curves.floor.detail.baselineVersion !== null && curves.floor.detail.baselineVersion !== undefined
+      && !isText(curves.floor.detail.baselineVersion))) fail();
+  for (const [stage, metrics] of Object.entries(curves.stages)) {
+    if (!STAGE_SET.has(stage) || !isObject(metrics) || ![metrics.logLoss, metrics.brier, metrics.ece].every(Number.isFinite)
+      || !Array.isArray(metrics.coverageCurve) || metrics.coverageCurve.length !== 101
+      || metrics.coverageCurve.some(point => !Array.isArray(point) || point.length !== 3
+        || !Number.isFinite(point[0]) || point[0] < 0 || point[0] > 1
+        || !Number.isFinite(point[1]) || point[1] < 0 || point[1] > 1
+        || (point[2] !== null && (!Number.isFinite(point[2]) || point[2] < 0 || point[2] > 1)))) fail();
+  }
+  for (const [stage, metrics] of Object.entries(curves.floor.detail.stages)) {
+    if (!Object.hasOwn(curves.stages, stage) || !isObject(metrics)
+      || ![metrics.coverageAccuracyAuc, metrics.logLoss, metrics.ece].every(Number.isFinite)
+      || typeof metrics.baselineAvailable !== 'boolean'
+      || (metrics.baselineVersion !== undefined && !isText(metrics.baselineVersion))) fail();
+    if (metrics.baselineAvailable && (!isObject(metrics.deltas)
+      || !['auc', 'logLoss', 'ece'].every(key => Number.isFinite(metrics.deltas[key]))
+      || (!isText(metrics.baselineVersion) && !isText(curves.floor.detail.baselineVersion)))) fail();
+  }
+}
+
+function withoutCreatedAt(curves) {
+  const immutable = JSON.parse(JSON.stringify(curves));
+  delete immutable.createdAt;
+  for (const stage of Object.values(immutable.floor?.detail?.stages || {})) {
+    if (!isText(stage.baselineVersion) && isText(immutable.floor.detail.baselineVersion)) {
+      stage.baselineVersion = immutable.floor.detail.baselineVersion;
+    }
+  }
+  return immutable;
+}
+
+function assertVersionReusable(history, curves) {
+  const existing = history.find(item => item.version === curves.version);
+  if (existing && !isDeepStrictEqual(withoutCreatedAt(existing), withoutCreatedAt(curves))) fail();
+  return existing;
+}
+
+function validateSavedCurves(curves, version, manifest) {
+  validateCurveRecord(curves);
+  if (curves.version !== version || Object.keys(curves.stages).length !== Object.keys(manifest.stages).length
+    || Object.keys(curves.stages).some(stage => !Object.hasOwn(manifest.stages, stage))) fail();
+}
+
+function validateSavedTrend(trend, version) {
+  if (!isObject(trend) || !['promote', 'hold', 'rollback'].includes(trend.verdict)
+    || !Array.isArray(trend.compared) || trend.compared.some(version => !isText(version))
+    || !trend.compared.includes(version)
+    || !Array.isArray(trend.reasons) || trend.reasons.some(reason => !isText(reason))) fail();
+}
+
+function validateBaselineReferences(curves, history) {
+  for (const [stage, baseline] of Object.entries(curves.floor.detail.stages)) {
+    if (baseline.baselineAvailable !== true) continue;
+    const baselineVersion = isText(baseline.baselineVersion) ? baseline.baselineVersion : curves.floor.detail.baselineVersion;
+    if (!isText(baselineVersion) || !floorMetrics(history.find(row => row.version === baselineVersion), stage)) fail();
+  }
+}
+
+function appendHistoryRow(file, history, curves) {
+  if (assertVersionReusable(history, curves)) return;
+  appendPrivateHistory(file, `${JSON.stringify(curves)}\n`);
 }
 
 function worseningCycles(history, stages) {
@@ -268,7 +376,8 @@ function stageFiles(args, option) {
 
 function parseArgs(argv) {
   const parsed = { val: [], holdout: [] };
-  const names = { '--version': 'version', '--version-dir': 'versionDir', '--val-scores': 'val', '--holdout-scores': 'holdout', '--history': 'history', '--out': 'out' };
+  const names = { '--version': 'version', '--version-dir': 'versionDir', '--val-scores': 'val', '--holdout-scores': 'holdout',
+    '--history': 'history', '--out': 'out', '--resume-curves': 'resumeCurves' };
   for (let i = 0; i < argv.length; i++) {
     const key = names[argv[i]]; const value = argv[++i];
     if (!key || value === undefined) fail();
@@ -276,13 +385,31 @@ function parseArgs(argv) {
     else if (Object.hasOwn(parsed, key)) fail();
     else parsed[key] = value;
   }
-  if (!isText(parsed.version) || !isText(parsed.versionDir) || !parsed.val.length || !isText(parsed.history) || !isText(parsed.out)) fail();
+  if (!isText(parsed.version) || !isText(parsed.versionDir) || !isText(parsed.history) || !isText(parsed.out)) fail();
+  if (parsed.resumeCurves) {
+    if (!isText(parsed.resumeCurves) || parsed.val.length || parsed.holdout.length) fail();
+  } else if (!parsed.val.length) fail();
   return parsed;
 }
 
 function run(argv) {
   const args = parseArgs(argv);
+  args.history = assertPrivateHistoryFile(args.history);
   const manifest = readManifest(args.versionDir, args.version);
+  if (args.resumeCurves) {
+    let curves; let trend;
+    try {
+      curves = JSON.parse(fs.readFileSync(args.resumeCurves, 'utf8'));
+      trend = JSON.parse(fs.readFileSync(path.join(args.out, 'trend.json'), 'utf8'));
+    } catch (_) { fail(); }
+    validateSavedCurves(curves, args.version, manifest);
+    validateSavedTrend(trend, args.version);
+    const history = readHistory(args.history);
+    validateBaselineReferences(curves, history);
+    appendHistoryRow(args.history, history, curves);
+    console.log(JSON.stringify({ resumed: true, version: args.version }));
+    return { curves, trend };
+  }
   const valFiles = stageFiles(args, 'val');
   const holdoutFiles = stageFiles(args, 'holdout');
   if (Object.keys(holdoutFiles).some(stage => !Object.hasOwn(valFiles, stage))) fail();
@@ -304,13 +431,13 @@ function run(argv) {
   const history = readHistory(args.history);
   const floor = assessFloor(Object.keys(holdoutMetrics).length ? holdoutMetrics : null, history);
   const curves = { schemaVersion: 1, version: args.version, createdAt: new Date().toISOString(), stages, floor };
+  const existing = assertVersionReusable(history, curves);
+  validateBaselineReferences(curves, history);
   const trend = decideTrend(curves, history, floor);
   fs.mkdirSync(args.out, { recursive: true });
-  fs.mkdirSync(path.dirname(args.history), { recursive: true });
   fs.writeFileSync(path.join(args.out, 'curves.json'), `${JSON.stringify(curves, null, 2)}\n`);
   fs.writeFileSync(path.join(args.out, 'trend.json'), `${JSON.stringify(trend, null, 2)}\n`);
-  const oldHistory = fs.existsSync(args.history) ? fs.readFileSync(args.history, 'utf8') : '';
-  fs.appendFileSync(args.history, `${oldHistory && !oldHistory.endsWith('\n') ? '\n' : ''}${JSON.stringify(curves)}\n`);
+  if (!existing) appendHistoryRow(args.history, history, curves);
   const summary = Object.fromEntries(Object.entries(stages).map(([stage, value]) => [stage, {
     rows: readJsonl(valFiles[stage]).length,
     logLoss: value.logLoss,
