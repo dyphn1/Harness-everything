@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { REPO, dataPath, writeJson, assertPrivateDataDir } = require('./common');
+const { REPO, dataPath, writeJson, assertPrivateDataDir, assertPrivateHistoryFile } = require('./common');
 const { buildVersion } = require('./package');
 const { TASKS } = require('./train');
 const { validateVersionManifest } = require('../../harness-everything/scripts/system-one/manifest');
@@ -29,21 +29,25 @@ function recordEvaluation(manifestFile, version) {
   return manifest;
 }
 
-function evaluateCycle({ dataDir, version }) {
+function evaluateCycle({ dataDir, version, history: historyOption }) {
   const privateDir = assertPrivateDataDir(dataDir);
+  const history = assertPrivateHistoryFile(historyOption === undefined
+    ? dataPath(privateDir, 'training', 'history.jsonl') : historyOption);
   const source = dataPath(privateDir, 'training', 'runs', version);
   const versionDir = dataPath(privateDir, 'training', 'candidates', version);
   const evaluationDir = path.join(versionDir, 'evaluation');
   const curvesFile = path.join(evaluationDir, 'curves.json');
   const trendFile = path.join(evaluationDir, 'trend.json');
+  const curvesScript = path.join(REPO, 'scripts', 'system-one-curves.js');
+  if (!fs.existsSync(curvesScript)) throw new Error('contract C curves CLI is not available in this checkout');
   if (fs.existsSync(curvesFile) && fs.existsSync(trendFile)) {
+    runProcess(process.execPath, [curvesScript, '--version', version, '--version-dir', versionDir,
+      '--history', history, '--out', evaluationDir, '--resume-curves', curvesFile]);
     const manifestFile = path.join(versionDir, 'manifest.json');
     recordEvaluation(manifestFile, version);
     const trend = JSON.parse(fs.readFileSync(trendFile, 'utf8'));
     return { version, verdict: trend.verdict, compared: trend.compared.length, resumed: true };
   }
-  const curvesScript = path.join(REPO, 'scripts', 'system-one-curves.js');
-  if (!fs.existsSync(curvesScript)) throw new Error('contract C curves CLI is not available in this checkout');
   buildVersion({ dataDir: privateDir, version, sourceDir: source, versionDir });
 
   fs.mkdirSync(evaluationDir, { recursive: true, mode: 0o700 });
@@ -57,7 +61,6 @@ function evaluateCycle({ dataDir, version }) {
     curvesArgs.push('--val-scores', `${task}=${path.join(source, task, 'val-scores.jsonl')}`);
     curvesArgs.push('--holdout-scores', `${task}=${scores}`);
   }
-  const history = dataPath(privateDir, 'training', 'history.jsonl');
   curvesArgs.push('--history', history, '--out', evaluationDir);
   runProcess(process.execPath, [curvesScript, ...curvesArgs]);
 

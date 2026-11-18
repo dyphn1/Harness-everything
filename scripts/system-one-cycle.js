@@ -18,7 +18,7 @@ const USAGE = `Usage:
   node scripts/system-one-cycle.js all --until <step> --data-dir <private cycle directory> [options]
 
 Steps: ${STEPS.join(', ')}
-Options: --since YYYY-MM-DD --sessions <Codex sessions dir> --version <id> --threads 4 --max-rss-mb 6144 --holdout <file> (repeatable)`;
+Options: --since YYYY-MM-DD --sessions <Codex sessions dir> --version <id> --threads 4 --max-rss-mb 6144 --holdout <file> (repeatable) --history <private-history.jsonl> (evaluate/all)`;
 
 function values(flags, name) {
   const value = flags[name];
@@ -35,6 +35,11 @@ function numberFlag(flags, name, fallback) {
   const value = Number(flag(flags, name, fallback));
   if (!Number.isFinite(value) || value <= 0) throw new Error(`--${name} must be positive`);
   return value;
+}
+
+function historyFlag(flags) {
+  if (Array.isArray(flags.history)) throw new Error('--history may be supplied only once');
+  return flag(flags, 'history');
 }
 
 function outputsFor(step, dataDir, version, versionDir, result) {
@@ -82,7 +87,7 @@ async function runStep(step, flags, dataDir) {
       break;
     case 'evaluate':
       version = validateVersion(required(flags, 'version'));
-      result = evaluateCycle({ dataDir, version });
+      result = evaluateCycle({ dataDir, version, history: historyFlag(flags) });
       break;
     case 'package':
       version = validateVersion(required(flags, 'version'));

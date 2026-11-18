@@ -17,6 +17,182 @@ const router = require('../harness-everything/scripts/system-one/router');
 const { CATALOGS } = require('../harness-everything/scripts/system-one/catalogs');
 
 const root = fs.realpathSync.native(path.resolve(__dirname, '..'));
+const cycleCli = path.join(root, 'scripts', 'system-one-cycle.js');
+const cycleTrainerCatalogs = {
+  validity: ['invalid'],
+  intent: CATALOGS.intent.map(option => option.id),
+  tier: CATALOGS.tier.map(option => option.id).filter(id => id !== 'unclassified'),
+};
+
+function outside(rootDir, target) {
+  const relative = path.relative(rootDir, target);
+  return relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative);
+}
+
+function private446Root(t) {
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'system-one-cycle-446-')));
+  assert.ok(outside(root, dir), '446 cycle fixtures must live outside the repository');
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  return dir;
+}
+
+function write446Scorer(dir) {
+  const file = path.join(dir, 'sitecustomize.py');
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  fs.writeFileSync(file, [
+    '# shortcut: replaces model inference, upgrade when H3 needs model-loading or quality evidence.',
+    'import json',
+    'import math',
+    'import os',
+    'import sys',
+    `_SCORE_SCRIPT = ${JSON.stringify(path.join(root, 'scripts/system-one-cycle/score.py'))}`,
+    "if (sys.argv and os.path.normcase(os.path.realpath(sys.argv[0])) == os.path.normcase(os.path.realpath(_SCORE_SCRIPT)) and os.environ.get('S1_446_FIXTURE') == '1'):",
+    '    try:',
+    "        required_env = ('S1_446_CATALOGS', 'S1_446_CALL_LOG', 'S1_446_QUALITY')",
+    "        if any(name not in os.environ for name in required_env): raise ValueError('fixture scorer environment is incomplete')",
+    "        names = ('--weights', '--holdout', '--task', '--out')",
+    '        args = sys.argv[1:]',
+    "        if len(args) != len(names) * 2: raise ValueError('expected --weights, --holdout, --task, --out exactly once')",
+    '        values = {}',
+    '        for name, value in zip(args[::2], args[1::2]):',
+    "            if name not in names or name in values or not value: raise ValueError('expected --weights, --holdout, --task, --out exactly once')",
+    '            values[name] = value',
+    "        if set(values) != set(names): raise ValueError('expected --weights, --holdout, --task, --out exactly once')",
+    "        if not os.path.isfile(values['--weights']): raise ValueError('fixture scorer weights are unavailable')",
+    "        if not os.path.isfile(values['--holdout']): raise ValueError('fixture scorer holdout is unavailable')",
+    "        catalogs = json.loads(os.environ['S1_446_CATALOGS'])",
+    "        task = values['--task']",
+    "        if not isinstance(catalogs, dict) or task not in ('validity', 'intent', 'tier') or not isinstance(catalogs.get(task), list) or not catalogs[task] or any(not isinstance(option, str) or not option for option in catalogs[task]): raise ValueError('fixture scorer catalog is invalid')",
+    "        if len(set(catalogs[task])) != len(catalogs[task]): raise ValueError('fixture scorer catalog has duplicate ids')",
+    "        quality = float(os.environ['S1_446_QUALITY'])",
+    "        if not math.isfinite(quality) or not 0 <= quality <= 1: raise ValueError('fixture scorer quality is invalid')",
+    "        gold = 'actionable' if task == 'validity' else ('fix' if task == 'intent' else 'tier2')",
+    "        scores = {option: (1 - quality if option == 'invalid' else quality) if task == 'validity' else (quality if option == gold else 0.01) for option in catalogs[task]}",
+    "        output = values['--out']",
+    "        os.makedirs(os.path.dirname(os.path.abspath(output)), exist_ok=True)",
+    "        with open(output, 'w', encoding='utf-8', newline='') as stream: stream.write(json.dumps({'id': 'holdout-' + task, 'gold': gold, 'scores': scores}, separators=(',', ':')) + '\\n')",
+    "        with open(os.environ['S1_446_CALL_LOG'], 'a', encoding='utf-8', newline='') as stream: stream.write(task + ':holdout\\n')",
+    '    except Exception as error:',
+    "        sys.stderr.write('S1_446 fixture scorer: ' + str(error) + '\\n')",
+    '        sys.stderr.flush()',
+    '        sys.stdout.flush()',
+    '        os._exit(2)',
+    '    sys.stdout.flush()',
+    '    sys.stderr.flush()',
+    '    os._exit(0)',
+  ].join('\n') + '\n', { encoding: 'utf8', mode: 0o700 });
+  return {
+    python: process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3'),
+    pythonPath: dir,
+    hook: file,
+  };
+}
+
+function seed446Candidate(dataDir, version, quality) {
+  const runDir = path.join(dataDir, 'training', 'runs', version);
+  for (const task of ['validity', 'intent', 'tier']) {
+    const stageDir = path.join(runDir, task);
+    fs.mkdirSync(stageDir, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(path.join(stageDir, 'harness-routing-v1.safetensors'), `synthetic-${version}-${task}`);
+    fs.writeFileSync(path.join(stageDir, 'harness-routing-v1.json'), '{}\n');
+    fs.writeFileSync(path.join(stageDir, 'train-report.json'), '{}\n');
+    fs.writeFileSync(path.join(stageDir, 'resource-guard.json'), JSON.stringify({ exitCode: 0, killedForLimit: false, monitorFailed: false }));
+    fs.writeFileSync(path.join(stageDir, 'calibration.json'), JSON.stringify({
+      thresholds: Object.fromEntries(cycleTrainerCatalogs[task].map(id => [id, 0.5])),
+    }));
+    const gold = task === 'validity' ? 'actionable' : task === 'intent' ? 'fix' : 'tier2';
+    const scores = Object.fromEntries(cycleTrainerCatalogs[task].map(id => [id,
+      task === 'validity' ? (id === 'invalid' ? 1 - quality : quality) : (id === gold ? quality : 0.01)]));
+    writeJsonl(path.join(stageDir, 'val-scores.jsonl'), [{ id: `validation-${task}`, gold, scores }]);
+  }
+}
+
+function setup446Cycle(t, dataDir, versions, { all = false } = {}) {
+  const fixture = syntheticCycle(dataDir);
+  if (all) {
+    const steps = {
+      collect: ['training/observed/prompts-observed.jsonl', 'training/observed/labels-observed.jsonl'],
+      label: ['training/relabel-luna/labels.jsonl', 'training/relabel-luna/labels-intent.jsonl'],
+      judge: ['training/adjudication/input.jsonl', 'training/adjudication/consensus.jsonl'],
+    };
+    for (const outputs of Object.values(steps)) {
+      for (const relative of outputs) {
+        const file = path.join(dataDir, relative);
+        fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+        if (!fs.existsSync(file)) fs.writeFileSync(file, '');
+      }
+    }
+    fs.writeFileSync(path.join(dataDir, 'cycle-state.json'), JSON.stringify({ schemaVersion: 1,
+      steps: Object.fromEntries(Object.entries(steps).map(([step, outputs]) => [step,
+        { completedAt: '2026-11-17T00:00:00.000Z', outputs }])) }));
+  }
+  for (const { version, quality } of versions) seed446Candidate(dataDir, version, quality);
+  const tmp = path.dirname(dataDir);
+  const callLog = path.join(tmp, 'scorer-calls.log');
+  const scorer = write446Scorer(tmp);
+  return { dataDir, holdout: fixture.holdout, ...scorer, callLog, tmp };
+}
+
+function environment446(fixture, quality = 0.9) {
+  const env = {
+    ...process.env,
+    HOME: path.join(fixture.tmp, 'home'),
+    USERPROFILE: path.join(fixture.tmp, 'user-profile'),
+    HARNESS_STATE_HOME: path.join(fixture.tmp, 'state'),
+    HARNESS_OBSERVATIONS_DIR: path.join(fixture.tmp, 'observations'),
+    TMPDIR: fixture.tmp,
+    PYTHON: fixture.python,
+    PYTHONPATH: fixture.pythonPath,
+    PYTHONNOUSERSITE: '1',
+    PYTHONDONTWRITEBYTECODE: '1',
+    S1_446_FIXTURE: '1',
+    S1_446_CATALOGS: JSON.stringify(cycleTrainerCatalogs),
+    S1_446_CALL_LOG: fixture.callLog,
+    S1_446_QUALITY: String(quality),
+  };
+  delete env.HARNESS_SYSTEM_ONE_MODE;
+  delete env.PYTHONHOME;
+  return env;
+}
+
+function run446Cycle(fixture, version, { history, quality = 0.9, all = false } = {}) {
+  const args = [cycleCli, all ? 'all' : 'evaluate'];
+  if (all) args.push('--until', 'evaluate');
+  args.push('--data-dir', fixture.dataDir, '--holdout', fixture.holdout, '--version', version);
+  if (history === true) args.push('--history');
+  else if (history !== undefined) args.push('--history', history);
+  return spawnSync(process.execPath, args, { cwd: root, encoding: 'utf8', env: environment446(fixture, quality) });
+}
+
+function rows446(history) {
+  return fs.readFileSync(history, 'utf8').split(/\r?\n/).filter(Boolean).map(JSON.parse);
+}
+
+function writeRows446(history, rows, ending = '\n') {
+  fs.mkdirSync(path.dirname(history), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(history, rows.map(row => JSON.stringify(row)).join('\n') + (rows.length ? ending : ''));
+}
+
+function snapshot446(files) {
+  return new Map(files.map(file => [file, fs.readFileSync(file)]));
+}
+
+function assertSnapshot446(snapshot) {
+  for (const [file, bytes] of snapshot) assert.deepEqual(fs.readFileSync(file), bytes, `${file} changed`);
+}
+
+function evaluation446(dataDir, version) {
+  const dir = path.join(dataDir, 'training', 'candidates', version, 'evaluation');
+  return {
+    curves: JSON.parse(fs.readFileSync(path.join(dir, 'curves.json'), 'utf8')),
+    trend: JSON.parse(fs.readFileSync(path.join(dir, 'trend.json'), 'utf8')),
+  };
+}
+
+function assertEvaluationNotMarked(dataDir) {
+  const stateFile = path.join(dataDir, 'cycle-state.json');
+  if (fs.existsSync(stateFile)) assert.equal(JSON.parse(fs.readFileSync(stateFile, 'utf8')).steps?.evaluate, undefined);
+}
 
 function writeJsonl(file, rows) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -603,4 +779,426 @@ test('all --until build uses prepared synthetic stages and stops before training
     fs.rmSync(dir, { recursive: true, force: true });
     fs.rmSync(isolation, { recursive: true, force: true });
   }
+});
+
+test('446 cross-cycle: A/v0 and B/v1 share history, compare against the first holdout, and promote unchanged quality', t => {
+  const tmp = private446Root(t);
+  const sharedParent = path.join(tmp, 'shared');
+  fs.mkdirSync(sharedParent, { mode: 0o755 });
+  if (process.platform !== 'win32') fs.chmodSync(sharedParent, 0o755);
+  const history = path.join(sharedParent, 'history', 'private-history.jsonl');
+  const monthA = setup446Cycle(t, path.join(tmp, 'month-a'), [{ version: 'v0', quality: 0.9 }], { all: true });
+  const monthB = setup446Cycle(t, path.join(tmp, 'month-b'), [{ version: 'v1', quality: 0.9 }], { all: true });
+
+  const a = run446Cycle(monthA, 'v0', { history, quality: 0.9, all: true });
+  assert.equal(a.status, 0, a.stderr || a.stdout);
+  const b = run446Cycle(monthB, 'v1', { history, quality: 0.9, all: true });
+  assert.equal(b.status, 0, b.stderr || b.stdout);
+
+  const { curves, trend } = evaluation446(monthB.dataDir, 'v1');
+  assert.equal(curves.floor.detail.status, 'checked',
+    `B must use A's shared holdout baseline; got ${curves.floor.detail.status} with ${trend.verdict}`);
+  assert.equal(curves.floor.detail.baselineVersion, 'v0');
+  for (const stage of Object.values(curves.floor.detail.stages)) {
+    assert.equal(stage.baselineVersion, 'v0');
+    assert.equal(stage.baselineAvailable, true);
+    assert.deepEqual(stage.deltas, { auc: 0, logLoss: 0, ece: 0 });
+  }
+  assert.equal(trend.verdict, 'promote');
+  assert.deepEqual(rows446(history).map(row => row.version), ['v0', 'v1']);
+  assert.ok(outside(monthA.dataDir, history));
+  assert.ok(outside(monthB.dataDir, history));
+  if (process.platform !== 'win32') {
+    assert.equal(fs.statSync(sharedParent).mode & 0o777, 0o755, 'an existing shared parent must not be chmodded');
+    assert.equal(fs.statSync(path.dirname(history)).mode & 0o777, 0o700);
+    assert.equal(fs.statSync(history).mode & 0o777, 0o600);
+  }
+});
+
+test('446 H3: fixture-selected Python runs commands and intercepts only the production scorer', t => {
+  const rootDir = private446Root(t);
+  const fixtureDir = path.join(rootDir, 'fixture path with spaces');
+  const fixture = setup446Cycle(t, path.join(fixtureDir, 'data'), [{ version: 'h3-v0', quality: 0.9 }], { all: true });
+  const env = environment446(fixture);
+
+  const probe = spawnSync(fixture.python, ['-c', "import json,sitecustomize,sys; print(json.dumps({'sentinel':'S1_446_PYTHON_SENTINEL','executable':sys.executable,'version':sys.version.split()[0],'hook':sitecustomize.__file__}))"],
+    { cwd: root, encoding: 'utf8', env, windowsHide: true });
+  assert.equal(probe.status, 0, probe.stderr);
+  const python = JSON.parse(probe.stdout);
+  assert.equal(python.sentinel, 'S1_446_PYTHON_SENTINEL', 'fixture-selected executable must execute Python -c');
+  assert.ok(path.isAbsolute(python.executable), 'Python must report its actual interpreter path');
+  assert.match(python.version, /^\d+\.\d+(?:\.\d+)?$/);
+  assert.equal(fs.realpathSync.native(python.hook), path.join(fixture.tmp, 'sitecustomize.py'));
+  assert.doesNotMatch(fixture.python, /\.(?:js|cmd)$/i, 'PYTHON must be a real interpreter, not a script wrapper');
+  assert.ok(fixture.tmp.includes(' '), 'fixture transport must support paths with spaces');
+
+  const unrelatedDir = path.join(fixture.tmp, 'unrelated');
+  fs.mkdirSync(unrelatedDir, { recursive: true });
+  const unrelatedScript = path.join(unrelatedDir, 'score.py');
+  fs.writeFileSync(unrelatedScript, "print('S1_446_UNRELATED_SCORE')\n", 'utf8');
+  const unrelated = spawnSync(fixture.python, [unrelatedScript], { cwd: root, encoding: 'utf8', env, windowsHide: true });
+  assert.equal(unrelated.status, 0, unrelated.stderr);
+  assert.equal(unrelated.stdout.trim(), 'S1_446_UNRELATED_SCORE', 'an unrelated score.py must run normally');
+
+  const failedCommand = spawnSync(fixture.python, ['-c', 'raise SystemExit(37)'],
+    { cwd: root, encoding: 'utf8', env, windowsHide: true });
+  assert.equal(failedCommand.status, 37, 'a real failing Python -c command must retain its exit status');
+
+  const result = run446Cycle(fixture, 'h3-v0', { quality: 0.9, all: true });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const versionDir = path.join(fixture.dataDir, 'training', 'candidates', 'h3-v0');
+  const manifest = JSON.parse(fs.readFileSync(path.join(versionDir, 'manifest.json'), 'utf8'));
+  const evaluationDir = path.join(versionDir, 'evaluation');
+  const goldByTask = { validity: 'actionable', intent: 'fix', tier: 'tier2' };
+  for (const [task, ids] of Object.entries(cycleTrainerCatalogs)) {
+    assert.deepEqual(manifest.stages[task].options, ids, `real trainer catalog for ${task} must match fixture options`);
+    const rows = fs.readFileSync(path.join(evaluationDir, `${task}-holdout-scores.jsonl`), 'utf8').trim().split(/\r?\n/).map(JSON.parse);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].id, `holdout-${task}`);
+    assert.equal(rows[0].gold, goldByTask[task]);
+    assert.deepEqual(Object.keys(rows[0].scores), ids);
+  }
+  assert.deepEqual(fs.readFileSync(fixture.callLog, 'utf8').trim().split(/\r?\n/), [
+    'validity:holdout', 'intent:holdout', 'tier:holdout',
+  ]);
+
+  const malformed = spawnSync(fixture.python, [path.join(root, 'scripts/system-one-cycle/score.py'), '--task', 'validity'],
+    { cwd: root, encoding: 'utf8', env, windowsHide: true });
+  assert.notEqual(malformed.status, 0, 'malformed scorer arguments must fail in the fixture hook');
+  assert.match(malformed.stderr, /S1_446 fixture scorer: expected --weights, --holdout, --task, --out/);
+
+  const noHookEnv = { ...env, PYTHONPATH: path.join(fixture.tmp, 'empty-pythonpath') };
+  delete noHookEnv.S1_446_CATALOGS;
+  delete noHookEnv.S1_446_CALL_LOG;
+  delete noHookEnv.S1_446_QUALITY;
+  const noHookOutput = path.join(fixture.tmp, 'without-hook.jsonl');
+  const noHook = spawnSync(fixture.python, [path.join(root, 'scripts/system-one-cycle/score.py'),
+    '--weights', path.join(versionDir, 'validity.safetensors'), '--holdout', path.join(root, 'benchmarks/fixtures/system-one-holdout.json'),
+    '--task', 'validity', '--out', noHookOutput], { cwd: root, encoding: 'utf8', env: noHookEnv, windowsHide: true });
+  assert.notEqual(noHook.status, 0, 'without scoring interception the fixture scorer smoke path must fail, not skip');
+  assert.equal(fs.existsSync(noHookOutput), false);
+});
+
+test('446 cross-cycle: cumulative holdout drift stays measured against A/v0 after partial recovery', t => {
+  const tmp = private446Root(t);
+  const history = path.join(tmp, 'shared', 'private-history.jsonl');
+  const monthA = setup446Cycle(t, path.join(tmp, 'month-a'), [{ version: 'v0', quality: 0.9 }], { all: true });
+  const monthB = setup446Cycle(t, path.join(tmp, 'month-b'), [
+    { version: 'v1', quality: 0.7 }, { version: 'v2', quality: 0.8 },
+  ], { all: true });
+
+  for (const [fixture, version, quality] of [[monthA, 'v0', 0.9], [monthB, 'v1', 0.7], [monthB, 'v2', 0.8]]) {
+    const result = run446Cycle(fixture, version, { history, quality, all: true });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+  }
+
+  const { curves, trend } = evaluation446(monthB.dataDir, 'v2');
+  assert.equal(curves.floor.detail.status, 'regression');
+  assert.equal(curves.floor.oldHoldoutRegression, true);
+  assert.equal(curves.floor.detail.baselineVersion, 'v0');
+  assert.ok(Object.values(curves.floor.detail.stages).every(stage => stage.baselineVersion === 'v0'));
+  assert.equal(trend.verdict, 'hold');
+});
+
+test('446 cross-cycle: four evaluations detect two worsening transitions across A and B directories', t => {
+  const tmp = private446Root(t);
+  const history = path.join(tmp, 'shared', 'private-history.jsonl');
+  const monthA = setup446Cycle(t, path.join(tmp, 'month-a'), [{ version: 'v0', quality: 0.9 }], { all: true });
+  const monthB = setup446Cycle(t, path.join(tmp, 'month-b'), [
+    { version: 'v1', quality: 0.8 }, { version: 'v2', quality: 0.7 }, { version: 'v3', quality: 0.6 },
+  ], { all: true });
+
+  for (const [fixture, version, quality] of [
+    [monthA, 'v0', 0.9], [monthB, 'v1', 0.8], [monthB, 'v2', 0.7], [monthB, 'v3', 0.6],
+  ]) {
+    const result = run446Cycle(fixture, version, { history, quality, all: true });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+  }
+
+  const { trend } = evaluation446(monthB.dataDir, 'v3');
+  assert.equal(trend.verdict, 'rollback');
+  assert.ok(trend.reasons.some(reason => reason.includes('two consecutive cycles (v0 → v1 → v2)')));
+  assert.deepEqual(rows446(history).map(row => row.version), ['v0', 'v1', 'v2', 'v3']);
+});
+
+test('446 cross-cycle: resume keeps one immutable row, repairs a missing append, and rejects conflicting reuse', t => {
+  const tmp = private446Root(t);
+  const history = path.join(tmp, 'month-b', 'training', 'history.jsonl');
+  const alternateHistory = path.join(tmp, 'alternate', 'private-history.jsonl');
+  const monthA = setup446Cycle(t, path.join(tmp, 'month-a'), [{ version: 'v0', quality: 0.9 }], { all: true });
+  const monthB = setup446Cycle(t, path.join(tmp, 'month-b'), [{ version: 'v1', quality: 0.9 }], { all: true });
+  const a = run446Cycle(monthA, 'v0', { quality: 0.9, all: true });
+  assert.equal(a.status, 0, a.stderr || a.stdout);
+  const baseline = rows446(path.join(monthA.dataDir, 'training', 'history.jsonl'))[0];
+  fs.mkdirSync(path.dirname(history), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(history, `${JSON.stringify(baseline)}\n`);
+  const b = run446Cycle(monthB, 'v1', { quality: 0.9, all: true });
+  assert.equal(b.status, 0, b.stderr || b.stdout);
+  const callsBeforeResume = fs.readFileSync(monthB.callLog, 'utf8').trim().split(/\r?\n/).length;
+  const original = fs.readFileSync(history, 'utf8');
+  const completeResume = run446Cycle(monthB, 'v1', { history, quality: 0.9 });
+  assert.equal(completeResume.status, 0, completeResume.stderr || completeResume.stdout);
+  assert.equal(fs.readFileSync(history, 'utf8'), original);
+  assert.equal(rows446(history).filter(row => row.version === 'v1').length, 1);
+
+  const savedBaseline = rows446(history).find(row => row.version === 'v0');
+  fs.writeFileSync(history, `${JSON.stringify(savedBaseline)}\n`);
+  fs.mkdirSync(path.dirname(alternateHistory), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(alternateHistory, `${JSON.stringify(savedBaseline)}\n`);
+  const repaired = run446Cycle(monthB, 'v1', { history: alternateHistory, quality: 0.9 });
+  assert.equal(repaired.status, 0, repaired.stderr || repaired.stdout);
+  assert.deepEqual(rows446(history).map(row => row.version), ['v0']);
+  assert.ok(fs.existsSync(alternateHistory), 'resume must reconcile to the selected alternate history file');
+  assert.deepEqual(rows446(alternateHistory).map(row => row.version), ['v0', 'v1']);
+  assert.equal(fs.readFileSync(monthB.callLog, 'utf8').trim().split(/\r?\n/).length, callsBeforeResume,
+    'resume reconciliation must not rescore');
+  const restored = rows446(alternateHistory).find(row => row.version === 'v1');
+  assert.deepEqual(restored, evaluation446(monthB.dataDir, 'v1').curves);
+  const restoredBytes = fs.readFileSync(alternateHistory, 'utf8');
+  const secondResume = run446Cycle(monthB, 'v1', { history: alternateHistory, quality: 0.9 });
+  assert.equal(secondResume.status, 0, secondResume.stderr || secondResume.stdout);
+  assert.equal(fs.readFileSync(alternateHistory, 'utf8'), restoredBytes);
+  assert.equal(rows446(alternateHistory).filter(row => row.version === 'v1').length, 1);
+
+  const conflictingRows = rows446(alternateHistory);
+  conflictingRows.find(row => row.version === 'v1').stages.validity.logLoss += 1;
+  fs.writeFileSync(alternateHistory, `${conflictingRows.map(row => JSON.stringify(row)).join('\n')}\n`);
+  const conflictingBytes = fs.readFileSync(alternateHistory, 'utf8');
+  const conflict = run446Cycle(monthB, 'v1', { history: alternateHistory, quality: 0.9 });
+  assert.notEqual(conflict.status, 0, 'conflicting reuse of an immutable version must fail');
+  assert.equal(fs.readFileSync(alternateHistory, 'utf8'), conflictingBytes, 'conflict must not overwrite history');
+  assert.doesNotMatch(conflict.stderr, /synthetic-|holdout-|validation-/);
+});
+
+test('446 cross-cycle: default history remains local and explicit history validation fails closed', t => {
+  const tmp = private446Root(t);
+  const local = setup446Cycle(t, path.join(tmp, 'default-cycle'), [{ version: 'default-v0', quality: 0.9 }]);
+  const defaultRun = run446Cycle(local, 'default-v0', { quality: 0.9 });
+  assert.equal(defaultRun.status, 0, defaultRun.stderr || defaultRun.stdout);
+  const defaultHistory = path.join(local.dataDir, 'training', 'history.jsonl');
+  assert.deepEqual(rows446(defaultHistory).map(row => row.version), ['default-v0']);
+
+  const bare = setup446Cycle(t, path.join(tmp, 'bare-cycle'), [{ version: 'bare-v0', quality: 0.9 }]);
+  const bareResult = run446Cycle(bare, 'bare-v0', { history: true, quality: 0.9 });
+  assert.notEqual(bareResult.status, 0, 'bare --history must be rejected');
+  assertEvaluationNotMarked(bare.dataDir);
+
+  const repositoryPath = setup446Cycle(t, path.join(tmp, 'repository-cycle'), [{ version: 'repo-v0', quality: 0.9 }]);
+  const repoResult = run446Cycle(repositoryPath, 'repo-v0', { history: path.join(root, 'docs/system-one-cycle.md'), quality: 0.9 });
+  assert.notEqual(repoResult.status, 0, 'repository-contained history must be rejected');
+  assert.equal(fs.existsSync(path.join(repositoryPath.dataDir, 'cycle-state.json')), false);
+
+  const directory = path.join(tmp, 'history-is-directory');
+  fs.mkdirSync(directory);
+  const directoryFixture = setup446Cycle(t, path.join(tmp, 'directory-cycle'), [{ version: 'directory-v0', quality: 0.9 }]);
+  const directoryResult = run446Cycle(directoryFixture, 'directory-v0', { history: directory, quality: 0.9 });
+  assert.notEqual(directoryResult.status, 0, 'history destinations must be files, not directories');
+  assert.equal(fs.existsSync(path.join(directoryFixture.dataDir, 'cycle-state.json')), false);
+
+  const symlink = path.join(tmp, 'history-symlink.jsonl');
+  try { fs.symlinkSync(path.join(root, 'docs/system-one-cycle.md'), symlink); }
+  catch (error) {
+    if (!['EACCES', 'EPERM', 'ENOSYS', 'ENOTSUP'].includes(error.code)) throw error;
+    t.diagnostic(`symlink path leg unavailable: ${error.code}; direct repository-path control ran`);
+  }
+  if (fs.existsSync(symlink)) {
+    const symlinkFixture = setup446Cycle(t, path.join(tmp, 'symlink-cycle'), [{ version: 'symlink-v0', quality: 0.9 }]);
+    const symlinkResult = run446Cycle(symlinkFixture, 'symlink-v0', { history: symlink, quality: 0.9 });
+    assert.notEqual(symlinkResult.status, 0, 'symlink resolving into the repository must be rejected');
+    assert.equal(fs.existsSync(path.join(symlinkFixture.dataDir, 'cycle-state.json')), false);
+  }
+
+  const malformed = setup446Cycle(t, path.join(tmp, 'malformed-cycle'), [{ version: 'malformed-v0', quality: 0.9 }]);
+  const malformedHistory = path.join(tmp, 'malformed-history.jsonl');
+  fs.writeFileSync(malformedHistory, 'PRIVATE_SCORE_SENTINEL {not-json}\n');
+  const malformedResult = run446Cycle(malformed, 'malformed-v0', { history: malformedHistory, quality: 0.9 });
+  assert.notEqual(malformedResult.status, 0, 'malformed history must not bootstrap as empty');
+  assert.doesNotMatch(malformedResult.stderr, /PRIVATE_SCORE_SENTINEL/);
+  assert.equal(fs.existsSync(path.join(malformed.dataDir, 'cycle-state.json')), false);
+
+  const appendFailure = setup446Cycle(t, path.join(tmp, 'append-failure-cycle'), [{ version: 'append-v0', quality: 0.9 }]);
+  const parentFile = path.join(tmp, 'not-a-directory');
+  fs.writeFileSync(parentFile, 'fixture');
+  const failedHistory = run446Cycle(appendFailure, 'append-v0', {
+    history: path.join(parentFile, 'private-history.jsonl'), quality: 0.9,
+  });
+  assert.notEqual(failedHistory.status, 0, 'history append failure must fail evaluation');
+  assert.equal(fs.existsSync(path.join(appendFailure.dataDir, 'cycle-state.json')), false);
+});
+
+test('446 H2: rejects changed same-id baseline before append, including an existing identical candidate', t => {
+  const tmp = private446Root(t);
+  const originalHistory = path.join(tmp, 'original-history.jsonl');
+  const absentHistory = path.join(tmp, 'alternate-absent.jsonl');
+  const presentHistory = path.join(tmp, 'alternate-present.jsonl');
+  const monthA = setup446Cycle(t, path.join(tmp, 'month-a'), [{ version: 'v0', quality: 0.8 }], { all: true });
+  const monthB = setup446Cycle(t, path.join(tmp, 'month-b'), [{ version: 'v1', quality: 0.9 }], { all: true });
+  assert.equal(run446Cycle(monthA, 'v0', { history: originalHistory, quality: 0.8, all: true }).status, 0);
+  assert.equal(run446Cycle(monthB, 'v1', { history: originalHistory, quality: 0.9, all: true }).status, 0);
+  const candidate = rows446(originalHistory).find(row => row.version === 'v1');
+
+  const alternateA = setup446Cycle(t, path.join(tmp, 'alternate-a'), [{ version: 'v0', quality: 0.99 }], { all: true });
+  assert.equal(run446Cycle(alternateA, 'v0', { history: absentHistory, quality: 0.99, all: true }).status, 0);
+  const alternateBaseline = rows446(absentHistory)[0];
+  writeRows446(absentHistory, [alternateBaseline]);
+  const stateFile = path.join(monthB.dataDir, 'cycle-state.json');
+  const paths = [absentHistory, ...['curves.json', 'trend.json'].map(file =>
+    path.join(monthB.dataDir, 'training', 'candidates', 'v1', 'evaluation', file)),
+  path.join(monthB.dataDir, 'training', 'candidates', 'v1', 'manifest.json'),
+  stateFile, monthB.callLog];
+  const beforeAbsent = snapshot446(paths);
+  const absent = run446Cycle(monthB, 'v1', { history: absentHistory, quality: 0.9 });
+  assert.notEqual(absent.status, 0, 'a cached promotion must reject a changed same-id baseline');
+  assertSnapshot446(beforeAbsent);
+  assert.doesNotMatch(`${absent.stdout}\n${absent.stderr}`, /0\.99|synthetic-|holdout-|validation-/);
+
+  const freshHistory = path.join(tmp, 'fresh-diagnostic.jsonl');
+  writeRows446(freshHistory, [alternateBaseline]);
+  const freshB = setup446Cycle(t, path.join(tmp, 'fresh-b'), [{ version: 'v1', quality: 0.9 }], { all: true });
+  assert.equal(run446Cycle(freshB, 'v1', { history: freshHistory, quality: 0.9, all: true }).status, 0);
+  assert.equal(evaluation446(freshB.dataDir, 'v1').curves.floor.detail.status, 'regression');
+  assert.equal(evaluation446(freshB.dataDir, 'v1').trend.verdict, 'hold');
+
+  writeRows446(presentHistory, [alternateBaseline, candidate]);
+  const beforePresent = snapshot446([...paths.filter(file => file !== absentHistory), presentHistory]);
+  const present = run446Cycle(monthB, 'v1', { history: presentHistory, quality: 0.9 });
+  assert.notEqual(present.status, 0, 'an identical candidate row must not bypass baseline validation');
+  assertSnapshot446(beforePresent);
+  assert.doesNotMatch(`${present.stdout}\n${present.stderr}`, /0\.99|synthetic-|holdout-|validation-/);
+
+  const matching = fs.readFileSync(originalHistory, 'utf8');
+  const matchingResume = run446Cycle(monthB, 'v1', { history: originalHistory, quality: 0.9 });
+  assert.equal(matchingResume.status, 0, matchingResume.stderr || matchingResume.stdout);
+  assert.equal(fs.readFileSync(originalHistory, 'utf8'), matching, 'matching history resume stays byte-stable');
+});
+
+test('446 H2: rejects stale predecessor metrics and reordered trend rows before writes', t => {
+  const tmp = private446Root(t);
+  const originalHistory = path.join(tmp, 'original-history.jsonl');
+  const monthA = setup446Cycle(t, path.join(tmp, 'month-a'), [{ version: 'v0', quality: 0.9 }], { all: true });
+  const monthB = setup446Cycle(t, path.join(tmp, 'month-b'), [
+    { version: 'v1', quality: 0.8 }, { version: 'v2', quality: 0.7 }, { version: 'v3', quality: 0.6 },
+  ], { all: true });
+  for (const [fixture, version, quality] of [
+    [monthA, 'v0', 0.9], [monthB, 'v1', 0.8], [monthB, 'v2', 0.7], [monthB, 'v3', 0.6],
+  ]) assert.equal(run446Cycle(fixture, version, { history: originalHistory, quality, all: true }).status, 0);
+  assert.equal(evaluation446(monthB.dataDir, 'v3').trend.verdict, 'rollback');
+
+  const changedHistory = path.join(tmp, 'changed-prior-history.jsonl');
+  const changedB = setup446Cycle(t, path.join(tmp, 'changed-b'), [
+    { version: 'v1', quality: 0.8 }, { version: 'v2', quality: 0.9 },
+  ], { all: true });
+  const changedA = setup446Cycle(t, path.join(tmp, 'changed-a'), [{ version: 'v0', quality: 0.9 }], { all: true });
+  assert.equal(run446Cycle(changedA, 'v0', { history: changedHistory, quality: 0.9, all: true }).status, 0);
+  assert.equal(run446Cycle(changedB, 'v1', { history: changedHistory, quality: 0.8, all: true }).status, 0);
+  assert.equal(run446Cycle(changedB, 'v2', { history: changedHistory, quality: 0.9, all: true }).status, 0);
+  const changedBytes = fs.readFileSync(changedHistory, 'utf8');
+  const changedPaths = [changedHistory,
+    path.join(monthB.dataDir, 'training', 'candidates', 'v3', 'evaluation', 'curves.json'),
+    path.join(monthB.dataDir, 'training', 'candidates', 'v3', 'evaluation', 'trend.json'),
+    path.join(monthB.dataDir, 'training', 'candidates', 'v3', 'manifest.json'),
+    path.join(monthB.dataDir, 'cycle-state.json'), monthB.callLog];
+  const changedBefore = snapshot446(changedPaths);
+  const changed = run446Cycle(monthB, 'v3', { history: changedHistory, quality: 0.6 });
+  assert.notEqual(changed.status, 0, 'same baseline with changed prior comparison rows must reject a stale rollback');
+  assertSnapshot446(changedBefore);
+  assert.equal(fs.readFileSync(changedHistory, 'utf8'), changedBytes);
+
+  const reorderedHistory = path.join(tmp, 'reordered-history.jsonl');
+  writeRows446(reorderedHistory, [rows446(originalHistory)[0], rows446(originalHistory)[2], rows446(originalHistory)[1]]);
+  const reorderedBytes = fs.readFileSync(reorderedHistory, 'utf8');
+  const reordered = run446Cycle(monthB, 'v3', { history: reorderedHistory, quality: 0.6 });
+  assert.notEqual(reordered.status, 0, 'saved predecessor ids must retain their original order');
+  assert.equal(fs.readFileSync(reorderedHistory, 'utf8'), reorderedBytes);
+});
+
+test('446 H2: resumes bootstrap and older candidates against their original predecessor prefixes', t => {
+  const tmp = private446Root(t);
+  const history = path.join(tmp, 'shared-history.jsonl');
+  const monthA = setup446Cycle(t, path.join(tmp, 'month-a'), [{ version: 'v0', quality: 0.9 }], { all: true });
+  const monthB = setup446Cycle(t, path.join(tmp, 'month-b'), [
+    { version: 'v1', quality: 0.9 }, { version: 'v2', quality: 0.9 },
+  ], { all: true });
+  for (const [fixture, version] of [[monthA, 'v0'], [monthB, 'v1'], [monthB, 'v2']]) {
+    const result = run446Cycle(fixture, version, { history, quality: 0.9, all: true });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+  }
+  const original = fs.readFileSync(history, 'utf8');
+  const callsBefore = fs.readFileSync(monthB.callLog, 'utf8');
+  const bootstrap = evaluation446(monthA.dataDir, 'v0');
+  assert.equal(bootstrap.trend.verdict, 'hold');
+  assert.equal(run446Cycle(monthA, 'v0', { history, quality: 0.9 }).status, 0);
+  const older = evaluation446(monthB.dataDir, 'v1');
+  assert.equal(run446Cycle(monthB, 'v1', { history, quality: 0.9 }).status, 0);
+  assert.deepEqual(evaluation446(monthB.dataDir, 'v1').trend, older.trend);
+  assert.equal(fs.readFileSync(history, 'utf8'), original);
+  assert.equal(fs.readFileSync(monthB.callLog, 'utf8'), callsBefore, 'resume must not rescore');
+});
+
+test('446 H2: fresh append separates a valid history without LF and the next evaluation reads it', t => {
+  const tmp = private446Root(t);
+  const history = path.join(tmp, 'shared-history.jsonl');
+  const monthA = setup446Cycle(t, path.join(tmp, 'month-a'), [{ version: 'v0', quality: 0.9 }], { all: true });
+  const monthB = setup446Cycle(t, path.join(tmp, 'month-b'), [
+    { version: 'v1', quality: 0.9 }, { version: 'v2', quality: 0.9 },
+  ], { all: true });
+  assert.equal(run446Cycle(monthA, 'v0', { history, quality: 0.9, all: true }).status, 0);
+  const original = fs.readFileSync(history, 'utf8');
+  assert.ok(original.endsWith('\n'));
+  const prefix = original.slice(0, -1);
+  fs.writeFileSync(history, prefix);
+
+  const firstAppend = run446Cycle(monthB, 'v1', { history, quality: 0.9, all: true });
+  assert.equal(firstAppend.status, 0, firstAppend.stderr || firstAppend.stdout);
+  const afterFirst = fs.readFileSync(history, 'utf8');
+  assert.ok(afterFirst.startsWith(prefix), 'the original history bytes must remain a prefix');
+  assert.ok(afterFirst.slice(prefix.length).startsWith('\n{'), 'append must restore the missing JSONL separator');
+  assert.deepEqual(rows446(history).map(row => row.version), ['v0', 'v1']);
+
+  const secondAppend = run446Cycle(monthB, 'v2', { history, quality: 0.9, all: true });
+  assert.equal(secondAppend.status, 0, secondAppend.stderr || secondAppend.stdout);
+  assert.deepEqual(rows446(history).map(row => row.version), ['v0', 'v1', 'v2']);
+});
+
+test('446 H2: missing-append resume repairs no-LF once; duplicate and conflict no-ops preserve bytes', t => {
+  const tmp = private446Root(t);
+  const sourceHistory = path.join(tmp, 'source-history.jsonl');
+  const alternateHistory = path.join(tmp, 'alternate-history.jsonl');
+  const monthA = setup446Cycle(t, path.join(tmp, 'month-a'), [{ version: 'v0', quality: 0.9 }], { all: true });
+  const monthB = setup446Cycle(t, path.join(tmp, 'month-b'), [{ version: 'v1', quality: 0.9 }], { all: true });
+  assert.equal(run446Cycle(monthA, 'v0', { history: sourceHistory, quality: 0.9, all: true }).status, 0);
+  assert.equal(run446Cycle(monthB, 'v1', { history: sourceHistory, quality: 0.9, all: true }).status, 0);
+  const baseline = rows446(sourceHistory)[0];
+  writeRows446(alternateHistory, [baseline], '');
+  const callsBefore = fs.readFileSync(monthB.callLog, 'utf8');
+
+  const resume = run446Cycle(monthB, 'v1', { history: alternateHistory, quality: 0.9 });
+  assert.equal(resume.status, 0, resume.stderr || resume.stdout);
+  let bytes = fs.readFileSync(alternateHistory, 'utf8');
+  assert.ok(bytes.startsWith(JSON.stringify(baseline)));
+  assert.ok(bytes.slice(JSON.stringify(baseline).length).startsWith('\n{'), 'resume append must restore its missing separator');
+  assert.deepEqual(rows446(alternateHistory).map(row => row.version), ['v0', 'v1']);
+  assert.equal(fs.readFileSync(monthB.callLog, 'utf8'), callsBefore, 'cached resume must not rescore');
+
+  fs.writeFileSync(alternateHistory, bytes.slice(0, -1));
+  const noFinalLf = fs.readFileSync(alternateHistory, 'utf8');
+  const duplicate = run446Cycle(monthB, 'v1', { history: alternateHistory, quality: 0.9 });
+  assert.equal(duplicate.status, 0, duplicate.stderr || duplicate.stdout);
+  assert.equal(fs.readFileSync(alternateHistory, 'utf8'), noFinalLf, 'deduplication must not normalize a no-op');
+
+  const timestampRows = rows446(alternateHistory);
+  timestampRows.find(row => row.version === 'v1').createdAt = '2026-11-17T00:00:00.000Z';
+  writeRows446(alternateHistory, timestampRows, '');
+  const timestampBytes = fs.readFileSync(alternateHistory, 'utf8');
+  const timestampResume = run446Cycle(monthB, 'v1', { history: alternateHistory, quality: 0.9 });
+  assert.equal(timestampResume.status, 0, timestampResume.stderr || timestampResume.stdout);
+  assert.equal(fs.readFileSync(alternateHistory, 'utf8'), timestampBytes, 'timestamp-only identity remains a byte-stable no-op');
+
+  const conflictingRows = rows446(alternateHistory);
+  conflictingRows.find(row => row.version === 'v1').stages.validity.logLoss += 1;
+  writeRows446(alternateHistory, conflictingRows, '');
+  const conflictBytes = fs.readFileSync(alternateHistory, 'utf8');
+  const conflict = run446Cycle(monthB, 'v1', { history: alternateHistory, quality: 0.9 });
+  assert.notEqual(conflict.status, 0, 'conflicting duplicate must reject');
+  assert.equal(fs.readFileSync(alternateHistory, 'utf8'), conflictBytes, 'rejection must not normalize history');
 });
