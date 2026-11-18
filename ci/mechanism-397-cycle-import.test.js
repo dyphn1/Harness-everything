@@ -14,12 +14,27 @@ const ROOT = path.resolve(__dirname, '..');
 const PLUGIN = path.join(ROOT, 'opencode-plugin', 'index.mjs');
 function isOutside(root, dir, pathApi = path) {
   const relative = pathApi.relative(root, dir);
-  return relative.startsWith('..') || pathApi.isAbsolute(relative);
+  return relative === '..' || relative.startsWith(`..${pathApi.sep}`) || pathApi.isAbsolute(relative);
 }
 
 const win32Root = 'D:\\a\\Harness-everything\\Harness-everything';
-assert.equal(isOutside(win32Root, 'C:\\Users\\runner\\AppData\\Local\\Temp\\fixture', path.win32), true, 'cross-drive temp path is outside the repository');
-assert.equal(isOutside(win32Root, path.win32.join(win32Root, 'ci'), path.win32), false, 'same-drive child is inside the repository');
+test('test-root containment handles Windows path boundaries', () => {
+  const win32Parent = path.win32.dirname(win32Root);
+  const win32Child = path.win32.join(win32Root, 'ci');
+  const win32DotChild = path.win32.join(win32Root, '..cache');
+  const win32Sibling = path.win32.join(win32Parent, `${path.win32.basename(win32Root)}-other`);
+  const win32CrossDrive = 'C:\\Users\\runner\\AppData\\Local\\Temp\\fixture';
+  const crossDriveRelative = path.win32.relative(win32Root, win32CrossDrive);
+
+  assert.equal(isOutside(win32Root, win32Child, path.win32), false, 'a root child is inside');
+  assert.equal(isOutside(win32Root, win32DotChild, path.win32), false, 'a child whose name starts with two dots is still inside');
+  assert.equal(win32Sibling.startsWith(win32Root), true, 'the sibling shares the root string prefix');
+  assert.equal(isOutside(win32Root, win32Sibling, path.win32), true, 'a similar-prefix sibling is outside');
+  assert.equal(isOutside(win32Root, win32Parent, path.win32), true, 'the parent escape is outside');
+  assert.equal(path.win32.isAbsolute(crossDriveRelative), true, 'cross-drive relative result is absolute');
+  assert.equal(crossDriveRelative.startsWith('..'), false, 'the old prefix-only check misses a cross-drive path');
+  assert.equal(isOutside(win32Root, win32CrossDrive, path.win32), true, 'a cross-drive temp path is outside');
+});
 
 const LABELS = [
   '<!-- harness-label {"v":1,"validity":"actionable","tier":"tier2","intents":["fix"],"workflow":"iterative-single","skills":[]} -->',
