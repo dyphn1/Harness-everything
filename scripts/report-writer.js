@@ -114,23 +114,29 @@ function parseHostLabel(line) {
 
 function extractCodexBody(raw, expectedStatus) {
   const lines = splitLines(raw);
-  let lastIndex = lines.length - 1;
   let strippedLabel = false;
+  let bodyEnd = raw.length;
   const markers = lines.filter(line => line.value.includes(LABEL_MARKER));
 
   if (markers.length) {
-    if (markers.length !== 1 || markers[0] !== lines[lastIndex]) error('host label is allowed only once at EOF');
-    parseHostLabel(lines[lastIndex].value);
+    if (markers.length !== 1 || markers[0] !== lines[lines.length - 1]) error('host label is allowed only once at EOF');
+    parseHostLabel(lines[lines.length - 1].value);
     strippedLabel = true;
-    lastIndex -= 1;
+    bodyEnd = lines[lines.length - 1].start;
   }
-  if (lastIndex < 0) error('raw Codex output is missing a terminal STATUS line');
-  if (lines[lastIndex].value !== expectedStatus) error('raw terminal STATUS does not match the requested status');
-  if (strippedLabel && !lines[lastIndex].eol) error('host label must be on the line immediately after STATUS');
 
   const controls = lines.filter(line => line.value.startsWith('STATUS:'));
-  if (controls.length !== 1) error(`raw output must contain exactly one STATUS line; found ${controls.length}`);
-  const body = raw.slice(0, lines[lastIndex].start);
+  if (controls.length > 1) error(`raw output must contain exactly one STATUS line; found ${controls.length}`);
+  if (controls.length === 1) {
+    const statusIndex = lines.indexOf(controls[0]);
+    const terminalIndex = lines.length - (strippedLabel ? 2 : 1);
+    if (statusIndex !== terminalIndex) error('raw STATUS must be terminal or immediately before the host label');
+    if (controls[0].value !== expectedStatus) error('raw terminal STATUS does not match the requested status');
+    if (strippedLabel && !controls[0].eol) error('host label must be on the line immediately after STATUS');
+    bodyEnd = controls[0].start;
+  }
+
+  const body = raw.slice(0, bodyEnd);
   validateBody(body);
   return { body, strippedLabel };
 }

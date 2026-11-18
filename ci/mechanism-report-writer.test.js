@@ -110,7 +110,9 @@ test('imports a raw Codex report without altering its source', t => {
   const output = path.join(dir, 'report.md');
   const rawBytes = Buffer.from('Summary\r\nEvidence\r\nSTATUS: DONE\r\n');
   fs.writeFileSync(raw, rawBytes);
-  assertOk(run(writeArgs(output, '0', ['--from-codex-output', raw])));
+  const result = run(writeArgs(output, '0', ['--from-codex-output', raw]));
+  assertOk(result);
+  assert.doesNotMatch(result.stderr, /stripped.*host label/i);
   assert.deepEqual(fs.readFileSync(raw), rawBytes);
   assert.equal(fs.readFileSync(output, 'utf8'), rawBytes.toString('utf8'));
   assertOk(run(['check', '--file', output]));
@@ -127,6 +129,39 @@ test('strips only one valid terminal host label and reports the extraction', t =
   assert.match(result.stderr, /stripped.*host label/i);
   assert.deepEqual(fs.readFileSync(raw), rawBytes);
   assert.equal(fs.readFileSync(output, 'utf8'), 'Summary\nSTATUS: DONE\n');
+  assertOk(run(['check', '--file', output]));
+});
+
+test('assembles a DONE report from raw body text without STATUS', t => {
+  const dir = tempDir(t);
+  const raw = path.join(dir, 'raw.txt');
+  const output = path.join(dir, 'report.md');
+  const rawBytes = Buffer.from('Summary\r\nEvidence\r\n');
+  fs.writeFileSync(raw, rawBytes);
+
+  const result = run(writeArgs(output, 'DONE', ['--from-codex-output', raw]));
+
+  assertOk(result);
+  assert.doesNotMatch(result.stderr, /stripped.*host label/i);
+  assert.deepEqual(fs.readFileSync(raw), rawBytes);
+  assert.deepEqual(fs.readFileSync(output), Buffer.from('Summary\r\nEvidence\r\nSTATUS: DONE\r\n'));
+  assertOk(run(['check', '--file', output]));
+});
+
+test('assembles BLOCKED from a raw body, blank line, and one EOF host label', t => {
+  const dir = tempDir(t);
+  const raw = path.join(dir, 'raw.txt');
+  const output = path.join(dir, 'report.md');
+  const rawBytes = Buffer.from('Summary\n\nEvidence\n\n<!-- harness-label {"v":1,"validity":"actionable","tier":"tier2","intents":["test"],"workflow":"iterative-single","skills":[]} -->');
+  const body = rawBytes.subarray(0, rawBytes.lastIndexOf(Buffer.from('<!-- harness-label')));
+  fs.writeFileSync(raw, rawBytes);
+
+  const result = run(writeArgs(output, 'BLOCKED', ['--from-codex-output', raw], '--reason', 'verification unavailable'));
+
+  assertOk(result);
+  assert.match(result.stderr, /stripped.*host label/i);
+  assert.deepEqual(fs.readFileSync(raw), rawBytes);
+  assert.deepEqual(fs.readFileSync(output), Buffer.concat([body, Buffer.from('STATUS: BLOCKED: verification unavailable\n')]));
   assertOk(run(['check', '--file', output]));
 });
 
@@ -180,24 +215,33 @@ test('rejects mismatched, malformed, duplicate, or trailing Codex controls and p
   const before = Buffer.from('Keep this report\nSTATUS: DONE\n');
   fs.writeFileSync(output, before);
   const invalidRaw = [
-    'Summary\nSTATUS: BLOCKED: wrong reason\n',
-    'Summary without status\n',
-    'Summary\nSTATUS: DONE\nSTATUS: DONE\n',
-    'Summary\nSTATUS: DONE\n\n',
-    'Summary\nSTATUS: DONE\ntext after status\n',
-    'Summary\nSTATUS: DONE\n<!-- harness-label {bad json} -->\n',
-    'Summary\nSTATUS: DONE\n<!-- harness-label [] -->\n',
-    'Summary\nSTATUS: DONE\n<!-- harness-label {"v":1} -->\n<!-- harness-label {"v":1} -->\n',
-    'Summary\nSTATUS: DONE\n<!-- harness-label {"v":1} -->\ntrailing text',
-    'Summary <!-- harness-label {"v":1} -->\nSTATUS: DONE\n',
+    ['Summary\nSTATUS: BLOCKED: wrong reason\n', 'DONE'],
+    ['Summary\nSTATUS: BLOCKED: wrong reason\n', 'BLOCKED', '--reason', 'expected reason'],
+    ['Summary\nSTATUS: FINISHED\n', 'DONE'],
+    ['Summary\nSTATUS: malformed\nSTATUS: DONE\n', 'DONE'],
+    ['Summary\nSTATUS: DONE\nSTATUS: DONE\n', 'DONE'],
+    ['Summary\nSTATUS: DONE\n\n', 'DONE'],
+    ['Summary\nSTATUS: DONE\ntext after status\n', 'DONE'],
+    ['Summary\nSTATUS: DONE\n\n<!-- harness-label {"v":1} -->', 'DONE'],
+    ['Summary\nSTATUS: DONE\ntext\n<!-- harness-label {"v":1} -->', 'DONE'],
+    ['Summary\nSTATUS: DONE\n<!-- harness-label {bad json} -->\n', 'DONE'],
+    ['Summary\nSTATUS: DONE\n<!-- harness-label [] -->\n', 'DONE'],
+    ['Summary\nSTATUS: DONE\n<!-- harness-label {"v":1} -->\n<!-- harness-label {"v":1} -->\n', 'DONE'],
+    ['Summary\nSTATUS: DONE\n<!-- harness-label {"v":1} -->\ntrailing text', 'DONE'],
+    ['Summary <!-- harness-label {"v":1} -->\nSTATUS: DONE\n', 'DONE'],
   ];
-  for (const contents of invalidRaw) {
+  for (const [contents, status, ...extra] of invalidRaw) {
     const rawBytes = Buffer.from(contents);
     fs.writeFileSync(raw, rawBytes);
-    assertRejected(run(writeArgs(output, 'DONE', ['--from-codex-output', raw])));
+    assertRejected(run(writeArgs(output, status, ['--from-codex-output', raw], ...extra)));
     assert.deepEqual(fs.readFileSync(raw), rawBytes);
     assert.deepEqual(fs.readFileSync(output), before);
   }
+
+  fs.rmSync(output);
+  fs.writeFileSync(raw, 'Summary\nSTATUS: BLOCKED: wrong reason\n');
+  assertRejected(run(writeArgs(output, 'BLOCKED', ['--from-codex-output', raw], '--reason', 'expected reason')));
+  assert.equal(fs.existsSync(output), false);
 });
 
 test('rejects raw-input/output aliases', t => {
