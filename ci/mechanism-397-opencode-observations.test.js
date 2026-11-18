@@ -1723,6 +1723,97 @@ for (const outcome of ['resolved', 'rejected']) {
   });
 }
 
+test('D2 disposal: pending completion context detaches before the host read settles', { concurrency: false }, async () => {
+  const f = fixture();
+  const sessionID = 'd2-disposal-pending-context';
+  let finishContext;
+  let contextStarted = false;
+  let contextReleased = false;
+  const unhandledRejections = [];
+  const onUnhandledRejection = reason => unhandledRejections.push(reason);
+  f.ctx.session.context = () => {
+    contextStarted = true;
+    return new Promise((resolve, reject) => {
+      finishContext = reject;
+    });
+  };
+  let dispose;
+  let completion;
+  let disposing;
+  let deadline;
+  process.on('unhandledRejection', onUnhandledRejection);
+  try {
+    dispose = await install(f);
+    await f.sessionHooks.get('prompt')({
+      sessionID, messageID: 'd2-completion', prompt: { text: 'detach pending completion context on disposal' },
+    });
+    completion = f.push(v2Event('session.execution.succeeded', sessionID));
+    assert.equal(await waitUntil(() => contextStarted), true, 'the real V2 observer entered the unresolved host read');
+
+    disposing = dispose();
+    const settlement = await Promise.race([
+      disposing.then(() => 'settled'),
+      new Promise(resolve => { deadline = setTimeout(() => resolve('deadline'), 1000); }),
+    ]);
+    clearTimeout(deadline);
+    assert.equal(settlement, 'settled', 'disposal settles while the raw context promise is still unresolved');
+    assert.equal(contextReleased, false, 'the raw host read remains unresolved when disposal settles');
+
+    finishContext(new Error('late context failure'));
+    contextReleased = true;
+    await completion;
+    await new Promise(resolve => setImmediate(resolve));
+
+    const actual = {
+      completedRecords: recordList(f.store).length,
+      pendingTurnRetained: fs.existsSync(path.join(f.store, 'sessions', `${observations.sha(sessionID, 32)}.json`)),
+      unhandledRejections: unhandledRejections.length,
+    };
+    assert.deepEqual(actual, { completedRecords: 0, pendingTurnRetained: true, unhandledRejections: 0 },
+      `a late context rejection cannot publish Stop, resurrect state, or go unhandled; actual=${JSON.stringify(actual)}`);
+  } finally {
+    clearTimeout(deadline);
+    if (finishContext && !contextReleased) {
+      finishContext(new Error('late context failure during cleanup'));
+      contextReleased = true;
+    }
+    if (completion) await completion;
+    if (dispose) await dispose();
+    process.removeListener('unhandledRejection', onUnhandledRejection);
+    f.restore();
+  }
+});
+
+for (const outcome of ['throw', 'reject']) {
+  test(`D2 control: live completion context ${outcome}s still fails open`, { concurrency: false }, async () => {
+    const f = fixture();
+    const sessionID = `d2-live-context-${outcome}`;
+    f.ctx.session.context = () => {
+      if (outcome === 'throw') throw new Error('context unavailable');
+      return Promise.reject(new Error('context unavailable'));
+    };
+    let dispose;
+    let completion;
+    try {
+      dispose = await install(f);
+      await f.sessionHooks.get('prompt')({
+        sessionID, messageID: `d2-${outcome}`, prompt: { text: 'context errors remain fail open while live' },
+      });
+      completion = f.push(v2Event('session.execution.succeeded', sessionID));
+      await waitFor(() => recordList(f.store).length === 1);
+      await completion;
+
+      const [record] = recordList(f.store);
+      assert.equal(record.host, 'opencode');
+      assert.equal(record.writer.sessionId, sessionID);
+      assert.equal(record.selfReportReason, 'final-message-unavailable');
+    } finally {
+      if (dispose) await dispose();
+      f.restore();
+    }
+  });
+}
+
 test('D1 disposal: resolved callbacks cannot inject context, admit prompts, or update tool state', { concurrency: false }, async () => {
   const f = fixture();
   const sessionID = 'd1-disposal-after-callbacks';

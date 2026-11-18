@@ -192,7 +192,9 @@ async function observeOpenCodeCompletion(sessionID, ctx, promptRoutes, signal) {
     const observations = systemOneObservations()
     if (!observations || !observations.enabled()) return
     let lastMessage = null
-    try { lastMessage = assistantTextForCurrentTurn(await ctx.session.context({ sessionID }), prompt?.messageID) } catch {}
+    const context = await awaitAbortableHostRead(() => ctx.session.context({ sessionID }), signal)
+    if (context.status === "aborted" || signal?.aborted) return
+    if (context.status === "resolved") lastMessage = assistantTextForCurrentTurn(context.value, prompt?.messageID)
     const payload = {
       hook_event_name: "Stop",
       host: "opencode",
@@ -204,6 +206,37 @@ async function observeOpenCodeCompletion(sessionID, ctx, promptRoutes, signal) {
     if (signal?.aborted) return
     observations.handle(payload)
   } catch { /* turn observation is always fail-open */ }
+}
+
+function awaitAbortableHostRead(read, signal) {
+  return new Promise(resolveRead => {
+    let settled = false
+    const finish = result => {
+      if (settled) return
+      settled = true
+      signal.removeEventListener("abort", onAbort)
+      resolveRead(result)
+    }
+    const onAbort = () => finish({ status: "aborted" })
+    if (signal.aborted) {
+      onAbort()
+      return
+    }
+    signal.addEventListener("abort", onAbort, { once: true })
+    if (signal.aborted) {
+      onAbort()
+      return
+    }
+    let raw
+    try { raw = read() } catch (error) {
+      finish({ status: "rejected", error })
+      return
+    }
+    Promise.resolve(raw).then(
+      value => finish({ status: "resolved", value }),
+      error => finish({ status: "rejected", error }),
+    )
+  })
 }
 
 function canonicalJson(value) {
