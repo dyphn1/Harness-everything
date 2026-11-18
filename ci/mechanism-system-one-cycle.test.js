@@ -37,26 +37,55 @@ function private446Root(t) {
 }
 
 function write446Scorer(dir) {
-  const file = path.join(dir, 'python-score-stub.js');
+  const file = path.join(dir, 'sitecustomize.py');
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   fs.writeFileSync(file, [
-    '#!/usr/bin/env node',
-    "'use strict';",
-    "const fs = require('node:fs');",
-    "const args = process.argv.slice(2);",
-    "if (args[0] === '-c') { process.stdout.write(process.env.S1_446_CATALOGS); process.exit(0); }",
-    "const value = name => args[args.indexOf(name) + 1];",
-    "const task = value('--task');",
-    "const output = value('--out');",
-    "const catalogs = JSON.parse(process.env.S1_446_CATALOGS);",
-    "const quality = Number(process.env.S1_446_QUALITY);",
-    "const gold = task === 'validity' ? 'actionable' : task === 'intent' ? 'fix' : 'tier2';",
-    "const scores = Object.fromEntries(catalogs[task].map(id => [id, task === 'validity' ? (id === 'invalid' ? 1 - quality : quality) : (id === gold ? quality : 0.01)]));",
-    "const holdout = args.includes('--holdout');",
-    "fs.writeFileSync(output, JSON.stringify({ id: (holdout ? 'holdout-' : 'validation-') + task, gold, scores }) + '\\n');",
-    "fs.appendFileSync(process.env.S1_446_CALL_LOG, task + ':' + (holdout ? 'holdout' : 'val') + '\\n');",
-  ].join('\n') + '\n', { mode: 0o700 });
-  fs.chmodSync(file, 0o700);
-  return file;
+    '# shortcut: replaces model inference, upgrade when H3 needs model-loading or quality evidence.',
+    'import json',
+    'import math',
+    'import os',
+    'import sys',
+    `_SCORE_SCRIPT = ${JSON.stringify(path.join(root, 'scripts/system-one-cycle/score.py'))}`,
+    "if (sys.argv and os.path.normcase(os.path.realpath(sys.argv[0])) == os.path.normcase(os.path.realpath(_SCORE_SCRIPT)) and os.environ.get('S1_446_FIXTURE') == '1'):",
+    '    try:',
+    "        required_env = ('S1_446_CATALOGS', 'S1_446_CALL_LOG', 'S1_446_QUALITY')",
+    "        if any(name not in os.environ for name in required_env): raise ValueError('fixture scorer environment is incomplete')",
+    "        names = ('--weights', '--holdout', '--task', '--out')",
+    '        args = sys.argv[1:]',
+    "        if len(args) != len(names) * 2: raise ValueError('expected --weights, --holdout, --task, --out exactly once')",
+    '        values = {}',
+    '        for name, value in zip(args[::2], args[1::2]):',
+    "            if name not in names or name in values or not value: raise ValueError('expected --weights, --holdout, --task, --out exactly once')",
+    '            values[name] = value',
+    "        if set(values) != set(names): raise ValueError('expected --weights, --holdout, --task, --out exactly once')",
+    "        if not os.path.isfile(values['--weights']): raise ValueError('fixture scorer weights are unavailable')",
+    "        if not os.path.isfile(values['--holdout']): raise ValueError('fixture scorer holdout is unavailable')",
+    "        catalogs = json.loads(os.environ['S1_446_CATALOGS'])",
+    "        task = values['--task']",
+    "        if not isinstance(catalogs, dict) or task not in ('validity', 'intent', 'tier') or not isinstance(catalogs.get(task), list) or not catalogs[task] or any(not isinstance(option, str) or not option for option in catalogs[task]): raise ValueError('fixture scorer catalog is invalid')",
+    "        if len(set(catalogs[task])) != len(catalogs[task]): raise ValueError('fixture scorer catalog has duplicate ids')",
+    "        quality = float(os.environ['S1_446_QUALITY'])",
+    "        if not math.isfinite(quality) or not 0 <= quality <= 1: raise ValueError('fixture scorer quality is invalid')",
+    "        gold = 'actionable' if task == 'validity' else ('fix' if task == 'intent' else 'tier2')",
+    "        scores = {option: (1 - quality if option == 'invalid' else quality) if task == 'validity' else (quality if option == gold else 0.01) for option in catalogs[task]}",
+    "        output = values['--out']",
+    "        os.makedirs(os.path.dirname(os.path.abspath(output)), exist_ok=True)",
+    "        with open(output, 'w', encoding='utf-8', newline='') as stream: stream.write(json.dumps({'id': 'holdout-' + task, 'gold': gold, 'scores': scores}, separators=(',', ':')) + '\\n')",
+    "        with open(os.environ['S1_446_CALL_LOG'], 'a', encoding='utf-8', newline='') as stream: stream.write(task + ':holdout\\n')",
+    '    except Exception as error:',
+    "        sys.stderr.write('S1_446 fixture scorer: ' + str(error) + '\\n')",
+    '        sys.stderr.flush()',
+    '        sys.stdout.flush()',
+    '        os._exit(2)',
+    '    sys.stdout.flush()',
+    '    sys.stderr.flush()',
+    '    os._exit(0)',
+  ].join('\n') + '\n', { encoding: 'utf8', mode: 0o700 });
+  return {
+    python: process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3'),
+    pythonPath: dir,
+    hook: file,
+  };
 }
 
 function seed446Candidate(dataDir, version, quality) {
@@ -100,16 +129,11 @@ function setup446Cycle(t, dataDir, versions, { all = false } = {}) {
   for (const { version, quality } of versions) seed446Candidate(dataDir, version, quality);
   const tmp = path.dirname(dataDir);
   const callLog = path.join(tmp, 'scorer-calls.log');
-  const python = write446Scorer(tmp);
-  return { dataDir, holdout: fixture.holdout, python, callLog, tmp };
+  const scorer = write446Scorer(tmp);
+  return { dataDir, holdout: fixture.holdout, ...scorer, callLog, tmp };
 }
 
-function run446Cycle(fixture, version, { history, quality = 0.9, all = false } = {}) {
-  const args = [cycleCli, all ? 'all' : 'evaluate'];
-  if (all) args.push('--until', 'evaluate');
-  args.push('--data-dir', fixture.dataDir, '--holdout', fixture.holdout, '--version', version);
-  if (history === true) args.push('--history');
-  else if (history !== undefined) args.push('--history', history);
+function environment446(fixture, quality = 0.9) {
   const env = {
     ...process.env,
     HOME: path.join(fixture.tmp, 'home'),
@@ -118,12 +142,26 @@ function run446Cycle(fixture, version, { history, quality = 0.9, all = false } =
     HARNESS_OBSERVATIONS_DIR: path.join(fixture.tmp, 'observations'),
     TMPDIR: fixture.tmp,
     PYTHON: fixture.python,
+    PYTHONPATH: fixture.pythonPath,
+    PYTHONNOUSERSITE: '1',
+    PYTHONDONTWRITEBYTECODE: '1',
+    S1_446_FIXTURE: '1',
     S1_446_CATALOGS: JSON.stringify(cycleTrainerCatalogs),
     S1_446_CALL_LOG: fixture.callLog,
     S1_446_QUALITY: String(quality),
   };
   delete env.HARNESS_SYSTEM_ONE_MODE;
-  return spawnSync(process.execPath, args, { cwd: root, encoding: 'utf8', env });
+  delete env.PYTHONHOME;
+  return env;
+}
+
+function run446Cycle(fixture, version, { history, quality = 0.9, all = false } = {}) {
+  const args = [cycleCli, all ? 'all' : 'evaluate'];
+  if (all) args.push('--until', 'evaluate');
+  args.push('--data-dir', fixture.dataDir, '--holdout', fixture.holdout, '--version', version);
+  if (history === true) args.push('--history');
+  else if (history !== undefined) args.push('--history', history);
+  return spawnSync(process.execPath, args, { cwd: root, encoding: 'utf8', env: environment446(fixture, quality) });
 }
 
 function rows446(history) {
@@ -754,6 +792,70 @@ test('446 cross-cycle: A/v0 and B/v1 share history, compare against the first ho
     assert.equal(fs.statSync(path.dirname(history)).mode & 0o777, 0o700);
     assert.equal(fs.statSync(history).mode & 0o777, 0o600);
   }
+});
+
+test('446 H3: fixture-selected Python runs commands and intercepts only the production scorer', t => {
+  const rootDir = private446Root(t);
+  const fixtureDir = path.join(rootDir, 'fixture path with spaces');
+  const fixture = setup446Cycle(t, path.join(fixtureDir, 'data'), [{ version: 'h3-v0', quality: 0.9 }], { all: true });
+  const env = environment446(fixture);
+
+  const probe = spawnSync(fixture.python, ['-c', "import json,sitecustomize,sys; print(json.dumps({'sentinel':'S1_446_PYTHON_SENTINEL','executable':sys.executable,'version':sys.version.split()[0],'hook':sitecustomize.__file__}))"],
+    { cwd: root, encoding: 'utf8', env, windowsHide: true });
+  assert.equal(probe.status, 0, probe.stderr);
+  const python = JSON.parse(probe.stdout);
+  assert.equal(python.sentinel, 'S1_446_PYTHON_SENTINEL', 'fixture-selected executable must execute Python -c');
+  assert.ok(path.isAbsolute(python.executable), 'Python must report its actual interpreter path');
+  assert.match(python.version, /^\d+\.\d+(?:\.\d+)?$/);
+  assert.equal(fs.realpathSync.native(python.hook), path.join(fixture.tmp, 'sitecustomize.py'));
+  assert.doesNotMatch(fixture.python, /\.(?:js|cmd)$/i, 'PYTHON must be a real interpreter, not a script wrapper');
+  assert.ok(fixture.tmp.includes(' '), 'fixture transport must support paths with spaces');
+
+  const unrelatedDir = path.join(fixture.tmp, 'unrelated');
+  fs.mkdirSync(unrelatedDir, { recursive: true });
+  const unrelatedScript = path.join(unrelatedDir, 'score.py');
+  fs.writeFileSync(unrelatedScript, "print('S1_446_UNRELATED_SCORE')\n", 'utf8');
+  const unrelated = spawnSync(fixture.python, [unrelatedScript], { cwd: root, encoding: 'utf8', env, windowsHide: true });
+  assert.equal(unrelated.status, 0, unrelated.stderr);
+  assert.equal(unrelated.stdout.trim(), 'S1_446_UNRELATED_SCORE', 'an unrelated score.py must run normally');
+
+  const failedCommand = spawnSync(fixture.python, ['-c', 'raise SystemExit(37)'],
+    { cwd: root, encoding: 'utf8', env, windowsHide: true });
+  assert.equal(failedCommand.status, 37, 'a real failing Python -c command must retain its exit status');
+
+  const result = run446Cycle(fixture, 'h3-v0', { quality: 0.9, all: true });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const versionDir = path.join(fixture.dataDir, 'training', 'candidates', 'h3-v0');
+  const manifest = JSON.parse(fs.readFileSync(path.join(versionDir, 'manifest.json'), 'utf8'));
+  const evaluationDir = path.join(versionDir, 'evaluation');
+  const goldByTask = { validity: 'actionable', intent: 'fix', tier: 'tier2' };
+  for (const [task, ids] of Object.entries(cycleTrainerCatalogs)) {
+    assert.deepEqual(manifest.stages[task].options, ids, `real trainer catalog for ${task} must match fixture options`);
+    const rows = fs.readFileSync(path.join(evaluationDir, `${task}-holdout-scores.jsonl`), 'utf8').trim().split(/\r?\n/).map(JSON.parse);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].id, `holdout-${task}`);
+    assert.equal(rows[0].gold, goldByTask[task]);
+    assert.deepEqual(Object.keys(rows[0].scores), ids);
+  }
+  assert.deepEqual(fs.readFileSync(fixture.callLog, 'utf8').trim().split(/\r?\n/), [
+    'validity:holdout', 'intent:holdout', 'tier:holdout',
+  ]);
+
+  const malformed = spawnSync(fixture.python, [path.join(root, 'scripts/system-one-cycle/score.py'), '--task', 'validity'],
+    { cwd: root, encoding: 'utf8', env, windowsHide: true });
+  assert.notEqual(malformed.status, 0, 'malformed scorer arguments must fail in the fixture hook');
+  assert.match(malformed.stderr, /S1_446 fixture scorer: expected --weights, --holdout, --task, --out/);
+
+  const noHookEnv = { ...env, PYTHONPATH: path.join(fixture.tmp, 'empty-pythonpath') };
+  delete noHookEnv.S1_446_CATALOGS;
+  delete noHookEnv.S1_446_CALL_LOG;
+  delete noHookEnv.S1_446_QUALITY;
+  const noHookOutput = path.join(fixture.tmp, 'without-hook.jsonl');
+  const noHook = spawnSync(fixture.python, [path.join(root, 'scripts/system-one-cycle/score.py'),
+    '--weights', path.join(versionDir, 'validity.safetensors'), '--holdout', path.join(root, 'benchmarks/fixtures/system-one-holdout.json'),
+    '--task', 'validity', '--out', noHookOutput], { cwd: root, encoding: 'utf8', env: noHookEnv, windowsHide: true });
+  assert.notEqual(noHook.status, 0, 'without scoring interception the fixture scorer smoke path must fail, not skip');
+  assert.equal(fs.existsSync(noHookOutput), false);
 });
 
 test('446 cross-cycle: cumulative holdout drift stays measured against A/v0 after partial recovery', t => {
