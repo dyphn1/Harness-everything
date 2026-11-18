@@ -16,8 +16,21 @@ The [Action identity registry](./nodes.yaml) is the only proposed source for the
 | `EH-activity-source` | Level 1 · diagram representation | [activity.puml](./activity.puml) | UML activity representation of the **same** Level 1 route; not an independent controller |
 | `E0002-actions` | Level 2 · context-specific behavior blocks | [actions/e0002-action-map.md](./actions/e0002-action-map.md) | E-0002 lens over ASSESS / RESPOND; what the Agent should do |
 | `E0002-capture` | Level 3 · evidence reference | [details/e0002-capture-evidence.md](./details/e0002-capture-evidence.md) | Source and artifact preservation details, read only if relevant |
-| `E0002-writer` | Level 3 · proposed Script/CLI reference | [details/e0002-report-writer.md](./details/e0002-report-writer.md) | `-o` handling, input/output, return codes and mechanical checks; **not deployed** |
+| `E0002-writer` | Level 3 · Script/CLI reference | [details/e0002-report-writer.md](./details/e0002-report-writer.md) | `-o` handling, input/output, return codes and mechanical checks; shipped as `scripts/report-writer.js` (`npm run report`, #462) |
 | `E0002-ledger` | Existing external source · error history | [E-0002 ledger](../../.agents/harness-everything/errors/E-0002-report-missing-terminal-status.md) | Existing class/signature and history, **not** a new Level 3 state store |
+| `C1-actions` | Level 2 · C1 split decision | [actions/c1-action-map.md](./actions/c1-action-map.md) | One authority per named decision; consumer inventory |
+| `C1-detail` | Level 3 · C1 conformance design | [details/c1-authority-conformance.md](./details/c1-authority-conformance.md) | Conformance-test design; mechanism stays a follow-up until a target is pinned |
+| `C2-actions` | Level 2 · C2 test oracle | [actions/c2-action-map.md](./actions/c2-action-map.md) | Test-root containment on Unix and Windows |
+| `C2-detail` | Level 3 · C2 path predicate | [details/c2-test-root-containment.md](./details/c2-test-root-containment.md) | Predicate and matrix in `ci/mechanism-397-cycle-import.test.js` |
+| `C3-actions` | Level 2 · C3 machine state | [actions/c3-action-map.md](./actions/c3-action-map.md) | Routing tests own their System One mode |
+| `C3-detail` | Level 3 · C3 mode ownership | [details/c3-mode-ownership.md](./details/c3-mode-ownership.md) | Env builder in the routing fixtures (#449) |
+| `C5-actions` | Level 2 · C5 host protocol | [actions/c5-action-map.md](./actions/c5-action-map.md) | Pin one host protocol at its real boundary |
+| `C5-detail` | Level 3 · C5 replay contract | [details/c5-host-replay-contract.md](./details/c5-host-replay-contract.md) | Replay contract and the missing retained payload |
+| `C6-actions` | Level 2 · C6 briefing | [actions/c6-action-map.md](./actions/c6-action-map.md) | A packet carries its own authoritative values |
+| `C6-detail` | Level 3 · C6 briefing walkthrough | [details/c6-packet-briefing.md](./details/c6-packet-briefing.md) | Walkthroughs and the report-writer dependency |
+| `C6-template` | Template · packet briefing | [templates/packet-briefing.md](./templates/packet-briefing.md) | Copy per packet; every field filled or `N/A: <reason>` |
+| `C7-actions` | Level 2 · C7 write-set | [actions/c7-action-map.md](./actions/c7-action-map.md) | Did the slice stay inside its write-set |
+| `C7-detail` | Level 3 · C7 checker | [details/c7-write-set-check.md](./details/c7-write-set-check.md) | `scripts/check-packet-write-set.js`, run by the coordinator before accepting a slice |
 
 `Local reference` values are **table-local lookup keys only**, not new stable Action IDs, graph node identities, persistent state, or workflow instructions.
 
