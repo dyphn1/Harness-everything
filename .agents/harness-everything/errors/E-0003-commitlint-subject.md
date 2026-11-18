@@ -81,6 +81,15 @@ episodes:
         change: null
         review: coordinator
         result: "A coordinator commit subject contained an uppercase word (\"Python\") and was rejected by `subject-case`; the reviewer had already been cloned, so it reviewed the previous head. The review RH3 was killed and re-dispatched on the corrected head. New lesson: check the commit's exit status before cloning a reviewer for it, and keep subjects lower-case"
+  - episode: 471-commitlint-subject-case-system-one
+    feature: "PR #471 (coordinator commit, C3 repair)"
+    date: 2026-11-18
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: "commit-msg hook"
+        result: "A coordinator commit subject contained the proper noun \"System One\" and was rejected by `subject-case`; it was re-committed with a lower-case subject as `42b0a45f`. Same class as the same-day PR #456 \"Python\" episode."
 ---
 
 ## Cue
@@ -113,3 +122,7 @@ New failure mode in the same class: the push ran before checking that the commit
 ## Episode 6 (2026-11-18, PR #456)
 
 A coordinator commit subject contained an uppercase word ("Python") and was rejected by `subject-case`. The reviewer had already been cloned before the failed commit was noticed, so it reviewed the previous head; the review RH3 was killed and re-dispatched. Lesson added: check the commit's exit status before cloning a reviewer for it, and keep subjects lower-case.
+
+## Episode 7 (2026-11-18, PR #471)
+
+A coordinator commit subject contained the proper noun "System One" and was rejected by `subject-case`; it was re-committed with a lower-case subject as `42b0a45f`. Same class as the same-day PR #456 "Python" episode. Lesson unchanged: keep proper nouns lower-case in subjects and check the commit's exit status before downstream steps.

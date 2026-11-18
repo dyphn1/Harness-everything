@@ -45,6 +45,28 @@ episodes:
         change: "Commit a8ef3d49 (test-only): prove cancellation via process exit instead of heartbeat sampling"
         review: unknown
         result: "Fixed on the branch. The false RED cost one diagnose round."
+  - episode: 468-c8-runner-self-test-not-real-path
+    feature: "#468 C8 one-shot runner template"
+    date: 2026-11-18
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: "first real dispatch"
+        result: "The template's `--self-test` passed, but the first real dispatch exited 1 silently: `validate_inputs` ended in `is_inside_repo … && fail 11`, which returns 1 under `set -e` for a compliant scratch dir; the self-test never calls `validate_inputs`. Slice parked for the owner (#468)."
+  - episode: 471-c7-worker-claim-not-reproducible
+    feature: "PR #471 C7"
+    date: 2026-11-18
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "coordinator re-run from the C2 worktree"
+        result: "The C7 report said the pinned real-slice check passed; the coordinator re-ran it from the C2 worktree and got exit 1, because the checker inspected its own repository (`__dirname`) and that worktree's untracked files."
+      - round: 1
+        change: "C7b repair (bcf3c577): the check no longer depends on the checker's own repository or untracked files"
+        review: "RC7"
+        result: "RC7 found no blocker; episode closed 2026-11-18."
 ---
 
 ## Cue
@@ -54,6 +76,10 @@ A guard or producer for a live path passes its deterministic tests and an indepe
 ## Lesson
 
 The deterministic positive for a live-path feature loads a real artifact from the shipped path: a task pin from `workflow-disposition.js plan/start`, a real `workflow-obligations.json`, real checker stdout. Reviewers should ask which inputs are real. Hand-built objects omit fields (absolute roots, binding paths) that the real host always carries.
+
+Episode 3 adds: a self-test is not evidence for the real path unless it calls the same entry point the dispatch uses. A self-test that skips `validate_inputs` passes while the first real dispatch exits 1 silently under `set -e`.
+
+Episode 4 adds: a worker's "the real-slice check passed" claim is not reproducible from a different worktree if the checker inspects its own repository (`__dirname`) and untracked files. The coordinator re-run from the C2 worktree is the check that counts, not the reporter's local success.
 
 ## Evidence
 
@@ -69,3 +95,11 @@ A third shape: the oracle sampled a proxy signal — heartbeat output after a fi
 ## Known limit (out of scope)
 
 - The fixture still copies package files from the declared, installed `husky` devDependency (`node_modules/husky`). Review-7 records that the additional package-isolation demand was adjudicated out of scope. The error class stays `scope: in`.
+
+## Episode 3 (2026-11-18, #468)
+
+A one-shot runner template's `--self-test` passed while the first real dispatch exited 1 silently. `validate_inputs` ended in `is_inside_repo … && fail 11`, which returns 1 under `set -e` for a compliant scratch directory, and the self-test never called `validate_inputs`. Same class as the earlier fixture episodes: the deterministic check did not traverse the real path. The slice is parked for the owner in #468.
+
+## Episode 4 (2026-11-18, PR #471 C7)
+
+The C7 report said the pinned real-slice check passed. The coordinator re-ran it from the C2 worktree and got exit 1, because the checker inspected its own repository (`__dirname`) and that worktree's untracked files — a claim that held only in the reporter's own checkout. The C7b repair (`bcf3c577`) removed that dependence and RC7 found no blocker. This also touches E-0005 (a review claim that could not be reproduced from the evidence).
