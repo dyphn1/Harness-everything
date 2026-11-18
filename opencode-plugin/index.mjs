@@ -45,11 +45,199 @@ import { createRequire } from "node:module"
 import { fileURLToPath } from "node:url"
 
 const EDIT_TOOLS = new Set(["edit", "write", "apply_patch"])
+// shortcut: the 5s race cannot cancel a pending host lookup, upgrade when OpenCode exposes session.get cancellation.
+const SESSION_LOOKUP_TIMEOUT_MS = 5000
 const OPENCODE_CAPTURE_FILE = "opencode-captures.jsonl"
 const OPENCODE_CAPTURE_LIMIT_BYTES = 4 * 1024 * 1024
 const OPENCODE_CAPTURE_RECORD_LIMIT_BYTES = 16 * 1024
 const requireFromPlugin = createRequire(import.meta.url)
-const STOP_GATE_FILE = join(dirname(fileURLToPath(import.meta.url)), "..", "hooks", "scripts", "workflow-stop-gate.js")
+const PLUGIN_DIRECTORY = dirname(fileURLToPath(import.meta.url))
+
+function findHarnessRoot(start = PLUGIN_DIRECTORY) {
+  let directory = resolve(start)
+  for (let depth = 0; depth < 8; depth++) {
+    if (existsSync(join(directory, "harness-everything", "scripts", "kernel-router.js"))
+      && existsSync(join(directory, "hooks", "scripts", "lib", "observations.js"))) return directory
+    const parent = dirname(directory)
+    if (parent === directory) break
+    directory = parent
+  }
+  return null
+}
+
+const HARNESS_ROOT = findHarnessRoot()
+const STOP_GATE_FILE = join(HARNESS_ROOT || resolve(PLUGIN_DIRECTORY, ".."), "hooks", "scripts", "workflow-stop-gate.js")
+const OBSERVATIONS_FILE = HARNESS_ROOT && join(HARNESS_ROOT, "hooks", "scripts", "lib", "observations.js")
+const ROUTER_FILE = HARNESS_ROOT && join(HARNESS_ROOT, "harness-everything", "scripts", "kernel-router.js")
+let observationsApi
+
+function systemOneObservations() {
+  if (!OBSERVATIONS_FILE) return null
+  if (!observationsApi) {
+    try { observationsApi = requireFromPlugin(OBSERVATIONS_FILE) } catch { return null }
+  }
+  return observationsApi
+}
+
+// OpenCode's host process is a compiled Bun binary, so process.execPath is the
+// opencode executable. That binary cannot run a Node .js script - it treats the
+// script path as a project directory (ENOTDIR) - so a non-Node host must run
+// Harness scripts with `node` from PATH. Under Node the checked-in runtime is
+// used as before; a Node that cannot be found stays fail-open, because the
+// spawn error yields no injection and blocks no turn.
+function harnessRuntime() {
+  return process.versions.bun ? "node" : process.execPath
+}
+
+function runKernelRouter(payload, signal) {
+  if (!ROUTER_FILE || signal?.aborted) return Promise.resolve(null)
+  return new Promise(resolveOutput => {
+    let stdout = ""
+    let child, timeout, termination, spawnError = false, timedOut = false, cancelled = false, settled = false
+    const terminate = () => {
+      if (!termination && child) termination = terminateVerificationChild(child)
+    }
+    const finish = async code => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeout)
+      signal?.removeEventListener("abort", abort)
+      if (termination) await termination
+      resolveOutput(!spawnError && !timedOut && !cancelled && code === 0 ? stdout.trim() : null)
+    }
+    const abort = () => { cancelled = true; terminate() }
+    try {
+      child = spawn(harnessRuntime(), [ROUTER_FILE], {
+        cwd: payload.cwd || HARNESS_ROOT,
+        env: process.env,
+        detached: process.platform !== "win32",
+        stdio: ["pipe", "pipe", "ignore"],
+        windowsHide: true,
+      })
+    } catch {
+      resolveOutput(null)
+      return
+    }
+    child.stdout.on("data", chunk => { stdout += chunk })
+    child.stdin.on("error", () => { spawnError = true; terminate() })
+    child.once("error", () => {
+      spawnError = true
+      if (!child.pid) void finish(null)
+      else terminate()
+    })
+    child.once("close", code => { void finish(code) })
+    signal?.addEventListener("abort", abort, { once: true })
+    if (signal?.aborted) abort()
+    timeout = setTimeout(() => { timedOut = true; terminate() }, 5000)
+    try { child.stdin.end(JSON.stringify(payload)) } catch { spawnError = true; terminate() }
+  })
+}
+
+function assistantTextForCurrentTurn(messages, userMessageID) {
+  const items = Array.isArray(messages) ? messages : Array.isArray(messages?.data) ? messages.data : []
+  const role = message => message?.info?.role || message?.info?.type || message?.role || message?.type
+  const messageID = message => message?.info?.id ?? message?.id
+  let lastUser = userMessageID
+    ? items.findIndex(message => messageID(message) === userMessageID && role(message) === "user")
+    : -1
+  if (!userMessageID) {
+    for (let i = items.length - 1; i >= 0; i--) {
+      if (role(items[i]) === "user") { lastUser = i; break }
+    }
+  }
+  if (lastUser < 0) return null
+  for (let i = items.length - 1; i > lastUser; i--) {
+    const message = items[i]
+    if (role(message) !== "assistant") continue
+    const parts = Array.isArray(message.parts) ? message.parts : Array.isArray(message.content) ? message.content : []
+    const text = parts
+      .filter(part => part?.type === "text" && typeof part.text === "string")
+      .map(part => part.text).join("")
+    if (text) return text
+  }
+  return null
+}
+
+function observeOpenCodeTool(event, workspace) {
+  try {
+    const observations = systemOneObservations()
+    if (!observations || !observations.enabled() || !event?.sessionID) return
+    const args = isRecord(event.input) ? event.input : {}
+    const names = { edit: "Edit", write: "Write", apply_patch: "apply_patch", bash: "shell", skill: "Skill", read: "Read", task: "Task" }
+    const toolInput = {
+      ...args,
+      file_path: args.filePath || args.file_path || args.path,
+      command: args.command || args.cmd,
+      skill: args.skill || args.name,
+    }
+    const failed = event.status === "error" || Boolean(event.error)
+    observations.handle({
+      hook_event_name: failed ? "PostToolUseFailure" : "PostToolUse",
+      host: "opencode",
+      session_id: event.sessionID,
+      cwd: workspace,
+      tool_name: names[String(event.tool || "").toLowerCase()] || event.tool,
+      tool_input: toolInput,
+      tool_response: event.result,
+      error: failed,
+    })
+  } catch { /* turn observation is always fail-open */ }
+}
+
+async function observeOpenCodeCompletion(sessionID, ctx, promptRoutes, signal) {
+  const prompt = promptRoutes.get(sessionID)
+  promptRoutes.delete(sessionID)
+  if (!prompt?.workspace || signal?.aborted) return
+  try {
+    const observations = systemOneObservations()
+    if (!observations || !observations.enabled()) return
+    let lastMessage = null
+    const context = await awaitAbortableHostRead(() => ctx.session.context({ sessionID }), signal)
+    if (context.status === "aborted" || signal?.aborted) return
+    if (context.status === "resolved") lastMessage = assistantTextForCurrentTurn(context.value, prompt?.messageID)
+    const payload = {
+      hook_event_name: "Stop",
+      host: "opencode",
+      session_id: sessionID,
+      ...(prompt?.messageID ? { turn_id: prompt.messageID } : {}),
+      cwd: prompt.workspace,
+      ...(lastMessage === null ? {} : { last_assistant_message: lastMessage }),
+    }
+    if (signal?.aborted) return
+    observations.handle(payload)
+  } catch { /* turn observation is always fail-open */ }
+}
+
+function awaitAbortableHostRead(read, signal) {
+  return new Promise(resolveRead => {
+    let settled = false
+    const finish = result => {
+      if (settled) return
+      settled = true
+      signal.removeEventListener("abort", onAbort)
+      resolveRead(result)
+    }
+    const onAbort = () => finish({ status: "aborted" })
+    if (signal.aborted) {
+      onAbort()
+      return
+    }
+    signal.addEventListener("abort", onAbort, { once: true })
+    if (signal.aborted) {
+      onAbort()
+      return
+    }
+    let raw
+    try { raw = read() } catch (error) {
+      finish({ status: "rejected", error })
+      return
+    }
+    Promise.resolve(raw).then(
+      value => finish({ status: "resolved", value }),
+      error => finish({ status: "rejected", error }),
+    )
+  })
+}
 
 function canonicalJson(value) {
   if (Array.isArray(value)) return value.map(canonicalJson)
@@ -1143,61 +1331,253 @@ export default {
   id: "harness.enforcement",
   async setup(ctx) {
     const events = new AbortController()
-    const hooks = await HarnessEnforcement({
-      signal: events.signal,
-      client: {
-        session: {
-          // V1 shutdown path calls client.session.prompt({path, body}) twice;
-          // map it onto the V2 session API instead of duplicating the code.
-          prompt: ({ path, body }) =>
-            ctx.session.prompt({
-              sessionID: path && path.id,
-              text: (body && body.parts || []).map((part) => part && part.text || "").join(""),
-            }),
-        },
-      },
-      directory: (ctx.location && ctx.location.directory) || ctx.directory,
+    const promptRoutes = new Map()
+    const sessionBindings = new Map()
+    const sessionOwners = new Map()
+    const invalidatedSessions = new Set()
+    const enforcementByWorkspace = new Map()
+    const pendingEvents = new Set()
+    const trackPending = work => {
+      const pending = Promise.resolve().then(work)
+      pendingEvents.add(pending)
+      pending.then(() => pendingEvents.delete(pending), () => pendingEvents.delete(pending))
+      return pending
+    }
+    let unresolvedIdentityCount = 0
+
+    const unresolvedIdentity = reason => {
+      unresolvedIdentityCount++
+      try { console.warn(`[Harness] OpenCode session workspace unresolved (${reason}; count=${unresolvedIdentityCount}); workspace-dependent handling skipped.`) } catch {}
+    }
+    const resolveSessionWorkspace = sessionID => new Promise(resolveIdentity => {
+      if (events.signal.aborted) {
+        resolveIdentity({ reason: "plugin-disposed" })
+        return
+      }
+      let settled = false
+      let timer
+      const onAbort = () => finish({ reason: "plugin-disposed" })
+      const finish = result => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        events.signal.removeEventListener("abort", onAbort)
+        resolveIdentity(result)
+      }
+      timer = setTimeout(() => finish({ reason: "session-lookup-timeout" }), SESSION_LOOKUP_TIMEOUT_MS)
+      events.signal.addEventListener("abort", onAbort, { once: true })
+      if (events.signal.aborted) {
+        onAbort()
+        return
+      }
+      if (typeof ctx.session?.get !== "function") {
+        finish({ reason: "session-lookup-unavailable" })
+        return
+      }
+      let lookup
+      try { lookup = ctx.session.get({ sessionID }) } catch {
+        finish({ reason: "session-lookup-failed" })
+        return
+      }
+      Promise.resolve(lookup).then(session => {
+        const directory = session?.location?.directory
+        if (typeof directory !== "string" || !directory.trim()) {
+          finish({ reason: "session-directory-unavailable" })
+        } else if (!isAbsolute(directory)) {
+          finish({ reason: "session-directory-invalid" })
+        } else {
+          finish({ workspace: resolve(directory) })
+        }
+      }, () => finish({ reason: "session-lookup-failed" }))
+    })
+    const enforcementFor = workspace => {
+      if (events.signal.aborted) return Promise.resolve(null)
+      if (!enforcementByWorkspace.has(workspace)) {
+        enforcementByWorkspace.set(workspace, HarnessEnforcement({
+          signal: events.signal,
+          client: {
+            session: {
+              // V1 shutdown path calls client.session.prompt({path, body}) twice;
+              // map it onto the V2 session API instead of duplicating the code.
+              prompt: ({ path, body }) =>
+                ctx.session.prompt({
+                  sessionID: path && path.id,
+                  text: (body && body.parts || []).map((part) => part && part.text || "").join(""),
+                }),
+            },
+          },
+          directory: workspace,
+        }))
+      }
+      return enforcementByWorkspace.get(workspace)
+    }
+    const bindSessionWorkspace = (sessionID, workspace, hooks) => {
+      const owners = sessionOwners.get(sessionID) || new Set()
+      let binding = [...owners].find(owner => owner.workspace === workspace)
+      if (!binding) {
+        binding = { workspace, hooks }
+        owners.add(binding)
+        sessionOwners.set(sessionID, owners)
+      }
+      sessionBindings.set(sessionID, binding)
+      return binding
+    }
+    const bindingForSession = async sessionID => {
+      if (events.signal.aborted || typeof sessionID !== "string" || !sessionID) return null
+      if (invalidatedSessions.has(sessionID)) return null
+      const prompt = promptRoutes.get(sessionID)
+      if (prompt && prompt.status !== "resolved") return null
+      const existing = sessionBindings.get(sessionID)
+      if (existing) return existing
+      const identity = await resolveSessionWorkspace(sessionID)
+      if (events.signal.aborted || !identity.workspace) {
+        if (!events.signal.aborted) unresolvedIdentity(identity.reason)
+        return null
+      }
+      if (invalidatedSessions.has(sessionID) || promptRoutes.get(sessionID) !== prompt) return null
+      let hooks = null
+      try { hooks = await enforcementFor(identity.workspace) } catch {}
+      if (events.signal.aborted || invalidatedSessions.has(sessionID) || promptRoutes.get(sessionID) !== prompt) return null
+      return bindSessionWorkspace(sessionID, identity.workspace, hooks)
+    }
+
+    await ctx.session.hook("prompt", event => {
+      if (events.signal.aborted) return
+      return trackPending(async () => {
+        try {
+          if (events.signal.aborted || typeof event?.sessionID !== "string" || typeof event.prompt?.text !== "string") return
+          const messageID = event.messageID || event.messageId || null
+          const previous = promptRoutes.get(event.sessionID)
+          if (messageID && previous?.messageID === messageID) {
+            await previous.routerPromise
+            return
+          }
+          invalidatedSessions.delete(event.sessionID)
+          const prompt = { messageID, text: event.prompt.text, routerOutput: null, routerPromise: null,
+            workspace: null, hooks: null, status: "pending" }
+          promptRoutes.set(event.sessionID, prompt)
+          prompt.routerPromise = (previous?.routerPromise || Promise.resolve())
+            .catch(() => null)
+            .then(async () => {
+              if (events.signal.aborted || promptRoutes.get(event.sessionID) !== prompt) return
+              const identity = await resolveSessionWorkspace(event.sessionID)
+              if (events.signal.aborted || promptRoutes.get(event.sessionID) !== prompt) return
+              if (!identity.workspace) {
+                prompt.status = "failed"
+                unresolvedIdentity(identity.reason)
+                return
+              }
+              prompt.workspace = identity.workspace
+              try { prompt.hooks = await enforcementFor(prompt.workspace) } catch {}
+              if (events.signal.aborted || promptRoutes.get(event.sessionID) !== prompt) return
+              bindSessionWorkspace(event.sessionID, prompt.workspace, prompt.hooks)
+              prompt.status = "resolved"
+              try {
+                if (events.signal.aborted) return
+                const observations = systemOneObservations()
+                if (observations && observations.enabled()) {
+                  observations.handle({ hook_event_name: "UserPromptSubmit", host: "opencode", session_id: event.sessionID,
+                    ...(prompt.messageID ? { turn_id: prompt.messageID } : {}), cwd: prompt.workspace, prompt: event.prompt.text })
+                }
+              } catch { /* turn observation is always fail-open */ }
+              if (events.signal.aborted) return
+              const routerPayload = { host: "opencode", session_id: event.sessionID,
+                ...(prompt.messageID ? { turn_id: prompt.messageID } : {}), cwd: prompt.workspace, prompt: event.prompt.text }
+              const routerOutput = await runKernelRouter(routerPayload, events.signal)
+              if (!events.signal.aborted && promptRoutes.get(event.sessionID) === prompt) prompt.routerOutput = routerOutput
+            })
+          await prompt.routerPromise
+        } catch { /* routing context is fail-open; do not reject prompt admission */ }
+      })
+    })
+    await ctx.session.hook("context", event => {
+      if (events.signal.aborted) return
+      const output = promptRoutes.get(event?.sessionID)?.routerOutput
+      if (!output || (event.kind && event.kind !== "primary") || !Array.isArray(event.system)) return
+      if (!event.system.some(part => part && part.text === output)) event.system.push({ type: "text", text: output })
     })
 
-    await ctx.tool.hook("execute.before", (event) =>
-      hooks["tool.execute.before"](toolEventInput(event), { args: event.input }))
-    await ctx.tool.hook("execute.after", (event) =>
-      hooks["tool.execute.after"](toolEventInput(event), {
-        args: event.input,
-        status: event.status,
-        result: event.result,
-        error: event.error,
-        messageID: event.messageID,
-      }))
+    await ctx.tool.hook("execute.before", event => {
+      if (events.signal.aborted) return
+      return trackPending(async () => {
+        if (events.signal.aborted) return
+        const binding = await bindingForSession(event?.sessionID)
+        if (events.signal.aborted || !binding?.workspace || !binding.hooks) return
+        return binding.hooks["tool.execute.before"](toolEventInput(event), { args: event.input })
+      })
+    })
+    await ctx.tool.hook("execute.after", event => {
+      if (events.signal.aborted) return
+      return trackPending(async () => {
+        if (events.signal.aborted) return
+        const prompt = promptRoutes.get(event?.sessionID)
+        const binding = await bindingForSession(event?.sessionID)
+        if (events.signal.aborted || !binding?.workspace) return
+        if (prompt?.status === "resolved" && prompt.workspace) observeOpenCodeTool(event, prompt.workspace)
+        if (!binding.hooks) return
+        return binding.hooks["tool.execute.after"](toolEventInput(event), {
+          args: event.input,
+          status: event.status,
+          result: event.result,
+          error: event.error,
+          messageID: event.messageID,
+        })
+      })
+    })
 
-    const pendingIdles = new Set()
-    void (async () => {
+    trackPending(async () => {
       try {
         for await (const raw of ctx.event.subscribe({ signal: events.signal })) {
           if (events.signal.aborted) break
-          const delivery = hooks.event({
-            event: {
-              type: raw.type,
-              // V1 event handlers read {type, properties}; V2 events are flat
-              // objects, so pass both shapes.
-              properties: raw.properties ?? raw,
-            },
-          })
-          if (raw.type === "session.idle") {
-            // Awaiting verification here would prevent the same event stream
-            // from delivering the reset/delete which must cancel it.
-            const pending = delivery.catch(() => {}).finally(() => pendingIdles.delete(pending))
-            pendingIdles.add(pending)
+          // OpenCode 2.x events are flat with the session id at data.sessionID;
+          // V1 hosts keep it top-level. V2 hosts send no session.idle, so a
+          // completed turn ends with session.execution.succeeded.
+          const sessionID = raw.sessionID || (raw.data && raw.data.sessionID)
+            || (raw.properties && (raw.properties.sessionID || raw.properties.info?.id))
+          const turnEnded = raw.type === "session.idle" || raw.type === "session.execution.succeeded"
+          const lifecycleEvent = ["session.idle", "session.created", "session.deleted"].includes(raw.type)
+          if ((!turnEnded && !lifecycleEvent) || typeof sessionID !== "string" || !sessionID) continue
+          if (raw.type === "session.deleted") invalidatedSessions.add(sessionID)
+          else if (raw.type === "session.created") invalidatedSessions.delete(sessionID)
+          if (raw.type === "session.created" || raw.type === "session.deleted") promptRoutes.delete(sessionID)
+          const prompt = promptRoutes.get(sessionID)
+          if (turnEnded && prompt?.status === "resolved") {
+            trackPending(() => observeOpenCodeCompletion(sessionID, ctx, promptRoutes, events.signal))
+          }
+          let bindings
+          if (raw.type === "session.created" || raw.type === "session.deleted") {
+            bindings = [...(sessionOwners.get(sessionID) || [])]
+            if (!bindings.length && !invalidatedSessions.has(sessionID)) {
+              const binding = await bindingForSession(sessionID)
+              if (binding) bindings = [binding]
+            }
           } else {
-            try { await delivery } catch { /* fail open */ }
+            const binding = await bindingForSession(sessionID)
+            bindings = binding ? [binding] : []
+          }
+          const event = {
+            type: turnEnded ? "session.idle" : raw.type,
+            properties: { ...raw, ...(isRecord(raw.properties) ? raw.properties : {}), sessionID },
+          }
+          const cleanupDelivery = raw.type === "session.created" || raw.type === "session.deleted"
+          const delivery = trackPending(() => Promise.allSettled(bindings.filter(binding => binding?.hooks?.event)
+            .map(binding => Promise.resolve().then(() => {
+              if (events.signal.aborted && !cleanupDelivery) return
+              return binding.hooks.event({ event })
+            }))))
+          if (!turnEnded) await delivery
+          if (raw.type === "session.created" || raw.type === "session.deleted") {
+            promptRoutes.delete(sessionID)
+            sessionBindings.delete(sessionID)
+            sessionOwners.delete(sessionID)
           }
         }
       } catch { /* aborting the host subscription is normal shutdown */ }
       finally { events.abort() }
-    })()
+    })
     return async () => {
       events.abort()
-      await Promise.allSettled([...pendingIdles])
+      while (pendingEvents.size) await Promise.allSettled([...pendingEvents])
     }
   },
 }

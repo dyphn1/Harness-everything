@@ -143,11 +143,17 @@ function createEventStream() {
 async function startPlugin(workspace) {
   const plugin = await import(pathToFileURL(path.join(ROOT, 'opencode-plugin/index.mjs')).href);
   const registered = new Map();
+  const sessionHooks = new Map();
   const stream = createEventStream();
   const dispose = await plugin.default.setup({
     location: { directory: workspace },
     tool: { hook: async (name, callback) => registered.set(name, callback) },
-    session: { prompt: async () => ({}) },
+    session: {
+      get: async ({ sessionID }) => ({ id: sessionID, location: { directory: workspace } }),
+      hook: async (name, callback) => { sessionHooks.set(name, callback); return { dispose: async () => {} }; },
+      prompt: async () => ({}),
+      context: async () => [],
+    },
     event: { subscribe: ({ signal }) => stream.subscribe(signal) },
   });
   return { registered, stream, dispose };

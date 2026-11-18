@@ -42,7 +42,7 @@ if (fs.existsSync(pluginManifestFile)) {
 }
 
 helper.check(
-  '2n. the plugin ships as a single self-contained module (installable by copying one file)',
+  '2n. the V1 enforcement factory remains in the plugin entrypoint',
   fs.existsSync(pluginFile) && !/require\(['"]\.\//.test(fs.readFileSync(pluginFile, 'utf8')),
   `${pluginFile} missing or imports a sibling file`
 );

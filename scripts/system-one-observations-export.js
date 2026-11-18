@@ -82,6 +82,33 @@ function run(args) {
   obs.sweep(store);
   const index = obs.readJson(path.join(store, 'observations-index.json'), null);
   if (!index || index.schemaVersion !== 1 || !Array.isArray(index.records)) throw new Error(`no observation index in ${store}`);
+  const malformedLabelReasons = new Set(['label-invalid', 'label-unparseable']);
+  const acceptanceByHost = {};
+  const seenTurns = new Set();
+  for (const record of index.records) {
+    const host = String(record.host || 'unknown');
+    const counts = acceptanceByHost[host] || (acceptanceByHost[host] = { valid: 0, invalid: 0, missing: 0 });
+    if (since !== null && (!Number.isFinite(Date.parse(record.observedAt || '')) || Date.parse(record.observedAt) < since)) continue;
+    const writer = record.writer || {};
+    const sessionId = String(writer.sessionId || '');
+    const turnId = String(writer.turnId || '');
+    const turn = Number.isInteger(record.turn) ? String(record.turn) : '';
+    const uniqueTurn = sessionId && turnId ? `${host}\0${sessionId}\0id:${turnId}`
+      : sessionId && turn ? `${host}\0${sessionId}\0ordinal:${turn}` : record.id ? `${host}\0record:${record.id}` : '';
+    if (uniqueTurn && seenTurns.has(uniqueTurn)) continue;
+    if (uniqueTurn) seenTurns.add(uniqueTurn);
+    if (record.selfReport) counts.valid++;
+    else if (malformedLabelReasons.has(record.selfReportReason)) counts.invalid++;
+    else counts.missing++;
+  }
+  const hostAcceptanceByHost = Object.fromEntries(Object.entries(acceptanceByHost).sort(([left], [right]) => left.localeCompare(right))
+    .map(([host, counts]) => {
+      const eligible = counts.valid + counts.invalid + counts.missing;
+      return [host, { eligible, ...counts, acceptanceRate: eligible ? counts.valid / eligible : null }];
+    }));
+  const malformedLabelsByHost = Object.fromEntries(Object.entries(hostAcceptanceByHost)
+    .filter(([, counts]) => counts.invalid)
+    .map(([host, counts]) => [host, counts.invalid]));
   const rows = [];
   let skippedNoText = 0;
   let skippedBeforeSince = 0;
@@ -137,6 +164,8 @@ function run(args) {
     since: sinceText, selfReportOnly, skippedBeforeSince, skippedUnlabeled,
     skippedNoText, validationRows: validation, withSelfReport: withSelf.length,
     selfReportReasons: count(r => r.record.selfReportReason || 'ok'), hosts: count(r => r.record.host),
+    malformedLabelsByHost: Object.fromEntries(Object.entries(malformedLabelsByHost).sort(([left], [right]) => left.localeCompare(right))),
+    hostAcceptance: { population: 'stored-observations', byHost: hostAcceptanceByHost },
     validity: count(r => r.label.validity), tiers: count(r => r.label.tier), tierSources: count(r => r.label.tierSource),
     behaviorEvidence: {
       observed: rows.filter(r => r.label.behaviorEvidence === 'observed').length,

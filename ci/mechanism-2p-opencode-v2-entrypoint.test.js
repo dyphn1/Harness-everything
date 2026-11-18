@@ -12,9 +12,11 @@ console.log('\n[2p] opencode 2.x default-export entrypoint: registration and fir
 // V2 adapter that the real host actually loads.
 
 helper.check(
-  '2p. the plugin ships as a single self-contained module',
-  fs.existsSync(path.join(helper.root, 'opencode-plugin', 'index.mjs')),
-  'index.mjs missing'
+  '2p. the plugin entrypoint resolves the canonical router and observations runtime from the source checkout',
+  fs.existsSync(path.join(helper.root, 'opencode-plugin', 'index.mjs'))
+    && fs.existsSync(path.join(helper.root, 'harness-everything', 'scripts', 'kernel-router.js'))
+    && fs.existsSync(path.join(helper.root, 'hooks', 'scripts', 'lib', 'observations.js')),
+  'plugin entrypoint or shared runtime missing'
 );
 
 (async () => {
@@ -41,6 +43,7 @@ helper.check(
 
   const prompts = [];
   const registered = [];
+  const sessionHooks = [];
   let subscribeCount = 0;
   const eventQueue = [];
   const fakeCtx = {
@@ -52,10 +55,16 @@ helper.check(
       },
     },
     session: {
+      get: async ({ sessionID }) => ({ id: sessionID, location: { directory: workspace } }),
       prompt: async (input) => {
         prompts.push(input);
         return {};
       },
+      hook: async (name, callback) => {
+        sessionHooks.push({ name, callback });
+        return { dispose: async () => {} };
+      },
+      context: async () => [],
     },
     event: {
       subscribe: (options) => {
@@ -106,6 +115,12 @@ helper.check(
     '2p. setup registers the V2 tool hooks under their OpenCode 2 names',
     registered.some((r) => r.name === 'execute.before') && registered.some((r) => r.name === 'execute.after'),
     JSON.stringify(registered.map((r) => r.name))
+  );
+
+  helper.check(
+    '2p. setup registers documented prompt admission and model context hooks',
+    sessionHooks.some((r) => r.name === 'prompt') && sessionHooks.some((r) => r.name === 'context'),
+    JSON.stringify(sessionHooks.map((r) => r.name))
   );
 
   helper.check('2p. setup subscribes to the event stream exactly once', subscribeCount === 1, `subscribes: ${subscribeCount}`);

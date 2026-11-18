@@ -345,7 +345,7 @@ function transcriptMessage(file, turnId) {
 
 function detectHost(payload, hints) {
   const direct = String(payload.host || payload.runtime || '').toLowerCase();
-  if (['claude', 'codex'].includes(direct)) return direct;
+  if (['claude', 'codex', 'opencode'].includes(direct)) return direct;
   if (hints.codex || payload.turn_id || payload.last_agent_message) return 'codex';
   if (process.env.CLAUDE_PLUGIN_ROOT || process.env.CLAUDECODE || process.env.CLAUDE_CODE_ENTRYPOINT || process.env.CLAUDE) return 'claude';
   if (process.env.CODEX_HOME || process.env.CODEX_THREAD_ID) return 'codex';
@@ -587,6 +587,8 @@ function collectEvents(root, sessionId, turn) {
 function startTurn(payload, root) {
   const file = sessionFile(root, payload.session_id);
   const session = readJson(file, null) || { turn: 0, lastFinal: '', pending: null };
+  const turnId = String(payload.turn_id || payload.turnId || '');
+  if (session.pending && turnId && session.pending.turnId === turnId) return;
   if (session.pending) finishPending(session, payload, root, { text: null, reason: 'stop-missing' });
   if (!session.lastFinalAt || Date.now() - Date.parse(session.lastFinalAt) > RETENTION_MS) session.lastFinal = '';
   // Events left from an earlier turn arrived after its Stop; they belong to no record.
@@ -594,7 +596,7 @@ function startTurn(payload, root) {
   session.turn++;
   session.pending = {
     turn: session.turn,
-    turnId: String(payload.turn_id || payload.turnId || ''),
+    turnId,
     startedAt: new Date().toISOString(),
     prompt: redact(typeof payload.prompt === 'string' ? payload.prompt : ''),
     previous: session.lastFinal || '',
@@ -654,7 +656,7 @@ function finishPending(session, payload, root, final) {
     selfReport: label,
     selfReportReason: reason,
   };
-  appendRecord(root, record, textExpired ? null : text);
+  appendRecordDetailed(root, record, textExpired ? null : text, { dedupeById: true, dedupeByTurn: true });
   fs.rmSync(eventsDir(root, payload.session_id, pending.turn), { recursive: true, force: true });
   session.lastFinal = final.text ? redact(tailBytes(stripLabels(final.text), PREVIOUS_BYTES)) : '';
   session.lastFinalAt = observedAt;

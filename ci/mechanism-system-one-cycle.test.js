@@ -146,6 +146,13 @@ test('cycle dataset uses text-only labels, consensus, behavior evidence, holdout
 test('collect preserves self-reported intents from the actual session export shape', t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'system-one-cycle-collect-'));
   const sessions = path.join(dir, 'sessions');
+  const home = path.join(dir, 'home');
+  const liveStore = path.join(dir, 'live-observations');
+  const envKeys = ['HOME', 'USERPROFILE', 'HARNESS_OBSERVATIONS_DIR'];
+  const previousEnv = Object.fromEntries(envKeys.map(key => [key, process.env[key]]));
+  fs.mkdirSync(home);
+  fs.mkdirSync(liveStore);
+  Object.assign(process.env, { HOME: home, USERPROFILE: home, HARNESS_OBSERVATIONS_DIR: liveStore });
   try {
     fs.mkdirSync(sessions, { recursive: true });
     const startedAt = new Date(Date.now() - 60_000).toISOString();
@@ -169,6 +176,10 @@ test('collect preserves self-reported intents from the actual session export sha
     assert.equal(labels.length, 1);
     assert.deepEqual(labels[0].intents, ['fix', 'explain']);
   } finally {
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
@@ -563,6 +574,13 @@ test('all --until build uses prepared synthetic stages and stops before training
   const base = path.join(root, '.s1-work');
   fs.mkdirSync(base, { recursive: true });
   const dir = fs.mkdtempSync(path.join(base, 'cycle-until-build-'));
+  const isolation = fs.mkdtempSync(path.join(os.tmpdir(), 'system-one-cycle-all-isolation-'));
+  const home = path.join(isolation, 'home');
+  const liveStore = path.join(isolation, 'live-observations');
+  const sessions = path.join(isolation, 'codex-sessions');
+  fs.mkdirSync(home);
+  fs.mkdirSync(liveStore);
+  fs.mkdirSync(sessions);
   try {
     const fixture = syntheticCycle(dir);
     fs.writeFileSync(path.join(dir, 'cycle-state.json'), JSON.stringify({ schemaVersion: 1, steps: {
@@ -570,8 +588,10 @@ test('all --until build uses prepared synthetic stages and stops before training
       label: { completedAt: '2026-11-14T00:00:00.000Z' },
       judge: { completedAt: '2026-11-14T00:00:00.000Z' },
     } }));
-    const result = spawnSync(process.execPath, [path.join(root, 'scripts/system-one-cycle.js'), 'all', '--until', 'build', '--data-dir', dir, '--holdout', fixture.holdout], {
-      cwd: root, encoding: 'utf8',
+    const result = spawnSync(process.execPath, [path.join(root, 'scripts/system-one-cycle.js'), 'all', '--until', 'build', '--data-dir', dir,
+      '--sessions', sessions, '--holdout', fixture.holdout], {
+      cwd: root, encoding: 'utf8', env: { ...process.env, HOME: home, USERPROFILE: home,
+        CODEX_HOME: path.join(home, '.codex'), HARNESS_STATE_HOME: path.join(home, '.harness-state'), HARNESS_OBSERVATIONS_DIR: liveStore },
     });
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.includes('synthetic-'), false);
@@ -581,5 +601,6 @@ test('all --until build uses prepared synthetic stages and stops before training
     assert.equal(fs.existsSync(path.join(dir, 'training/runs')), false);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(isolation, { recursive: true, force: true });
   }
 });
