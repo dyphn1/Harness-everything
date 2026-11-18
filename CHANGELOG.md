@@ -2,6 +2,26 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.53.0](https://github.com/dyphn1/Harness-everything/compare/v0.52.0...v0.53.0) (2026-11-18)
+
+### Features
+
+* **observations:** inject the label contract and record opencode turns ([2fa9d6d](https://github.com/dyphn1/Harness-everything/commit/2fa9d6d4c516c858c763a9a6a5110edf778f5019))
+* **system-one:** import live observations into the cycle store ([aa8af52](https://github.com/dyphn1/Harness-everything/commit/aa8af5256efef61807f6b7927b43927f0b4abaf5))
+* **system-one:** report per-host label acceptance before filtering ([63c817b](https://github.com/dyphn1/Harness-everything/commit/63c817b5e9c8481df1da7206e37673f45275ef8e))
+
+### Bug Fixes
+
+* **opencode:** bind each prompt to its session workspace ([861e55e](https://github.com/dyphn1/Harness-everything/commit/861e55ec1627a41b31c6139c6e7ba7b53ef3bb7d))
+* **opencode:** close the observation turn on v2 execution events ([9051c28](https://github.com/dyphn1/Harness-everything/commit/9051c28e2818aa6826e483e0edb4e458c94a4871))
+* **opencode:** read the final reply from the v2 session context ([fb24958](https://github.com/dyphn1/Harness-everything/commit/fb2495817e27f596aa4001ff3a99f97c7d021588))
+* **opencode:** run the router with node inside the bun host ([f7addfc](https://github.com/dyphn1/Harness-everything/commit/f7addfc0290af7622a1e30560b1ea746bb77cd10))
+* **opencode:** settle disposal while completion context is pending ([554b812](https://github.com/dyphn1/Harness-everything/commit/554b81232854b67e3abf4d85a217d8e0277753c3)), closes [#448](https://github.com/dyphn1/Harness-everything/issues/448)
+* **opencode:** stop publishing state after plugin disposal ([a0f8204](https://github.com/dyphn1/Harness-everything/commit/a0f8204a9a70834c990284c9ba5f49652553ec6d)), closes [#448](https://github.com/dyphn1/Harness-everything/issues/448)
+* **opencode:** translate v2 lifecycle events and guard stale bindings ([5371ead](https://github.com/dyphn1/Harness-everything/commit/5371ead206de2622dcb7616380be48855cf3e493))
+* **system-one:** keep cross-month cycle history for trend decisions ([e918e45](https://github.com/dyphn1/Harness-everything/commit/e918e455c47ad53940d8f6c22cb37e9ec0d28d20)), closes [#443](https://github.com/dyphn1/Harness-everything/issues/443) [#446](https://github.com/dyphn1/Harness-everything/issues/446)
+* **system-one:** reject incompatible history on cycle resume ([e6af72f](https://github.com/dyphn1/Harness-everything/commit/e6af72f87cfb552d6683fde9683677f41ae2e892)), closes [#446](https://github.com/dyphn1/Harness-everything/issues/446)
+
 ## [0.52.0](https://github.com/dyphn1/Harness-everything/compare/v0.51.0...v0.52.0) (2026-11-15)
 
 ### Features
