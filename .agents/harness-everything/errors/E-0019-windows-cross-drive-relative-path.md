@@ -24,6 +24,19 @@ episodes:
         change: "Commit f1f680e9: assert startsWith('..') || path.isAbsolute(rel), plus a path.win32 self-check that runs on every OS"
         review: unknown
         result: "Fixed on the branch. No closing hosted run is recorded. The house pattern already existed in ci/mechanism-2ao-plugin-sync.test.js:24."
+  - episode: 471-cycle-import-dotdot-segment
+    feature: "PR #471 C2 (cycle-import root predicate)"
+    date: 2026-11-18
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: "PR #471 C2 review"
+        result: "The root predicate in ci/mechanism-397-cycle-import.test.js used bare `relative.startsWith('..')`, so a root child named `..cache` counted as outside (false escape)."
+      - round: 1
+        change: "Commit 3e423e74: treat `..` as a whole path segment, with a path.win32 matrix"
+        review: unknown
+        result: "Fixed on the branch. No closing review is recorded, so the episode stays open."
 ---
 
 ## Cue
@@ -40,6 +53,8 @@ This is a different failure from E-0011. There the cause was 8.3 short names fro
 
 To test whether a path is inside a root, use `!rel.startsWith('..') && !path.isAbsolute(rel)`. Do not use `startsWith('..')` alone. Check Windows cases with `path.win32` on every OS, so the logic is exercised without a Windows host.
 
+Episode 2 adds: a leading `..` must be a whole path segment. A root child named `..cache` begins with `..` but is inside the root, so a bare prefix check gives a false escape. Compare `..` as a segment (followed by a separator or end of string), not as a raw string prefix.
+
 ## Mechanism candidate (not decided)
 
 A portability lint that flags `path.relative(...).startsWith('..')` without an `isAbsolute` check. The owner has not chosen it.
@@ -48,3 +63,4 @@ A portability lint that flags `path.relative(...).startsWith('..')` without an `
 
 - PR #448, hosted `self-regression (windows-latest)`, failing before `f1f680e9`.
 - Fix `f1f680e9` (2026-11-15), on the PR #448 branch; not yet on `origin/main` at `bd986013`.
+- Episode 2 (2026-11-18, PR #471 C2): `..cache` false escape; fix `3e423e74` (whole-segment `..`, `path.win32` matrix).

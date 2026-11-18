@@ -27,13 +27,17 @@ episodes:
         result: "Fixed on the branch. No closing review is recorded, so the episode stays open."
   - episode: 449-shell-live-mode-inherited
     feature: "#449 routing invariant tests (local verify:all)"
-    date: unknown
-    closed: false
+    date: 2026-11-18
+    closed: true
     rounds:
       - round: 0
         change: null
         review: coordinator
-        result: "HARNESS_SYSTEM_ONE_MODE=live inherited from the shell made the routing invariant tests fail locally (false FAIL at ci/router-workflow-plan.test.js:169-171). Hosted CI was green. Open in #449."
+        result: "HARNESS_SYSTEM_ONE_MODE=live inherited from the shell made the routing invariant tests fail locally (false FAIL at ci/router-workflow-plan.test.js:169-171), on the PR #462 head and on main. Hosted CI was green. Open in #449."
+      - round: 1
+        change: "C3 in PR #471 (42b0a45f): every routing child gets the mode from one env builder, plus an inherited-live regression and an explicit live control"
+        review: "executed evidence: live, unset, off and unknown value; mutant 7 FAIL"
+        result: "Closed on executed evidence 2026-11-18: the inherited-live case is a regression, the explicit live control passes and mutant 7 is detected."
 ---
 
 ## Cue
@@ -53,5 +57,9 @@ Every test that touches a store, an environment variable or a home-directory pat
 ## Evidence
 
 - `aa8af525` (collect imports the live store) and `f42da57b` (fixture isolation), both 2026-11-15.
-- #449 (open): shell-inherited `HARNESS_SYSTEM_ONE_MODE`.
+- #449 (closed by PR #471): shell-inherited `HARNESS_SYSTEM_ONE_MODE`; PR #462 head and main reproduced the local row-8 FAIL; C3 fix in PR #471 (`42b0a45f`).
 - Related: E-0011 (test path oracle on Windows) and E-0009 (sandbox limits). Neither covers machine state inside a test's own inputs.
+
+## Episode 2 closure (2026-11-18, #449 / PR #462 / PR #471)
+
+The shell-inherited `HARNESS_SYSTEM_ONE_MODE=live` also failed local `verify:all` row 8 on the PR #462 head and on main, while hosted CI stayed green. C3 in PR #471 (`42b0a45f`) made every routing child take the mode from one env builder and added an inherited-live regression plus an explicit live control. Episode closed on executed evidence: live, unset, off and unknown value, with mutant 7 detected.

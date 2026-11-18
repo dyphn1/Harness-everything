@@ -120,6 +120,15 @@ episodes:
         change: "replaced the loop with a per-agent function"
         review: unknown
         result: "Fixed. No closing review is recorded, so the episode stays open."
+  - episode: 2026-11-18-provider-model-retirement
+    feature: "tooling (default free runners)"
+    date: 2026-11-18
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "coordinator pre-dispatch ping"
+        result: "The default free runners `opencode/glm-5.3-flash-free` (deprecated) and `nvidia/deepseek-ai/deepseek-v4.1-flash` (end of life 2026-11-16) stopped working; a ping before dispatch caught it, so no dispatch was lost."
 ---
 
 ## Cue
@@ -131,7 +140,7 @@ A sandboxed one-shot worker reports FAIL or stalls on loopback, temp-directory o
 Dispatch one-shot `codex exec` with a TMPDIR outside every repository and stdin closed; treat loopback-bind failures as sandbox-UNCHECKED and rerun the fast gate outside the sandbox before accepting. A log ending in `Reading additional input from stdin` is a hang, not progress.
 
 - Grant the pattern the packet's verification needs (e.g. `Bash(node ci/*)`), not only the listed commands.
-- Free reviewer models can stop on quota or end without a report: ping the model first, and after one failed delivery prefer a paid runner over a third free attempt.
+- Free reviewer models can stop on quota or end without a report: ping the model first, and after one failed delivery prefer a paid runner over a third free attempt. A default free model can also be retired; the same pre-dispatch ping catches that (episode 11).
 - Re-violated 2026-11-08: the stdin rule lives only in prose; a dispatch wrapper that always closes stdin would make it a mechanism (not built).
 - Recurred 2026-11-10/11 (#341 kit re-pin and #425 W6): `verify:all` fast and full both remain unrunnable inside `codex exec -s workspace-write`. Dispatch arrangement: packets say "coordinator runs verify:all" and workers report the sandbox-UNCHECKED/BLOCKED disposition instead of retrying inside the sandbox.
 - Swept 2026-11-17 (Codex logs 11-10 to 11-15): the workflow-state EPERM recurred in 24 sessions, so it has three episodes now (11-07, 11-08, 11-17) and is a `mechanism` candidate. Either the state dir is a writable root of the dispatch, or workflow-disposition degrades silently under a read-only state dir. `ps` and `diff <(...)` are also blocked in the sandbox; use them only outside it.
@@ -153,3 +162,7 @@ After the known permission failure, do not rerun the same fixture commands in th
 
 - #341 stage 1-2 packet reports.
 - #396 review-5, review-6 and review-7 reports (repeated observations of one capability).
+
+## Episode 11 (2026-11-18, tooling)
+
+The default free runners `opencode/glm-5.3-flash-free` (deprecated) and `nvidia/deepseek-ai/deepseek-v4.1-flash` (end of life 2026-11-16) stopped working. A ping before dispatch caught it, so no run was lost. Different shape from sandbox EPERM: the runner itself was retired; the existing "ping the model first" lesson covers it. E-0020 covers concurrency on a shared key, not provider retirement.
