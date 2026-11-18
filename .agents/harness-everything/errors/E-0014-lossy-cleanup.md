@@ -23,6 +23,15 @@ episodes:
         change: "revision 2: drop only byte-identical duplicates"
         review: "coordinator lossless check"
         result: "0 lines lost; episode closed"
+  - episode: 448-456-worktree-remove-report-loss
+    feature: "PRs #448/#456 (merged worktree disposal)"
+    date: 2026-11-18
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "Removing merged worktrees with `git worktree remove` also deleted their git-excluded `.s1-work/` directories, which held four worker reports (D1, D2, H1, H3); only H2's report had been copied out. Full worker transcripts survived in the coordinator's packet logs and PR comments carry the summaries, so no evidence was lost, but the report files were. Lesson: copy excluded report directories to the packet store before removing a worktree"
 ---
 
 ## Cue
@@ -36,6 +45,10 @@ Revision 1 of the #423 CHANGELOG cleanup told the worker to drop entries "alread
 ## Lesson
 
 Cleanup packets that delete content must define equality as exact bytes and require a removed-lines-still-present self-check. Similar wording is not a duplicate.
+
+## Episode 2 (2026-11-18, PRs #448/#456)
+
+A second shape in the same class: disposal instead of fuzzy dedup. Removing merged worktrees with `git worktree remove` also deleted their git-excluded `.s1-work/` directories, which held four worker reports (D1, D2, H1, H3); only H2's report had been copied out. Full worker transcripts survived in the coordinator's packet logs and PR comments carry the summaries, so no evidence was lost, but the report files were. Lesson added: copy git-excluded report directories to the packet store before removing a worktree.
 
 ## Evidence
 

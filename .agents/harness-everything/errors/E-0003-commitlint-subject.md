@@ -72,6 +72,15 @@ episodes:
         change: "lower-case subject, committed as `18d73323`"
         review: unknown
         result: "commit accepted"
+  - episode: 456-commitlint-subject-case-review-clone
+    feature: "PR #456 (coordinator commit; review RH3)"
+    date: 2026-11-18
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "A coordinator commit subject contained an uppercase word (\"Python\") and was rejected by `subject-case`; the reviewer had already been cloned, so it reviewed the previous head. The review RH3 was killed and re-dispatched on the corrected head. New lesson: check the commit's exit status before cloning a reviewer for it, and keep subjects lower-case"
 ---
 
 ## Cue
@@ -100,3 +109,7 @@ The ledger already held this class, but no packet or coordinator step consulted 
 ## Episode 5 (2026-11-10, #423)
 
 New failure mode in the same class: the push ran before checking that the commit succeeded, so the rejected commit left the branch pushed without it. Lesson added: run commitlint on the message file **before** `git commit`, and check the commit exists before pushing.
+
+## Episode 6 (2026-11-18, PR #456)
+
+A coordinator commit subject contained an uppercase word ("Python") and was rejected by `subject-case`. The reviewer had already been cloned before the failed commit was noticed, so it reviewed the previous head; the review RH3 was killed and re-dispatched. Lesson added: check the commit's exit status before cloning a reviewer for it, and keep subjects lower-case.

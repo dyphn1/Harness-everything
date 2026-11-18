@@ -94,7 +94,7 @@ episodes:
         review: coordinator
         result: "The R1 review report (2026-11-15) ended with a column-zero `STATUS: DONE` followed by a hidden harness-label line, so STATUS was not the terminal line: delivered, not terminal. The same label/STATUS conflict as episodes 412, 425, 430 and 431, in another independent feature."
   - episode: 448-rd1-label-after-status
-    feature: "#448 RD1 disposal review report"
+    feature: "#448 RD1/RD2 disposal review reports"
     date: 2026-11-18
     closed: false
     rounds:
@@ -102,6 +102,10 @@ episodes:
         change: null
         review: coordinator
         result: "RD1's final message, captured with codex exec -o, ended with a column-zero STATUS: DONE followed by a hidden harness-label line: delivered, not terminal. Same cause as episodes 412, 425, 430, 431 and 442: the -o report file is the final message."
+      - round: 1
+        change: null
+        review: coordinator
+        result: "RD2's final message, also captured with codex exec -o, again ended with a column-zero STATUS: DONE followed by an HTML harness-label line, although the packet said the STATUS line must be the last line with nothing after it. Recorded root cause: the Harness turn-label rule ('last line of your final message MUST be the label') conflicts with the packet rule ('STATUS is the last line'), and packet prose does not override the host hook. A mechanism is needed; owner decision pending."
 ---
 
 ## Cue
@@ -138,3 +142,13 @@ The R1 review report ended with a harness-label line after its column-zero `STAT
 ## Episode 5 (2026-11-18, PR #448)
 
 RD1's final message (captured with `codex exec -o`) ended with a harness-label line after its column-zero `STATUS: DONE`. Same label/STATUS conflict as episodes 412, 425, 430, 431 and 442.
+
+## Episode 5, round 1 (2026-11-18, PR #448)
+
+RD2's final message (also captured with `codex exec -o`) again ended with an HTML harness-label line after `STATUS: DONE`, even though the packet stated "nothing after it" — a further occurrence of the same episode, not a new one. Recorded root cause: the Harness turn-label rule ("last line of your final message MUST be the label") conflicts with the packet rule ("STATUS is the last line"); packet prose does not override the host hook. A mechanism is needed; owner decision pending, so the episode stays open.
+
+## Owner direction (2026-11-18)
+
+Owner, verbatim: "我是覺得應該用腳本化 / 回報的時候 / 用腳本 / 例如 / report-cli --context \"xxxxx\" --status \"0\" (success) --error \"xxx\" / 類似這樣 / 讓腳本去產生正規的報表".
+
+Treatment: replace hand-written terminal lines with a script that writes and checks the report (agent supplies body and status; the script adds the single terminal STATUS line, rejects labels or conflicting STATUS lines, and routes `codex exec -o` raw output through the same writer). The proposed contract is drafted in the #437 discussion branch (`docs/discussions/error-handling/details/e0002-report-writer.md` on `discussion/437-e0002-capture-level2`); implementation belongs to #402 / #441.
