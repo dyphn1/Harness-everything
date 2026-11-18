@@ -11,7 +11,6 @@ const { classifyPaths, classifyChangeSet } = require('../scripts/ci-change-scope
 
 const ROOT = path.resolve(__dirname, '..');
 const SCRIPT = path.join(ROOT, 'scripts', 'ci-change-scope.js');
-const BASELINE_SHA = '71a8706061f2fdec657b1c2b348571aa6c40e877';
 const CHANGE_SCOPE_JOB = 'ci-change-scope';
 const SELF_REGRESSION_IF = "${{ !cancelled() && (needs.ci-change-scope.result != 'success' || needs.ci-change-scope.outputs.scope != 'docs-only') }}";
 
@@ -42,14 +41,77 @@ function runClassifier(event, base, head, cwd = ROOT) {
   return result.stdout.trim();
 }
 
-function baselineFile(file) {
-  // Pin the pre-change tree; GitHub's pull_request HEAD is the candidate merge ref.
-  return execFileSync('git', ['show', `${BASELINE_SHA}:${file}`], { cwd: ROOT, encoding: 'utf8' });
-}
-
 // This models the condition's truth table, not GitHub's scheduler.
 function shouldRunSelfRegression(workflowCancelled, result, scope) {
   return !workflowCancelled && (result !== 'success' || scope !== 'docs-only');
+}
+
+// Assert the intended scope-gating invariants against parsed workflow documents.
+// Taking documents (not git history or whole-file text) keeps unrelated CI edits
+// green and lets the oracle be replayed against mutated copies of the YAML.
+function assertScopeGating({ ci, release, governance }) {
+  const jobs = ci.jobs;
+  const classifier = jobs[CHANGE_SCOPE_JOB];
+  const selfRegression = jobs['self-regression'];
+  assert.ok(classifier, 'the ci-change-scope job exists');
+  assert.ok(selfRegression, 'the self-regression job exists');
+
+  // Only self-regression may be gated by the classifier. Other jobs, their
+  // steps and later added ungated jobs are deliberately left unpinned.
+  for (const [jobId, job] of Object.entries(jobs)) {
+    if (jobId === CHANGE_SCOPE_JOB || jobId === 'self-regression') continue;
+    assert.ok(!Object.hasOwn(job, 'if'), `${jobId} must not be gated`);
+  }
+
+  // The classifier runs only on pull requests and wires its scope output.
+  assert.equal(classifier.if, "${{ github.event_name == 'pull_request' }}");
+  assert.deepEqual(classifier.outputs, { scope: '${{ steps.scope.outputs.scope }}' });
+  const checkout = classifier.steps.find(step => step.uses === 'actions/checkout@v7');
+  assert.ok(checkout, 'the classifier checks out the repository');
+  assert.equal(checkout.with['fetch-depth'], 0, 'the classifier has complete Git history');
+  const node = classifier.steps.find(step => step.uses === 'actions/setup-node@v7');
+  assert.ok(node, 'the classifier sets up Node');
+  assert.equal(node.with['node-version'], 24);
+  const scope = classifier.steps.find(step => step.id === 'scope');
+  assert.ok(scope, 'the classifier produces the scope output');
+  assert.equal(scope.env.GITHUB_EVENT_NAME, undefined, 'the runner-provided GITHUB_EVENT_NAME is not overwritten');
+  assert.equal(scope.env.PR_BASE_SHA, '${{ github.event.pull_request.base.sha }}');
+  assert.equal(scope.env.PR_HEAD_SHA, '${{ github.event.pull_request.head.sha }}');
+  assert.match(scope.run, /node scripts\/ci-change-scope\.js "\$GITHUB_EVENT_NAME" "\$PR_BASE_SHA" "\$PR_HEAD_SHA"/);
+  assert.match(scope.run, /printf 'scope=%s\\n' "\$scope" >> "\$GITHUB_OUTPUT"/);
+
+  // Self-regression depends on the classifier and keeps the exact predicate.
+  assert.deepEqual(selfRegression.needs, [CHANGE_SCOPE_JOB]);
+  assert.equal(selfRegression.if, SELF_REGRESSION_IF, 'the full fallback predicate stays exact');
+  assert.ok(selfRegression.if.includes('!cancelled()'), 'workflow cancellation must disable self-regression');
+  assert.ok(!selfRegression.if.includes('always()'), 'always() keeps self-regression eligible during cancellation');
+
+  // The three-OS matrix stays complete.
+  assert.equal(selfRegression.strategy['fail-fast'], false);
+  assert.deepEqual(selfRegression.strategy.matrix.os, ['ubuntu-latest', 'windows-latest', 'macos-latest']);
+
+  // No workflow-level path filter may narrow what the classifier sees.
+  assert.ok(ci.on && Object.hasOwn(ci.on, 'push') && Object.hasOwn(ci.on, 'pull_request') &&
+    Object.hasOwn(ci.on, 'workflow_call'), 'push, pull_request and workflow_call triggers stay present');
+  const events = [ci.on, ci.on.push];
+  if (ci.on.pull_request && typeof ci.on.pull_request === 'object') events.push(ci.on.pull_request);
+  for (const event of events) {
+    assert.ok(!Object.hasOwn(event, 'paths'), 'no workflow-level paths filter');
+    assert.ok(!Object.hasOwn(event, 'paths-ignore'), 'no workflow-level paths-ignore filter');
+  }
+
+  // The reusable callers stay ungated, including any job added later.
+  assert.deepEqual(release.on.push.branches, ['main']);
+  assert.ok(Object.hasOwn(release.on, 'workflow_dispatch'));
+  assert.equal(release.jobs.gate.uses, './.github/workflows/ci.yml');
+  for (const [label, doc] of [['release.yml', release], ['doc-governance.yml', governance]]) {
+    assert.ok(doc && doc.jobs, `${label} declares jobs`);
+    for (const [jobId, job] of Object.entries(doc.jobs)) {
+      assert.ok(!Object.hasOwn(job, 'if'), `${label} job ${jobId} must not be gated`);
+      const needs = Array.isArray(job.needs) ? job.needs : job.needs ? [job.needs] : [];
+      assert.ok(!needs.includes(CHANGE_SCOPE_JOB), `${label} job ${jobId} must not depend on the classifier`);
+    }
+  }
 }
 
 test('each owner-approved path class and their combination classify as docs-only', () => {
@@ -183,49 +245,12 @@ test('real Git merge-base diff includes earlier code, deletions, both rename end
 });
 
 test('the workflow gates only self-regression and fails open on every uncertain dependency/output state', () => {
-  const workflowFile = '.github/workflows/ci.yml';
-  const workflowText = fs.readFileSync(path.join(ROOT, workflowFile), 'utf8');
-  const beforeText = baselineFile(workflowFile);
-  const workflow = yaml.load(workflowText);
-  const before = yaml.load(beforeText);
-
-  assert.equal(workflow.name, before.name);
-  assert.deepEqual(workflow.on, before.on, 'push, pull_request, and reusable-workflow triggers stay unchanged');
-  assert.deepEqual(workflow.permissions, before.permissions);
-  assert.deepEqual(workflow.concurrency, before.concurrency);
-  assert.deepEqual(
-    Object.keys(workflow.jobs).sort(),
-    [...Object.keys(before.jobs), CHANGE_SCOPE_JOB].sort(),
-    'only the classifier job is added; existing job ids remain present',
-  );
-  for (const [jobId, original] of Object.entries(before.jobs)) {
-    const current = workflow.jobs[jobId];
-    if (jobId === 'self-regression') {
-      const { if: _condition, needs: _needs, ...unchanged } = current;
-      assert.deepEqual(unchanged, original, 'self-regression name, matrix, steps, and runtime stay unchanged');
-    } else {
-      assert.deepEqual(current, original, `${jobId} stays unchanged`);
-    }
-  }
-
-  const classifier = workflow.jobs[CHANGE_SCOPE_JOB];
-  assert.equal(classifier.if, "${{ github.event_name == 'pull_request' }}");
-  assert.deepEqual(classifier.outputs, { scope: '${{ steps.scope.outputs.scope }}' });
-  const checkout = classifier.steps.find(step => step.uses === 'actions/checkout@v7');
-  assert.equal(checkout.with['fetch-depth'], 0, 'the classifier has complete Git history');
-  const node = classifier.steps.find(step => step.uses === 'actions/setup-node@v7');
-  assert.equal(node.with['node-version'], 24);
-  const scope = classifier.steps.find(step => step.id === 'scope');
-  assert.equal(scope.env.GITHUB_EVENT_NAME, undefined, 'the runner-provided GITHUB_EVENT_NAME is not overwritten');
-  assert.equal(scope.env.PR_BASE_SHA, '${{ github.event.pull_request.base.sha }}');
-  assert.equal(scope.env.PR_HEAD_SHA, '${{ github.event.pull_request.head.sha }}');
-  assert.match(scope.run, /node scripts\/ci-change-scope\.js "\$GITHUB_EVENT_NAME" "\$PR_BASE_SHA" "\$PR_HEAD_SHA"/);
-  assert.match(scope.run, /printf 'scope=%s\\n' "\$scope" >> "\$GITHUB_OUTPUT"/);
-  const selfRegressionIf = workflow.jobs['self-regression'].if;
-  assert.ok(selfRegressionIf.includes('!cancelled()'), 'workflow cancellation must disable self-regression');
-  assert.ok(!selfRegressionIf.includes('always()'), 'always() keeps self-regression eligible during cancellation');
-  assert.equal(selfRegressionIf, SELF_REGRESSION_IF, 'the full fallback predicate stays exact');
-  assert.deepEqual(workflow.jobs['self-regression'].needs, [CHANGE_SCOPE_JOB]);
+  const readWorkflow = file => yaml.load(fs.readFileSync(path.join(ROOT, file), 'utf8'));
+  assertScopeGating({
+    ci: readWorkflow('.github/workflows/ci.yml'),
+    release: readWorkflow('.github/workflows/release.yml'),
+    governance: readWorkflow('.github/workflows/doc-governance.yml'),
+  });
 
   const gateCases = [
     ['successful docs-only classifier', false, 'success', 'docs-only', false],
@@ -244,17 +269,13 @@ test('the workflow gates only self-regression and fails open on every uncertain 
     assert.equal(shouldRunSelfRegression(workflowCancelled, result, output), expected, label);
   }
 
-  const releaseFile = '.github/workflows/release.yml';
-  const governanceFile = '.github/workflows/doc-governance.yml';
-  assert.equal(fs.readFileSync(path.join(ROOT, releaseFile), 'utf8'), baselineFile(releaseFile));
-  assert.equal(fs.readFileSync(path.join(ROOT, governanceFile), 'utf8'), baselineFile(governanceFile));
-  const release = yaml.load(fs.readFileSync(path.join(ROOT, releaseFile), 'utf8'));
-  assert.deepEqual(release.on.push.branches, ['main']);
-  assert.ok(Object.hasOwn(release.on, 'workflow_dispatch'));
-  assert.equal(release.jobs.gate.uses, './.github/workflows/ci.yml');
   assert.equal(classifyChangeSet('push', 'a'.repeat(40), 'b'.repeat(40), { runGit: unusedGitForWorkflow }), 'full');
 });
 
 function unusedGitForWorkflow() {
   throw new Error('the release caller is a push/dispatch, so no PR diff may authorize a skip');
 }
+
+// Exported so the in-report mutant harness can replay the same oracle against
+// parsed copies of the workflow documents without registering these tests.
+module.exports = { assertScopeGating };

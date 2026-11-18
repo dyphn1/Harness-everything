@@ -92,7 +92,9 @@ flowchart LR
   V -. optional .-> N["-- --node22<br/>(Node 22 smoke lane)"]
 ```
 
-- `npm run verify:all` runs every CI gate category and prints paste-ready evidence. Individual gates: `npm test`, `npm run test:mutations`, `test:mechanism`, `test:consistency`, `test:repo-contract`, `test:docs:capabilities`, `test:references`, `test:release`, `test:collision`, `test:routing:skills`, `test:routing:invariants`, `test:plugin:openai`, `test:plugin:submission`, `test:platform:compatibility`, `test:portability`.
+- `npm run verify:all` runs a local subset of the hosted `ci.yml` gates and prints paste-ready PASS/FAIL/UNCHECKED evidence: 12 rows in the full plan, 4 with `--fast` (`npm test`, `test:mutations`, `test:consistency`, `test:portability`).
+- Full rows: `npm test`, `test:mutations`, `test:consistency`, `test:references`, `test:release`, `test:collision`, `test:routing:skills`, `test:routing:invariants`, `test:plugin:openai`, `test:plugin:submission`, `test:platform:compatibility`, `test:portability`. `test:mechanism` runs inside `npm test`; `test:repo-contract` and `test:docs:capabilities` run inside `test:consistency`. Hosted CI runs the two `test:routing:*` rows inside `self-regression`.
+- Hosted `ci.yml` jobs it does not run: `pilot-offline-evidence`, both System One Windows runtime-pin jobs, `release-semantics` (`test:release:semantics`), `skill-quality` (waza per-skill checks; only the optional `waza:check` row runs, and only when waza is installed), `installer-e2e` (`ci/installer-roundtrip.test.js`) and `npm ci` under Node 22 in `runtime-floor`. Local rows also run on one OS, where hosted `self-regression` and `consistency` run three.
 - With waza (`~/bin/waza`): `waza check <skill-dir>`, `waza spec verify <skill> evals/<skill>/eval.yaml --fail --threshold 1`, `waza tokens check`.
 - CI runs Node.js 24 on Ubuntu/Windows/macOS plus a Node.js 22 floor lane ([repository-contract.md](docs/repository-contract.md)). Node 22 install compatibility stays UNCHECKED locally.
 - Never report "it works" from code reading. Name the evidence layer: package, deterministic mechanism, live host or behavior.

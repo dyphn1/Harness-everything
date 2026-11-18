@@ -36,9 +36,10 @@ flowchart TD
     P --> A{Strategy selected?}
     A -- No / deferred --> D[Preserve invariants<br/>choose smallest justified workflow]
     A -- Yes --> C[ACTIVE workflow contract]
-    C --> D[Decompose ordered requirements]
-    D --> B[Bind skills/references per step]
-    B --> X[Execute active step/stage]
+    C --> Reqs[Decompose ordered requirements]
+    D --> Reqs
+    Reqs --> Bind[Bind skills/references per step]
+    Bind --> X[Execute active step/stage]
     X --> V{Required stage/check resolved?}
     V -- Yes --> Done[Evidence-backed completion]
     V -- No --> R[Diagnose / bounded re-plan]
