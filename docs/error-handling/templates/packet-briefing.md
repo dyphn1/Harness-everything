@@ -32,6 +32,7 @@ Depends on: <previous packets / steps, or none>
 Read `.agents/harness-everything/errors/README.md` and every `E-*.md` before starting. Name the applied E-ids in the report.
 
 ## Report path and report-writer invocation
+Report-bearing packets require the #462 report writer. Pin a runnable `write` and `check` invocation and the packet-owned paths at dispatch. Use `npm run report` where installed, or name the available direct script and its base.
 Body in `.402-work/<ID>-body.md`, then:
 `npm run report -- write --body-file .402-work/<ID>-body.md --output .402-work/<ID>-report.md --status DONE` (or `--status BLOCKED --reason "<why>"`), then:
 `npm run report -- check --file .402-work/<ID>-report.md`.

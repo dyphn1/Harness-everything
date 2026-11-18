@@ -40,7 +40,7 @@
 
 **Gate commands (local slice gates):** `npm run test:consistency`, `npm run test:references`, `npm run test:portability`, plus the walkthroughs above as the slice's focused activity.
 
-**Report:** body `.402-work/C6-body.md`; `npm run report -- write --body-file .402-work/C6-body.md --output .402-work/C6-report.md --status DONE`; then `… check --file .402-work/C6-report.md`. The report writer path is the class-common canonical path; if unavailable in a given environment, the report is hand-written with the same shape and the gap is recorded as an open question.
+**Report:** body `.402-work/C6-body.md`; `npm run report -- write --body-file .402-work/C6-body.md --output .402-work/C6-report.md --status DONE`; then `… check --file .402-work/C6-report.md`. Report-bearing packets require the #462 report writer. Pin a runnable `write` and `check` invocation and the packet-owned paths at dispatch. Use `npm run report` where installed, or name the available direct script and its base. If no writer is available, resolve a usable invocation before dispatch or record the report as unresolved at acceptance; never hand-write the terminal STATUS.
 
 **Terminal STATUS:** report's last line is exactly one column-zero `STATUS: DONE` (or `STATUS: BLOCKED: <reason>`), nothing after it.
 
