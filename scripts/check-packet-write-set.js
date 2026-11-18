@@ -5,7 +5,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const ROOT = path.resolve(__dirname, '..');
 const USAGE = 'Usage: node scripts/check-packet-write-set.js --base <sha> [--head <rev>] --allow <path-or-glob>... [--allow-file <file>]';
 
 class UsageError extends Error {}
@@ -33,7 +32,7 @@ function parseArgs(argv) {
   return options;
 }
 
-function git(args) {
+function git(args, cwd = process.cwd()) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
   if (process.env.GIT_CONFIG_GLOBAL !== undefined) env.GIT_CONFIG_GLOBAL = process.env.GIT_CONFIG_GLOBAL;
   Object.assign(env, {
@@ -42,7 +41,7 @@ function git(args) {
     GIT_TERMINAL_PROMPT: '0',
   });
   const result = spawnSync('git', ['-c', 'core.fsmonitor=false', '-c', 'core.untrackedCache=false', ...args], {
-    cwd: ROOT,
+    cwd,
     encoding: null,
     shell: false,
     env,
@@ -52,8 +51,14 @@ function git(args) {
   return result;
 }
 
-function commit(revision, label) {
-  const result = git(['rev-parse', '--verify', '--quiet', '--end-of-options', `${revision}^{commit}`]);
+function repositoryRoot() {
+  const result = git(['rev-parse', '--show-toplevel']);
+  if (result.status !== 0) throw new UsageError('current working directory is not inside a Git repository');
+  return result.stdout.toString('utf8').trim();
+}
+
+function commit(revision, label, repo) {
+  const result = git(['rev-parse', '--verify', '--quiet', '--end-of-options', `${revision}^{commit}`], repo);
   if (result.status !== 0) throw new UsageError(`invalid ${label} commit ${JSON.stringify(revision)}`);
   return result.stdout.toString('utf8').trim();
 }
@@ -105,18 +110,20 @@ function readAllowPatterns(options) {
   });
 }
 
-function changedPaths(base, head) {
+function changedPaths(base, head, includeWorkingTree, repo) {
   const paths = new Set();
-  const diffs = [
-    ['diff', '--no-ext-diff', '--no-textconv', '--no-renames', '--name-only', '-z', base, head],
+  const diffs = [['diff', '--no-ext-diff', '--no-textconv', '--no-renames', '--name-only', '-z', base, head]];
+  if (includeWorkingTree) diffs.push(
     ['diff', '--no-ext-diff', '--no-textconv', '--no-renames', '--name-only', '-z', '--cached', 'HEAD'],
     ['diff', '--no-ext-diff', '--no-textconv', '--no-renames', '--name-only', '-z'],
-  ];
+  );
   for (const args of diffs) {
-    for (const file of pathsFrom(git(args), args)) paths.add(file);
+    for (const file of pathsFrom(git(args, repo), args)) paths.add(file);
   }
-  const untrackedArgs = ['ls-files', '--others', '--exclude-standard', '-z'];
-  for (const file of pathsFrom(git(untrackedArgs), untrackedArgs)) paths.add(file);
+  if (includeWorkingTree) {
+    const untrackedArgs = ['ls-files', '--others', '--exclude-standard', '-z'];
+    for (const file of pathsFrom(git(untrackedArgs, repo), untrackedArgs)) paths.add(file);
+  }
   return [...paths].sort();
 }
 
@@ -125,10 +132,14 @@ function main() {
   try {
     options = parseArgs(process.argv.slice(2));
     const allowed = readAllowPatterns(options);
-    const base = commit(options.base, 'base');
-    const head = commit(options.head || 'HEAD', 'head');
+    const repo = repositoryRoot();
+    const base = commit(options.base, 'base', repo);
+    const head = commit(options.head || 'HEAD', 'head', repo);
+    const currentHead = options.head ? commit('HEAD', 'worktree HEAD', repo) : head;
+    const includeWorkingTree = head === currentHead;
+    if (!includeWorkingTree) console.log('Comparison: commits only (--head is not the current HEAD).');
     let outOfSet = 0;
-    for (const file of changedPaths(base, head)) {
+    for (const file of changedPaths(base, head, includeWorkingTree, repo)) {
       const isAllowed = allowed.some(pattern => pattern.test(file));
       console.log(`${isAllowed ? 'ALLOWED' : 'OUT_OF_SET'} ${JSON.stringify(file)}`);
       if (!isAllowed) outOfSet += 1;

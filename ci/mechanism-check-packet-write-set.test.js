@@ -61,19 +61,18 @@ function commitAll(repo, tempRoot, message) {
 }
 
 function makeRepo(t) {
-  assert.ok(fs.existsSync(CHECKER_SOURCE), 'checker entry point must exist before fixtures can copy it');
+  assert.ok(fs.existsSync(CHECKER_SOURCE), 'checker entry point must be available to the fixture invocation');
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'packet write set fixture '));
   assert.ok(isOutside(ROOT, tempRoot), 'throwaway git repository is outside the checkout');
   const repo = path.join(tempRoot, 'repo with spaces');
-  fs.mkdirSync(path.join(repo, 'scripts'), { recursive: true });
+  fs.mkdirSync(repo, { recursive: true });
   execFileSync('git', ['init', '--quiet', repo], { env: gitEnv(tempRoot) });
-  fs.copyFileSync(CHECKER_SOURCE, path.join(repo, 'scripts', 'check-packet-write-set.js'));
   t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }));
   return { repo, tempRoot };
 }
 
 function runChecker(repo, tempRoot, { base, head, allow = [], allowFile } = {}) {
-  const args = [path.join(repo, 'scripts', 'check-packet-write-set.js'), '--base', base];
+  const args = [CHECKER_SOURCE, '--base', base];
   if (head) args.push('--head', head);
   for (const pattern of allow) args.push('--allow', pattern);
   if (allowFile) args.push('--allow-file', allowFile);
@@ -188,12 +187,33 @@ test('checks staged, unstaged, untracked and staged-rename paths without mutatin
   ]);
   assert.ok(!partial.stdout.includes('ignored/output.log'), 'ignored untracked output is excluded');
 
+  const explicitHead = runChecker(repo, tempRoot, { base, head: 'HEAD', allow: ['staged.txt'] });
+  assert.equal(explicitHead.status, 1, explicitHead.stderr);
+  assert.deepEqual(outOfSetPaths(explicitHead), outOfSetPaths(partial));
+
   const allAllowed = runChecker(repo, tempRoot, {
     base,
     allow: ['generated/**', 'move/**', 'staged.txt', 'tracked.txt'],
   });
   assert.equal(allAllowed.status, 0, allAllowed.stderr);
   assert.deepEqual(snapshotTree(repo), before, 'checker leaves files and Git metadata byte-identical');
+});
+
+test('compares only the requested commits when --head is not the worktree HEAD', t => {
+  const { repo, tempRoot } = makeRepo(t);
+  write(repo, 'base.txt', 'base\n');
+  const base = commitAll(repo, tempRoot, 'baseline');
+  write(repo, 'allowed.txt', 'in requested head\n');
+  const head = commitAll(repo, tempRoot, 'requested head');
+  write(repo, 'later.txt', 'after requested head\n');
+  commitAll(repo, tempRoot, 'worktree HEAD');
+  write(repo, 'dirty.txt', 'uncommitted\n');
+
+  const result = runChecker(repo, tempRoot, { base, head, allow: ['allowed.txt'] });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(outOfSetPaths(result), []);
+  assert.match(result.stdout, /commits only/i);
+  assert.doesNotMatch(result.stdout, /later\.txt|dirty\.txt/);
 });
 
 test('returns usage errors for an unknown base and a missing allow list', t => {
@@ -206,7 +226,7 @@ test('returns usage errors for an unknown base and a missing allow list', t => {
   assert.match(badBase.stderr, /base|commit|revision/i);
 
   const missingAllow = spawnSync(process.execPath, [
-    path.join(repo, 'scripts', 'check-packet-write-set.js'), '--base', base,
+    CHECKER_SOURCE, '--base', base,
   ], { cwd: repo, encoding: 'utf8', env: gitEnv(tempRoot) });
   assert.equal(missingAllow.status, 2);
 });
