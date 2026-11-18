@@ -39,8 +39,8 @@ Each table traces **every named consumer** to **one proposed authority** and nam
 | --- | --- | --- |
 | `hooks/scripts/lib/doc-reconciliation-pilot.js` | identity resolver I1 | [source-traced: E-0001:L7,L39] |
 | `hooks/scripts/lib/doc-reconciliation-provider.js` | identity resolver I1 | [source-traced: E-0001:L8,L39] |
-| `opencode-plugin/index.mjs` | identity resolver I1 | [source-traced: E-0001:L16,L39] |
-| `ci/mechanism-397-cycle-import.test.js` | identity resolver I1 — **unchanged consumer that was omitted** from P1W's inventory because a parallel packet owned the file; omission produced a P2, fixed in `5a55a8f7` | [source-traced: E-0001:L17,L100-108,L164-166] |
+| `opencode-plugin/index.mjs` | identity resolver I1 | [source-traced: E-0001:L17,L39] |
+| `ci/mechanism-397-cycle-import.test.js` | identity resolver I1 — **unchanged consumer that was omitted** from P1W's inventory because a parallel packet owned the file; omission produced a P2, fixed in `5a55a8f7` | [source-traced: E-0001:L18,L100-108,L164-166] |
 
 ### Example B — "Which stage options are authoritative?"
 
@@ -60,13 +60,13 @@ Each table traces **every named consumer** to **one proposed authority** and nam
 ### Example C — "Is a pinned target inside the root?"
 
 - **Named decision:** whether a pinned target is accepted for Write / git add. [source-traced: E-0007:L59-75]
-- **Authority (shipped historically):** one exact-spelling recognizer for capture and all writer surfaces, commit `22dc944a`, after an advisor-gated sweep of nine families × four surfaces. [source-traced: E-0007:L69-71]
-- **Divergence witness:** a symlink outside the root was credited, then `./` and `..` aliases of the same target were still credited — the second consecutive round on the same decision. [source-traced: E-0007:L64,L67]
+- **Authority (shipped historically):** one exact-spelling recognizer for capture and all writer surfaces, commit `22dc944a`, after an advisor-gated sweep of nine families × four surfaces. [source-traced: E-0007:L73]
+- **Divergence witness:** a symlink outside the root was credited, then `./` and `..` aliases of the same target were still credited — the second consecutive round on the same decision. [source-traced: E-0007:L67,L71]
 
 | Consumer surface (decides target acceptance) | Traced to the one authority | Evidence |
 | --- | --- | --- |
-| capture | exact-spelling recognizer `22dc944a` | [source-traced: E-0007:L69] |
-| all writer surfaces | exact-spelling recognizer `22dc944a` | [source-traced: E-0007:L69] |
+| capture | exact-spelling recognizer `22dc944a` | [source-traced: E-0007:L73] |
+| all writer surfaces | exact-spelling recognizer `22dc944a` | [source-traced: E-0007:L73] |
 | `agentResultSurface()` callers (shared helper) | caller inventory — two seams were patched first, the third caller `reviewRecordIndependent()` was found after; helper ended with 0 callers | [source-traced: E-0007:L76-88] |
 
 ## Level 2 instructions by behavior block

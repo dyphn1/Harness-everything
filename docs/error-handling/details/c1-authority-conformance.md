@@ -38,7 +38,7 @@ The gate requires comparing **normal** and **stale-input** outcomes **including 
 | --- | --- | --- | --- |
 | doc-check identity resolver (authority) | one decision via invariant I1 | same decision; stale candidate is rejected by the resolver | [source-traced: E-0001:L39,L45] |
 | `doc-reconciliation-pilot.js` / `doc-reconciliation-provider.js` | agree with I1 | must not fall back to a parser/filter-local identity | [source-traced: E-0001:L7-L8,L143] |
-| `ci/mechanism-397-cycle-import.test.js` (**unchanged consumer**) | agrees with I1 | must still agree though owned by another packet; its omission produced a P2 | [source-traced: E-0001:L17,L100-108,L164-166] |
+| `ci/mechanism-397-cycle-import.test.js` (**unchanged consumer**) | agrees with I1 | must still agree though owned by another packet; its omission produced a P2 | [source-traced: E-0001:L18,L100-108,L164-166] |
 
 Stale witnesses that must diverge from the authority: a self-authored checker printing passing JSON, and a case-variant invocation dropped from capture while the parser and candidate filter decided differently. [source-traced: E-0001:L33,L37]
 
@@ -57,8 +57,8 @@ Stale witnesses that must be caught: producer changed while installer expected t
 
 | Consumer | Normal input outcome | Stale-input outcome | Evidence |
 | --- | --- | --- | --- |
-| exact-spelling recognizer `22dc944a` (authority) | accepts only the exact pinned spelling | rejects symlink and `./`/`..` aliases | [source-traced: E-0007:L69-71] |
-| capture / all writer surfaces | agree with the recognizer | must not credit the aliases that survived round 1 | [source-traced: E-0007:L64,L67,L69] |
+| exact-spelling recognizer `22dc944a` (authority) | accepts only the exact pinned spelling | rejects symlink and `./`/`..` aliases | [source-traced: E-0007:L73] |
+| capture / all writer surfaces | agree with the recognizer | must not credit the aliases that survived round 1 | [source-traced: E-0007:L67,L71] |
 | `agentResultSurface()` callers (**unchanged consumers**) | all callers use the shared helper | a caller patched outside the inventory is the third-seam failure | [source-traced: E-0007:L80-88] |
 
 ## Proposed conformance test cases (design only)
@@ -68,7 +68,7 @@ Stale witnesses that must be caught: producer changed while installer expected t
 | Normal input, complete consumer list | every consumer's decision equals the authority's | design goal [source-traced: E-0001:L45,L147] |
 | Stale-input witness, unchanged consumers included | every consumer still equals the authority; no local re-derivation | design goal [source-traced: E-0001:L164-166; E-0007:L114] |
 | Second-authority probe | fail if any consumer makes the same decision via a different source | [source-traced: advisor-answer-4.md:L30; E-0007:L116] |
-| Known divergence witness (e.g. `system-one-curves.js`, `./`/`..` alias) | test goes RED on the witness; passes only when the class is fixed at the source | [source-traced: E-0001:L83,L151; E-0007:L67] |
+| Known divergence witness (e.g. `system-one-curves.js`, `./`/`..` alias) | test goes RED on the witness; passes only when the class is fixed at the source | [source-traced: E-0001:L83,L151; E-0007:L71] |
 | Omitted-consumer probe (file owned by another packet / outside the write-set) | consumer is present in the inventory regardless of ownership | [source-traced: E-0001:L100-108,L164-166] |
 | No pinned target / no current witness | no test promoted; result recorded as follow-up | [source-traced: advisor-answer-4.md:L7,L30] |
 
