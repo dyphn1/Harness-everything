@@ -3,7 +3,19 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { spawnSync } = require('child_process');
+const { spawnSync: spawnNodeSync } = require('child_process');
+
+function spawnSync(command, args, options = {}) {
+  const { systemOneMode = 'off', ...spawnOptions } = options;
+  return spawnNodeSync(command, args, {
+    ...spawnOptions,
+    env: {
+      ...process.env,
+      ...(spawnOptions.env || {}),
+      HARNESS_SYSTEM_ONE_MODE: systemOneMode,
+    },
+  });
+}
 
 const ROOT = path.resolve(__dirname, '..');
 const tierRouter = path.join(ROOT, 'harness-everything', 'scripts', 'tier-router.js');
@@ -27,6 +39,17 @@ function check(condition, message) {
   }
 }
 
+function withInheritedSystemOneLive(run) {
+  const priorMode = process.env.HARNESS_SYSTEM_ONE_MODE;
+  try {
+    process.env.HARNESS_SYSTEM_ONE_MODE = 'live';
+    return run();
+  } finally {
+    if (priorMode === undefined) delete process.env.HARNESS_SYSTEM_ONE_MODE;
+    else process.env.HARNESS_SYSTEM_ONE_MODE = priorMode;
+  }
+}
+
 function reviewBindingIds(run) {
   const text = `${run.result.stdout || ''}\n${run.result.stderr || ''}`;
   const line = text.match(/Candidate step binding ids: ([^\r\n]+)/);
@@ -46,6 +69,7 @@ function runTier(prompt, options = {}) {
       ...(options.env || {}),
       HARNESS_ROUTER_CONTRACT_PATH: contractPath,
     },
+    systemOneMode: options.systemOneMode,
   });
 
   let contract = null;
@@ -55,6 +79,22 @@ function runTier(prompt, options = {}) {
   }
   return { result, contract };
 }
+
+const priorSystemOneMode = process.env.HARNESS_SYSTEM_ONE_MODE;
+let inheritedLive;
+try {
+  process.env.HARNESS_SYSTEM_ONE_MODE = 'live';
+  inheritedLive = runTier('Create a new feature');
+} finally {
+  if (priorSystemOneMode === undefined) delete process.env.HARNESS_SYSTEM_ONE_MODE;
+  else process.env.HARNESS_SYSTEM_ONE_MODE = priorSystemOneMode;
+}
+check(inheritedLive.result.status === 0 && !inheritedLive.result.stdout.includes('SYSTEM ONE REFERENCE CONFIDENCE'),
+  'routing fixtures ignore inherited live mode unless explicitly selected');
+
+const explicitLive = runTier('Create a new feature', { systemOneMode: 'live' });
+check(explicitLive.result.status === 0 && explicitLive.result.stdout.includes('SYSTEM ONE REFERENCE CONFIDENCE'),
+  'routing fixtures retain an explicit live-mode control');
 
 function validContract(run, label) {
   check(run.result.status === 0, `${label}: tier router exits successfully`);
@@ -426,10 +466,11 @@ if (validContract(degraded, 'degraded routing')) {
   check(degraded.contract.workflowPlan.reasonCodes.includes('routing-degraded-strategy-deferred'), 'degraded strategy deferral is explicit');
 }
 
-const kernelUnknown = spawnSync(process.execPath, [kernelRouter, 'frobnicate the quux'], {
+const kernelUnknown = withInheritedSystemOneLive(() => spawnSync(process.execPath, [kernelRouter, 'frobnicate the quux'], {
   cwd: ROOT,
   encoding: 'utf8',
-});
+}));
+check(!kernelUnknown.stdout.includes('SYSTEM ONE REFERENCE CONFIDENCE'), 'kernel unknown route ignores inherited live mode');
 check(kernelUnknown.status === 0, 'kernel consumes selected/deferred structured contract successfully');
 check(kernelUnknown.stdout.includes('ROUTER WORKFLOW PLAN (JSON)'), 'kernel emits the Phase 2 workflow-plan checkpoint');
 check(kernelUnknown.stdout.includes('"strategySelection":"deferred"'), 'kernel exposes deferred unclassified selection');
@@ -454,10 +495,11 @@ check(kernelNotificationPersistFailure.stdout.includes('Host notification: no ac
 check(kernelNotificationPersistFailure.stderr.includes('routing state was not persisted'), 'host notification persistence failure remains visible as a reminder');
 fs.rmSync(notificationStateHome, { recursive: true, force: true });
 
-const kernelIterative = spawnSync(process.execPath, [kernelRouter, 'Fix this checkout bug and add a regression test.'], {
+const kernelIterative = withInheritedSystemOneLive(() => spawnSync(process.execPath, [kernelRouter, 'Fix this checkout bug and add a regression test.'], {
   cwd: ROOT,
   encoding: 'utf8',
-});
+}));
+check(!kernelIterative.stdout.includes('SYSTEM ONE REFERENCE CONFIDENCE'), 'kernel iterative route ignores inherited live mode');
 check(kernelIterative.stdout.includes('"strategy":"iterative-single"'), 'kernel consumes strategy from structured plan');
 check(kernelIterative.stdout.includes('loop-awareness:'), 'kernel prints dynamic semantic plan obligations');
 check(kernelIterative.stdout.includes('visible-status-updates:'), 'kernel prints the user-visible status invariant');
@@ -468,11 +510,11 @@ check(!kernelIterative.stdout.includes('evaluate-suggestions-before-skip'), 'leg
 
 const retainedStateHome = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-router-retained-step-'));
 const retainedSession = 'issue297-retained-step';
-const retainedEnv = {
+const retainedEnv = withInheritedSystemOneLive(() => ({
   ...process.env,
   HARNESS_STATE_HOME: retainedStateHome,
   HARNESS_WORKSPACE_ROOT: ROOT,
-};
+}));
 const retainedInput = prompt => JSON.stringify({ session_id: retainedSession, cwd: ROOT, hook_event_name: 'UserPromptSubmit', prompt });
 const initialRetainedRoute = spawnSync(process.execPath, [kernelRouter], {
   cwd: ROOT,
@@ -481,6 +523,7 @@ const initialRetainedRoute = spawnSync(process.execPath, [kernelRouter], {
   env: retainedEnv,
 });
 check(initialRetainedRoute.status === 0, 'retained workflow fixture routes successfully');
+check(!initialRetainedRoute.stdout.includes('SYSTEM ONE REFERENCE CONFIDENCE'), 'retained kernel route ignores inherited live mode');
 check(initialRetainedRoute.stdout.includes('PLANNING STEP: decompose → compose'), 'new selected workflow exposes its planning step');
 
 const sessionPathResult = spawnSync(process.execPath, ['-e', "const s=require('./hooks/scripts/lib/harness-state');process.stdout.write(s.getSessionDir(process.env.HARNESS_WORKSPACE_ROOT, process.env.TEST_SESSION_ID, {session_id:process.env.TEST_SESSION_ID,cwd:process.env.HARNESS_WORKSPACE_ROOT}))"], {
