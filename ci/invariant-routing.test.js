@@ -1,12 +1,31 @@
 #!/usr/bin/env node
 'use strict';
-const fs=require('fs'),path=require('path'),{spawnSync}=require('child_process');
+const fs=require('fs'),path=require('path'),{spawnSync:spawnNodeSync}=require('child_process');
+function spawnSync(command,args,options={}){
+ const {systemOneMode='off',...spawnOptions}=options;
+ return spawnNodeSync(command,args,{...spawnOptions,env:{...process.env,...(spawnOptions.env||{}),HARNESS_SYSTEM_ONE_MODE:systemOneMode}});
+}
 const ROOT=path.resolve(__dirname,'..');let failed=0;
 function check(c,m){if(c)console.log('  PASS '+m);else{console.error('  FAIL '+m);failed++;}}
 function read(p){return fs.readFileSync(path.join(ROOT,p),'utf8');}
 console.log('=== Semantic Contract-Strength Routing Contract ===');
 const kernel=path.join(ROOT,'harness-everything/scripts/kernel-router.js');
-const tier2=spawnSync(process.execPath,[kernel,'add a login endpoint with tests and update the implementation'],{cwd:ROOT,encoding:'utf8'});
+function runKernel(prompt, {systemOneMode='off'}={}){
+ return spawnSync(process.execPath,[kernel,prompt],{cwd:ROOT,encoding:'utf8',systemOneMode});
+}
+const priorMode=process.env.HARNESS_SYSTEM_ONE_MODE;
+let inheritedLive;
+try{
+ process.env.HARNESS_SYSTEM_ONE_MODE='live';
+ inheritedLive=runKernel('add a login endpoint with tests and update the implementation');
+}finally{
+ if(priorMode===undefined)delete process.env.HARNESS_SYSTEM_ONE_MODE;
+ else process.env.HARNESS_SYSTEM_ONE_MODE=priorMode;
+}
+check(inheritedLive.status===0&&!inheritedLive.stdout.includes('SYSTEM ONE REFERENCE CONFIDENCE'),'kernel routing fixture ignores inherited live mode unless explicitly selected');
+const explicitLive=runKernel('add a login endpoint with tests and update the implementation',{systemOneMode:'live'});
+check(explicitLive.status===0&&explicitLive.stdout.includes('SYSTEM ONE REFERENCE CONFIDENCE'),'kernel routing fixture retains an explicit live-mode control');
+const tier2=runKernel('add a login endpoint with tests and update the implementation');
 check(tier2.status===0,'kernel router exits successfully');
 check(/RECOMMENDED TIER:\s*Tier 2/i.test(tier2.stdout),'classifier result is preserved');
 check(tier2.stdout.includes('"strategy":"iterative-single"'),'Tier 2 selects iterative-single workflow');
@@ -30,7 +49,7 @@ check(!tier2.stdout.includes('HARNESS ROUTING CHECKPOINT (REQUIRED VISIBLE STATE
 check(tier2.stdout.includes('nested bullets when there are multiple items'),'kernel tells agents to split dense evidence into nested bullets');
 check(tier2.stdout.includes('semantic communication MUST, not a hard execution lock'),'kernel separates semantic MUST from mechanical blocking');
 
-const tier3=spawnSync(process.execPath,[kernel,'audit the entire repository architecture and coordinate multiple modules'],{cwd:ROOT,encoding:'utf8'});
+const tier3=runKernel('audit the entire repository architecture and coordinate multiple modules');
 check(tier3.status===0,'Tier 3 routing exits successfully');
 check(/RECOMMENDED TIER:\s*Tier 3/i.test(tier3.stdout),'macro task remains Tier 3');
 check(tier3.stdout.includes('isolated-worktree-before-mutation'),'Tier 3 keeps the worktree isolation invariant');
