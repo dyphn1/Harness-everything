@@ -2,12 +2,6 @@
 
 All notable changes to this project are documented in this file.
 
-## [Unreleased]
-
-### Bug Fixes
-
-* **codex:** report stale npx tier-router prompt hooks and let users migrate them to the JSON adapter (#457).
-
 ## [0.53.0](https://github.com/dyphn1/Harness-everything/compare/v0.52.0...v0.53.0) (2026-11-18)
 
 ### Features
@@ -79,6 +73,10 @@ All notable changes to this project are documented in this file.
 * **observations:** The turn label line drops `contextDependent`; `invalid` now means only that the prompt needs conversation context, and agent-written prompts are ordinary prompts. Turn records keep the System One version and suggestion.
 * **CI:** Skip the three-platform Node 24 self-regression matrix for pull requests limited to approved documentation, benchmark results, error ledger, or changelog paths.
 * **doc-reconciliation:** credit only correlated, bounded workflow-state operations for the approved row-17 outline cycle
+
+### Bug Fixes
+
+* **codex:** report stale npx tier-router prompt hooks and let users migrate them to the JSON adapter (#457).
 
 ## [0.50.0](https://github.com/dyphn1/Harness-everything/compare/v0.49.0...v0.50.0) (2026-11-09)
 
