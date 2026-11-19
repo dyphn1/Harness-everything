@@ -22,6 +22,8 @@ three same-signature failures, use Rule-of-3 `zoom-out`.
 
 ## Profiles and delegation
 
+See the [model matrix](model-matrix.md) for profile details.
+
 Resolve a requested behavior profile with Fable's profile selector and record
 it separately from the runtime choice. `fable-orchestrator`,
 `fable-worker-sonnet`, and `fable-worker-haiku` name coordination,

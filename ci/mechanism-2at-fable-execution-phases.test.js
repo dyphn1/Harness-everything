@@ -47,8 +47,20 @@ assert.match(guide.slice(legacyStart), /`\.claude\/harness-everything\/state\/co
 
 const workflow = skill.split('## Workflow\n')[1];
 assert.strictEqual(packagedSkill, skill, 'OpenAI package includes the canonical Fable workflow');
-assert.match(workflow, /^4\. .*Before each Codex subagent dispatch, the coordinator MUST capture the worker baseline per “Verification and handoff” in `<this-skill-dir>\/references\/execution-phases\.md`\./m);
-assert.match(workflow, /^6\. At each Codex subagent handoff, the coordinator MUST reconcile scope before passing the stage or using its result downstream, including silent stops\./m);
-assert.match(guide, /^## Verification and handoff$/m);
+assert.ok(skill.includes('Execution only: stage checklist and audit records.'));
+assert.match(skill, /Execution: `<this-skill-dir>\/scripts\/model-selector\.js`, stage contracts, and `<skills-repo-root>\/harness-everything\/scripts\/verify-gate\.js`\./);
+assert.ok(skill.includes('For explanation/profile-only lookup, read only `<this-skill-dir>/references/profile-lookup.md` and answer. No stage state, delegation, or selector source reads. Quoted aliases do not start Fable. Mixed execution retains its topology; execution follows the workflow below.'));
+assert.match(workflow, /^4\. Delegate by profile: orchestrator coordinates, reasoning takes bounded judgment, mechanical takes low-ambiguity work; workers never spawn workers\./m);
+assert.match(workflow, /^5\. The host runtime-model floor is advisory; record it, never block on model choice alone\.$/m);
+assert.match(workflow, /^6\. .*Run stage checks, cold-review high-stakes artifacts, and audit profile\/runtime\/fallback fields\.$/m);
+
+assert.match(workflow, /^4\. .*Capture Codex baseline before dispatch per guide\.$/m);
+assert.match(workflow, /^6\. Reconcile Codex scope before pass or reuse\./m);
+assert.match(skill, /^Deep dive: <this-skill-dir>\/references\/execution-phases\.md$/m);
+const handoff = guide.split(/\r?\n## Verification and handoff\r?\n/)[1];
+assert.ok(handoff, 'the dispatch reference contains Verification and handoff');
+assert.match(handoff, /coordinator MUST reconcile scope/);
+assert.match(handoff, /Before dispatch, capture the worker worktree's starting state/);
+assert.match(handoff, /Run this check after every handoff, including silent stops\./);
 
 console.log('PASS Fable execution phases match the active workflow contract and preserve a scoped legacy fallback');
