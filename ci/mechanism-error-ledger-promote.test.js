@@ -231,7 +231,7 @@ try {
   assert.deepEqual(promoted, {
     ok: true,
     id: 'E-0002',
-    file: `${ERRORS}/E-0002-parser-edge-case.md`,
+    file: path.posix.join(...ERRORS.split(path.sep), 'E-0002-parser-edge-case.md'),
     indexUpdated: true
   });
   const promotedFile = path.join(success.errorsDir, 'E-0002-parser-edge-case.md');
