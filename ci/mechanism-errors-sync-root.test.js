@@ -30,6 +30,45 @@ function isWithin(root, candidate) {
   return relative === '' || (!path.isAbsolute(relative) && relative !== '..' && !relative.startsWith(`..${path.sep}`));
 }
 
+function snapshot(file) {
+  const stat = fs.lstatSync(file);
+  if (stat.isSymbolicLink()) return { type: 'symlink', target: fs.readlinkSync(file) };
+  if (stat.isDirectory()) return {
+    type: 'directory',
+    entries: Object.fromEntries(fs.readdirSync(file).sort().map(name => [name, snapshot(path.join(file, name))]))
+  };
+  if (stat.isFile()) return { type: 'file', bytes: fs.readFileSync(file).toString('base64') };
+  return { type: 'other', mode: stat.mode };
+}
+
+function seedLedger(name) {
+  const root = path.join(temp, name);
+  const dir = path.join(root, '.agents', 'harness-everything', 'errors');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'E-0001-root-test.md'), [
+    '---', 'id: E-0001', 'signature: root-test', 'class: test',
+    'scope: in', 'status: lesson', '---', 'A target-repository fixture.', ''
+  ].join('\n'));
+  fs.writeFileSync(path.join(dir, 'index.jsonl'), render(root));
+  return { root, dir, index: path.join(dir, 'index.jsonl'), record: path.join(dir, 'E-0001-root-test.md') };
+}
+
+function assertUnsafeRefused(target, unchanged, tempDirs) {
+  const before = unchanged.map(snapshot);
+  const harnessBefore = fs.readFileSync(HARNESS_INDEX);
+  for (const args of [[], ['--check']]) {
+    const result = invoke([...args, '--root', target.root]);
+    assert.notEqual(result.status, 0, `${args.length ? '--check' : 'write'} refuses an unsafe target`);
+    assert.ok(result.stderr.trim(), 'unsafe target reports a reason');
+    for (const dir of tempDirs) {
+      assert.deepEqual(fs.readdirSync(dir).filter(name => /index\.jsonl.*\.tmp$/.test(name)), [],
+        'refusal leaves no temporary index file');
+    }
+  }
+  assert.deepEqual(unchanged.map(snapshot), before, 'refusal preserves target records and external sentinels');
+  assert.deepEqual(fs.readFileSync(HARNESS_INDEX), harnessBefore, 'target refusal preserves the Harness index');
+}
+
 try {
   const harnessIndexDigest = digest(HARNESS_INDEX);
   const harnessIndex = fs.readFileSync(HARNESS_INDEX, 'utf8');
@@ -74,10 +113,23 @@ try {
   assert.equal(stale.status, 1, '--check --root= must reject a stale target index');
   assert.match(stale.stderr, /is stale/, 'stale target check must report the stale index');
 
+  const previousIndexInode = fs.statSync(targetIndex).ino;
   const written = invoke(['--root', targetRoot]);
   assert.equal(written.status, 0, '--root must write the target repository index');
   assert.equal(fs.readFileSync(targetIndex, 'utf8'), expectedIndex, 'target output must use a root-relative posix file path');
   assert.equal(render(targetRoot), expectedIndex, 'render(root) must render the target repository');
+  if (process.platform !== 'win32') {
+    assert.notEqual(fs.statSync(targetIndex).ino, previousIndexInode, 'publication atomically replaces the index file');
+  }
+  assert.deepEqual(fs.readdirSync(errorsDir).filter(name => /index\.jsonl.*\.tmp$/.test(name)), [],
+    'successful publication removes its temporary file');
+
+  fs.unlinkSync(targetIndex);
+  const missingIndexCheck = invoke(['--check', '--root', targetRoot]);
+  assert.equal(missingIndexCheck.status, 1, '--check refuses a missing target index as stale');
+  const createMissingIndex = invoke(['--root', targetRoot]);
+  assert.equal(createMissingIndex.status, 0, 'write creates a missing regular target index');
+  assert.equal(fs.readFileSync(targetIndex, 'utf8'), expectedIndex, 'a newly created index has canonical bytes');
 
   const missingErrorsRoot = path.join(temp, 'repo without errors');
   fs.mkdirSync(missingErrorsRoot);
@@ -92,6 +144,44 @@ try {
   assert.equal(missingRoot.status, 1, 'a nonexistent root must be refused');
   assert.ok(missingRoot.stderr.includes(JSON.stringify(nonexistentRoot)), 'missing-root error must name the resolved root');
   assert.equal(fs.existsSync(nonexistentRoot), false, 'a nonexistent root must not be created');
+
+  const symlinkIndex = seedLedger('symlinked index repo');
+  const externalSentinel = path.join(temp, 'external index sentinel');
+  fs.writeFileSync(externalSentinel, 'external index bytes\n');
+  fs.unlinkSync(symlinkIndex.index);
+  fs.symlinkSync(externalSentinel, symlinkIndex.index, 'file');
+  assertUnsafeRefused(symlinkIndex, [symlinkIndex.index, symlinkIndex.record, externalSentinel], [symlinkIndex.dir]);
+
+  const danglingIndex = seedLedger('dangling index repo');
+  const danglingTarget = path.join(temp, 'missing external index');
+  fs.unlinkSync(danglingIndex.index);
+  fs.symlinkSync(danglingTarget, danglingIndex.index, 'file');
+  assert.equal(fs.existsSync(danglingTarget), false, 'the dangling-link control target is absent');
+  assertUnsafeRefused(danglingIndex, [danglingIndex.index, danglingIndex.record], [danglingIndex.dir]);
+
+  const nonRegularIndex = seedLedger('nonregular index repo');
+  fs.unlinkSync(nonRegularIndex.index);
+  fs.mkdirSync(nonRegularIndex.index);
+  const nonRegularSentinel = path.join(nonRegularIndex.index, 'keep.txt');
+  fs.writeFileSync(nonRegularSentinel, 'directory index sentinel\n');
+  assertUnsafeRefused(nonRegularIndex, [nonRegularIndex.index, nonRegularSentinel, nonRegularIndex.record], [nonRegularIndex.dir]);
+
+  const symlinkErrors = seedLedger('symlinked errors repo');
+  const externalErrors = path.join(temp, 'external errors directory');
+  fs.renameSync(symlinkErrors.dir, externalErrors);
+  fs.mkdirSync(path.dirname(symlinkErrors.dir), { recursive: true });
+  fs.symlinkSync(externalErrors, symlinkErrors.dir, process.platform === 'win32' ? 'junction' : 'dir');
+  assertUnsafeRefused(symlinkErrors, [symlinkErrors.dir, path.join(externalErrors, 'index.jsonl'),
+    path.join(externalErrors, 'E-0001-root-test.md')], [externalErrors]);
+
+  const symlinkIntermediate = seedLedger('symlinked intermediate repo');
+  const intermediate = path.join(symlinkIntermediate.root, '.agents', 'harness-everything');
+  const externalIntermediate = path.join(temp, 'external intermediate ledger');
+  fs.renameSync(intermediate, externalIntermediate);
+  fs.symlinkSync(externalIntermediate, intermediate, process.platform === 'win32' ? 'junction' : 'dir');
+  const externalLedger = path.join(externalIntermediate, 'errors');
+  assertUnsafeRefused(symlinkIntermediate, [intermediate, path.join(externalLedger, 'index.jsonl'),
+    path.join(externalLedger, 'E-0001-root-test.md')], [externalLedger]);
 
   assert.equal(digest(HARNESS_INDEX), harnessIndexDigest, 'target sync must not change the Harness index');
   console.log('PASS errors-sync supports target roots without changing the Harness index');

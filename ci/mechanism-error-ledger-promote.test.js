@@ -155,6 +155,21 @@ function seedFixture() {
   return { ...target, ...report, report: report.reportFile, approval };
 }
 
+function updateCandidate(fixture, candidateId, update) {
+  const report = JSON.parse(fs.readFileSync(fixture.report, 'utf8'));
+  const candidate = report.candidates.find(item => item.id === candidateId);
+  assert.ok(candidate, `candidate ${candidateId} exists in the fixture report`);
+  update(candidate, report);
+  write(fixture.report, `${JSON.stringify(report, null, 2)}\n`);
+  fixture.reportJson = report;
+  return candidate;
+}
+
+function approveCandidate(fixture, candidateId, filename) {
+  return writeApproval(approvalFor(fs.realpathSync.native(fixture.root), fixture.report, candidateId),
+    path.join(TMP, filename));
+}
+
 function runSync(targetRoot, check = true) {
   return childProcess.spawnSync(process.execPath, [SYNC, ...(check ? ['--check'] : []), '--root', targetRoot], {
     cwd: ROOT, encoding: 'utf8', env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1' }
@@ -174,9 +189,36 @@ function addFakeYaml(harness) {
   write(path.join(moduleDir, 'index.js'), 'module.exports = {};\n');
 }
 
+function makeSyncHarness(name, afterWrite) {
+  const source = [
+    "const childProcess = require('node:child_process');",
+    "const fs = require('node:fs');",
+    "const path = require('node:path');",
+    `const canonicalSync = ${JSON.stringify(SYNC)};`,
+    'module.exports = require(canonicalSync);',
+    'if (require.main === module) {',
+    '  const args = process.argv.slice(2);',
+    "  if (args.includes('--check')) { process.stderr.write('injected final check failure\\n'); process.exit(1); }",
+    "  const result = childProcess.spawnSync(process.execPath, [canonicalSync, ...args], { encoding: 'utf8' });",
+    '  if (result.stdout) process.stdout.write(result.stdout);',
+    '  if (result.stderr) process.stderr.write(result.stderr);',
+    '  if (result.status !== 0) process.exit(result.status || 1);',
+    afterWrite,
+    '}', ''
+  ].join('\n');
+  const harness = makeHarness(name, source);
+  addFakeYaml(harness);
+  return harness;
+}
+
 try {
   // The whole happy path uses the real CLI and target-root sync implementation.
   const success = seedFixture();
+  success.selected = updateCandidate(success, success.selected.id, candidate => {
+    candidate.title = 'PRIVATE MEMORY TITLE SENTINEL';
+    candidate.sources.push({ type: 'memory', ref: 'PRIVATE MEMORY REF SENTINEL', title: 'PRIVATE MEMORY TITLE SENTINEL' });
+  });
+  success.approval = approveCandidate(success, success.selected.id, 'success-approval.json');
   const unselectedApproval = writeApproval(
     approvalFor(fs.realpathSync.native(success.root), success.report, success.memoryCandidate.id),
     path.join(TMP, 'unselected-approval.json')
@@ -200,14 +242,65 @@ try {
     assert.ok(record.includes(source.sha), `durable commit ${source.sha} is cited in the record`);
   }
   assert.match(record, /repo\/src\/parser\.js/);
-  assert.doesNotMatch(record, new RegExp(`PRIVATE MEMORY SENTINEL|${MEMORY_BODY}|home\\/private\\.md|\\/Users\\/|\\/private\\/tmp`),
+  const approvedRecord = JSON.parse(fs.readFileSync(success.approval, 'utf8')).record;
+  assert.ok(record.includes(approvedRecord.title), 'record title comes from the owner-approved payload');
+  assert.ok(record.includes(approvedRecord.sourcesNote), 'record lesson comes from the owner-approved payload');
+  assert.doesNotMatch(record, /PRIVATE MEMORY SENTINEL|PRIVATE MEMORY REF SENTINEL|PRIVATE MEMORY TITLE SENTINEL/,
+    'memory source refs and titles are never promoted');
+  assert.doesNotMatch(record, new RegExp(`${MEMORY_BODY}|home\\/private\\.md|\\/Users\\/|\\/private\\/tmp`),
     'promotion writes approved content and durable sources, never local memory or absolute paths');
   assert.deepEqual(fs.readFileSync(success.report), originalReport, 'promotion never edits the report');
   assert.equal(JSON.parse(fs.readFileSync(success.report, 'utf8')).candidates.length, success.reportJson.candidates.length,
     'approved-but-unselected candidates remain in the report');
   assert.equal(fs.readFileSync(path.join(success.errorsDir, 'index.jsonl'), 'utf8'), render(success.root),
     'the promoted index has byte parity with the canonical renderer');
+  assert.doesNotMatch(fs.readFileSync(path.join(success.errorsDir, 'index.jsonl'), 'utf8'),
+    /PRIVATE MEMORY SENTINEL|PRIVATE MEMORY REF SENTINEL|PRIVATE MEMORY TITLE SENTINEL/,
+    'the promoted index contains no memory source refs or titles');
   assert.equal(runSync(success.root).status, 0, 'errors-sync --root --check accepts the promoted index');
+
+  const memoryOnly = seedFixture();
+  updateCandidate(memoryOnly, memoryOnly.memoryCandidate.id, candidate => {
+    candidate.sites = ['src/parser.js'];
+    candidate.sources = [{ type: 'memory', ref: 'PRIVATE MEMORY REF SENTINEL', title: 'PRIVATE MEMORY TITLE SENTINEL' }];
+  });
+  const memoryApproval = approveCandidate(memoryOnly, memoryOnly.memoryCandidate.id, 'memory-only-approval.json');
+  const memoryBefore = snapshot(memoryOnly.errorsDir);
+  const memoryResult = resultFor(invoke(memoryOnly.root, memoryOnly.report, memoryApproval), 2);
+  assert.equal(memoryResult.ok, false, 'memory-only candidate evidence is refused despite a valid-looking site');
+  assert.match(memoryResult.error, /durable source evidence/, 'private-only refusal explains the missing durable evidence');
+  assert.deepEqual(snapshot(memoryOnly.errorsDir), memoryBefore, 'private-only refusal writes no E-record or index changes');
+
+  const instructionOnly = seedFixture();
+  updateCandidate(instructionOnly, instructionOnly.selected.id, candidate => {
+    candidate.sites = ['src/parser.js'];
+    candidate.sources = [{ type: 'instruction', ref: 'repo/AGENTS.md', title: 'PRIVATE INSTRUCTION TITLE SENTINEL' }];
+  });
+  const instructionApproval = approveCandidate(instructionOnly, instructionOnly.selected.id, 'instruction-only-approval.json');
+  const instructionBefore = snapshot(instructionOnly.errorsDir);
+  const instructionResult = resultFor(invoke(instructionOnly.root, instructionOnly.report, instructionApproval), 2);
+  assert.equal(instructionResult.ok, false, 'instruction-only candidate evidence is refused');
+  assert.deepEqual(snapshot(instructionOnly.errorsDir), instructionBefore, 'instruction-only refusal writes no E-record');
+
+  const missingSite = seedFixture();
+  updateCandidate(missingSite, missingSite.selected.id, candidate => { candidate.sites = ['src/not-present.js']; });
+  const missingSiteApproval = approveCandidate(missingSite, missingSite.selected.id, 'missing-site-approval.json');
+  const missingSiteBefore = snapshot(missingSite.errorsDir);
+  const missingSiteResult = resultFor(invoke(missingSite.root, missingSite.report, missingSiteApproval), 2);
+  assert.equal(missingSiteResult.ok, false, 'candidate sites must resolve to existing files in the target repo');
+  assert.match(missingSiteResult.error, /existing target-repository file/, 'site refusal identifies the invalid target path');
+  assert.deepEqual(snapshot(missingSite.errorsDir), missingSiteBefore, 'unverified site refusal writes no E-record');
+
+  const unverifiedApprovalSite = seedFixture();
+  const unverifiedApproval = JSON.parse(fs.readFileSync(unverifiedApprovalSite.approval, 'utf8'));
+  unverifiedApproval.record.sites = ['src/not-present.js'];
+  const unverifiedApprovalFile = writeApproval(unverifiedApproval, path.join(TMP, 'unverified-approval-site.json'));
+  const unverifiedApprovalBefore = snapshot(unverifiedApprovalSite.errorsDir);
+  const unverifiedApprovalResult = resultFor(invoke(unverifiedApprovalSite.root, unverifiedApprovalSite.report,
+    unverifiedApprovalFile), 2);
+  assert.equal(unverifiedApprovalResult.ok, false, 'approved record sites must also exist inside the target repo');
+  assert.deepEqual(snapshot(unverifiedApprovalSite.errorsDir), unverifiedApprovalBefore,
+    'a nonexistent approved site writes no E-record');
 
   const successSnapshot = snapshot(success.errorsDir);
   assert.equal(resultFor(invoke(success.root, success.report, success.approval), 2).ok, false,
@@ -255,6 +348,16 @@ try {
     'an errors directory that resolves outside the target is refused');
   assert.deepEqual(snapshot(externalErrors), externalBefore, 'symlink escape refusal leaves its target unchanged');
 
+  const internalSymlinkErrors = seedFixture();
+  const internalErrors = path.join(internalSymlinkErrors.root, '.private-ledger-storage');
+  fs.renameSync(internalSymlinkErrors.errorsDir, internalErrors);
+  fs.symlinkSync(internalErrors, internalSymlinkErrors.errorsDir, process.platform === 'win32' ? 'junction' : 'dir');
+  const internalBefore = snapshot(internalErrors);
+  const internalRefused = resultFor(invoke(internalSymlinkErrors.root, internalSymlinkErrors.report,
+    internalSymlinkErrors.approval), 1);
+  assert.equal(internalRefused.ok, false, 'the canonical sync refuses a symlinked errors directory even when it stays inside the target');
+  assert.deepEqual(snapshot(internalErrors), internalBefore, 'rejected symlink target leaves no new E-record or changed index');
+
   const missingErrors = fs.realpathSync.native(fs.mkdtempSync(path.join(TMP, 'missing errors ')));
   git(missingErrors, ['init', '-q']);
   const missingApproval = writeApproval(approvalFor(missingErrors, success.report, success.selected.id));
@@ -283,20 +386,29 @@ try {
   assert.deepEqual(snapshot(noDependency.errorsDir), noDependencyBefore, 'dependency preflight writes nothing');
 
   const syncFailure = seedFixture();
-  const failingHarness = makeHarness('failing-sync-harness', [
-    "const fs = require('node:fs');",
-    "const path = require('node:path');",
-    "const root = process.argv[process.argv.indexOf('--root') + 1];",
-    "fs.writeFileSync(path.join(root, '.agents/harness-everything/errors/index.jsonl'), 'partial\\n');",
-    'process.exit(1);', ''
-  ].join('\n'));
-  addFakeYaml(failingHarness);
+  const failingHarness = makeSyncHarness('failing-sync-harness', '');
   const beforeFailure = snapshot(syncFailure.errorsDir);
-  assert.equal(resultFor(invoke(syncFailure.root, syncFailure.report, syncFailure.approval, failingHarness), 1).ok, false,
-    'a failed sync is reported as a failure');
+  const syncFailureResult = resultFor(invoke(syncFailure.root, syncFailure.report, syncFailure.approval, failingHarness), 1);
+  assert.equal(syncFailureResult.ok, false, 'a failed final check after atomic index replacement is reported as a failure');
   assert.deepEqual(snapshot(syncFailure.errorsDir), beforeFailure,
-    'sync failure removes only the new record and restores the prior index bytes');
+    `rollback recognizes its own replacement, removes the new record, and restores prior index bytes: ${syncFailureResult.error}`);
   assert.equal(runSync(syncFailure.root).status, 0, 'the target index remains current after rollback');
+
+  const unrelatedReplacement = seedFixture();
+  const unrelatedHarness = makeSyncHarness('unrelated-sync-harness', [
+    "  const root = args[args.indexOf('--root') + 1];",
+    "  const index = path.join(root, '.agents/harness-everything/errors/index.jsonl');",
+    "  const replacement = `${index}.replacement`;",
+    "  fs.writeFileSync(replacement, 'unrelated writer bytes\\n');",
+    '  fs.renameSync(replacement, index);'
+  ].join('\n'));
+  const unrelatedRecord = path.join(unrelatedReplacement.errorsDir, 'E-0002-parser-edge-case.md');
+  const unrelatedResult = resultFor(invoke(unrelatedReplacement.root, unrelatedReplacement.report,
+    unrelatedReplacement.approval, unrelatedHarness), 1);
+  assert.match(unrelatedResult.error, /recovery needed/, 'unowned index replacement reports actionable recovery');
+  assert.equal(fs.readFileSync(path.join(unrelatedReplacement.errorsDir, 'index.jsonl'), 'utf8'),
+    'unrelated writer bytes\n', 'rollback preserves an unrelated index replacement');
+  assert.equal(fs.existsSync(unrelatedRecord), false, 'rollback removes only the owned new E-record');
 
   const win32 = path.win32;
   const outside = win32.relative('C:\\repo', 'D:\\temp\\file.md');
