@@ -1,0 +1,16 @@
+id: negative-error-ledger-bootstrap-self-evolve-001
+name: Persist one lesson after a verified fix
+description: A single verified lesson should route to self-evolve, not repository-wide ledger bootstrap.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Use self-evolve to persist one verified lesson as a defensive memory rule after a bug fix; do not perform a repository-wide inventory."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "candidate report"
+        - "promote.js"
