@@ -5,6 +5,8 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
+const skill = fs.readFileSync(path.join(ROOT, 'fable-mode/SKILL.md'), 'utf8');
+const packagedSkill = fs.readFileSync(path.join(ROOT, 'plugins/harness-everything/skills/fable-mode/SKILL.md'), 'utf8');
 const guide = fs.readFileSync(path.join(ROOT, 'fable-mode/references/execution-phases.md'), 'utf8');
 const packagedGuide = fs.readFileSync(path.join(ROOT, 'plugins/harness-everything/skills/fable-mode/references/execution-phases.md'), 'utf8');
 const contract = fs.readFileSync(path.join(ROOT, 'fable-mode/CONTRACT-FORMAT.md'), 'utf8');
@@ -42,5 +44,11 @@ assert.match(guide, /behavior profile|role\/profile alias/i);
 assert.match(guide, /explicit user or\s+host runtime choice/i);
 assert.doesNotMatch(guide, /Resolve requested model|Opus macro work|do not silently change models/i);
 assert.match(guide.slice(legacyStart), /`\.claude\/harness-everything\/state\/contracts\//);
+
+const workflow = skill.split('## Workflow\n')[1];
+assert.strictEqual(packagedSkill, skill, 'OpenAI package includes the canonical Fable workflow');
+assert.match(workflow, /^4\. .*Before each Codex subagent dispatch, the coordinator MUST capture the worker baseline per “Verification and handoff” in `<this-skill-dir>\/references\/execution-phases\.md`\./m);
+assert.match(workflow, /^6\. At each Codex subagent handoff, the coordinator MUST reconcile scope before passing the stage or using its result downstream, including silent stops\./m);
+assert.match(guide, /^## Verification and handoff$/m);
 
 console.log('PASS Fable execution phases match the active workflow contract and preserve a scoped legacy fallback');
