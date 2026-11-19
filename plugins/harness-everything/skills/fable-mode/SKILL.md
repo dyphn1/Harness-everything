@@ -1,6 +1,6 @@
 ---
 name: fable-mode
-description: Stage large tasks through plans, named fable agents, failable checks, and skeptical review; fable on opus|sonnet|haiku selects a behavior profile, not a runtime model.
+description: "Stage large tasks through plans, named fable agents, failable checks, and skeptical review; fable on opus|sonnet|haiku selects a behavior profile, not a runtime model."
 license: Apache-2.0
 metadata:
   author: Miya Daniel
@@ -34,7 +34,7 @@ For explanation/profile-only lookup, read only `<this-skill-dir>/references/prof
 ## Workflow
 
 1. Discover the runtime and lock the authorized file scope before edits.
-2. Per stage, set artifact, check, and required/optional bindings; dependency-ready stages disclose them, passing once resolved. Gaps never lock tools or Stop; advisory replans never halt. Rule-of-3 covers same-signature failures.
+2. Per stage, set artifact, check and required/optional bindings; dependency-ready stages disclose them, passing once resolved. Gaps never lock tools or Stop; advisory replans never halt. Rule-of-3 covers same-signature failures.
 3. Resolve the requested behavior profile with `model-selector.js`; `opus`, `sonnet`/`sonnect`, and `haiku` are compatibility aliases, not model bindings.
 4. Delegate by profile: orchestrator coordinates, reasoning takes bounded judgment, mechanical takes low-ambiguity work; workers never spawn workers. Load/apply Verification and handoff before Codex dispatch.
 5. The host runtime-model floor is advisory; record it, never block on model choice alone.
