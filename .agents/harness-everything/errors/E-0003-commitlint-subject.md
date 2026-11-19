@@ -90,6 +90,19 @@ episodes:
         change: null
         review: "commit-msg hook"
         result: "A coordinator commit subject contained the proper noun \"System One\" and was rejected by `subject-case`; it was re-committed with a lower-case subject as `42b0a45f`. Same class as the same-day PR #456 \"Python\" episode."
+  - episode: 476-errors-commit-subject-case
+    feature: "#476 follow-up error-ledger commit (coordinator)"
+    date: 2026-11-19
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "commitlint (husky commit-msg)"
+        result: "subject `record the PR #476 CI fix episodes` rejected for `subject-case` (uppercase `PR`, `CI`); the recorded lesson was re-violated by the coordinator"
+      - round: 1
+        change: "subject lower-cased"
+        review: commitlint
+        result: "commit accepted"
 ---
 
 ## Cue
@@ -126,3 +139,7 @@ A coordinator commit subject contained an uppercase word ("Python") and was reje
 ## Episode 7 (2026-11-18, PR #471)
 
 A coordinator commit subject contained the proper noun "System One" and was rejected by `subject-case`; it was re-committed with a lower-case subject as `42b0a45f`. Same class as the same-day PR #456 "Python" episode. Lesson unchanged: keep proper nouns lower-case in subjects and check the commit's exit status before downstream steps.
+
+## Episode (2026-11-19, #476 follow-up)
+
+The coordinator wrote `docs(errors): record the PR #476 CI fix episodes`; commitlint rejected the uppercase `PR`/`CI`. Lowering the subject fixed it. A repeat by the coordinator, again without running `npx commitlint` before committing.
