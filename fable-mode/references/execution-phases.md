@@ -17,15 +17,18 @@ flowchart TD
 Read relevant files and sources before producing an artifact. Record the
 authorized write scope. Give each stage an objective, dependencies, write set,
 expected output, exact check command, and pass condition. Required and optional
-bindings belong on the stage that needs them. Replan counts are advisory; after
-three same-signature failures, use Rule-of-3 `zoom-out`.
+bindings belong on the stage that needs them. Replans are advisory and do not
+halt tools or Stop; after three same-signature failures, use Rule-of-3
+`zoom-out`.
 
 ## Profiles and delegation
 
 See the [model matrix](model-matrix.md) for profile details.
 
-Resolve a requested behavior profile with Fable's profile selector and record
-it separately from the runtime choice. `fable-orchestrator`,
+Resolve a requested behavior profile with Fable's `model-selector.js` and
+record it separately from the runtime choice. `opus`, `sonnet`/`sonnect`, and
+`haiku` are compatibility aliases for behavior profiles, not model bindings.
+`fable-orchestrator`,
 `fable-worker-sonnet`, and `fable-worker-haiku` name coordination,
 reasoning/synthesis, and mechanical-work roles. These are behavior-profile
 aliases; they do not switch the runtime model. Preserve an explicit user or

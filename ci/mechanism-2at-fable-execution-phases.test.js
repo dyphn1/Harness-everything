@@ -67,9 +67,14 @@ assert.ok(skill.includes('For explanation/profile-only lookup, read only `<this-
 assert.match(workflow, /^4\. Delegate by profile: orchestrator coordinates, reasoning takes bounded judgment, mechanical takes low-ambiguity work; workers never spawn workers\./m);
 assert.match(workflow, /^5\. The host runtime-model floor is advisory; record it, never block on model choice alone\.$/m);
 assert.match(workflow, /^6\. .*Run stage checks, cold-review high-stakes artifacts, and audit profile\/runtime\/fallback fields\.$/m);
-assert.match(workflow, /^4\. .*Load\/apply Verification and handoff before Codex dispatch\.$/m);
-assert.match(workflow, /^6\. Load\/apply it at every Codex handoff\./m);
-assert.match(workflow, /^Deep dive: <this-skill-dir>\/references\/execution-phases\.md$/m);
+const handoffReference = '`<this-skill-dir>/references/execution-phases.md#verification-and-handoff`'; // portability-lint: allow markdown text to match, never a path
+assert.ok(workflow.includes(`4. Delegate by profile: orchestrator coordinates, reasoning takes bounded judgment, mechanical takes low-ambiguity work; workers never spawn workers. Before Codex dispatch, load/apply ${handoffReference}.`),
+  'step 4 requires loading and applying the verification-and-handoff reference before Codex subagent dispatch');
+assert.ok(workflow.includes(`6. On every Codex handoff or silent stop, load/apply ${handoffReference} before accepting results or releasing dependent stages. Run stage checks, cold-review high-stakes artifacts, and audit profile/runtime/fallback fields.`),
+  'step 6 requires loading and applying the verification-and-handoff reference at every handoff before accepting results or releasing dependent stages');
+assert.match(workflow, /^2\. Plan via `<this-skill-dir>\/references\/execution-phases\.md`\.$/m);
+assert.match(workflow, /^3\. Use `model-selector\.js`\.$/m);
+assert.match(guide, /^## Verification and handoff$/m, 'the explicit handoff target heading exists');
 const handoff = guide.split(/\r?\n## Verification and handoff\r?\n/)[1];
 assert.ok(handoff, 'the dispatch reference contains Verification and handoff');
 assert.match(handoff, /coordinator MUST reconcile scope before accepting a\nresult or using it in a dependent stage/);
