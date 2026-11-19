@@ -94,6 +94,24 @@ function safeRepoPath(value) {
     !normalized.split('/').includes('..') && normalized !== '.';
 }
 
+function isTargetFile(root, value) {
+  if (!safeRepoPath(value)) return false;
+  const candidate = path.resolve(root, value.replace(/\\/g, path.sep));
+  if (!isWithin(root, candidate)) return false;
+  try {
+    const resolved = canonical(candidate);
+    return isWithin(root, resolved) && fs.statSync(resolved).isFile();
+  } catch (_) {
+    return false;
+  }
+}
+
+function validateSites(sites, root, label) {
+  if (!Array.isArray(sites) || sites.some(site => !isTargetFile(root, site))) {
+    problem(`${label} must contain only existing target-repository files`);
+  }
+}
+
 function validateApproval(approval) {
   if (!approval || approval.schemaVersion !== 1) problem('approval schemaVersion must be 1');
   if (typeof approval.candidateId !== 'string' || !/^[a-f0-9]{20}$/i.test(approval.candidateId)) {
@@ -183,15 +201,9 @@ function harnessTool(harnessInput) {
 function durableSources(candidate) {
   const sources = new Set();
   for (const source of Array.isArray(candidate.sources) ? candidate.sources : []) {
-    if (source && source.type === 'git' && typeof source.sha === 'string' && COMMIT.test(source.sha)) {
+    if (source && ['git', 'doc'].includes(source.type) && typeof source.sha === 'string' && COMMIT.test(source.sha)) {
       sources.add(`commit ${source.sha.toLowerCase()}`);
-    } else if (source && source.type !== 'memory' && typeof source.ref === 'string' &&
-      source.ref.startsWith('repo/') && safeRepoPath(source.ref.slice(5))) {
-      sources.add(`repo/${source.ref.slice(5).replace(/\\/g, '/')}`);
     }
-  }
-  for (const site of Array.isArray(candidate.sites) ? candidate.sites : []) {
-    if (safeRepoPath(site)) sources.add(`repo/${site.replace(/\\/g, '/')}`);
   }
   return [...sources].sort();
 }
@@ -214,8 +226,10 @@ function yaml(value) {
 
 function recordText(approval, candidate, id, reportHash, approvalHash) {
   const record = approval.record;
-  const sources = durableSources(candidate);
-  if (!sources.length) problem('selected report candidate has no durable source evidence');
+  const sources = [...new Set([
+    ...durableSources(candidate),
+    ...record.sites.map(site => `repo/${site.replace(/\\/g, '/')}`)
+  ])].sort();
   return [
     '---',
     `id: ${yaml(id)}`,
@@ -313,7 +327,6 @@ function preflight(options) {
   validateApproval(approval);
   if (reportHash.toLowerCase() !== approval.reportSha256.toLowerCase()) problem('report SHA-256 does not match the approval');
   const candidate = candidateFrom(report, approval);
-  if (!durableSources(candidate).length) problem('selected report candidate has no durable source evidence');
   let targetRoot;
   try {
     targetRoot = canonical(path.resolve(options.target));
@@ -323,6 +336,9 @@ function preflight(options) {
     problem(`--target must be an existing repository directory: ${error.message}`);
   }
   if (!samePath(targetRoot, approval.targetRoot)) problem('approval targetRoot does not match the resolved --target');
+  validateSites(candidate.sites, targetRoot, 'selected report candidate sites');
+  validateSites(approval.record.sites, targetRoot, 'approved record sites');
+  if (!durableSources(candidate).length) problem('selected report candidate has no durable source evidence');
   const { errorsDir, index } = directoryInfo(targetRoot);
   const syncScript = harnessTool(options.harness);
   const lockPath = path.join(errorsDir, LOCK);
@@ -355,34 +371,114 @@ function runSync(script, targetRoot, check) {
 
 function savedIndex(index) {
   try {
-    const stat = fs.lstatSync(index);
-    if (stat.isSymbolicLink() || !stat.isFile()) problem('target index must be a regular file inside the errors directory');
-    return { bytes: fs.readFileSync(index), stat };
+    return indexState(index);
   } catch (error) {
-    if (error.code === 'ENOENT') return { bytes: null, stat: null };
     if (error.exitCode) throw error;
     problem(`target index cannot be saved: ${error.message}`);
   }
 }
 
-function restoreIndex(index, saved) {
+function indexState(index) {
+  let fd;
   try {
     const current = fs.lstatSync(index);
     if (current.isSymbolicLink() || !current.isFile()) throw new Error('index was replaced with a non-regular file');
-    if (saved.stat && (current.dev !== saved.stat.dev || current.ino !== saved.stat.ino)) {
-      throw new Error('index was replaced by another writer');
+    fd = fs.openSync(index, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0));
+    const opened = fs.fstatSync(fd);
+    if (!opened.isFile() || opened.dev !== current.dev || opened.ino !== current.ino) {
+      throw new Error('index changed while it was being read');
     }
-    if (saved.bytes === null) fs.unlinkSync(index);
-    else fs.writeFileSync(index, saved.bytes);
+    return { bytes: fs.readFileSync(fd), stat: opened };
   } catch (error) {
-    if (error.code === 'ENOENT' && saved.bytes === null) return null;
+    if (error.code === 'ENOENT') return { bytes: null, stat: null };
+    throw error;
+  } finally {
+    if (fd !== undefined) {
+      try { fs.closeSync(fd); } catch (_) { /* read failure is reported above */ }
+    }
+  }
+}
+
+function writePreviousIndex(index, saved, current, expected) {
+  if (saved.bytes === null) {
+    const latest = indexState(index);
+    if (!latest.bytes || !latest.bytes.equals(expected) || latest.stat.dev !== current.stat.dev || latest.stat.ino !== current.stat.ino) {
+      throw new Error('index changed before the owned replacement could be removed');
+    }
+    fs.unlinkSync(index);
+    return;
+  }
+
+  const dir = path.dirname(index);
+  let temporary;
+  let fd;
+  try {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      temporary = path.join(dir, `.${INDEX}.${process.pid}.${crypto.randomBytes(8).toString('hex')}.tmp`);
+      try {
+        fd = fs.openSync(temporary, 'wx', saved.stat.mode & 0o777);
+        break;
+      } catch (error) {
+        temporary = undefined;
+        if (error.code !== 'EEXIST') throw error;
+      }
+    }
+    if (fd === undefined) throw new Error('could not allocate a temporary rollback index');
+    fs.fchmodSync(fd, saved.stat.mode & 0o777);
+    fs.writeFileSync(fd, saved.bytes);
+    const openFd = fd;
+    fd = undefined;
+    fs.closeSync(openFd);
+
+    const latest = indexState(index);
+    if (!latest.bytes || !latest.bytes.equals(expected) || latest.stat.dev !== current.stat.dev || latest.stat.ino !== current.stat.ino) {
+      throw new Error('index changed before the owned replacement could be restored');
+    }
+    fs.renameSync(temporary, index);
+    temporary = undefined;
+  } finally {
+    if (fd !== undefined) {
+      try { fs.closeSync(fd); } catch (_) { /* preserve the original rollback error */ }
+    }
+    if (temporary) {
+      try { fs.unlinkSync(temporary); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
+  }
+}
+
+function restoreIndex(index, saved, expected) {
+  let current;
+  try {
+    current = indexState(index);
+  } catch (error) {
     return error.message;
+  }
+  if ((!saved.bytes && !current.bytes) || (saved.bytes && current.bytes && current.bytes.equals(saved.bytes))) return null;
+  if (!expected || !current.bytes || !current.bytes.equals(expected)) {
+    return 'index replacement is not verifiably owned by this promotion; it was preserved. Reconcile the target ledger, then run errors-sync --root <target>.';
+  }
+  try {
+    writePreviousIndex(index, saved, current, expected);
+  } catch (error) {
+    return `owned index replacement could not be rolled back: ${error.message}`;
   }
   return null;
 }
 
 function rollback(context, saved, destination, identity, beforeNames) {
   const problems = [];
+  let expectedIndex;
+  try {
+    const current = indexState(context.index);
+    const unchanged = (!saved.bytes && !current.bytes) || (saved.bytes && current.bytes && current.bytes.equals(saved.bytes));
+    if (!unchanged) {
+      const sync = require(context.syncScript);
+      if (typeof sync.render !== 'function') throw new Error('trusted errors-sync does not expose its renderer');
+      expectedIndex = Buffer.from(sync.render(context.targetRoot));
+    }
+  } catch (error) {
+    problems.push(`index ownership could not be verified (${error.message})`);
+  }
   if (identity) {
     try {
       const current = fs.lstatSync(destination);
@@ -393,7 +489,7 @@ function rollback(context, saved, destination, identity, beforeNames) {
       if (error.code !== 'ENOENT') problems.push(`new record could not be removed: ${error.message}`);
     }
   }
-  const indexProblem = restoreIndex(context.index, saved);
+  const indexProblem = restoreIndex(context.index, saved, expectedIndex);
   if (indexProblem) problems.push(indexProblem);
   try {
     if (JSON.stringify(fs.readdirSync(context.errorsDir).filter(name => name !== LOCK).sort()) !== JSON.stringify(beforeNames)) {
