@@ -6,6 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const yaml = require('js-yaml');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -19,12 +20,42 @@ const STATUSES = new Set(['open', 'lesson', 'mechanism']);
 
 function errorsDirectory(root) {
   const resolvedRoot = path.resolve(root);
-  const dir = path.join(resolvedRoot, ERRORS_PATH);
-  if (!fs.existsSync(resolvedRoot) || !fs.statSync(resolvedRoot).isDirectory()
-    || !fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) {
+  let canonicalRoot;
+  try {
+    canonicalRoot = fs.realpathSync.native ? fs.realpathSync.native(resolvedRoot) : fs.realpathSync(resolvedRoot);
+    if (!fs.statSync(canonicalRoot).isDirectory()) throw new Error('not a directory');
+  } catch (_) {
     throw new Error(`root ${JSON.stringify(resolvedRoot)} must exist and contain ${ERRORS_PATH}`);
   }
+
+  let dir = canonicalRoot;
+  for (const part of ERRORS_PATH.split(path.sep)) {
+    const candidate = path.join(dir, part);
+    let stat;
+    try {
+      stat = fs.lstatSync(candidate);
+      dir = fs.realpathSync.native ? fs.realpathSync.native(candidate) : fs.realpathSync(candidate);
+    } catch (_) {
+      throw new Error(`root ${JSON.stringify(resolvedRoot)} must exist and contain ${ERRORS_PATH}`);
+    }
+    const inside = path.relative(canonicalRoot, dir);
+    if (path.isAbsolute(inside) || inside === '..' || inside.startsWith(`..${path.sep}`)) {
+      throw new Error(`ledger path ${part} resolves outside target root`);
+    }
+    if (part === 'errors' && (stat.isSymbolicLink() || !samePath(candidate, dir))) {
+      throw new Error('errors directory must not be a symlink or junction');
+    }
+    if (!fs.statSync(dir).isDirectory()) {
+      throw new Error(`root ${JSON.stringify(resolvedRoot)} must exist and contain ${ERRORS_PATH}`);
+    }
+  }
   return dir;
+}
+
+function samePath(left, right) {
+  return process.platform === 'win32'
+    ? left.toLowerCase() === right.toLowerCase()
+    : left === right;
 }
 
 function parseRecord(file, dir = DIR) {
@@ -61,8 +92,7 @@ function parseRecord(file, dir = DIR) {
   };
 }
 
-function render(root = ROOT) {
-  const dir = errorsDirectory(root);
+function renderDirectory(dir) {
   const files = fs.readdirSync(dir).filter(f => RECORD.test(f)).sort();
   const ids = new Set();
   const lines = files.map(file => {
@@ -72,6 +102,86 @@ function render(root = ROOT) {
     return JSON.stringify(record);
   });
   return lines.length ? `${lines.join('\n')}\n` : '';
+}
+
+function render(root = ROOT) {
+  return renderDirectory(errorsDirectory(root));
+}
+
+function inspectIndex(index) {
+  try {
+    const stat = fs.lstatSync(index);
+    if (stat.isSymbolicLink() || !stat.isFile()) {
+      throw new Error('target index must be a regular file inside the errors directory');
+    }
+    return stat;
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
+function readIndex(index) {
+  const before = inspectIndex(index);
+  if (!before) return null;
+  let fd;
+  try {
+    const noFollow = fs.constants.O_NOFOLLOW || 0;
+    fd = fs.openSync(index, fs.constants.O_RDONLY | noFollow);
+    const opened = fs.fstatSync(fd);
+    if (!opened.isFile() || opened.dev !== before.dev || opened.ino !== before.ino) {
+      throw new Error('target index changed while it was being read');
+    }
+    return fs.readFileSync(fd, 'utf8');
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
+  }
+}
+
+function writeIndex(index, content, root) {
+  const dir = path.dirname(index);
+  if (!samePath(path.resolve(errorsDirectory(root)), path.resolve(dir))) {
+    throw new Error('errors directory changed before index publication');
+  }
+  const previous = inspectIndex(index);
+  const previousBytes = previous ? readIndex(index) : null;
+  const mode = previous ? previous.mode & 0o777 : 0o666;
+  let temporary;
+  let fd;
+  try {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      temporary = path.join(dir, `.${INDEX_NAME}.${process.pid}.${crypto.randomBytes(8).toString('hex')}.tmp`);
+      try {
+        fd = fs.openSync(temporary, 'wx', mode);
+        break;
+      } catch (error) {
+        temporary = undefined;
+        if (error.code !== 'EEXIST') throw error;
+      }
+    }
+    if (fd === undefined) throw new Error('could not allocate an exclusive temporary index file');
+    if (previous) fs.fchmodSync(fd, mode);
+    fs.writeFileSync(fd, content, 'utf8');
+    const openFd = fd;
+    fd = undefined;
+    fs.closeSync(openFd);
+
+    const currentDir = errorsDirectory(root);
+    if (!samePath(path.resolve(currentDir), path.resolve(dir))) throw new Error('errors directory changed before index publication');
+    const current = inspectIndex(index);
+    if (Boolean(current) !== Boolean(previous) || (current && (
+      current.dev !== previous.dev || current.ino !== previous.ino || readIndex(index) !== previousBytes
+    ))) throw new Error('target index changed before publication');
+    fs.renameSync(temporary, index);
+    temporary = undefined;
+  } finally {
+    if (fd !== undefined) {
+      try { fs.closeSync(fd); } catch (_) { /* still remove the temporary file */ }
+    }
+    if (temporary) {
+      try { fs.unlinkSync(temporary); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
+  }
 }
 
 function main() {
@@ -99,17 +209,26 @@ function main() {
 
   let next;
   let index;
+  let directory;
   try {
     root = path.resolve(root);
-    next = render(root);
-    index = path.join(root, ERRORS_PATH, INDEX_NAME);
+    directory = errorsDirectory(root);
+    index = path.join(directory, INDEX_NAME);
+    inspectIndex(index);
+    next = renderDirectory(directory);
   } catch (error) {
     console.error(`errors:sync: ${error.message}`);
     process.exit(1);
   }
   const rel = path.relative(root, index).replace(/\\/g, '/');
   if (check) {
-    const current = fs.existsSync(index) ? fs.readFileSync(index, 'utf8') : null;
+    let current;
+    try {
+      current = readIndex(index);
+    } catch (error) {
+      console.error(`errors:sync: ${error.message}`);
+      process.exit(1);
+    }
     if (current !== next) {
       console.error(`${rel} is stale. Run npm run errors:sync.`);
       process.exit(1);
@@ -117,7 +236,12 @@ function main() {
     console.log(`${rel} is current.`);
     return;
   }
-  fs.writeFileSync(index, next, 'utf8');
+  try {
+    writeIndex(index, next, root);
+  } catch (error) {
+    console.error(`errors:sync: ${error.message}`);
+    process.exit(1);
+  }
   console.log(`Updated ${rel}`);
 }
 
