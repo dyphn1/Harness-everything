@@ -14,3 +14,10 @@ flowchart TD
     PREFLIGHT --> PROMOTE["Promote the exact approved candidate"]
     PROMOTE --> INDEX["Regenerate the target index with --root"]
 ```
+
+The oracle links candidates to ledger records by site-path overlap. In JSON,
+`rates.unmatchedShare` is the unmatched candidate share; Markdown labels it
+**unmatched candidate share (path overlap)**. This is a proxy and may link
+distinct lessons, so it does not estimate semantic precision. Both recall rates
+are path-linked proxies: `recall (all) = linked records / all records` and
+`recall (comparable) = linked records / comparable records`.
