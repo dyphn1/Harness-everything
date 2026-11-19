@@ -308,6 +308,37 @@ function removePriorEntries(config, prior) {
   return { config: { ...config, hooks: nextHooks }, drift, removed };
 }
 
+function isLegacyTierRouterCommand(command) {
+  if (typeof command !== 'string') return false;
+  const match = /^node(?:\.exe)?[ \t]+(?:"([^"\r\n]+)"|'([^'\r\n]+)'|([^\s"']+))[ \t]*$/i.exec(command);
+  if (!match) return false;
+  const script = (match[1] || match[2] || match[3]).replace(/\\/g, '/');
+  // Only a bare Node invocation of the legacy npx package entry point.
+  return !/[$%`&;|<>!^()]/.test(script) &&
+    /^(?:[a-z]:\/|\/)(?:[^/]+\/)*_npx\/[0-9a-f]+\/node_modules\/harness-everything\/harness-everything\/scripts\/tier-router\.js$/i.test(script);
+}
+
+function legacyTierRouterHooks(config) {
+  const groups = config.hooks.UserPromptSubmit || [];
+  return groups.flatMap(group => (Array.isArray(group?.hooks) ? group.hooks : []).filter(hook => {
+    if (hook?.type !== 'command') return false;
+    const commands = [hook.command, hook.commandWindows].filter(command => command !== undefined);
+    return commands.length > 0 && commands.every(isLegacyTierRouterCommand);
+  }));
+}
+
+function removeLegacyTierRouterHooks(config, candidates) {
+  if (candidates.length === 0) return config;
+  const remove = new Set(candidates);
+  const groups = config.hooks.UserPromptSubmit.flatMap(group => {
+    if (!Array.isArray(group?.hooks)) return [group];
+    const hooks = group.hooks.filter(hook => !remove.has(hook));
+    if (hooks.length === group.hooks.length) return [group];
+    return hooks.length > 0 ? [{ ...group, hooks }] : [];
+  });
+  return { ...config, hooks: { ...config.hooks, UserPromptSubmit: groups } };
+}
+
 function hookEntriesFrom(pluginRoot, runtimeDir) {
   const sourceFile = path.join(pluginRoot, 'hooks', 'hooks.json');
   const source = readHooksFile(sourceFile);
@@ -543,11 +574,12 @@ function install(options = {}) {
   return withOwnerLock(p, options, () => installLocked(p, {
     codexHome, sourcePluginRoot, include, packageVersion, sourceHash,
     onRuntimeReady: options.onRuntimeReady,
+    removeLegacyTierRouter: options.removeLegacyTierRouter === true,
   }));
 }
 
 // Every manifest read and runtime/hooks write happens inside the owner lock.
-function installLocked(p, { codexHome, sourcePluginRoot, include, packageVersion, sourceHash, onRuntimeReady }) {
+function installLocked(p, { codexHome, sourcePluginRoot, include, packageVersion, sourceHash, onRuntimeReady, removeLegacyTierRouter }) {
   const existedBefore = fs.existsSync(p.hooksFile);
   const hooksBefore = existedBefore ? fs.readFileSync(p.hooksFile) : null;
   const runtimeExistedBefore = fs.existsSync(p.runtimeDir);
@@ -562,6 +594,8 @@ function installLocked(p, { codexHome, sourcePluginRoot, include, packageVersion
     }
     base = removal.config;
   }
+  const legacyHooks = legacyTierRouterHooks(base);
+  if (removeLegacyTierRouter) base = removeLegacyTierRouterHooks(base, legacyHooks);
 
   ensureRuntime(p.runtimeDir, sourceHash, sourcePluginRoot, include);
   // Test seam: lets regressions force two installers to overlap before commit.
@@ -627,6 +661,8 @@ function installLocked(p, { codexHome, sourcePluginRoot, include, packageVersion
     packageVersion,
     sourcePluginSha256: sourceHash,
     entries: generated.length,
+    legacyTierRouterHooks: removeLegacyTierRouter ? [] : legacyHooks,
+    removedLegacyTierRouterHooks: removeLegacyTierRouter ? legacyHooks.length : 0,
     trustChanged: false,
   };
 }
@@ -688,9 +724,11 @@ function status(options = {}) {
   const p = pathsFor(codexHome);
   assertCompatibilityPaths(p);
   const prior = readManifest(p.manifestFile, p);
-  if (!prior) return { installed: false, codexHome, hooksFile: p.hooksFile, trustChanged: false,
-    observationCapture: { status: 'inactive', reason: 'compatibility-hooks-not-installed', trustRequired: true } };
   const config = readHooksFile(p.hooksFile);
+  const legacyHooks = legacyTierRouterHooks(config);
+  if (!prior) return { installed: false, codexHome, hooksFile: p.hooksFile, trustChanged: false,
+    legacyTierRouterHooks: legacyHooks,
+    observationCapture: { status: 'inactive', reason: 'compatibility-hooks-not-installed', trustRequired: true } };
   const removal = removePriorEntries(config, prior);
   const expected = prior.entries.length;
   const currentHealthy = fs.existsSync(prior.runtimeDir) && treeHash(prior.runtimeDir) === prior.sourcePluginSha256;
@@ -714,6 +752,7 @@ function status(options = {}) {
     expectedEntries: expected,
     exactEntriesPresent: removal.removed.length,
     drift: removal.drift,
+    legacyTierRouterHooks: legacyHooks,
     healthy,
     observationCapture: {
       // A lost previous runtime breaks older sessions, not new-session capture.
@@ -728,16 +767,18 @@ function status(options = {}) {
 function parseArgs(argv) {
   const action = argv[0] || 'status';
   if (!['install', 'uninstall', 'status'].includes(action)) {
-    throw new Error('Usage: harness codex-hooks <install|uninstall|status> [--codex-home <path>] [--allow-unreleased-source]');
+    throw new Error('Usage: harness codex-hooks <install|uninstall|status> [--codex-home <path>] [--allow-unreleased-source] [--remove-legacy-tier-router (install only)]');
   }
   let codexHome;
   let allowUnreleasedSource = false;
+  let removeLegacyTierRouter = false;
   for (let i = 1; i < argv.length; i++) {
     if (argv[i] === '--codex-home') codexHome = path.resolve(argv[++i]);
     else if (argv[i] === '--allow-unreleased-source') allowUnreleasedSource = true;
+    else if (argv[i] === '--remove-legacy-tier-router' && action === 'install') removeLegacyTierRouter = true;
     else throw new Error('unknown argument: ' + argv[i]);
   }
-  return { action, codexHome, allowUnreleasedSource };
+  return { action, codexHome, allowUnreleasedSource, removeLegacyTierRouter };
 }
 
 function main(argv = process.argv.slice(2)) {
@@ -750,7 +791,7 @@ function main(argv = process.argv.slice(2)) {
 
   try {
     const result = args.action === 'install'
-      ? install({ codexHome: args.codexHome, allowUnreleasedSource: args.allowUnreleasedSource })
+      ? install(args)
       : args.action === 'uninstall'
         ? uninstall({ codexHome: args.codexHome })
         : status({ codexHome: args.codexHome });
