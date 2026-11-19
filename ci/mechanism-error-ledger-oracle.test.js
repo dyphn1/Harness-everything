@@ -26,7 +26,7 @@ function makeFixture(name, records, candidates) {
     const sites = record.sites.map(site => `  - ${JSON.stringify(site)}`).join('\n');
     write(path.join(ledger, `${record.id}-fixture.md`), [
       '---', `id: ${record.id}`, 'sites:', sites, '---',
-      '', `PRIVATE_RECORD_BODY_${record.id}`, ''
+      '', record.lesson || `PRIVATE_RECORD_BODY_${record.id}`, ''
     ].join('\n'));
   }
   write(report, `${JSON.stringify({
@@ -96,7 +96,7 @@ const result = run(fixture, ['--json']);
 const payload = jsonResult(result);
 
 assert.deepStrictEqual(Object.keys(payload).sort(),
-  ['counts', 'rates', 'nonComparable', 'linked', 'unlinked', 'sharedPathHits'].sort());
+  ['counts', 'rates', 'metricNote', 'nonComparable', 'linked', 'unlinked', 'sharedPathHits'].sort());
 assert.deepStrictEqual(payload.counts, {
   records: 8,
   comparableRecords: 7,
@@ -104,7 +104,10 @@ assert.deepStrictEqual(payload.counts, {
   candidates: 5,
   unmatchedCandidates: 1
 });
-assert.deepStrictEqual(payload.rates, { recallAll: 5 / 8, recallComparable: 5 / 7, noise: 1 / 5 });
+assert.deepStrictEqual(payload.rates, { recallAll: 5 / 8, recallComparable: 5 / 7, unmatchedShare: 1 / 5 });
+assert.match(payload.metricNote, /path overlap is a proxy and may link distinct lessons/i);
+assert.match(payload.metricNote, /recall \(all\) = linked records \/ all records/i);
+assert.match(payload.metricNote, /recall \(comparable\) = linked records \/ comparable records/i);
 assert.deepStrictEqual(payload.nonComparable, ['E-0004']);
 assert.deepStrictEqual(payload.linked, [
   { id: 'E-0001', candidateIds: ['candidate-exact'] },
@@ -127,8 +130,13 @@ assert.deepStrictEqual(fs.readFileSync(fixture.report), reportBefore, 'the scan 
 
 const markdown = run(fixture);
 assert.strictEqual(markdown.status, 0, `Markdown output failed: ${markdown.stderr}`);
-assert.match(markdown.stdout, /^\| Metric \| Value \|/);
-assert.ok(markdown.stdout.includes('recall (all)') && markdown.stdout.includes('noise'));
+assert.match(markdown.stdout, /^Path overlap is a proxy/i);
+assert.match(markdown.stdout, /\n\n\| Metric \| Value \|/);
+assert.ok(markdown.stdout.includes('recall (all)') &&
+  markdown.stdout.includes('unmatched candidate share (path overlap)'));
+assert.match(markdown.stdout, /path overlap is a proxy and may link distinct lessons/i);
+assert.match(markdown.stdout, /recall \(all\) = linked records \/ all records/i);
+assert.match(markdown.stdout, /recall \(comparable\) = linked records \/ comparable records/i);
 
 const saved = path.join(fixture.root, 'oracle.json');
 const savedResult = run(fixture, ['--json', '--out', saved]);
@@ -174,8 +182,24 @@ const zero = makeFixture('zero-candidates', [
   { id: 'E-0009', sites: ['src/never-linked.js'] }
 ], []);
 const zeroPayload = jsonResult(run(zero, ['--json']));
-assert.strictEqual(zeroPayload.rates.noise, null, 'noise is undefined when there are no candidates');
+assert.strictEqual(zeroPayload.rates.unmatchedShare, null, 'unmatched share is null when there are no candidates');
 assert.strictEqual(zeroPayload.counts.unmatchedCandidates, 0);
+const zeroMarkdown = run(zero);
+assert.strictEqual(zeroMarkdown.status, 0, `zero-candidate Markdown output failed: ${zeroMarkdown.stderr}`);
+assert.match(zeroMarkdown.stdout, /\| unmatched candidate share \(path overlap\) \| n\/a \|/);
+
+const differentLessons = makeFixture('same-path-different-lessons', [
+  { id: 'E-0012', sites: ['shared/ambiguous.js'], lesson: 'Database deadlock handling' }
+], [
+  { id: 'candidate-different-lesson', sites: ['shared/ambiguous.js'], title: 'CSS formatting only' }
+]);
+const differentLessonPayload = jsonResult(run(differentLessons, ['--json']));
+assert.deepStrictEqual(differentLessonPayload.linked, [
+  { id: 'E-0012', candidateIds: ['candidate-different-lesson'] }
+], 'same-file candidates link even when their lesson text differs');
+assert.strictEqual(differentLessonPayload.rates.unmatchedShare, 0,
+  'path overlap alone cannot identify a semantically unrelated candidate');
+assert.match(differentLessonPayload.metricNote, /may link distinct lessons/i);
 
 const windows = makeFixture('windows', [
   { id: 'E-0010', sites: ['Src\\Parser.JS'] },

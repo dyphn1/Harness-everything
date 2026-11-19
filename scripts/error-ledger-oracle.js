@@ -6,6 +6,7 @@ const path = require('node:path');
 const yaml = require('js-yaml');
 
 const USAGE = 'usage: node scripts/error-ledger-oracle.js --report <scan-report.json> --ledger <errors dir> [--json] [--out <file>] [--platform <platform>]';
+const METRIC_NOTE = 'Path overlap is a proxy and may link distinct lessons. Both recall rates are path-linked proxies: recall (all) = linked records / all records; recall (comparable) = linked records / comparable records.';
 
 function failure(message) {
   const error = new Error(message);
@@ -162,8 +163,9 @@ function compare(records, candidates) {
     rates: {
       recallAll: rate(linkedRecords, records.length),
       recallComparable: rate(linkedRecords, records.length - nonComparable.length),
-      noise: rate(unmatchedCandidates, candidates.length)
+      unmatchedShare: rate(unmatchedCandidates, candidates.length)
     },
+    metricNote: METRIC_NOTE,
     nonComparable,
     linked,
     unlinked: records.filter(record => !linkedIds.has(record.id)).map(record => record.id).sort(),
@@ -230,9 +232,9 @@ function markdown(result) {
     ['unmatched candidates', result.counts.unmatchedCandidates],
     ['recall (all)', rate(result.rates.recallAll)],
     ['recall (comparable)', rate(result.rates.recallComparable)],
-    ['noise', rate(result.rates.noise)]
+    ['unmatched candidate share (path overlap)', rate(result.rates.unmatchedShare)]
   ];
-  return `| Metric | Value |\n| --- | ---: |\n${rows.map(([label, value]) => `| ${label} | ${value} |`).join('\n')}\n`;
+  return `${result.metricNote}\n\n| Metric | Value |\n| --- | ---: |\n${rows.map(([label, value]) => `| ${label} | ${value} |`).join('\n')}\n`;
 }
 
 function main() {
