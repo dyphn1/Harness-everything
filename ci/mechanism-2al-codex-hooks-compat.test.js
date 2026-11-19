@@ -5,6 +5,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { spawnSync } = require('child_process');
 
 const compat = require('../scripts/codex-hooks-compat');
 
@@ -62,6 +63,11 @@ const original = {
 fs.writeFileSync(hooksFile, JSON.stringify(original, null, 4) + '\n', 'utf8');
 fs.writeFileSync(configFile, 'model = "test"\n# user trust/config state\n', 'utf8');
 const configBefore = fs.readFileSync(configFile, 'utf8');
+const npxRouterPath = '_npx/9abc123def/node_modules/harness-everything/harness-everything/scripts/tier-router.js';
+const legacyWindows = {
+  type: 'command',
+  commandWindows: 'node "C:\\Cache Dir\\' + npxRouterPath.replace(/\//g, '\\') + '"',
+};
 
 try {
   const installed = compat.install({ allowUnreleasedSource: true, codexHome });
@@ -215,6 +221,52 @@ try {
     fs.readFileSync(path.join(preexistingHome, 'hooks.json'), 'utf8') === preexistingBefore,
     'uninstall preserves byte-identical hooks that predated compatibility install');
 
+  const legacyHome = path.join(root, 'legacy-codex');
+  fs.mkdirSync(legacyHome);
+  const legacyFile = path.join(legacyHome, 'hooks.json');
+  const legacyConfigFile = path.join(legacyHome, 'config.toml');
+  const direct = { type: 'command', command: 'node "/cache dir/' + npxRouterPath + '"' };
+  const customized = { ...direct, commandWindows: 'node "C:\\user\\my-prompt-hook.js"' };
+  const chained = { ...direct, command: direct.command + ' && echo custom' };
+  const localRouter = { ...direct, command: 'node "/user/scripts/tier-router.js"' };
+  const preserved = { matcher: '.*', hooks: [customized, chained, localRouter] };
+  const otherEvent = { hooks: [direct] };
+  fs.writeFileSync(legacyConfigFile, configBefore);
+  fs.writeFileSync(legacyFile, JSON.stringify({ hooks: {
+    UserPromptSubmit: [{ ...preserved, hooks: [direct, ...preserved.hooks] }, { hooks: [legacyWindows, direct] }],
+    Stop: [otherEvent],
+  } }));
+  const beforeLegacyStatus = fs.readFileSync(legacyFile, 'utf8');
+  const legacyStatus = compat.status({ codexHome: legacyHome });
+  assert.strictEqual(legacyStatus.installed, false);
+  assert.deepStrictEqual(legacyStatus.legacyTierRouterHooks, [direct, legacyWindows, direct]);
+  assert.strictEqual(fs.readFileSync(legacyFile, 'utf8'), beforeLegacyStatus);
+
+  const legacyInstall = compat.install({ allowUnreleasedSource: true, codexHome: legacyHome });
+  assert.deepStrictEqual(legacyInstall.legacyTierRouterHooks, legacyStatus.legacyTierRouterHooks);
+  assert.deepStrictEqual(compat.status({ codexHome: legacyHome }).legacyTierRouterHooks, legacyStatus.legacyTierRouterHooks);
+
+  const migration = spawnSync(process.execPath, [
+    path.join(__dirname, '..', 'bin', 'cli.js'), 'codex-hooks', 'install',
+    '--codex-home', legacyHome, '--allow-unreleased-source', '--remove-legacy-tier-router',
+  ], { encoding: 'utf8', timeout: 30000 });
+  assert.strictEqual(migration.status, 0, migration.stderr || String(migration.error));
+  assert.strictEqual(JSON.parse(migration.stdout).removedLegacyTierRouterHooks, 3);
+  const migrated = read(legacyFile);
+  assert.deepStrictEqual(migrated.hooks.UserPromptSubmit[0], preserved);
+  assert.deepStrictEqual(migrated.hooks.Stop[0], otherEvent);
+  const promptCommands = migrated.hooks.UserPromptSubmit.slice(1).flatMap(group => group.hooks);
+  assert.deepStrictEqual(promptCommands.map(hook => path.posix.basename(hook.command).replace(/"$/, '')),
+    ['codex-user-prompt.js', 'observation-hook.js']);
+  assert.strictEqual(fs.readFileSync(legacyConfigFile, 'utf8'), configBefore);
+  const migratedStatus = compat.status({ codexHome: legacyHome });
+  assert.strictEqual(migratedStatus.healthy, true);
+  assert.deepStrictEqual(migratedStatus.legacyTierRouterHooks, []);
+  const retried = compat.install({ allowUnreleasedSource: true, codexHome: legacyHome, removeLegacyTierRouter: true });
+  assert.strictEqual(retried.removedLegacyTierRouterHooks, 0);
+  assert.deepStrictEqual(read(legacyFile), migrated);
+  console.log('  PASS opt-in migration removes only legacy prompt handlers, installs one adapter, and is idempotent (#457)');
+
   const forgedManifestHome = path.join(root, 'forged-manifest-codex');
   fs.mkdirSync(forgedManifestHome, { recursive: true });
   fs.writeFileSync(path.join(forgedManifestHome, 'hooks.json'),
@@ -241,7 +293,9 @@ try {
   fs.mkdirSync(failedInstallHome, { recursive: true });
   const failedInstallHooks = path.join(failedInstallHome, 'hooks.json');
   fs.writeFileSync(failedInstallHooks,
-    JSON.stringify({ description: 'must survive', hooks: { PreToolUse: [userHook] } }, null, 4) + '\n',
+    JSON.stringify({ description: 'must survive', hooks: {
+      PreToolUse: [userHook], UserPromptSubmit: [{ hooks: [legacyWindows] }],
+    } }, null, 4) + '\n',
     'utf8');
   const failedInstallBefore = fs.readFileSync(failedInstallHooks, 'utf8');
   const failedManifestPath = path.join(
@@ -254,7 +308,7 @@ try {
     }
     return realRenameSync(source, destination);
   };
-  try { compat.install({ allowUnreleasedSource: true, codexHome: failedInstallHome }); }
+  try { compat.install({ allowUnreleasedSource: true, codexHome: failedInstallHome, removeLegacyTierRouter: true }); }
   catch (error) { failedInstallRefused = /injected manifest commit failure/.test(error.message); }
   finally { fs.renameSync = realRenameSync; }
   check(failedInstallRefused &&

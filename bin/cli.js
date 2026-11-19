@@ -112,6 +112,7 @@ Commands:
                      that fail to mount enabled plugin-bundled hooks.
                      Usage: harness codex-hooks <install|status|uninstall>
                      [--codex-home <path>] [--allow-unreleased-source]
+                     Install option: --remove-legacy-tier-router
                      Does not trust hooks or modify Codex config.toml.
   plugin-sync        Install or update the native Harness plugin on Claude Code
                      and Codex. Existing installations always take the update

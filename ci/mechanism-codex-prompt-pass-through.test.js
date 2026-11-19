@@ -42,7 +42,7 @@ fs.writeFileSync(stubRouter, [
   "process.stdin.on('end', () => {",
   "  const fs = require('fs');",
   "  fs.writeFileSync(process.env.STUB_ROUTER_MARKER, input, 'utf8');",
-  "  process.stdout.write('STUB_ROUTER_MARKER');",
+  "  process.stdout.write('[Tier Routing Pre-check] STUB_ROUTER_MARKER');",
   "  process.exit(0);",
   "});",
   "process.stdin.on('error', () => process.exit(0));",
@@ -83,8 +83,12 @@ for (const testCase of cases) {
     const marker = fs.readFileSync(markerFile, 'utf8');
     check(marker === inputText, `${testCase.name}: router received the original payload unchanged`);
   }
-  check(String(result.stdout || '').includes('STUB_ROUTER_MARKER'),
-    `${testCase.name}: router output is forwarded to the host`);
+  assert.deepStrictEqual(JSON.parse(result.stdout), {
+    hookSpecificOutput: {
+      hookEventName: 'UserPromptSubmit',
+      additionalContext: '[Tier Routing Pre-check] STUB_ROUTER_MARKER',
+    },
+  }, `${testCase.name}: bracketed router output reaches the host as valid hook JSON`);
 }
 
 // Cleanup

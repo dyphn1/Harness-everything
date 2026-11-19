@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 'use strict';
 // Codex UserPromptSubmit adapter (docs/system-one-observations.md#hosts).
-// Codex adds prompt-time context to the model only from JSON
-// hookSpecificOutput.additionalContext; the router's plain stdout never
-// reaches the model. This runs the kernel router and wraps its output.
+// Wrap router output in JSON hookSpecificOutput.additionalContext. Codex
+// treats stdout beginning with "[" (including routing banners) as JSON-like.
 
 const fs = require('fs');
 const path = require('path');
