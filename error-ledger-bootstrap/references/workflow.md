@@ -3,10 +3,14 @@
 ## Inventory sources and privacy
 
 Run `node "<this-skill-dir>/scripts/scan.js" --root "<target repo>"` with only the source options you intend to use. The scanner reads local Git history, repository `AGENTS.md` / `CLAUDE.md` instructions, and selected local memory or instruction files. Automatic memory is used only when the local memory directory can be associated with the target repository. Global instructions are included only when named with `--instructions <path>`.
+At least two distinct `fix`/`revert` commits touching `*.md` or `docs/**` paths create documentation candidates.
+`--tracker <file.json>` reads saved offline JSON arrays from `gh issue list` or `gh issue view`. The scanner never calls GitHub.
+Bug/regression/flake labels or `fix`/`bug` title prefixes qualify; reports keep the issue reference and matching repo-existing paths, never issue bodies.
 
 - `--memory <path>` selects local memory files; repeat it to select more paths.
 - `--instructions <path>` explicitly selects local instruction files; repeat as needed.
-- `--no-memory` disables memory and instruction sources for a privacy-minimal Git-only inventory.
+- `--tracker <file.json>` selects an offline issue export; repeat it for additional files.
+- `--no-memory` disables memory and instruction sources; docs and tracker sources remain enabled.
 - `--hide-ledger` excludes existing error-ledger files from the scan.
 - `--home <dir>` changes the local home used to resolve automatic memory.
 

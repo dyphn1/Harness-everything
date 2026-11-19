@@ -116,6 +116,15 @@ try {
     '.agents/harness-everything/errors/index.jsonl': '{"generated":true}\n',
     'docs/error-handling/generated.md': 'GENERATED_LEDGER_COPY_SENTINEL\n'
   }, 5);
+  commit(repo, 'fix: clarify documentation paths', {
+    'guide.md': '# Repeated guide\nFirst correction.\n',
+    'docs/reference.json': '{"guide":"First correction"}\n',
+    'docs/single.md': '# Single guide\nOne correction.\n'
+  }, 6);
+  commit(repo, 'revert: restore repeated documentation example', {
+    'guide.md': '# Repeated guide\nRestored example.\n',
+    'docs/reference.json': '{"guide":"Restored example"}\n'
+  }, 7);
 
   writeFile(autoMemory, [
     '---',
@@ -178,7 +187,9 @@ try {
   assert.ok(defaultJson.sources.every(source => VALID_SOURCE_STATUSES.has(source.status)),
     'all source statuses use the public enum');
   assert.deepStrictEqual(new Set(defaultJson.sources.map(source => source.type)),
-    new Set(['git', 'memory', 'instruction']));
+    new Set(['git', 'doc', 'tracker', 'memory', 'instruction']));
+  assert.strictEqual(defaultJson.sources.find(source => source.type === 'doc').status, 'used');
+  assert.strictEqual(defaultJson.sources.find(source => source.type === 'tracker').status, 'missing');
   for (const item of defaultJson.candidates) {
     assert.strictEqual(item.kind, 'error-candidate');
     assert.strictEqual(item.status, 'UNVERIFIED');
@@ -197,6 +208,16 @@ try {
     'distinct fix commits, including the stripped mixed commit path, are listed');
   assert.ok(parserLead.sources.every(source => /^[a-f0-9]{40}$/.test(source.sha) && source.subject));
   assert.ok(!candidate(defaultJson, 'src/single.js', 'git'), 'one fix commit does not create a lead');
+  const docLead = candidate(defaultJson, 'guide.md', 'doc');
+  assert.ok(docLead, 'two fix/revert commits to one Markdown path create a doc candidate');
+  assert.strictEqual(docLead.sources.length, 2);
+  assert.ok(docLead.sources.every(source => source.type === 'doc' && source.path === 'guide.md' && /^[a-f0-9]{40}$/.test(source.sha)),
+    'doc sources identify their path and commit SHA');
+  assert.ok(!candidate(defaultJson, 'guide.md', 'git'), 'documentation history stays separate from code path groups');
+  const docsTreeLead = candidate(defaultJson, 'docs/reference.json', 'doc');
+  assert.ok(docsTreeLead && docsTreeLead.sources.length === 2, 'repeated paths anywhere under docs are documentation candidates');
+  assert.ok(!candidate(defaultJson, 'docs/single.md', 'doc'), 'one fix commit to a Markdown path does not create a doc candidate');
+  assert.ok(defaultMd.includes(`guide.md — ${docLead.sources[0].sha}`), 'Markdown reports include each doc path and commit SHA');
   assert.ok(!defaultJson.candidates.some(item => JSON.stringify(item).includes('LEDGER_ONLY_SENTINEL')));
   assert.ok(!defaultJson.candidates.some(item => item.sources.some(source => source.subject === 'fix: ledger only change')));
   assert.ok(!defaultJson.candidates.some(item => item.sites.some(site => site.includes('.agents/harness-everything/errors'))));
@@ -226,9 +247,9 @@ try {
   const noHidePayload = reportFrom(run(['--root', repo, '--home', home], home));
   defaultReports.push(path.dirname(noHidePayload.reportJson));
   const noHideJson = JSON.parse(fs.readFileSync(noHidePayload.reportJson, 'utf8'));
-  assert.ok(candidate(noHideJson, '.agents/harness-everything/errors/E-fixture.md', 'git'),
+  assert.ok(candidate(noHideJson, '.agents/harness-everything/errors/E-fixture.md', 'doc'),
     'positive control sees the repeated ledger path when --hide-ledger is absent');
-  assert.ok(candidate(noHideJson, 'docs/error-handling/generated.md', 'git'),
+  assert.ok(candidate(noHideJson, 'docs/error-handling/generated.md', 'doc'),
     'positive control sees the generated copy path when --hide-ledger is absent');
 
   const explicitOut = path.join(TMP, 'explicit-reports');
@@ -259,6 +280,105 @@ try {
   assert.ok(!noMemoryJson.candidates.some(item => item.sources.some(source => ['memory', 'instruction'].includes(source.type))));
   assert.ok(noMemoryJson.sources.filter(source => ['memory', 'instruction'].includes(source.type))
     .every(source => source.status === 'disabled'), '--no-memory disables memory and all instruction inputs');
+
+  const trackerFile = path.join(TMP, 'offline-issues.json');
+  writeFile(trackerFile, JSON.stringify([
+    {
+      number: 421,
+      title: 'Parser loses token',
+      labels: [{ name: 'BUG' }],
+      body: 'Regression at src/parser.js; missing/path.js is not in the repository. TRACKER_PRIVATE_BODY_SENTINEL',
+      closedAt: null,
+      state: 'OPEN'
+    },
+    {
+      number: 422,
+      title: 'Add another parser option',
+      labels: [{ name: 'enhancement' }],
+      body: 'src/parser.js',
+      closedAt: null,
+      state: 'OPEN'
+    },
+    {
+      number: 423,
+      title: 'Fix command documentation',
+      labels: [{ name: 'enhancement' }],
+      body: 'guide.md',
+      closedAt: null,
+      state: 'OPEN'
+    },
+    {
+      number: 424,
+      title: 'bug: parser issue without a bug label',
+      labels: [{ name: 'enhancement' }],
+      body: 'src/single.js',
+      closedAt: null,
+      state: 'OPEN'
+    },
+    {
+      number: 425,
+      title: 'Intermittent parser failure',
+      labels: [{ name: 'Regression' }],
+      body: 'src/parser.js',
+      closedAt: null,
+      state: 'OPEN'
+    },
+    {
+      number: 426,
+      title: 'Flaky parser failure',
+      labels: [{ name: 'FlAkE' }],
+      body: 'src/parser.js',
+      closedAt: null,
+      state: 'OPEN'
+    }
+  ], null, 2));
+  const secondTrackerFile = path.join(TMP, 'offline-issues-2.json');
+  writeFile(secondTrackerFile, JSON.stringify([{
+    number: 427,
+    title: 'Another intermittent issue',
+    labels: [{ name: 'regression' }],
+    body: 'docs/single.md',
+    closedAt: null,
+    state: 'OPEN'
+  }], null, 2));
+  const trackerOut = path.join(TMP, 'tracker-reports');
+  const trackerPayload = reportFrom(run([
+    '--root', repo, '--out', trackerOut, '--hide-ledger', '--home', home,
+    '--no-memory', '--tracker', trackerFile, '--tracker', secondTrackerFile
+  ], home));
+  const trackerJsonText = fs.readFileSync(trackerPayload.reportJson, 'utf8');
+  const trackerJson = JSON.parse(trackerJsonText);
+  const trackerMd = fs.readFileSync(trackerPayload.reportMd, 'utf8');
+  const bugCandidate = candidate(trackerJson, 'src/parser.js', 'tracker');
+  assert.ok(bugCandidate, 'a bug-labelled offline issue mentioning an existing path creates a candidate');
+  assert.deepStrictEqual(bugCandidate.sites, ['src/parser.js']);
+  assert.deepStrictEqual(bugCandidate.sources, [{ type: 'tracker', ref: '#421' }],
+    'tracker candidate source exposes only its issue reference');
+  assert.ok(candidate(trackerJson, 'guide.md', 'tracker'), 'a fix-prefixed title qualifies without a bug label');
+  assert.ok(trackerJson.candidates.some(item => item.sources.some(source => source.type === 'tracker' && source.ref === '#424')),
+    'a bug-prefixed title qualifies without a bug label');
+  assert.ok(trackerJson.candidates.some(item => item.sources.some(source => source.type === 'tracker' && source.ref === '#425')),
+    'regression labels qualify case-insensitively');
+  assert.ok(trackerJson.candidates.some(item => item.sources.some(source => source.type === 'tracker' && source.ref === '#426')),
+    'flake labels qualify case-insensitively');
+  assert.ok(candidate(trackerJson, 'docs/single.md', 'tracker'), 'repeated --tracker options include each offline export');
+  assert.strictEqual(trackerJson.sources.filter(source => source.type === 'tracker').length, 2);
+  assert.ok(trackerMd.includes('#421'), 'Markdown report includes tracker issue references');
+  assert.ok(!trackerJson.candidates.some(item => item.sources.some(source => source.type === 'tracker' && source.ref === '#422')),
+    'an unlabelled non-bug issue is ignored');
+  assert.strictEqual(trackerJson.sources.find(source => source.type === 'tracker').status, 'used');
+  assert.ok(candidate(trackerJson, 'guide.md', 'doc'), '--no-memory leaves docs history enabled');
+  assert.ok(!trackerJson.candidates.some(item => item.sources.some(source => ['memory', 'instruction'].includes(source.type))));
+  assert.ok(!trackerJsonText.includes('TRACKER_PRIVATE_BODY_SENTINEL') && !trackerMd.includes('TRACKER_PRIVATE_BODY_SENTINEL'),
+    'tracker issue bodies never appear in either report');
+
+  const missingTracker = run([
+    '--root', repo, '--hide-ledger', '--home', home,
+    '--tracker', path.join(TMP, 'missing-issues.json')
+  ], home);
+  const missingTrackerPayload = reportFrom(missingTracker, 2);
+  assert.strictEqual(missingTrackerPayload.ok, false);
+  assert.match(missingTrackerPayload.error, /tracker/i);
 
   const repeatOut = path.join(TMP, 'repeat-reports');
   const repeatPayload = reportFrom(run([

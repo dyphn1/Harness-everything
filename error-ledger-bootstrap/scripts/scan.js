@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const USAGE = 'usage: node scan.js --root <repo> [--out <dir>] [--no-memory] [--memory <path>]... [--instructions <path>]... [--hide-ledger] [--home <dir>] [--json]';
+const USAGE = 'usage: node scan.js --root <repo> [--out <dir>] [--no-memory] [--memory <path>]... [--instructions <path>]... [--tracker <file.json>]... [--hide-ledger] [--home <dir>] [--json]';
 const HASH = /^[0-9a-f]{40}$/i;
 const SOURCE_STATUSES = new Set(['used', 'missing', 'disabled', 'unverified']);
 
@@ -18,9 +18,9 @@ function failure(message, exitCode = 2) {
 }
 
 function parseArgs(args) {
-  const options = { memory: [], instructions: [], noMemory: false, hideLedger: false, json: false };
+  const options = { memory: [], instructions: [], tracker: [], noMemory: false, hideLedger: false, json: false };
   const seen = new Set();
-  const values = new Set(['--root', '--out', '--home', '--memory', '--instructions']);
+  const values = new Set(['--root', '--out', '--home', '--memory', '--instructions', '--tracker']);
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === '--no-memory' || arg === '--hide-ledger' || arg === '--json') {
@@ -34,7 +34,7 @@ function parseArgs(args) {
     if (!values.has(arg)) failure(`unknown option: ${arg}`);
     if (i + 1 >= args.length || args[i + 1].startsWith('--')) failure(`missing value for ${arg}`);
     const value = args[++i];
-    if (arg === '--memory' || arg === '--instructions') {
+    if (arg === '--memory' || arg === '--instructions' || arg === '--tracker') {
       options[arg.slice(2)].push(value);
       continue;
     }
@@ -91,6 +91,10 @@ function isLedgerPath(relative) {
     rel === 'docs/error-handling' || rel.startsWith('docs/error-handling/');
 }
 
+function isDocumentationPath(relative) {
+  return relative.toLowerCase().endsWith('.md') || relative.startsWith('docs/');
+}
+
 function normalizedRepoPath(relative) {
   return relative.replace(/\\/g, '/').replace(/^\.\//, '');
 }
@@ -118,23 +122,28 @@ function parseHistory(root, hideLedger) {
     }
     if (relevant) {
       for (const site of changed) {
-        const commits = groups.get(site) || new Map();
+        const type = isDocumentationPath(site) ? 'doc' : 'git';
+        const key = `${type}\0${site}`;
+        const commits = groups.get(key) || new Map();
         commits.set(sha, { sha, subject });
-        groups.set(site, commits);
+        groups.set(key, commits);
       }
     }
   }
   return [...groups.entries()]
     .filter(([, commits]) => commits.size >= 2)
     .sort(([left], [right]) => left.localeCompare(right))
-    .map(([site, commits]) => makeCandidate({
-      title: `Repeated fix history for ${site}`,
-      signature: `repeated-fix:${site}`,
-      sites: [site],
-      sources: [...commits.values()].sort((a, b) => a.sha.localeCompare(b.sha)).map(commit => ({
-        type: 'git', sha: commit.sha, subject: commit.subject
-      }))
-    }));
+    .map(([key, commits]) => {
+      const [type, site] = key.split('\0');
+      return makeCandidate({
+        title: `Repeated fix history for ${site}`,
+        signature: `repeated-fix:${site}`,
+        sites: [site],
+        sources: [...commits.values()].sort((a, b) => a.sha.localeCompare(b.sha)).map(commit => type === 'doc'
+          ? { type, path: site, sha: commit.sha }
+          : { type, sha: commit.sha, subject: commit.subject })
+      });
+    });
 }
 
 function repoFiles(root) {
@@ -309,9 +318,68 @@ function sourceStatus(type, origin, status, details = {}) {
   return { type, origin, status, ...details };
 }
 
-function collectSources(options, root, home, files) {
-  const sources = [sourceStatus('git', 'history', 'used')];
+function trackerSites(body, root, files) {
+  const text = typeof body === 'string' ? body : '';
+  return files.filter(file => {
+    if (!fs.existsSync(path.join(root, file))) return false;
+    const escaped = file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(?<![A-Za-z0-9_./-])(?:\\.\\/)?${escaped}(?![A-Za-z0-9_./-])`).test(text);
+  });
+}
+
+function collectTracker(options, root, home, files) {
   const candidates = [];
+  if (!options.tracker.length) {
+    return {
+      sources: [sourceStatus('tracker', 'offline', 'missing', { reason: 'no --tracker file provided' })],
+      candidates
+    };
+  }
+
+  const sources = [];
+  for (const input of options.tracker) {
+    const file = path.resolve(input);
+    let issues;
+    try {
+      issues = JSON.parse(fs.readFileSync(file, 'utf8'));
+    } catch (_) {
+      failure('cannot read tracker export as JSON', 2);
+    }
+    if (!Array.isArray(issues)) failure('tracker export must be a JSON array', 2);
+    sources.push(sourceStatus('tracker', 'offline', 'used', { ref: labelPath(file, root, home) }));
+    for (const issue of issues) {
+      if (!issue || typeof issue !== 'object' || Array.isArray(issue)) failure('tracker export contains an invalid issue', 2);
+      const title = typeof issue.title === 'string' ? issue.title : '';
+      const labels = Array.isArray(issue.labels) ? issue.labels : [];
+      const qualifies = labels.some(label => /^(?:bug|regression|flake)$/i.test(String(label && label.name || ''))) ||
+        /^\s*(?:fix|bug)\b/i.test(title);
+      if (!qualifies) continue;
+      if (!Number.isSafeInteger(issue.number) || issue.number < 1 || !title.trim()) {
+        failure('tracker issue is missing a valid number or title', 2);
+      }
+      const ref = `#${issue.number}`;
+      const candidateTitle = shortTitle(title, root, home);
+      candidates.push(makeCandidate({
+        title: candidateTitle,
+        signature: slug(candidateTitle),
+        sites: trackerSites(issue.body, root, files),
+        sources: [{ type: 'tracker', ref }]
+      }));
+    }
+  }
+  return { sources, candidates };
+}
+
+function collectSources(options, root, home, files, historyCandidates) {
+  const documentation = historyCandidates.some(item => item.sources.some(source => source.type === 'doc'));
+  const tracker = collectTracker(options, root, home, files);
+  const sources = [
+    sourceStatus('git', 'history', 'used'),
+    sourceStatus('doc', 'history', documentation ? 'used' : 'missing',
+      documentation ? {} : { reason: 'no repeated Markdown or docs paths found' }),
+    ...tracker.sources
+  ];
+  const candidates = [...tracker.candidates];
   if (options.noMemory) {
     sources.push(sourceStatus('memory', 'auto', 'disabled', { verified: false, reason: 'disabled by --no-memory' }));
     sources.push(sourceStatus('instruction', 'repository', 'disabled', { reason: 'disabled by --no-memory' }));
@@ -423,7 +491,7 @@ function markdownReport(report) {
   for (const item of report.candidates) {
     lines.push(`### ${item.title}`, '', `- ID: \`${item.id}\``, `- Kind: \`${item.kind}\``, `- Domain: \`${item.domain}\``, `- Signature: \`${item.signature}\``, `- Status: **${item.status}**`, `- Sites: ${item.sites.length ? item.sites.map(site => `\`${site}\``).join(', ') : 'none'}`, '- Sources:');
     for (const source of item.sources) {
-      lines.push(`  - \`${source.type}\` ${source.ref || source.sha}${source.subject ? ` — ${source.subject}` : ''}`);
+      lines.push(`  - \`${source.type}\` ${source.ref || source.path || source.sha}${source.path && source.sha ? ` — ${source.sha}` : ''}${source.subject ? ` — ${source.subject}` : ''}`);
     }
     lines.push('- Attachments:');
     if (item.attachments.length) {
@@ -516,7 +584,7 @@ function scan(options) {
   const home = options.home ? path.resolve(options.home) : os.homedir();
   const historyCandidates = parseHistory(root, options.hideLedger);
   const files = repoFiles(root);
-  const selected = collectSources(options, root, home, files);
+  const selected = collectSources(options, root, home, files, historyCandidates);
   const candidates = [...new Map([...historyCandidates, ...selected.candidates].map(item => [item.id, item])).values()];
   addAttachments(candidates, files, root, options.hideLedger);
   for (const item of candidates) {
@@ -541,7 +609,9 @@ function scan(options) {
     ...paths,
     counts: {
       candidates: candidates.length,
-      git: historyCandidates.length,
+      git: historyCandidates.filter(item => item.sources.some(source => source.type === 'git')).length,
+      doc: historyCandidates.filter(item => item.sources.some(source => source.type === 'doc')).length,
+      tracker: candidates.filter(item => item.sources.some(source => source.type === 'tracker')).length,
       memory: candidates.filter(item => item.sources.some(source => source.type === 'memory')).length,
       instruction: candidates.filter(item => item.sources.some(source => source.type === 'instruction')).length
     }
