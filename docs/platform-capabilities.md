@@ -21,6 +21,18 @@ Codex and OpenCode are `Partial` in `liveHostVerification`. The Codex artifact v
 
 Exact title/body-only `update_pull_request` calls are Codex-only host-deferred mutations after an argument allowlist check; explicit required Gate hints and all additional fields retain the existing Gate. Native task scope, permissions and GitHub authorization remain authoritative. Canonical/package mechanism tests cover hashes, audit provenance, outcomes and negative controls; this does not establish candidate live-host coverage. See [Codex policy](codex-action-gate.md#codex-pr-titlebody-updates-host-deferred).
 
+### Codex post-tool and subagent-stop hooks
+
+Codex emits `PostToolUse` for both successful and failed shell commands. Harness
+requires a structured zero exit status to credit shell verification or clear a
+tracked shell failure. Text-only or missing status leaves verification and
+recovery state intact and is audited as `unknown` for observed gated actions.
+Edits are still tracked when the outcome is unknown because side effects may
+already have occurred. Codex `SubagentStop` surfaces scope violations through
+the documented JSON `systemMessage` warning and leaves the subagent stopped.
+The source and package fixtures cover these behaviors. Windows host delivery
+remains to be verified.
+
 ### Routing contract vs. host evidence
 
 The workflow plan controller rejects present non-array required/optional binding declarations before recording a requirement plan. This input-validation contract is covered by deterministic mechanism tests and does not change live-host evidence status.

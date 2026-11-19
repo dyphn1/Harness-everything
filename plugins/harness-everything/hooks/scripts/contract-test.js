@@ -24,8 +24,14 @@ const {
 } = require('./lib/fable-contracts');
 const { loadWorkflow, matchingRun } = require('./lib/workflow-runtime');
 const { createLearningOpportunity } = require('./lib/learning-opportunity');
+const { readCodexToolOutcome } = require('./lib/codex-tool-outcome');
+const codex = process.argv.includes('--codex');
 
 function resultState(payload) {
+  if (codex) {
+    const { outcome, exitCode, stdout, stderr } = readCodexToolOutcome(payload);
+    return { outcome, exitCode, evidence: (stderr.trim() || stdout).slice(-1000).trim() };
+  }
   const toolResponse = payload.tool_response || payload.tool_result || {};
   const stdout = toolResponse.stdout ?? payload.stdout ?? '';
   const stderr = toolResponse.stderr ?? payload.stderr ?? '';
@@ -36,7 +42,7 @@ function resultState(payload) {
     (exitCode !== undefined && exitCode !== 0) ||
     (exitCode === undefined && stderrSignal);
   const evidence = ((stderrSignal ? stderr : stdout) || '').slice(-1000).trim();
-  return { failed, exitCode, evidence };
+  return { outcome: failed ? 'failure' : 'success', exitCode, evidence };
 }
 
 function unresolvedBindings(contract) {
@@ -46,8 +52,9 @@ function unresolvedBindings(contract) {
     : !['loaded', 'not-needed'].includes(binding.status));
 }
 
-function updateRunContract(entry, payload, command, sessionId) {
-  const { failed, exitCode, evidence } = resultState(payload);
+function updateRunContract(entry, payload, command, sessionId, result) {
+  const { outcome, exitCode, evidence } = result;
+  const failed = outcome === 'failure';
   const unresolved = unresolvedBindings(entry.contract);
   const status = failed ? 'fail' : unresolved.length ? 'binding-unresolved' : 'pass';
   const observedAt = new Date().toISOString();
@@ -93,7 +100,7 @@ function activeFableStages(runRoot) {
   return [];
 }
 
-function resolveLegacyContract(stateRoot, command, payload) {
+function resolveLegacyContract(stateRoot, command, result) {
   const contractsDir = path.join(stateRoot, 'contracts');
   let files = [];
   try { files = fs.readdirSync(contractsDir).filter(file => file.endsWith('.json')); } catch (_) { return null; }
@@ -106,7 +113,8 @@ function resolveLegacyContract(stateRoot, command, payload) {
     matches.push({ manifest, filePath });
   }
   if (matches.length !== 1) return matches.length > 1 ? { ambiguous: true } : null;
-  const { failed, evidence } = resultState(payload);
+  const { outcome, evidence } = result;
+  const failed = outcome === 'failure';
   const match = matches[0];
   match.manifest.status = failed ? 'fail' : 'pass';
   match.manifest.evidence = evidence;
@@ -124,6 +132,8 @@ process.stdin.on('end', () => {
 
     const command = ((payload.tool_input && payload.tool_input.command) || '').trim();
     if (!command) process.exit(0);
+    const result = resultState(payload);
+    if (result.outcome === 'unknown') process.exit(0);
 
     const root = getWorkspaceRoot(payload);
     const stateRoot = getStateRoot(root, payload);
@@ -161,7 +171,7 @@ process.stdin.on('end', () => {
       }
       const previousStatus = entry.contract.status;
       const previousVerifiedAt = entry.contract.verifiedAt || entry.contract.updatedAt || null;
-      const contract = updateRunContract(entry, payload, command, sessionId);
+      const contract = updateRunContract(entry, payload, command, sessionId, result);
       if (previousStatus === 'fail' && contract.status === 'pass') {
         try {
           createLearningOpportunity(payload, {
@@ -199,7 +209,7 @@ process.stdin.on('end', () => {
 
     // Temporary compatibility with pre-Phase-3 manifests. New orchestration
     // must use run-scoped contracts; legacy manifests have no plan/run link.
-    const legacy = resolveLegacyContract(stateRoot, command, payload);
+    const legacy = resolveLegacyContract(stateRoot, command, result);
     if (legacy && legacy.ambiguous) {
       console.error(`[Contract Test] Ambiguous legacy stage contracts matched: ${command}`);
       process.exit(0);

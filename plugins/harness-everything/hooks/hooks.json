@@ -143,15 +143,15 @@
           },
           {
             "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/rule-of-3-tracker.js\"",
-            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\rule-of-3-tracker.js\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/rule-of-3-tracker.js\" --codex",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\rule-of-3-tracker.js\" --codex",
             "timeout": 15,
             "statusMessage": "Recording Harness failure evidence"
           },
           {
             "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/state-persist.js\"",
-            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\state-persist.js\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/state-persist.js\" --codex",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\state-persist.js\" --codex",
             "timeout": 15,
             "statusMessage": "Saving Harness state and observed mutation"
           }
@@ -174,8 +174,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/contract-test.js\"",
-            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\contract-test.js\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/contract-test.js\" --codex",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\contract-test.js\" --codex",
             "timeout": 15,
             "statusMessage": "Checking Harness stage contract"
           }

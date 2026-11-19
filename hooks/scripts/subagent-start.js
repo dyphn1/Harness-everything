@@ -16,4 +16,4 @@ process.on('exit', () => {
   }) + '\n');
 });
 
-require('./subagent-scope-guard');
+require('./subagent-scope-guard').run();
