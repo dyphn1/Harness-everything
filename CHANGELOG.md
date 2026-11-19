@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.54.0](https://github.com/dyphn1/Harness-everything/compare/v0.53.0...v0.54.0) (2026-11-19)
+
+### Features
+
+* **scripts:** add a read-only write-set check for packet slices ([5953f34](https://github.com/dyphn1/Harness-everything/commit/5953f34e04cc0722f74f716ab0e53559dd1ff5ad)), closes [#402](https://github.com/dyphn1/Harness-everything/issues/402)
+* **scripts:** add a report writer that owns the terminal status line ([54beeee](https://github.com/dyphn1/Harness-everything/commit/54beeee19f8eb95d90aa40b91228376493039968)), closes [#402](https://github.com/dyphn1/Harness-everything/issues/402) [#441](https://github.com/dyphn1/Harness-everything/issues/441)
+* **scripts:** add new, set-status and check for the error handling map ([4f9afe2](https://github.com/dyphn1/Harness-everything/commit/4f9afe27de01ca1390a5f1b333831913f0df6a9e)), closes [#437](https://github.com/dyphn1/Harness-everything/issues/437) [#402](https://github.com/dyphn1/Harness-everything/issues/402) [#437](https://github.com/dyphn1/Harness-everything/issues/437)
+
+### Bug Fixes
+
+* **codex:** migrate stale tier-router prompt hooks ([d6aa9a7](https://github.com/dyphn1/Harness-everything/commit/d6aa9a711fac5007dc68ccf25732d67da8c448a5))
+* **scripts:** check the write-set of the repository the command runs in ([bcf3c57](https://github.com/dyphn1/Harness-everything/commit/bcf3c577e32a4d6061298059d14caf05eaae210a)), closes [#402](https://github.com/dyphn1/Harness-everything/issues/402)
+* **scripts:** let the cli status complete raw codex output without status ([b61ebea](https://github.com/dyphn1/Harness-everything/commit/b61ebea855fc265feaa0f63715f9500e1ee96f4b)), closes [#402](https://github.com/dyphn1/Harness-everything/issues/402)
+
 ## [0.53.0](https://github.com/dyphn1/Harness-everything/compare/v0.52.0...v0.53.0) (2026-11-18)
 
 ### Features
