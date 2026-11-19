@@ -200,12 +200,14 @@ function explicitFiles(input, root, hideLedger) {
   });
 }
 
-function labelPath(file, root, home) {
+function localSourceId(file) {
+  return `local/${crypto.createHash('sha256').update(path.resolve(file)).digest('hex')}`;
+}
+
+function labelPath(file, root) {
   const resolved = path.resolve(file);
   if (isWithin(root, resolved)) return `repo/${normalizedRepoPath(path.relative(root, resolved)) || '.'}`;
-  if (isWithin(home, resolved)) return `home/${normalizedRepoPath(path.relative(home, resolved)) || '.'}`;
-  const digest = crypto.createHash('sha256').update(resolved).digest('hex').slice(0, 8);
-  return `external/${path.basename(resolved)}/${digest}`;
+  return localSourceId(resolved);
 }
 
 function markdownTitle(text) {
@@ -220,12 +222,13 @@ function markdownTitle(text) {
   return heading ? heading[1].trim() : '';
 }
 
-function lessonSites(text) {
+function lessonSites(text, knownFiles) {
   const sites = new Set();
   const expression = /(?<![A-Za-z0-9_.:/\\])((?:[A-Za-z0-9_.-]+\/)+[A-Za-z0-9_.-]+\.[A-Za-z0-9_-]+)\b/g;
   for (const match of text.matchAll(expression)) {
     const site = path.posix.normalize(match[1]);
-    if (!path.posix.isAbsolute(site) && !site.split('/').includes('..') && !/^[A-Za-z]:/.test(site)) sites.add(site);
+    if (!path.posix.isAbsolute(site) && !site.split('/').includes('..') && !/^[A-Za-z]:/.test(site) &&
+      (!knownFiles || knownFiles.has(site))) sites.add(site);
   }
   return [...sites].sort();
 }
@@ -273,17 +276,19 @@ function makeCandidate({ title, signature, sites, sources }) {
   };
 }
 
-function candidatesFromFiles(files, type, root, home) {
+function candidatesFromFiles(files, type, root, home, knownFiles, privateInput = false) {
   const candidates = [];
   for (const file of files) {
     const text = safeRead(file);
     if (text === null || !isLesson(text, file)) continue;
-    const title = shortTitle(markdownTitle(text) || path.basename(file, path.extname(file)), root, home);
-    const ref = labelPath(file, root, home);
+    const privateSource = type === 'memory' || privateInput || !isWithin(root, path.resolve(file));
+    const title = privateSource ? `Local ${type} lead` :
+      shortTitle(markdownTitle(text) || path.basename(file, path.extname(file)), root, home);
+    const ref = privateSource ? localSourceId(file) : labelPath(file, root);
     candidates.push(makeCandidate({
       title,
       signature: slug(title),
-      sites: lessonSites(text),
+      sites: lessonSites(text, privateSource ? knownFiles : undefined),
       sources: [{ type, ref }]
     }));
   }
@@ -298,7 +303,7 @@ function autoMemory(root, home) {
   const marker = path.join(slugDir, 'MEMORY.md');
   let verified = fs.existsSync(marker);
   let verificationRef = verified ? marker : undefined;
-  if (verified) reason = 'slug directory contains MEMORY.md';
+  if (verified) reason = 'automatic memory marker found';
   else if (files.length) {
     for (const file of files) {
       const text = safeRead(file) || '';
@@ -309,7 +314,7 @@ function autoMemory(root, home) {
         break;
       }
     }
-    if (!verified) reason = 'no memory file names the target repository and MEMORY.md is absent';
+    if (!verified) reason = 'automatic memory marker absent and no memory file names the target repository';
   }
   return { directory, files, verified, reason, verificationRef };
 }
@@ -346,7 +351,7 @@ function collectTracker(options, root, home, files) {
       failure('cannot read tracker export as JSON', 2);
     }
     if (!Array.isArray(issues)) failure('tracker export must be a JSON array', 2);
-    sources.push(sourceStatus('tracker', 'offline', 'used', { ref: labelPath(file, root, home) }));
+    sources.push(sourceStatus('tracker', 'offline', 'used', { ref: labelPath(file, root) }));
     for (const issue of issues) {
       if (!issue || typeof issue !== 'object' || Array.isArray(issue)) failure('tracker export contains an invalid issue', 2);
       const title = typeof issue.title === 'string' ? issue.title : '';
@@ -372,6 +377,7 @@ function collectTracker(options, root, home, files) {
 
 function collectSources(options, root, home, files, historyCandidates) {
   const documentation = historyCandidates.some(item => item.sources.some(source => source.type === 'doc'));
+  const knownFiles = new Set(files);
   const tracker = collectTracker(options, root, home, files);
   const sources = [
     sourceStatus('git', 'history', 'used'),
@@ -384,27 +390,27 @@ function collectSources(options, root, home, files, historyCandidates) {
     sources.push(sourceStatus('memory', 'auto', 'disabled', { verified: false, reason: 'disabled by --no-memory' }));
     sources.push(sourceStatus('instruction', 'repository', 'disabled', { reason: 'disabled by --no-memory' }));
     sources.push(sourceStatus('instruction', 'global-explicit', 'disabled', { reason: 'disabled by --no-memory' }));
-    for (const input of options.memory) sources.push(sourceStatus('memory', 'explicit', 'disabled', { ref: labelPath(path.resolve(input), root, home), reason: 'disabled by --no-memory' }));
-    for (const input of options.instructions) sources.push(sourceStatus('instruction', 'global-explicit', 'disabled', { ref: labelPath(path.resolve(input), root, home), reason: 'disabled by --no-memory' }));
+    for (const input of options.memory) sources.push(sourceStatus('memory', 'explicit', 'disabled', { ref: localSourceId(input), reason: 'disabled by --no-memory' }));
+    for (const input of options.instructions) sources.push(sourceStatus('instruction', 'global-explicit', 'disabled', { ref: localSourceId(input), reason: 'disabled by --no-memory' }));
     return { sources, candidates };
   }
 
   const auto = autoMemory(root, home);
   sources.push(sourceStatus('memory', 'auto', auto.files.length ? (auto.verified ? 'used' : 'unverified') : 'missing', {
     verified: auto.verified, reason: auto.reason,
-    ref: labelPath(auto.directory, root, home),
-    ...(auto.verificationRef ? { verificationRef: labelPath(auto.verificationRef, root, home) } : {})
+    ref: localSourceId(auto.directory),
+    ...(auto.verificationRef ? { verificationRef: localSourceId(auto.verificationRef) } : {})
   }));
-  if (auto.verified) candidates.push(...candidatesFromFiles(auto.files, 'memory', root, home));
+  if (auto.verified) candidates.push(...candidatesFromFiles(auto.files, 'memory', root, home, knownFiles));
 
   if (options.memory.length) {
     for (const input of options.memory) {
       const selected = explicitFiles(input, root, options.hideLedger);
       sources.push(sourceStatus('memory', 'explicit', selected.length ? 'used' : 'missing', {
-        ref: labelPath(path.resolve(input), root, home),
+        ref: localSourceId(input),
         ...(selected.length ? {} : { reason: 'no readable files at the selected path' })
       }));
-      candidates.push(...candidatesFromFiles(selected, 'memory', root, home));
+      candidates.push(...candidatesFromFiles(selected, 'memory', root, home, knownFiles));
     }
   } else {
     sources.push(sourceStatus('memory', 'explicit', 'missing', { reason: 'no --memory path provided' }));
@@ -415,16 +421,16 @@ function collectSources(options, root, home, files, historyCandidates) {
   sources.push(sourceStatus('instruction', 'repository', instructionFiles.length ? 'used' : 'missing', {
     ...(instructionFiles.length ? { refs: instructionFiles } : { reason: 'no repository AGENTS.md or CLAUDE.md files found' })
   }));
-  candidates.push(...candidatesFromFiles(instructionFiles.map(file => path.join(root, file)), 'instruction', root, home));
+  candidates.push(...candidatesFromFiles(instructionFiles.map(file => path.join(root, file)), 'instruction', root, home, knownFiles));
 
   if (options.instructions.length) {
     for (const input of options.instructions) {
       const selected = explicitFiles(input, root, options.hideLedger);
       sources.push(sourceStatus('instruction', 'global-explicit', selected.length ? 'used' : 'missing', {
-        ref: labelPath(path.resolve(input), root, home),
+        ref: localSourceId(input),
         ...(selected.length ? {} : { reason: 'no readable files at the selected path' })
       }));
-      candidates.push(...candidatesFromFiles(selected, 'instruction', root, home));
+      candidates.push(...candidatesFromFiles(selected, 'instruction', root, home, knownFiles, true));
     }
   } else {
     sources.push(sourceStatus('instruction', 'global-explicit', 'disabled', { reason: 'global instructions require --instructions' }));
@@ -506,8 +512,8 @@ function reportOptions(options, root, home) {
   return {
     hideLedger: options.hideLedger,
     noMemory: options.noMemory,
-    memory: options.memory.map(input => labelPath(path.resolve(input), root, home)),
-    instructions: options.instructions.map(input => labelPath(path.resolve(input), root, home)),
+    memory: options.memory.map(localSourceId),
+    instructions: options.instructions.map(localSourceId),
     homeOverridden: Boolean(options.home)
   };
 }

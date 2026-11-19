@@ -72,13 +72,14 @@ function candidate(report, site, type) {
   return report.candidates.find(item => item.sites.includes(site) && item.sources.some(source => source.type === type));
 }
 
-const repo = path.join(TMP, 'synthetic-harness');
-const home = path.join(TMP, 'synthetic-home');
+const repo = path.join(TMP, 'PRIVATE_OPERATOR_SENTINEL-PRIVATE_SLUG_SENTINEL', 'synthetic-harness');
+const home = path.join(TMP, 'PRIVATE_OPERATOR_SENTINEL-home');
 const slug = path.resolve(repo).replace(/[^a-z0-9]/gi, '-');
 const autoMemoryDir = path.join(home, '.claude', 'projects', slug, 'memory');
-const autoMemory = path.join(autoMemoryDir, 'lesson-parser.md');
-const explicitMemory = path.join(home, 'notes', 'lesson-explicit.md');
+const autoMemory = path.join(autoMemoryDir, 'lesson-PRIVATE_FILENAME_SENTINEL-auto.md');
+const explicitMemory = path.join(home, 'notes', 'lesson-PRIVATE_FILENAME_SENTINEL-explicit.md');
 const globalInstructions = path.join(home, '.codex', 'AGENTS.md');
+const localInstructions = path.join(repo, 'private-inputs', 'PRIVATE_FILENAME_SENTINEL-instructions.md');
 const defaultReports = [];
 
 try {
@@ -91,6 +92,7 @@ try {
 
   commit(repo, 'feat: add parser fixtures', {
     'AGENTS.md': '# Local instructions\n\n## Cue\nThe parser loses a token after a boundary.\n\n## Lesson\nKeep the parser boundary regression covered.\n',
+    'private-inputs/PRIVATE_FILENAME_SENTINEL-instructions.md': '# Private local instructions\n\n## Lesson\nUse `src/parser.js` as the example.\n',
     'src/parser.js': 'module.exports = value => value;\n',
     'src/single.js': 'module.exports = true;\n',
     'ci/parser.test.js': "const parser = require('../src/parser.js');\nvoid parser;\n",
@@ -129,13 +131,13 @@ try {
   writeFile(autoMemory, [
     '---',
     'type: feedback',
-    'title: auto memory parser lesson',
+    'title: PRIVATE_TITLE_SENTINEL parser lesson',
     '---',
     `Repository: ${path.basename(repo)}`,
     '## Cue',
-    'A parser boundary loses the final token.',
+    'A parser boundary loses the final token. PRIVATE_RAW_TEXT_SENTINEL',
     '## Lesson',
-    'Add a regression for `src/parser.js`.',
+    'Add a regression for `src/parser.js` and inspect `private/PRIVATE_UNCORROBORATED_SENTINEL.js`.',
     ''
   ].join('\n'));
   writeFile(explicitMemory, [
@@ -228,6 +230,8 @@ try {
     'test provenance attaches separately');
   assert.ok(parserLead.attachments.some(item => item.type === 'test-link' && item.ref === 'src/__tests__/parser.test.js'),
     'relative imports resolve back to the candidate path');
+  assert.ok(defaultJson.candidates.some(item => item.sources.some(source => source.type === 'instruction' && source.ref === 'repo/AGENTS.md')),
+    'target-repository instruction provenance remains usable');
   assert.ok(!parserLead.sources.some(source => source.type === 'test-link'),
     'test links are not counted as incidents');
   assert.ok(defaultJson.candidates.every(item => item.sources.length > 0));
@@ -240,7 +244,21 @@ try {
   const autoSource = defaultJson.sources.find(source => source.type === 'memory' && source.origin === 'auto');
   assert.ok(autoSource && autoSource.verified === true && autoSource.reason,
     'auto-discovered memory records why the slug hint was verified');
-  assert.ok(candidate(defaultJson, 'src/parser.js', 'memory'), 'verified lesson memory creates a lead');
+  const autoMemoryLead = candidate(defaultJson, 'src/parser.js', 'memory');
+  assert.ok(autoMemoryLead, 'verified lesson memory creates a lead');
+  assert.deepStrictEqual(autoMemoryLead.sites, ['src/parser.js'], 'private memory sites are limited to files in the target repository');
+  assert.strictEqual(autoMemoryLead.title, 'Local memory lead', 'private memory uses a neutral generated title');
+  assert.strictEqual(autoMemoryLead.status, 'UNVERIFIED');
+  assert.ok(defaultMd.includes(`### ${autoMemoryLead.title}`), 'Markdown keeps the neutral private-source title');
+  assert.ok(autoMemoryLead.sources.some(source => source.type === 'memory' && /^local\/[a-f0-9]{64}$/.test(source.ref)),
+    'memory candidate provenance uses an opaque local ID');
+  assert.match(autoSource.ref, /^local\/[a-f0-9]{64}$/);
+  assert.match(autoSource.verificationRef, /^local\/[a-f0-9]{64}$/);
+  const privateSentinels = /PRIVATE_(?:OPERATOR|SLUG|FILENAME|TITLE|RAW_TEXT|UNCORROBORATED)_SENTINEL/;
+  assert.doesNotMatch(JSON.stringify(defaultJson), privateSentinels,
+    'JSON excludes private operator, slug, filename, title, raw-text, and uncorroborated-site sentinels');
+  assert.doesNotMatch(defaultMd, privateSentinels,
+    'Markdown excludes private operator, slug, filename, title, raw-text, and uncorroborated-site sentinels');
   assert.ok(!defaultJson.candidates.some(item => /global instruction sentinel/i.test(JSON.stringify(item))),
     'global instructions are not discovered automatically');
 
@@ -255,18 +273,41 @@ try {
   const explicitOut = path.join(TMP, 'explicit-reports');
   const explicitArgs = [
     '--root', repo, '--out', explicitOut, '--hide-ledger', '--home', home,
-    '--memory', explicitMemory, '--memory', explicitMemoryDir, '--instructions', globalInstructions
+    '--memory', explicitMemory, '--memory', explicitMemoryDir,
+    '--instructions', globalInstructions, '--instructions', localInstructions
   ];
   const explicitPayload = reportFrom(run(explicitArgs, home));
   const explicitJson = JSON.parse(fs.readFileSync(explicitPayload.reportJson, 'utf8'));
   assert.ok(candidate(explicitJson, 'src/parser.js', 'memory'), 'explicit memory paths create candidates');
   assert.ok(candidate(explicitJson, 'src/single.js', 'memory'), 'explicit memory directories create candidates');
+  assert.ok(explicitJson.options.memory.every(ref => /^local\/[a-f0-9]{64}$/.test(ref)),
+    'explicit memory input summaries use opaque local IDs');
+  assert.ok(explicitJson.options.instructions.every(ref => /^local\/[a-f0-9]{64}$/.test(ref)),
+    'explicit instruction input summaries use opaque local IDs');
   assert.ok(!inside(repo, explicitPayload.reportJson) && !inside(repo, explicitPayload.reportMd),
     'successful explicit output stays outside the target');
-  assert.ok(explicitJson.candidates.some(item => item.sources.some(source => source.type === 'instruction' && source.ref === 'home/.codex/AGENTS.md')),
-    'explicit global instruction path is included with a safe home-relative label');
+  const explicitMemoryRefs = explicitJson.sources
+    .filter(source => source.type === 'memory' && source.origin === 'explicit')
+    .map(source => source.ref);
+  assert.strictEqual(new Set(explicitMemoryRefs).size, explicitMemoryRefs.length,
+    'distinct explicit memory inputs retain distinct opaque IDs');
+  assert.ok(explicitJson.sources.filter(source => source.type === 'instruction' && source.origin === 'global-explicit')
+    .every(source => /^local\/[a-f0-9]{64}$/.test(source.ref)),
+  'explicit instruction source status uses opaque local IDs');
+  const explicitInstructionCandidates = explicitJson.candidates.filter(item =>
+    item.sources.some(source => source.type === 'instruction' && /^local\//.test(source.ref)));
+  assert.strictEqual(explicitInstructionCandidates.length, 2, 'both explicit instruction inputs produce local leads');
+  assert.ok(explicitInstructionCandidates.every(item => item.title === 'Local instruction lead' &&
+    item.sources.every(source => source.type !== 'instruction' || /^local\/[a-f0-9]{64}$/.test(source.ref))),
+  'explicit instruction provenance uses opaque local IDs and neutral titles');
+  assert.ok(explicitJson.candidates.filter(item => item.sources.some(source => source.type === 'memory'))
+    .every(item => item.title === 'Local memory lead'), 'explicit memory candidates use neutral titles');
   assert.ok(!JSON.stringify(explicitJson).includes(home) && !JSON.stringify(explicitJson).includes(repo));
   const explicitMd = fs.readFileSync(explicitPayload.reportMd, 'utf8');
+  assert.doesNotMatch(JSON.stringify(explicitJson), privateSentinels,
+    'explicit-memory JSON excludes private input sentinels');
+  assert.doesNotMatch(explicitMd, privateSentinels,
+    'explicit-memory Markdown excludes private input sentinels');
   assert.ok(!explicitMd.includes(home) && !explicitMd.includes(repo));
   assert.ok(!explicitJson.candidates.some(item => /other global instruction sentinel/i.test(JSON.stringify(item))),
     'unselected global instruction files stay ignored');
@@ -274,12 +315,22 @@ try {
   const noMemoryOut = path.join(TMP, 'no-memory-reports');
   const noMemoryPayload = reportFrom(run([
     '--root', repo, '--out', noMemoryOut, '--hide-ledger', '--home', home,
-    '--memory', explicitMemory, '--instructions', globalInstructions, '--no-memory'
+    '--memory', explicitMemory, '--instructions', globalInstructions,
+    '--instructions', localInstructions, '--no-memory'
   ], home));
   const noMemoryJson = JSON.parse(fs.readFileSync(noMemoryPayload.reportJson, 'utf8'));
+  const noMemoryMd = fs.readFileSync(noMemoryPayload.reportMd, 'utf8');
   assert.ok(!noMemoryJson.candidates.some(item => item.sources.some(source => ['memory', 'instruction'].includes(source.type))));
   assert.ok(noMemoryJson.sources.filter(source => ['memory', 'instruction'].includes(source.type))
     .every(source => source.status === 'disabled'), '--no-memory disables memory and all instruction inputs');
+  assert.ok(noMemoryJson.options.memory.every(ref => /^local\/[a-f0-9]{64}$/.test(ref)) &&
+    noMemoryJson.options.instructions.every(ref => /^local\/[a-f0-9]{64}$/.test(ref)),
+  '--no-memory input summaries retain opaque local IDs');
+  assert.ok(noMemoryJson.sources.filter(source => ['memory', 'instruction'].includes(source.type) && source.ref)
+    .every(source => /^local\/[a-f0-9]{64}$/.test(source.ref)),
+  '--no-memory source status retains opaque local IDs');
+  assert.doesNotMatch(JSON.stringify(noMemoryJson), privateSentinels, '--no-memory source labels omit private path sentinels');
+  assert.doesNotMatch(noMemoryMd, privateSentinels, '--no-memory Markdown omits private path sentinels');
 
   const trackerFile = path.join(TMP, 'offline-issues.json');
   writeFile(trackerFile, JSON.stringify([
@@ -387,6 +438,8 @@ try {
   const repeatJson = JSON.parse(fs.readFileSync(repeatPayload.reportJson, 'utf8'));
   assert.strictEqual(candidate(repeatJson, 'src/parser.js', 'git').id, parserLead.id,
     'candidate id is stable across report runs');
+  assert.strictEqual(candidate(repeatJson, 'src/parser.js', 'memory').id, autoMemoryLead.id,
+    'private candidate id is stable across report runs');
 
   writeFile(autoMemory, '---\ntype: feedback\ntitle: unrelated auto memory\n---\n## Cue\nAn unrelated local note.\n## Lesson\nNo repository site is named.\n');
   const unverifiedOut = path.join(TMP, 'unverified-reports');
@@ -396,7 +449,7 @@ try {
   assert.strictEqual(unverifiedSource.status, 'unverified');
   assert.strictEqual(unverifiedSource.verified, false);
   assert.ok(unverifiedSource.reason);
-  assert.ok(!unverifiedJson.candidates.some(item => item.sources.some(source => source.type === 'memory' && source.ref.includes('lesson-parser.md'))),
+  assert.ok(!unverifiedJson.candidates.some(item => item.sources.some(source => source.type === 'memory')),
     'unverified automatic memory is not used');
 
   const memoryMarker = path.join(path.dirname(autoMemoryDir), 'MEMORY.md');
@@ -407,7 +460,8 @@ try {
   const markerSource = markerJson.sources.find(source => source.type === 'memory' && source.origin === 'auto');
   assert.strictEqual(markerSource.status, 'used');
   assert.strictEqual(markerSource.verified, true);
-  assert.ok(markerSource.verificationRef.endsWith('/MEMORY.md') && markerSource.reason.includes('MEMORY.md'));
+  assert.match(markerSource.verificationRef, /^local\/[a-f0-9]{64}$/);
+  assert.ok(markerSource.reason.includes('memory marker'));
   assert.ok(markerJson.candidates.some(item => item.sources.some(source => source.type === 'memory')),
     'MEMORY.md verifies the hinted directory');
   fs.rmSync(memoryMarker);
