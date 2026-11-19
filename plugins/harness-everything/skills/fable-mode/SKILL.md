@@ -11,12 +11,12 @@ metadata:
 
 ## Skill Contract
 
-| Component | Specification |
-| :--- | :--- |
-| **Trigger / Input** | Profile lookup or Tier 3 execution. |
-| **Expected Output** | Profile record or verified stages. |
-| **State Mutations** | Execution only: stage checklist and audit records. |
-| **Enforcement Gate** | Execution: `<this-skill-dir>/scripts/model-selector.js`, stage contracts, and `<skills-repo-root>/harness-everything/scripts/verify-gate.js`. |
+Component | Specification
+--- | ---
+**Trigger / Input** | Profile lookup or Tier 3 execution.
+**Expected Output** | Profile record or verified stages.
+**State Mutations** | Execution only: stage checklist and audit records.
+**Enforcement Gate** | Execution: `<this-skill-dir>/scripts/model-selector.js`, stage contracts, and `<skills-repo-root>/harness-everything/scripts/verify-gate.js`.
 
 ## USE FOR:
 - Large multi-file, multi-source, or multi-session work
@@ -36,6 +36,8 @@ For explanation/profile-only lookup, read only `<this-skill-dir>/references/prof
 1. Discover the runtime and lock the authorized file scope before edits.
 2. Per stage, set artifact, check, and required/optional bindings; dependency-ready stages disclose them, passing once resolved. Gaps never lock tools or Stop; advisory replans never halt. Rule-of-3 covers same-signature failures.
 3. Resolve the requested behavior profile with `model-selector.js`; `opus`, `sonnet`/`sonnect`, and `haiku` are compatibility aliases, not model bindings.
-4. Delegate by profile: orchestrator coordinates, reasoning takes bounded judgment, mechanical takes low-ambiguity work; workers never spawn workers. Apply [Codex dispatch and handoff checks](references/execution-phases.md).
+4. Delegate by profile: orchestrator coordinates, reasoning takes bounded judgment, mechanical takes low-ambiguity work; workers never spawn workers. Snapshot before Codex dispatch.
 5. The host runtime-model floor is advisory; record it, never block on model choice alone.
-6. Run stage checks, cold-review high-stakes artifacts, and audit profile/runtime/fallback fields.
+6. Reconcile Codex scope before acceptance. Run stage checks, cold-review high-stakes artifacts, and audit profile/runtime/fallback fields.
+
+Deep dive: <this-skill-dir>/references/execution-phases.md

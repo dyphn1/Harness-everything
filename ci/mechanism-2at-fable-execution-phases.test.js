@@ -66,8 +66,10 @@ assert.match(skill, /Execution: `<this-skill-dir>\/scripts\/model-selector\.js`,
 assert.ok(skill.includes('For explanation/profile-only lookup, read only `<this-skill-dir>/references/profile-lookup.md` and answer. No stage state, delegation, or selector source reads. Quoted aliases do not start Fable. Mixed execution retains its topology; execution follows the workflow below.'));
 assert.match(workflow, /^4\. Delegate by profile: orchestrator coordinates, reasoning takes bounded judgment, mechanical takes low-ambiguity work; workers never spawn workers\./m);
 assert.match(workflow, /^5\. The host runtime-model floor is advisory; record it, never block on model choice alone\.$/m);
-assert.match(workflow, /^6\. Run stage checks, cold-review high-stakes artifacts, and audit profile\/runtime\/fallback fields\.$/m);
-assert.match(workflow, /^4\. .*Apply \[Codex dispatch and handoff checks\]\(references\/execution-phases\.md\)\.$/m);
+assert.match(workflow, /^6\. .*Run stage checks, cold-review high-stakes artifacts, and audit profile\/runtime\/fallback fields\.$/m);
+assert.match(workflow, /^4\. .*Snapshot before Codex dispatch\.$/m);
+assert.match(workflow, /^6\. Reconcile Codex scope before acceptance\./m);
+assert.match(skill, /^Deep dive: <this-skill-dir>\/references\/execution-phases\.md$/m);
 const handoff = guide.split(/\r?\n## Verification and handoff\r?\n/)[1];
 assert.ok(handoff, 'the dispatch reference contains Verification and handoff');
 assert.match(handoff, /coordinator MUST reconcile scope before accepting a\nresult or using it in a dependent stage/);
