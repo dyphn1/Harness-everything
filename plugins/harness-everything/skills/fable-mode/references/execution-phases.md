@@ -104,3 +104,20 @@ Run each named check and review scope-guard evidence before delivery. When the
 selected plan requires independent verification, the verifier is read-only and
 uses a distinct worker identity after all other stages pass. Record a blocker
 or an evidence-backed result; do not discard unresolved requirements.
+
+For Codex subagents, the coordinator MUST reconcile scope before accepting a
+result or using it in a dependent stage, even if the stage check passed.
+
+1. Before dispatch, capture the worker worktree's starting state, including
+   existing local changes. At handoff, compare the committed, staged, unstaged,
+   and untracked changes since dispatch with the stage's declared `writeSet`.
+2. For unexpected or ambiguously attributed changes, establish ownership and
+   record the disposition. Exclude the changes from the result, revert only
+   attributable worker changes when authorized, or obtain explicit approval for
+   a scope change and follow the replanning rules. Record a blocker if the
+   coordinator cannot reconcile a path.
+
+Run this check after every handoff, including silent stops. The Codex warning
+and `subagent-scope-last.json` describe the latest hook observation. A clean
+observation can replace an earlier warning while the corresponding change is
+still present.

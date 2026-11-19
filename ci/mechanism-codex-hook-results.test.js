@@ -133,8 +133,11 @@ try {
     assert.deepEqual(Object.keys(warning), ['systemMessage']);
     assert.match(warning.systemMessage, /unexpected\.txt/);
     assert.equal(changed.stderr, '');
-    assert.equal(read(path.join(session, 'subagent-scope-last.json')).outOfScope.length, 1);
+    const scopeAudit = path.join(session, 'subagent-scope-last.json');
+    assert.equal(read(scopeAudit).outOfScope.length, 1);
     assert.equal(hook('SubagentStop', 'subagent-stop.js', worker).stdout, '');
+    assert.deepEqual(read(scopeAudit).outOfScope, []);
+    assert.equal(fs.readFileSync(path.join(cwd, 'unexpected.txt'), 'utf8'), 'change\n');
     console.log('PASS Codex ' + label + ' outcome and advisory SubagentStop contracts');
   }
 } finally {
