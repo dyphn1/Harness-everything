@@ -3,19 +3,10 @@
 
 const { finalizeExecution } = require('./action-gate');
 
-function inferOutcome(payload) {
-  const response = (payload && (payload.tool_response || payload.toolResponse)) || {};
-  const rawExitCode = response.exitCode ?? response.exit_code ?? payload?.exitCode ?? payload?.exit_code;
-  if (typeof rawExitCode === 'number') return rawExitCode === 0 ? 'success' : 'failure';
-  if (response.success === false || response.ok === false) return 'failure';
+const { readCodexToolOutcome } = require('./lib/codex-tool-outcome');
 
-  const stderr = response.stderr ?? payload?.stderr ?? '';
-  if (typeof stderr === 'string' && stderr.trim()) {
-    if (/\b(error|fail|failed|failure|exception|fatal|panic|traceback|denied|refused|cannot|unable)\b/i.test(stderr)) {
-      return 'failure';
-    }
-  }
-  return 'success';
+function inferOutcome(payload) {
+  return readCodexToolOutcome(payload).outcome;
 }
 
 function processPayload(payload) {

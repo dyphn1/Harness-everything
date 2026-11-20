@@ -34,10 +34,10 @@ For explanation/profile-only lookup, read only `<this-skill-dir>/references/prof
 ## Workflow
 
 1. Discover the runtime and lock the authorized file scope before edits.
-2. Per stage, set artifact, check, and required/optional bindings; dependency-ready stages disclose them, passing once resolved. Gaps never lock tools or Stop; advisory replans never halt. Rule-of-3 covers same-signature failures.
-3. Resolve the requested behavior profile with `model-selector.js`; `opus`, `sonnet`/`sonnect`, and `haiku` are compatibility aliases, not model bindings.
-4. Delegate by profile: orchestrator coordinates, reasoning takes bounded judgment, mechanical takes low-ambiguity work; workers never spawn workers.
+2. Plan via `<this-skill-dir>/references/execution-phases.md`.
+3. Use `model-selector.js`.
+4. Delegate by profile: orchestrator coordinates, reasoning takes bounded judgment, mechanical takes low-ambiguity work; workers never spawn workers. Before Codex dispatch, load/apply `<this-skill-dir>/references/execution-phases.md#verification-and-handoff`.
 5. The host runtime-model floor is advisory; record it, never block on model choice alone.
-6. Run stage checks, cold-review high-stakes artifacts, and audit profile/runtime/fallback fields.
+6. On every Codex handoff or silent stop, load/apply `<this-skill-dir>/references/execution-phases.md#verification-and-handoff` before accepting results or releasing dependent stages. Run stage checks, cold-review high-stakes artifacts, and audit profile/runtime/fallback fields.
 
 Deep dive: <this-skill-dir>/references/model-matrix.md

@@ -8,7 +8,7 @@
  * newly changed paths as declared, ambiguous, or out-of-scope. Machine-
  * readable write sets may therefore clear expected changes without weakening
  * the conservative legacy path: when no stage contract exists, any new
- * change still exits 2 and requires explicit review.
+ * change still emits a reminder and requires explicit review.
  *
  * `writeSet: []` means read-only. Worker attribution is used when the host
  * exposes a worker/subagent id and the stage contract records the same id;
@@ -106,15 +106,13 @@ function classifyChanges(newlyChanged, declaredContracts, payload) {
   return { workerId: workerId || null, expected, ambiguous, outOfScope };
 }
 
-let inputData = '';
-process.stdin.on('data', chunk => { inputData += chunk; });
-process.stdin.on('end', () => {
+function inspectScope(inputData, { info, warn }) {
   try {
     const payload = JSON.parse(inputData);
     const event = payload.hook_event_name;
     const toolName = payload.tool_name || payload.tool;
     const isSubagentEvent = event === 'SubagentStart' || event === 'SubagentStop';
-    if (!isSubagentEvent && toolName !== 'Task' && toolName !== 'Agent') process.exit(0);
+    if (!isSubagentEvent && toolName !== 'Task' && toolName !== 'Agent') return;
 
     const root = getWorkspaceRoot(payload);
     const sessionId = getSessionId(payload);
@@ -134,17 +132,17 @@ process.stdin.on('end', () => {
           });
         }
       }
-      process.exit(0);
+      return;
     }
 
     if (event === 'PostToolUse' || event === 'SubagentStop') {
       accountWorker(payload, event);
-      if (!fs.existsSync(stateFile)) process.exit(0);
+      if (!fs.existsSync(stateFile)) return;
 
       let state;
-      try { state = JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch (_) { process.exit(0); }
+      try { state = JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch (_) { return; }
       const current = gitStatus(root);
-      if (current === null) process.exit(0);
+      if (current === null) return;
 
       const baselineLines = new Set(String(state.baseline || '').split('\n').filter(Boolean));
       const currentLines = current.split('\n').filter(Boolean);
@@ -161,20 +159,20 @@ process.stdin.on('end', () => {
       atomicWriteJson(path.join(sessionDir, 'subagent-scope-last.json'), audit);
 
       if (newlyChanged.length === 0) {
-        console.log('[Subagent Scope Reminder] No new changed files detected during the subagent burst.');
+        info('[Subagent Scope Reminder] No new changed files detected during the subagent burst.');
       } else if (declaredContracts.length === 0) {
-        console.error(`[Subagent Scope Reminder] ${newlyChanged.length} file(s) changed with no machine-readable writeSet contract:`);
-        newlyChanged.forEach(line => console.error(`  ${line}`));
-        console.error('Semantic MUST: reconcile every changed path against the declared scope before trusting or committing this output.');
+        warn(`[Subagent Scope Reminder] ${newlyChanged.length} file(s) changed with no machine-readable writeSet contract:`);
+        newlyChanged.forEach(line => warn(`  ${line}`));
+        warn('Semantic MUST: reconcile every changed path against the declared scope before trusting or committing this output.');
       } else {
         for (const entry of classified.expected) {
-          console.log(`[Subagent Scope Reminder] in-scope ${entry.statusLine} -> ${entry.planId}/${entry.runId}/${entry.stageId}${entry.workerId ? ` worker=${entry.workerId}` : ''}`);
+          info(`[Subagent Scope Reminder] in-scope ${entry.statusLine} -> ${entry.planId}/${entry.runId}/${entry.stageId}${entry.workerId ? ` worker=${entry.workerId}` : ''}`);
         }
         for (const entry of classified.ambiguous) {
-          console.error(`[Subagent Scope Reminder] ambiguous scope ${entry.statusLine}; matches ${entry.stages.map(stage => `${stage.runId}/${stage.stageId}`).join(', ')}`);
+          warn(`[Subagent Scope Reminder] ambiguous scope ${entry.statusLine}; matches ${entry.stages.map(stage => `${stage.runId}/${stage.stageId}`).join(', ')}`);
         }
         for (const entry of classified.outOfScope) {
-          console.error(`[Subagent Scope Reminder] OUT-OF-SCOPE ${entry.statusLine}${entry.workerId ? ` worker=${entry.workerId}` : ''}; MUST reconcile/revert or explicitly re-authorize scope before accepting the result.`);
+          warn(`[Subagent Scope Reminder] OUT-OF-SCOPE ${entry.statusLine}${entry.workerId ? ` worker=${entry.workerId}` : ''}; MUST reconcile/revert or explicitly re-authorize scope before accepting the result.`);
         }
       }
 
@@ -188,24 +186,33 @@ process.stdin.on('end', () => {
         ? newlyChanged.length > 0
         : classified.ambiguous.length > 0 || classified.outOfScope.length > 0;
       if (violated) {
-        console.error('Do not "git add -A"; stage files explicitly so unexpected paths stay visible.');
-        process.exit(0);
+        warn('Do not "git add -A"; stage files explicitly so unexpected paths stay visible.');
       }
-      process.exit(0);
     }
-
-    process.exit(0);
   } catch (error) {
     if (error && error.code === 'HARNESS_WORKFLOW_BUDGET') {
-      console.error(`[Subagent Scope Reminder] ${error.message}`);
-      process.exit(0);
+      warn(`[Subagent Scope Reminder] ${error.message}`);
+      return;
     }
     // This is otherwise a post-execution visibility gate. Runtime errors fail open;
     // actionGate has a stricter fail-ask policy for side effects.
-    process.exit(0);
+    return;
   }
-});
+}
+
+function run({ info = console.log, warn = console.error, complete = () => {} } = {}) {
+  let inputData = '';
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', chunk => { inputData += chunk; });
+  process.stdin.on('end', () => {
+    inspectScope(inputData, { info, warn });
+    complete();
+  });
+}
+
+if (require.main === module) run();
 
 module.exports = {
   classifyChanges,
+  run,
 };

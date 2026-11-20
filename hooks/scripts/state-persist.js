@@ -4,6 +4,8 @@ const path = require('path');
 const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
 const { cwdOf, classifyShell, isVerificationShell, directMutationInWorkspace } = require('./lib/workflow-isolation');
 const { observeTool } = require('./lib/telemetry');
+const { readCodexToolOutcome } = require('./lib/codex-tool-outcome');
+const codex = process.argv.includes('--codex');
 
 function isSuccessfulMetadataStep(command, cwd) {
   // A line break starts a second shell command, so it can never be metadata-only.
@@ -77,22 +79,26 @@ function processState(payload) {
       process.exit(0);
     }
     const toolResponse = payload.tool_response || {};
-    const stdout = toolResponse.stdout ?? payload.stdout ?? '';
-    const stderr = toolResponse.stderr ?? payload.stderr ?? payload.error ?? '';
+    const codexResult = codex ? readCodexToolOutcome(payload) : null;
+    const stdout = codexResult?.stdout ?? toolResponse.stdout ?? payload.stdout ?? '';
+    const stderr = codexResult?.stderr ?? toolResponse.stderr ?? payload.stderr ?? payload.error ?? '';
     const rawExitCode = toolResponse.exitCode ?? toolResponse.exit_code ?? payload.exitCode;
-    const exitCode = typeof rawExitCode === 'number' ? rawExitCode : undefined;
+    const exitCode = codex ? codexResult.exitCode : typeof rawExitCode === 'number' ? rawExitCode : undefined;
     const stderrSignal = typeof stderr === 'string' && stderr.trim().length > 0;
     const hookEvent = captureEventName;
     const isSuccessEvent = hookEvent === 'PostToolUse';
-    const isFailed = hookEvent === 'PostToolUseFailure' || (exitCode !== undefined && exitCode !== 0) || (!isSuccessEvent && exitCode === undefined && stderrSignal);
+    const isFailed = codex ? codexResult.outcome === 'failure' :
+      hookEvent === 'PostToolUseFailure' || (exitCode !== undefined && exitCode !== 0) ||
+      (!isSuccessEvent && exitCode === undefined && stderrSignal);
+    const verifiedSuccess = codex ? codexResult.outcome === 'success' : !isFailed && (isSuccessEvent || exitCode === 0);
     const toolName = payload.tool_name || payload.tool || 'command';
     let editAfterCapture = false;
     let stateOnlyCandidate = false;
     if (isFailed) {
-      let output = (stderrSignal ? stderr : stdout) || payload.output || '';
+      let output = (stderrSignal ? stderr : stdout) || (typeof payload.output === 'string' ? payload.output : '');
       if (output.length > 500) output = '...' + output.slice(-500);
       state.status = 'failed'; state.timestamp = new Date().toISOString(); state.tool = toolName; state.exitCode = exitCode; state.errorSummary = output.trim();
-    } else if (state.status === 'failed') {
+    } else if ((!codex || verifiedSuccess) && state.status === 'failed') {
       state.lastResolved = { tool: state.tool, timestamp: state.timestamp }; state.status = 'idle'; state.timestamp = new Date().toISOString(); delete state.exitCode; delete state.errorSummary;
     }
     const isDirectTool = toolName === 'Edit' || toolName === 'Write' || toolName === 'apply_patch';
@@ -106,13 +112,13 @@ function processState(payload) {
       stateOnlyCandidate = Boolean(docCheck && typeof payload.cwd === 'string' && payload.cwd
         && docCheck.isW6StateCommand(command, payload.cwd, root,
         { toolName, sessionId, agentId: payload.agent_id }));
-      const metadataStep = !stateOnlyCandidate && !isFailed && (isSuccessEvent || exitCode === 0)
+      const metadataStep = !stateOnlyCandidate && verifiedSuccess
         && isSuccessfulMetadataStep(command, cwdOf(payload, root));
       if (!metadataStep && commandClass !== 'read-only' && commandClass !== 'worktree-setup') {
         if (stateOnlyCandidate) editAfterCapture = true;
         else state.lastEditAt = Date.now();
       }
-      // Verification evidence needs a confirmed success: a PostToolUse event or an explicit zero exit.
+      // The host-specific outcome must confirm success before verification advances.
       // Pilot ON only: a registered, argv-validated doc-check that resolves to this install's own runtime is the document
       // verification evidence, and only at the shipped pin (R3-02). Any other path earns no verification evidence. OFF stays legacy.
       const installedCheck = docCheck && docCheck.registeredInstalledCheck(command, cwdOf(payload, root));
@@ -123,7 +129,7 @@ function processState(payload) {
       const verifies = stateOnlyCandidate ? false : docCheckCandidate
         ? Boolean(pinCheckable) && docCheck.fileDigest(installedCheck.installed) === docCheck.SHIPPED_DOC_CHECK_DIGEST
         : !(pilotEnabled && docCheck.trustRisk(command)) && isVerificationShell(command, { cwd: cwdOf(payload, root), root });
-      if (!isFailed && (isSuccessEvent || exitCode === 0) && verifies) {
+      if (verifiedSuccess && verifies) {
         const verifiedAt = Date.now();
         const verifiedExitCode = exitCode ?? null;
         state.lastVerifyAt = verifiedAt;

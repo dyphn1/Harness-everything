@@ -103,6 +103,15 @@ episodes:
         change: "subject lower-cased"
         review: commitlint
         result: "commit accepted"
+  - episode: 479-merge-commit-without-type
+    feature: "#479 integration branch (coordinator local merge)"
+    date: 2026-11-19
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "commitlint (husky commit-msg)"
+        result: "`git merge --no-ff -m \"merge p1 errors-sync --root into …\"` was rejected (`type-empty`, `subject-empty`); the merge stayed uncommitted until re-committed as `chore(errors): merge p1 …`. Merge commits on integration branches go through the same hook."
 ---
 
 ## Cue
@@ -143,3 +152,7 @@ A coordinator commit subject contained the proper noun "System One" and was reje
 ## Episode (2026-11-19, #476 follow-up)
 
 The coordinator wrote `docs(errors): record the PR #476 CI fix episodes`; commitlint rejected the uppercase `PR`/`CI`. Lowering the subject fixed it. A repeat by the coordinator, again without running `npx commitlint` before committing.
+
+## Episode (2026-11-19, #479 integration merge)
+
+A coordinator `git merge --no-ff -m` message had no conventional type and was rejected by commitlint; the merge was completed with a `chore(errors): merge …` message. Lesson added: local merge commits into an integration branch need a conventional message too.
