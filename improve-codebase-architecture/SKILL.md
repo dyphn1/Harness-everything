@@ -23,7 +23,7 @@ metadata:
 1. `[Discover]`: no blind refactoring — scan `CONTEXT.md`, `docs/adr/`, core interfaces first. Targets: SRP violations (>300 lines / >10 complexity), shallow modules, coupled seams.
 2. `[Think]`: present the Deepening & SRP proposal (object splitting + seam abstraction) until approved.
 3. `[Try]`: launch `tdd`; Characterization Tests first if legacy code lacks tests; extract incrementally, verifying tests after each change.
-4. `[Summarize]`/`[Self-Evolve]`: 3 same-signature failures → rollback + `zoom-out`; record traps in `self-evolve`.
+4. `[Summarize]`/`[Self-Evolve]`: if evidence changes the refactor diagnosis, optionally use `zoom-out`; roll back only when checks show a regression, and record useful traps in `self-evolve`.
 
 Deep dive: <this-skill-dir>/references/README.md
 

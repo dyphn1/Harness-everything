@@ -24,11 +24,11 @@
       "fixture_data": "Provide a short self-contained feature request in the prompt or a text file. No repository history, authentication, or external service is required."
     },
     {
-      "id": "repeat-failure-replan",
-      "user_prompt": "The same build command has failed three times with the same error. Stop repeating it, summarize what is known, and propose the next diagnostic plan before trying anything else.",
-      "expected_behavior": "Apply the repeated-failure invariant: do not immediately repeat the same failing action, zoom out, identify the stable failure signature, and produce a different diagnostic plan.",
-      "expected_result_shape": "A short failure summary, the repeated signature, hypotheses ranked by evidence, and a changed next-step plan rather than another blind retry.",
-      "fixture_data": "No files or accounts are required. The prompt itself supplies the three same-signature failures for review of recovery behavior."
+      "id": "first-failure-reassessment",
+      "user_prompt": "The first test failure contradicts my assumption about how callers use this object, and the impact boundary is unclear. You may reassess now using the acceptance clause, observed evidence, and a revised check, then continue. Do not write a report unless it helps.",
+      "expected_behavior": "Treat reassessment as an agent choice available at the first meaningful signal. Ground it in the acceptance clause, observed evidence, and a useful next check; continue if the next action is justified. No failure count, mandatory report, or reset ritual applies.",
+      "expected_result_shape": "A concise diagnosis that separates observations from assumptions and names a justified next check; a written artifact is optional and objective verification remains necessary before completion.",
+      "fixture_data": "No files or accounts are required. The prompt supplies a first failure that exposes an unknown caller-impact boundary."
     },
     {
       "id": "minimal-doc-fix",

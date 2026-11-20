@@ -31,10 +31,10 @@ text constant.
 - treatment: the same named Harness skill text plus the canonical OpenCode
   enforcement module installed as `.opencode/plugins/harness-enforcement.js`.
 
-This experiment currently supports OpenCode only. It requires a retained
-Rule-of-3 reflection-gate preflight produced by `opencode-reflection-gate-live.js`. The preflight must
-still pass verification and its plugin SHA-256 must equal the current canonical
-`opencode-plugin/index.mjs`; changing the plugin invalidates the old preflight.
+This experiment currently supports OpenCode only. Any plugin-specific host
+preflight must measure the intervention under study and bind retained evidence
+to the exact plugin bytes. The retired Rule-of-3 reflection-gate probe is not a
+prerequisite or evidence for current voluntary reassessment cases.
 
 Each treatment case must also leave retained plugin state proving that the
 plugin fired during that case. Missing attribution is classified as
@@ -146,28 +146,11 @@ runner's baseline-only `--safe-mode` difference is not used in this protocol.
 
 ## Run OpenCode plugin-enforcement pairs
 
-First produce the #37 attribution evidence from the exact plugin revision being
-measured:
-
-```bash
-npm run eval:opencode:reflection-gate-live
-```
-
-Then pass that evidence directory into the paired study:
-
-```bash
-npm run eval:paired -- \
-  --effect plugin-enforcement \
-  --engine opencode \
-  --model <provider/model> \
-  --min-effect-pp <N> \
-  --opencode-preflight benchmarks/results/live-host/opencode-reflection-gate-<timestamp> \
-  --repeats 3
-```
-
-If the preflight fails, is missing, or belongs to a different plugin SHA, the
-study refuses to start rather than silently counting an unattributed plugin
-arm.
+The former Rule-of-3 probe and its preflight option are retired with those
+cases. A new plugin study needs host evidence that attributes the plugin to
+each treatment case and matches the bytes under test. If no suitable preflight
+is available, classify that arm as unavailable or inconclusive; archived
+Rule-of-3 records do not substitute for current evidence.
 
 ## Statistical output
 
@@ -184,3 +167,5 @@ For included pairs the summary reports:
 
 Historical `opencode-with-plugin` result files pre-dating the live attribution
 protocol are descriptive only and must not be mixed into this paired dataset.
+Archived Rule-of-3 runs also do not establish behavior for the revised
+first-failure and productive-iteration rows.

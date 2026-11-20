@@ -1,5 +1,5 @@
 name: zoom-out-eval
-description: Trigger precision eval for the zoom-out circuit breaker skill.
+description: Agent-initiated reassessment eval for the zoom-out skill.
 skill: zoom-out
 version: "1.0"
 config:
@@ -12,7 +12,7 @@ metrics:
   - name: task_completion
     weight: 0.7
     threshold: 0.8
-    description: Did zoom-out trigger on repeated-failure/stuck signals and stay off trivial tasks?
+    description: Did the agent choose reassessment when evidence warranted it and continue during productive iteration?
   - name: efficiency
     weight: 0.3
     threshold: 0.7

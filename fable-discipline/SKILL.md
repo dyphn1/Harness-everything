@@ -16,7 +16,7 @@ metadata:
 | **Trigger / Input** | Background shadow for the whole duration `fable-mode` is active — not a standalone trigger. |
 | **Expected Output** | State compaction after milestones; authorized commit-boundary guidance; a state manifest at every sub-agent handoff. |
 | **State Mutations** | None of its own — constrains how `fable-mode` and `multi-agent-workspace` mutate state. |
-| **Enforcement Gate** | Build divergence is a warning signal: surface it and recommend `zoom-out`. Rule-of-3 owns mandatory reflection. |
+| **Guidance** | Surface build divergence as a warning; an agent may choose `zoom-out` to reassess it. |
 
 Shadow guard for `fable-mode`: **MUST** run in the background for its whole duration.
 

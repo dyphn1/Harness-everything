@@ -19,4 +19,4 @@ When `fable-mode` spawns and switches between different sub-agents via `multi-ag
 ## 4. Divergence Signal
 - Large tasks easily generate the sunk cost fallacy of "I think it's almost fixed, let me try one more time."
 - If Build Errors exhibit a divergent trend (the more you fix, the more it breaks), surface the regression immediately and recommend `zoom-out`; divergence alone is not a hard stop.
-- Organize the error dependency graph for the human. Mandatory reflection remains owned by Rule-of-3 after repeated same-signature failures, or by explicit user/host permission boundaries.
+- Organize the error dependency graph for the human. An agent may choose `zoom-out` whenever evidence changes the diagnosis; explicit user/host permission boundaries retain their own authority.
