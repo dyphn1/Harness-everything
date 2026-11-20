@@ -11,7 +11,7 @@ const {
 const { emitLessonTelemetry } = require('./telemetry');
 
 const SCHEMA_VERSION = 1;
-const TRIGGERS = new Set(['rule-of-3-recovery', 'verifier-fail-pass']);
+const TRIGGERS = new Set(['verifier-fail-pass']);
 
 function atomicWriteJson(filePath, value) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -56,14 +56,6 @@ function sourceIds(values) {
 }
 
 function minimalEvidence(triggerType, evidence = {}) {
-  if (triggerType === 'rule-of-3-recovery') {
-    return {
-      failureSignature: safeId(evidence.failureSignature),
-      failureCategory: safeText(evidence.failureCategory, 40),
-      zoomOutCycles: Number.isInteger(evidence.zoomOutCycles) ? evidence.zoomOutCycles : 1,
-      recovered: evidence.recovered === true,
-    };
-  }
   if (triggerType === 'verifier-fail-pass') {
     return {
       planId: safeId(evidence.planId),
@@ -108,11 +100,9 @@ function createLearningOpportunity(payload, input = {}) {
     state: 'proposed',
     trigger: {
       type: triggerType,
-      reasonCodes: triggerType === 'rule-of-3-recovery'
-        ? ['repeated-failure', 'zoom-out-completed', 'verified-subsequent-success']
-        : ['verifier-failed', 'later-verifier-pass'],
+      reasonCodes: ['verifier-failed', 'later-verifier-pass'],
       sourceEventIds: ids,
-      evidenceClass: triggerType === 'verifier-fail-pass' ? 'objective-transition' : 'runtime-recovery',
+      evidenceClass: 'objective-transition',
     },
     provenance: {
       sessionId,

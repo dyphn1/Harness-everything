@@ -164,6 +164,8 @@ assert.match(hookText, /PLUGIN_ROOT/, 'plugin hooks must resolve from PLUGIN_ROO
 assert.match(hookText, /commandWindows/, 'plugin hooks need a Windows command override');
 assert.match(hookText, /workflow-gate\.js/, 'plugin hooks must package workflow contract observation');
 assert.match(hookText, /workflow-stop-gate\.js/, 'plugin hooks must package workflow completion reminders');
+assert.doesNotMatch(hookText, /rule-of-3(?:-tracker)?\.js|reset-circuit-breaker\.js/,
+  'OpenAI package must not register retired breaker entry points');
 
 const session = spawnSync(process.execPath, [path.join(PLUGIN, 'hooks', 'session-start.js')], { encoding: 'utf8' });
 assert.strictEqual(session.status, 0, session.stderr);

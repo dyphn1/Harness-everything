@@ -70,17 +70,6 @@
         "id": "harness:pre:action-gate"
       },
       {
-        "matcher": "Bash|PowerShell|Edit|Write|apply_patch",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/rule-of-3.js\""
-          }
-        ],
-        "description": "Rule of 3 Circuit Breaker - Prevents micro-error looping",
-        "id": "harness:pre:rule-of-3"
-      },
-      {
         "matcher": "Grep|Glob|Read",
         "hooks": [
           {
@@ -212,17 +201,6 @@
         "id": "harness:post:action-gate-audit"
       },
       {
-        "matcher": "Bash|PowerShell|apply_patch",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/rule-of-3-tracker.js\""
-          }
-        ],
-        "description": "Track error signatures for Rule of 3",
-        "id": "harness:post:rule-of-3-tracker"
-      },
-      {
         "matcher": "Edit|Write|Bash|PowerShell|apply_patch",
         "hooks": [
           {
@@ -299,17 +277,6 @@
         ],
         "description": "Record that an approved action-gate payload executed but failed",
         "id": "harness:post-failure:action-gate-audit"
-      },
-      {
-        "matcher": "Bash|PowerShell|apply_patch",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/rule-of-3-tracker.js\""
-          }
-        ],
-        "description": "Track failed tool error signatures for Rule of 3",
-        "id": "harness:post-failure:rule-of-3-tracker"
       },
       {
         "matcher": "Bash|PowerShell|apply_patch",

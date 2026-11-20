@@ -62,36 +62,11 @@ if (!isManagedWorkspace(root)) {
 // grow forever.
 pruneStaleSessions(root);
 
-// The manual escape hatch (reset-circuit-breaker.js) and any CLI tool that
-// can't see a session_id, resolve "current session" through
+// CLI tools that can't see a session_id resolve the current session through
 // this pointer.
 writeCurrentSession(root, sessionId);
 
 const harnessDir = getSessionDir(root, sessionId);
-
-// The Rule of 3 circuit breaker (hooks/scripts/rule-of-3.js) locks all
-// Bash/Edit/Write calls once tripped; the only in-session exits are a valid
-// zoom-out reflection report or a human reset. A new SessionStart means the
-// human has taken over (new session, /clear, /compact) and reviewed the
-// situation, so it's safe to clear here. The stale reflection report goes
-// with it - it belongs to the previous loop, not this session.
-const circuitBreakerFile = path.join(harnessDir, 'rule-of-3-state.json');
-if (fs.existsSync(circuitBreakerFile)) {
-  try {
-    fs.unlinkSync(circuitBreakerFile);
-    console.log("Rule of 3 circuit breaker state cleared for new session.");
-  } catch (err) {
-    // Ignore; worst case the breaker stays tripped until manually reset.
-  }
-}
-const zoomOutReportFile = path.join(harnessDir, 'zoom-out-report.md');
-if (fs.existsSync(zoomOutReportFile)) {
-  try {
-    fs.unlinkSync(zoomOutReportFile);
-  } catch (err) {
-    // Ignore; rule-of-3.js already rejects reports older than the last failure.
-  }
-}
 
 // Same reasoning: a stale subagent-scope baseline from a previous session
 // would make the first Task burst of this session diff against the wrong
