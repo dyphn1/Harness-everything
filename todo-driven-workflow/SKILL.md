@@ -34,7 +34,7 @@ Single-task milestones prevent context drift in Tier 2/3 work.
 2. [Record] Initialize the native host tracker before edits; if unavailable, create a Markdown checklist.
 3. Start exactly one milestone, execute only its scope, and run its named check.
 4. Mark it complete only after evidence passes; then start the next milestone.
-5. Record blockers in the checklist and escalate after the applicable circuit-breaker threshold.
+5. Record blockers and surface genuine user decisions when the next step depends on them; choose `zoom-out` when new evidence warrants reassessment.
 
 Native TODO tools take priority. Markdown is portable fallback; this skill
 does not depend on a repository CLI state machine.

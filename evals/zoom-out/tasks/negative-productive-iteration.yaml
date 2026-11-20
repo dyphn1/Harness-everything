@@ -1,0 +1,15 @@
+id: negative-productive-iteration-001
+name: Continue when each iteration narrows the cause
+description: "An agent may continue while attempts yield useful evidence and the next step is justified."
+tags:
+  - negative-trigger
+inputs:
+  prompt: "The first test run failed because sort returned undefined. Adding the missing return changed the failure: the result now contains 1 and 2 but misses 3, and the output shows the loop reads one element past the input. This narrows the remaining cause to the loop bounds. Continue with the smallest justified check and fix; there is no need for a report just because work has taken several attempts."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "continue"

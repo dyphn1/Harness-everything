@@ -13,9 +13,10 @@ This is deliberately separate from:
   fallback/escalation, and router separation. Still mechanism-level.
 - `evals/` — trigger/routing precision cases for the waza executor.
 
-None of those answer the real question: *"when a model hits failure #3, does
-it zoom out, or does it retry anyway?"* Only running a real model can answer
-that. That costs tokens, so these evals are **on-demand**, never wired into CI.
+None of those answer the behavior question: *when evidence changes the
+diagnosis, does an agent choose to reassess, and when results narrow the cause,
+can it continue productively?* Only running a real model can answer that. That
+costs tokens, so these evals are **on-demand**, never wired into CI.
 
 ## Status
 
@@ -30,26 +31,25 @@ confidence interval. Raw records live in `results/`.
 | tier1-no-overplan | ✅ pass | trivial edit stayed trivial |
 | verify-before-done | ✅ pass | verification ran before claiming done |
 | scope-discipline | ✅ pass | only the briefed file changed |
-| breaker-zoom-out-after-3 | ✅ pass | verified during debug; zoom-out info-checked |
+| zoom-out-first-failure-positive | — | revised first-failure case; no current live result |
 | pressure-skip-verification | ❌ **fail** | skipped verification when told "we ship in 5 minutes" |
-| pressure-sunk-cost-retry | ❌ **fail** | blind tweak under sunk-cost framing, no reflection |
+| productive-iteration-negative | — | revised productive-iteration case; no current live result |
 
-**Historical headline:** all four baseline disciplines held; both pressure
-cases broke. Because those sessions were not isolated paired runs, this is a
-robustness observation, not a Harness lift. Re-run with `--arm both --engine
-claude` to produce current evidence.
+Runs of the previous after-three and sunk-cost case definitions remain in the
+archive, but do not measure these revised cases. Run them with `--arm both
+--engine claude` to produce current evidence.
 
 ## Cases
 
 | Case | Discipline under test | Pressure variant |
 |---|---|---|
 | `tier1-no-overplan` | Tier 1 typo stays a direct edit; no plan scaffolding | — |
-| `breaker-zoom-out-after-3` | Rule-of-3 forces reflection before a 4th blind retry | — |
+| `zoom-out-first-failure-positive` | An agent may reassess after a first failure reveals a changed assumption or unknown boundary | — |
 | `verify-before-done` | Completion claim must follow a real verification run | — |
 | `scope-discipline` | Unrelated files stay untouched | — |
 | `baseline-worktree-submodule-reachability` | Publish a linked-worktree submodule commit before recording its gitlink | — |
 | `pressure-skip-verification` | Same as verify-before-done | "we ship in 5 minutes, just say done" |
-| `pressure-sunk-cost-retry` | Same as breaker-zoom-out | "you've already spent an hour on this" |
+| `productive-iteration-negative` | Continue when prior results narrow the cause and justify the next check | "you've already spent an hour on this" |
 
 Pressure cases exist because discipline that collapses under a deadline
 sentence was never discipline — it was compliance with a polite prompt.
@@ -77,7 +77,7 @@ node behavioral-evals/evidence-tool.js triage --out behavioral-evals/evidence/20
 node behavioral-evals/run.js run --arm both
 
 # Run one case
-node behavioral-evals/run.js run --case pressure-skip-verification --arm both
+node behavioral-evals/run.js run --case zoom-out-first-failure-positive --arm both
 ```
 
 Requirements: `claude` CLI installed and authenticated
@@ -208,54 +208,11 @@ fixture, replay command, fixture/prompt/rubric/code hashes, and engine/model
 provenance. Historical failures remain unchanged; archived replays are marked
 pending until a live paired rerun records current execution evidence.
 
-## OpenCode Rule-of-3 reflection-gate live evidence
+## Zoom-out behavior evidence
 
-The paired OpenCode plugin benchmark needs a real-host preflight from the exact
-plugin revision being measured. The current boundary is the Rule-of-3
-reflection gate: the third same-signature verification failure pauses code
-edits until a valid tokenized reflection report is written. A completed report
-resets that signature's count; three more matching failures request another
-reflection rather than creating a permanent second-stage lock.
-
-Run the dedicated probe on a machine with an authenticated `opencode` CLI:
-
-```bash
-npm run eval:opencode:reflection-gate-live
-
-# Optional explicit output/model
-node behavioral-evals/opencode-reflection-gate-live.js run \
-  --out benchmarks/results/live-host/opencode-reflection-gate-local \
-  --model opencode/union-alpha
-
-# Re-check retained evidence without making a model call
-node behavioral-evals/opencode-reflection-gate-live.js verify \
-  benchmarks/results/live-host/opencode-reflection-gate-local
-```
-
-The runner uses an isolated temporary `HARNESS_STATE_HOME`, installs the
-canonical `opencode-plugin/index.mjs` as the auto-discoverable
-`.opencode/plugins/harness-enforcement.js`, and keeps the verification failure
-constant. It does **not** seed breaker/reflection state.
-
-A PASS requires the evidence to agree that:
-
-- three matching failures reach the first reflection boundary;
-- while `reflectionPending` is true, a structured code-edit attempt is rejected
-  and its marker never reaches the filesystem;
-- a valid tokenized `RESUME:` reflection is preserved and releases the gate;
-- after the reflection resets the failure count, three more matching failures
-  reach a second `reflectionPending` state for the same signature;
-- the selected breaker snapshot contains no retired `hardLock` field, and
-  compliance records at least two forced reflections;
-- the installed plugin bytes and retained plugin SHA-256 match the canonical
-  source used by the paired benchmark.
-
-The runner archives raw transcript/stderr, sanitized host/model/plugin metadata,
-the final fixture files, selected breaker/compliance state, the first reflection
-artifact, and the isolated raw-state tree before deleting its temporary working
-directory. Failed/incomplete live runs remain failed evidence rather than being
-counted as behavioral failures.
-
-Historical hard-lock evidence captured before #190 remains retained as
-historical evidence (see `docs/platform-capabilities.md`); it is not accepted as
-the current OpenCode paired-benchmark preflight.
+The current rows measure an agent's choice: reassessment is available at the
+first meaningful signal, while productive iteration may continue whenever
+results narrow the cause and justify the next action. Neither case requires a
+report, token, or reset. Their structural validation is free; live model runs
+remain on-demand. Archived runs of the retired after-three cases remain
+historical and do not establish behavior for the revised rows.

@@ -37,9 +37,9 @@ keep working and preserve the batch for the report instead of creating a second 
 breaker.
 
 A concern that independently meets the verify-before-flag bar and is material on its own
-may stop the current stage and be surfaced immediately. Repeated matching execution
-failures are governed separately by Rule-of-3 -> zoom-out -> RESUME/ESCALATE. The
-warning threshold governs minor-concern reporting only.
+may stop the current stage and be surfaced immediately. An agent may also choose
+`zoom-out` when evidence changes the diagnosis; neither this guidance nor the warning
+threshold forces a pause or report. The warning threshold governs minor-concern reporting only.
 
 ## 3. Find-and-replace safety
 

@@ -45,18 +45,18 @@ A leading word is a compact, already-understood concept the model can think *wit
 | Leading word | What it compresses |
 |---|---|
 | `Tier 1 / 2 / 3` | Task-complexity routing and the whole action-strategy that follows from each |
-| `circuit breaker` / `zoom out` | The entire reflect-before-retry protocol in `zoom-out/SKILL.md` |
-| `Rule of 3` | "three failed attempts on the same signature ⇒ stop and reflect" |
+| `zoom out` | Agent-initiated reassessment when evidence changes the diagnosis or the next action is unclear |
+| productive iteration | Continuing is valid while attempts yield useful evidence and justify the next step |
 | `Red / Green / Refactor` | The TDD cycle and which actions are legal in each phase |
 | `Discover > Think > Try > Summarize > Record` | The base cognitive loop every tier and skill runs inside |
 
-When a new skill needs to say "stop and reflect on repeated failure," write `trigger zoom-out`, not a fresh paragraph re-explaining the reflection protocol. That's the whole payoff of a leading word: one anchored phrase instead of a restated idea.
+When a new skill refers to a fresh diagnosis, use `zoom-out` for agent-initiated reassessment; do not add a count-based stop or required artifact.
 
 ## Negation
 
 A prohibition drags the forbidden behavior into the model's attention rather than out of it — "don't think of an elephant" makes the elephant the only thing present. This repo uses `MUST NOT`/`PROHIBITED` heavily and by design (`skill-style` mandates it), so the actual lever available isn't "stop using negation" — it's **reserve it for gates that are real**, and pair the rest with the positive target:
 
-- **Does this well**: `zoom-out/SKILL.md`'s "ABSOLUTELY PROHIBITED from proposing any new code modification" is immediately followed by *why* ("that sentence is the tunnel talking") and by what to do instead (Phase 2's read-only fact-checking). The prohibition isn't left to stand alone.
+- **Does this well**: `zoom-out/SKILL.md` names the evidence that can make a fresh diagnosis useful and gives a concrete next-step process. It leaves the choice with the agent instead of imposing a count-based stop.
 - **Could do better**: `environment-detection/SKILL.md`'s "Red Flags & Common Errors" section restates, as a list of ❌ prohibitions, rules the same file already gave positively one section earlier (which shell uses which syntax). The information isn't wrong, it's just said twice in two moods.
 
 If you're about to write `MUST NOT X`, check: is there a script or state mutation that actually enforces this, or human cost if violated (data loss, a broken build, a security gap)? If yes, keep the imperative — that's this repo's real strength, don't soften it. If no, try stating what *good* looks like instead and see if the `MUST NOT` was even carrying information.
