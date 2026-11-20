@@ -45,14 +45,15 @@ function createTarget(name = 'target') {
   ].join('\n'));
   fs.writeFileSync(path.join(errorsDir, 'index.jsonl'), render(root));
   write(path.join(root, 'src', 'parser.js'), 'module.exports = value => value;\n');
+  write(path.join(root, 'src', 'renderer.js'), 'module.exports = value => value;\n');
   write(path.join(root, 'ci', 'parser.test.js'), "require('../src/parser');\n");
   git(root, ['init', '-q']);
   git(root, ['config', 'user.name', 'Promotion Fixture']);
   git(root, ['config', 'user.email', 'fixture@example.invalid']);
   git(root, ['config', 'commit.gpgsign', 'false']);
   const fixedDate = Date.parse('2024-01-02T03:04:05.000Z');
-  function commit(subject, seconds, text) {
-    write(path.join(root, 'src', 'parser.js'), text);
+  function commit(subject, seconds, text, site = 'src/parser.js') {
+    write(path.join(root, site), text);
     git(root, ['add', '-A']);
     const date = new Date(fixedDate + seconds * 1000).toISOString();
     git(root, ['commit', '-q', '-m', subject], {
@@ -68,6 +69,8 @@ function createTarget(name = 'target') {
   });
   commit('fix: preserve parser boundary', 1, 'module.exports = value => value == null ? "" : value;\n');
   commit('fix: handle parser edge case', 2, 'module.exports = value => String(value ?? "");\n');
+  commit('fix: preserve renderer boundary', 3, 'module.exports = value => value == null ? "" : value;\n', 'src/renderer.js');
+  commit('fix: handle renderer edge case', 4, 'module.exports = value => String(value ?? "");\n', 'src/renderer.js');
   return { root, errorsDir };
 }
 
@@ -90,7 +93,8 @@ function makeReport(targetRoot) {
   const payload = JSON.parse(scan.stdout);
   const report = fs.readFileSync(payload.reportJson, 'utf8');
   const reportJson = JSON.parse(report);
-  const selected = reportJson.candidates.find(candidate => candidate.sources.some(source => source.type === 'git'));
+  const selected = reportJson.candidates.find(candidate => candidate.sites.includes('src/parser.js') &&
+    candidate.sources.some(source => source.type === 'git'));
   const memoryCandidate = reportJson.candidates.find(candidate => candidate.sources.some(source => source.type === 'memory'));
   assert.ok(selected, 'the real scanner report includes the repeated-fix Git candidate');
   assert.ok(memoryCandidate, 'the real scanner report includes the local memory candidate');
@@ -125,8 +129,8 @@ function writeApproval(value, file = path.join(TMP, 'approval.json')) {
   return file;
 }
 
-function invoke(target, report, approval, harness = ROOT) {
-  const env = { ...process.env };
+function invoke(target, report, approval, harness = ROOT, extraEnv = {}) {
+  const env = { ...process.env, ...extraEnv };
   delete env.HARNESS_SYSTEM_ONE_MODE;
   return childProcess.spawnSync(process.execPath, [
     SCRIPT, '--target', target, '--report', report,
@@ -189,13 +193,20 @@ function addFakeYaml(harness) {
   write(path.join(moduleDir, 'index.js'), 'module.exports = {};\n');
 }
 
-function makeSyncHarness(name, afterWrite) {
+function makeSyncHarness(name, afterWrite, duringRollback = '') {
   const source = [
     "const childProcess = require('node:child_process');",
     "const fs = require('node:fs');",
     "const path = require('node:path');",
     `const canonicalSync = ${JSON.stringify(SYNC)};`,
     'module.exports = require(canonicalSync);',
+    ...(duringRollback ? [
+      'const renderIndex = module.exports.render;',
+      'module.exports.render = function (root) {',
+      duringRollback,
+      '  return renderIndex(root);',
+      '};'
+    ] : []),
     'if (require.main === module) {',
     '  const args = process.argv.slice(2);',
     "  if (args.includes('--check')) { process.stderr.write('injected final check failure\\n'); process.exit(1); }",
@@ -393,6 +404,89 @@ try {
   assert.deepEqual(snapshot(syncFailure.errorsDir), beforeFailure,
     `rollback recognizes its own replacement, removes the new record, and restores prior index bytes: ${syncFailureResult.error}`);
   assert.equal(runSync(syncFailure.root).status, 0, 'the target index remains current after rollback');
+
+  const rollbackContention = seedFixture();
+  const secondCandidate = rollbackContention.reportJson.candidates.find(candidate =>
+    candidate.id !== rollbackContention.selected.id && candidate.sources.some(source => source.type === 'git'));
+  assert.ok(secondCandidate, 'the real scanner fixture supplies two distinct durable candidates');
+  const approvalB = writeApproval(approvalFor(fs.realpathSync.native(rollbackContention.root),
+    rollbackContention.report, secondCandidate.id, {
+      record: {
+        signature: 'renderer-rollback-contention',
+        class: 'test-coupling',
+        title: 'Renderer rollback contention',
+        violates: 'The renderer promotion waits for rollback recovery.',
+        scope: 'in',
+        status: 'lesson',
+        sites: ['src/renderer.js'],
+        sourcesNote: 'The renderer record is independently approved for the rollback contention control.'
+      }
+    }), path.join(TMP, 'rollback-b-approval.json'));
+  const contentionProbeFile = path.join(TMP, 'rollback-contention-probe.json');
+  const contentionResultFile = path.join(TMP, 'rollback-contention-result.json');
+  write(contentionProbeFile, JSON.stringify({
+    args: [SCRIPT, '--target', rollbackContention.root, '--report', rollbackContention.report,
+      '--approval', approvalB, '--harness', ROOT, '--json'],
+    cwd: ROOT,
+    resultFile: contentionResultFile
+  }));
+  const duringRollback = [
+    "  const probe = JSON.parse(fs.readFileSync(process.env.PROMOTION_ROLLBACK_PROBE, 'utf8'));",
+    "  const errorsDir = path.join(root, '.agents', 'harness-everything', 'errors');",
+    '  const state = () => ({',
+    "    records: Object.fromEntries(fs.readdirSync(errorsDir).filter(name => name.startsWith('E-') && name.endsWith('.md')).sort().map(name => [name, fs.readFileSync(path.join(errorsDir, name)).toString('base64')])),",
+    "    index: fs.readFileSync(path.join(errorsDir, 'index.jsonl')).toString('base64'),",
+    "    lock: fs.existsSync(path.join(errorsDir, '.promote.lock'))",
+    '  });',
+    '  const before = state();',
+    "  const expectedIndex = Buffer.from(renderIndex(root)).toString('base64');",
+    "  const attempt = childProcess.spawnSync(process.execPath, probe.args, { cwd: probe.cwd, encoding: 'utf8' });",
+    '  const after = state();',
+    "  fs.writeFileSync(probe.resultFile, JSON.stringify({ before, after, expectedIndex, attempt: { status: attempt.status, stdout: attempt.stdout, stderr: attempt.stderr, error: attempt.error && attempt.error.message } }));"
+  ].join('\n');
+  const contentionHarness = makeSyncHarness('rollback-contention-harness', '', duringRollback);
+  const beforeContention = snapshot(rollbackContention.errorsDir);
+  const rollbackAResult = resultFor(invoke(rollbackContention.root, rollbackContention.report,
+    rollbackContention.approval, contentionHarness, { PROMOTION_ROLLBACK_PROBE: contentionProbeFile }), 1);
+  assert.equal(rollbackAResult.ok, false, 'A reports its injected final check failure');
+  assert.match(rollbackAResult.error, /injected final check failure/);
+  const contention = JSON.parse(fs.readFileSync(contentionResultFile, 'utf8'));
+  assert.ok(Object.hasOwn(contention.before.records, 'E-0002-parser-edge-case.md'),
+    'A published its record before rollback began');
+  assert.equal(contention.before.index, contention.expectedIndex,
+    'A published the replacement index before rollback began');
+  assert.equal(contention.attempt.status, 2, 'B is refused while A is rolling back');
+  const refusedB = JSON.parse(contention.attempt.stdout);
+  assert.equal(refusedB.ok, false);
+  assert.match(refusedB.error, /another promotion is active or a stale \.promote\.lock remains/,
+    'B receives the active-lock refusal');
+  assert.equal(contention.before.lock, true, 'A still owns the lock before the contention attempt');
+  assert.deepEqual(contention.after, contention.before,
+    'B leaves the record bytes, index bytes, and active lock unchanged');
+  assert.deepEqual(snapshot(rollbackContention.errorsDir), beforeContention,
+    'A removes its record and restores the original index after B is refused');
+  assert.equal(fs.existsSync(path.join(rollbackContention.errorsDir, '.promote.lock')), false,
+    'A releases its lock after rollback completes');
+  assert.equal(fs.readdirSync(rollbackContention.errorsDir).some(name =>
+    name.startsWith('.index.jsonl.') && name.endsWith('.tmp')), false,
+  'rollback leaves no temporary index');
+  assert.equal(runSync(rollbackContention.root).status, 0,
+    'canonical errors-sync --check passes after A recovery');
+
+  const retryB = resultFor(invoke(rollbackContention.root, rollbackContention.report, approvalB), 0);
+  assert.equal(retryB.id, 'E-0002', 'B can promote after A recovery');
+  assert.equal(fs.existsSync(path.join(rollbackContention.errorsDir, 'E-0002-renderer-rollback-contention.md')), true,
+    'the retry publishes only B approved record');
+  assert.equal(fs.existsSync(path.join(rollbackContention.errorsDir, 'E-0002-parser-edge-case.md')), false,
+    'A record remains rolled back');
+  assert.deepEqual(fs.readdirSync(rollbackContention.errorsDir)
+    .filter(name => name.startsWith('E-') && name.endsWith('.md')).sort(),
+  ['E-0001-fixture.md', 'E-0002-renderer-rollback-contention.md'],
+  'the recovered ledger contains only B approved record');
+  assert.equal(fs.readFileSync(path.join(rollbackContention.errorsDir, 'index.jsonl'), 'utf8'),
+    render(rollbackContention.root), 'B retry leaves byte parity with the canonical renderer');
+  assert.equal(runSync(rollbackContention.root).status, 0,
+    'canonical errors-sync --check passes after B retry');
 
   const unrelatedReplacement = seedFixture();
   const unrelatedHarness = makeSyncHarness('unrelated-sync-harness', [

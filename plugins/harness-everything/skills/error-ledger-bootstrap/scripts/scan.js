@@ -10,6 +10,7 @@ const path = require('node:path');
 const USAGE = 'usage: node scan.js --root <repo> [--out <dir>] [--no-memory] [--memory <path>]... [--instructions <path>]... [--tracker <file.json>]... [--hide-ledger] [--home <dir>] [--json]';
 const HASH = /^[0-9a-f]{40}$/i;
 const SOURCE_STATUSES = new Set(['used', 'missing', 'disabled', 'unverified']);
+const GIT_MAX_BUFFER = 32 * 1024 * 1024;
 
 function failure(message, exitCode = 2) {
   const error = new Error(message);
@@ -48,8 +49,13 @@ function parseArgs(args) {
 
 function git(root, args, encoding = 'utf8', exitCode = 1) {
   try {
-    return childProcess.execFileSync('git', ['-C', root, ...args], { encoding, stdio: ['ignore', 'pipe', 'pipe'] });
+    return childProcess.execFileSync('git', ['-C', root, ...args], {
+      encoding, stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: GIT_MAX_BUFFER
+    });
   } catch (cause) {
+    if (cause.code === 'ENOBUFS') {
+      failure(`git ${args[0] || 'command'} output exceeded the configured limit of ${GIT_MAX_BUFFER} bytes for the target repository`, exitCode);
+    }
     failure(`git ${args[0] || 'command'} failed for the target repository`, exitCode);
   }
 }

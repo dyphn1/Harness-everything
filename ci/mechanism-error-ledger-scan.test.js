@@ -10,6 +10,7 @@ const { isWithin } = require('../error-ledger-bootstrap/scripts/scan');
 const ROOT = path.resolve(__dirname, '..');
 const SCANNER = path.join(ROOT, 'error-ledger-bootstrap', 'scripts', 'scan.js');
 const TMP = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'harness-error-ledger-scan-')));
+const GIT_MAX_BUFFER = 32 * 1024 * 1024;
 const FIXED_DATE = '2024-01-02T03:04:05Z';
 const VALID_SOURCE_STATUSES = new Set(['used', 'missing', 'disabled', 'unverified']);
 
@@ -36,7 +37,7 @@ function commit(repo, subject, files, seconds) {
   for (const [relative, text] of Object.entries(files)) write(repo, relative, text);
   git(repo, ['add', '-A']);
   const date = new Date(Date.parse(FIXED_DATE) + seconds * 1000).toISOString();
-  git(repo, ['commit', '-m', subject], {
+  git(repo, ['commit', '-q', '-m', subject], {
     GIT_AUTHOR_NAME: 'Scanner Fixture',
     GIT_AUTHOR_EMAIL: 'scanner@example.invalid',
     GIT_COMMITTER_NAME: 'Scanner Fixture',
@@ -46,10 +47,11 @@ function commit(repo, subject, files, seconds) {
   });
 }
 
-function run(args, home) {
-  const result = childProcess.spawnSync(process.execPath, [SCANNER, ...args, '--json'], {
+function run(args, home, preload = null, extraEnv = {}) {
+  const nodeArgs = preload ? ['--require', preload] : [];
+  const result = childProcess.spawnSync(process.execPath, [...nodeArgs, SCANNER, ...args, '--json'], {
     encoding: 'utf8',
-    env: { ...process.env, HOME: home, USERPROFILE: home }
+    env: { ...process.env, HOME: home, USERPROFILE: home, ...extraEnv }
   });
   assert.ifError(result.error);
   return result;
@@ -500,7 +502,138 @@ try {
 
   assert.strictEqual(git(repo, ['status', '--porcelain']), statusBefore,
     'scanner leaves the target repository unchanged');
-  console.log(`Error-ledger scan CLI verified: ${defaultJson.candidates.length} candidates, ${parserLead.sources.length} parser leads.`);
+
+  const acceptanceFailures = [];
+  const checkAcceptance = (passed, message) => {
+    if (!passed) acceptanceFailures.push(message);
+  };
+  const overflowShim = path.join(TMP, 'git-overflow-preload.js');
+  writeFile(overflowShim, [
+    "'use strict';",
+    "const childProcess = require('node:child_process');",
+    "const fs = require('node:fs');",
+    'const original = childProcess.execFileSync;',
+    'const calls = [];',
+    'function save() { fs.writeFileSync(process.env.SCAN_MARKER, JSON.stringify(calls)); }',
+    'childProcess.execFileSync = function (file, args, options) {',
+    "  const command = file === 'git' ? args[2] : null;",
+    "  const call = { command, maxBuffer: options && options.maxBuffer, result: 'ok' };",
+    '  if (command === process.env.SCAN_FAIL_COMMAND) {',
+    "    call.result = 'failed';",
+    '    calls.push(call);',
+    '    save();',
+    "    const error = new Error('synthetic subprocess failure');",
+    "    error.code = process.env.SCAN_FAIL_CODE || 'ENOBUFS';",
+    "    error.stdout = Buffer.from('GIT_CAPTURED_OUTPUT_SENTINEL');",
+    "    error.stderr = Buffer.from('GIT_CAPTURED_STDERR_SENTINEL');",
+    '    throw error;',
+    '  }',
+    '  const result = original.call(this, file, args, options);',
+    '  if (command) { calls.push(call); save(); }',
+    '  return result;',
+    '};',
+    ''
+  ].join('\n'));
+
+  for (const scenario of [
+    { command: 'log', code: 'ENOBUFS', label: 'log overflow', checkDiagnostic: true },
+    { command: 'ls-files', code: 'ENOBUFS', label: 'ls-files overflow', checkDiagnostic: true },
+    { command: 'rev-parse', code: 'EIO', label: 'ordinary Git failure', checkDiagnostic: false }
+  ]) {
+    const output = path.join(TMP, `overflow-${scenario.command}-reports`);
+    const marker = path.join(TMP, `overflow-${scenario.command}-calls.json`);
+    const result = run([
+      '--root', repo, '--out', output, '--hide-ledger', '--no-memory', '--home', home
+    ], home, overflowShim, {
+      SCAN_FAIL_COMMAND: scenario.command,
+      SCAN_FAIL_CODE: scenario.code,
+      SCAN_MARKER: marker
+    });
+    checkAcceptance(result.status !== 0, `${scenario.label}: scanner must exit nonzero`);
+    checkAcceptance(!result.stderr.includes('GIT_CAPTURED_') && !result.stdout.includes('GIT_CAPTURED_'),
+      `${scenario.label}: captured child output must stay out of diagnostics`);
+    checkAcceptance(!fs.existsSync(output), `${scenario.label}: no partial report directory may be created`);
+
+    let failurePayload;
+    let calls;
+    try {
+      failurePayload = JSON.parse(result.stdout);
+      calls = JSON.parse(fs.readFileSync(marker, 'utf8'));
+    } catch (cause) {
+      acceptanceFailures.push(`${scenario.label}: expected failure JSON and subprocess trace (${cause.message})`);
+      continue;
+    }
+    checkAcceptance(failurePayload.ok === false && !failurePayload.reportJson && !failurePayload.reportMd,
+      `${scenario.label}: failure must not return a success payload`);
+    checkAcceptance(calls.some(call => call.command === scenario.command && call.result === 'failed'),
+      `${scenario.label}: injected subprocess failure must reach the real scanner`);
+    if (scenario.checkDiagnostic) {
+      checkAcceptance(result.stderr.includes(`git ${scenario.command}`) &&
+        result.stderr.includes(`${GIT_MAX_BUFFER} bytes`),
+      `${scenario.label}: diagnostic must name the Git command and ${GIT_MAX_BUFFER}-byte limit`);
+      checkAcceptance(calls.find(call => call.command === scenario.command)?.maxBuffer === GIT_MAX_BUFFER,
+        `${scenario.label}: subprocess must receive the configured ${GIT_MAX_BUFFER}-byte limit`);
+    } else {
+      checkAcceptance(failurePayload.error === 'git rev-parse failed for the target repository',
+        'ordinary Git failures must keep the existing diagnostic path');
+    }
+    if (scenario.command === 'ls-files') {
+      checkAcceptance(calls.some(call => call.command === 'log' && call.result === 'ok'),
+        'ls-files overflow must occur after history inventory succeeds');
+    }
+  }
+
+  const largeRepo = path.join(TMP, 'large');
+  fs.mkdirSync(largeRepo, { recursive: true });
+  git(largeRepo, ['init', '-q']);
+  git(largeRepo, ['config', 'user.name', 'Scanner Fixture']);
+  git(largeRepo, ['config', 'user.email', 'scanner@example.invalid']);
+  git(largeRepo, ['config', 'commit.gpgsign', 'false']);
+  const historyFiles = { 'src/repeated.js': 'initial\n' };
+  const historyNameSuffix = 'x'.repeat(142);
+  for (let i = 0; i < 14000; i++) {
+    historyFiles[`history-${String(i).padStart(5, '0')}-${historyNameSuffix}.txt`] = 'history\n';
+  }
+  commit(largeRepo, 'feat: seed large history', historyFiles, 0);
+  commit(largeRepo, 'fix: first repeated change', { 'src/repeated.js': 'first fix\n' }, 1);
+  commit(largeRepo, 'fix: second repeated change', { 'src/repeated.js': 'second fix\n' }, 2);
+  const history = childProcess.execFileSync('git', [
+    '-C', largeRepo, 'log', '-z', '--name-status', '--format=%H%x00%s'
+  ], { encoding: 'buffer', maxBuffer: GIT_MAX_BUFFER });
+  checkAcceptance(history.length > 2 * 1024 * 1024,
+    `large-history fixture must emit more than 2 MiB (measured ${history.length} bytes)`);
+  checkAcceptance(history.length < GIT_MAX_BUFFER,
+    `large-history fixture must remain below ${GIT_MAX_BUFFER} bytes (measured ${history.length} bytes)`);
+  const largeOutput = path.join(TMP, 'large-history-reports');
+  const largeResult = run([
+    '--root', largeRepo, '--out', largeOutput, '--hide-ledger', '--no-memory', '--home', home
+  ], home);
+  checkAcceptance(largeResult.status === 0,
+    `history larger than 2 MiB must scan successfully; exit=${largeResult.status}, stderr=${largeResult.stderr.trim()}`);
+  try {
+    const largePayload = JSON.parse(largeResult.stdout);
+    checkAcceptance(largePayload.ok === true, 'large-history scan must return a success payload');
+    if (largePayload.ok) {
+      const largeJson = JSON.parse(fs.readFileSync(largePayload.reportJson, 'utf8'));
+      const largeMarkdown = fs.readFileSync(largePayload.reportMd, 'utf8');
+      const repeated = candidate(largeJson, 'src/repeated.js', 'git');
+      checkAcceptance(largeJson.candidates.length === largePayload.counts.candidates &&
+        fs.existsSync(largePayload.reportMd), 'large JSON and Markdown reports must be complete');
+      checkAcceptance(Boolean(repeated) && repeated.sources.length === 2,
+        'large-history report must retain the repeated-fix candidate and both provenance rows');
+      if (repeated) {
+        checkAcceptance(repeated.sources.every(source => /^[a-f0-9]{40}$/.test(source.sha) && source.subject),
+          'repeated-fix provenance must retain commit SHAs and subjects');
+        checkAcceptance(repeated.sources.every(source => largeMarkdown.includes(source.sha)),
+          'Markdown report must retain repeated-fix provenance');
+      }
+    }
+  } catch (cause) {
+    acceptanceFailures.push(`large-history report must be valid JSON with complete report files (${cause.message})`);
+  }
+  assert.deepStrictEqual(acceptanceFailures, [], `G3 acceptance failures:\n${acceptanceFailures.join('\n')}`);
+
+  console.log(`Error-ledger scan CLI verified: ${defaultJson.candidates.length} candidates, ${parserLead.sources.length} parser leads; large history ${history.length} bytes.`);
 } finally {
   for (const directory of defaultReports) fs.rmSync(directory, { recursive: true, force: true });
   fs.rmSync(TMP, { recursive: true, force: true });

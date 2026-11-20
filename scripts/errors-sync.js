@@ -204,6 +204,9 @@ function main() {
         process.exit(1);
       }
       root = path.resolve(value);
+    } else {
+      console.error(`errors:sync: unsupported argument ${JSON.stringify(args[i])}`);
+      process.exit(1);
     }
   }
 

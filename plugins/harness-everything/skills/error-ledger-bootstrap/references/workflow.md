@@ -4,7 +4,7 @@
 
 Run `node "<this-skill-dir>/scripts/scan.js" --root "<target repo>"` with only the source options you intend to use. The scanner reads local Git history, repository `AGENTS.md` / `CLAUDE.md` instructions, and selected local memory or instruction files. Automatic memory is used only when the local memory directory can be associated with the target repository. Global instructions are included only when named with `--instructions <path>`.
 At least two distinct `fix`/`revert` commits touching `*.md` or `docs/**` paths create documentation candidates.
-`--tracker <file.json>` reads saved offline JSON arrays from `gh issue list` or `gh issue view`. The scanner never calls GitHub.
+`--tracker <file.json>` accepts a top-level JSON array saved offline, for example `gh issue list --json number,title,labels,body > issues.json`. The scanner never calls GitHub.
 Bug/regression/flake labels or `fix`/`bug` title prefixes qualify; reports keep the issue reference and matching repo-existing paths, never issue bodies.
 
 - `--memory <path>` selects local memory files; repeat it to select more paths.
@@ -22,7 +22,42 @@ The report is an inventory of leads, not a ledger. Candidates start as `UNVERIFI
 
 ## Owner approval and promotion
 
-Obtain explicit owner approval for each candidate. The approval must bind that exact candidate to the SHA-256 of its exact candidate report. A private-memory lead cannot be promoted based only on the memory note or an uncorroborated site: require independent durable provenance. Keep opaque local IDs and uncorroborated sites out of the E-record and index; write only record content from the owner-reviewed approval payload. The approval JSON field names and format are defined by `node "<this-skill-dir>/scripts/promote.js" --help`; use that contract rather than guessing. Do not promote an unapproved, changed, or stale candidate. Keep full candidate reports and private inputs out of E-records, PRs, shared logs, and uploads.
+Obtain explicit owner approval for each candidate. Bind the approval to the exact report with `candidateId` (the candidate's 20-character report ID) and `reportSha256` (the SHA-256 of the report file's exact bytes). A private-memory lead cannot be promoted based only on the memory note or an uncorroborated site: require independent durable provenance. Keep opaque local IDs and uncorroborated sites out of the E-record and index; write only record content from the owner-reviewed approval payload.
+
+The top-level approval JSON has `schemaVersion: 1`, a 20-character hexadecimal `candidateId`, a 64-character hexadecimal `reportSha256` of the exact report bytes, an absolute canonical `targetRoot` matching `--target`, a non-empty `approvedBy`, and a parseable `approvedAt` timestamp. Its `record` object has a kebab-case `signature`; non-empty `class`, `title`, `violates`, and `sourcesNote`; `scope` of `in`, `out`, or `unresolved`; `status` of `open`, `lesson`, or `mechanism`; and `sites`, an array of existing target-repository files named by relative paths without absolute paths or `.` or `..` components. Do not put absolute paths in `approvedBy`, `approvedAt`, or the record text fields. The approved candidate must occur exactly once in the report, and the selected and approved site files must exist in the target.
+
+Use this complete example as the approval file structure, replacing the sample candidate ID and digest with the exact report values, `targetRoot` with the target's absolute canonical path, and the approver, timestamp, and reviewed record content with the owner's approval:
+
+```json
+{
+  "schemaVersion": 1,
+  "candidateId": "0123456789abcdef0123",
+  "reportSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "targetRoot": "/absolute/path/to/target",
+  "approvedBy": "Owner Name",
+  "approvedAt": "2026-11-20T00:00:00.000Z",
+  "record": {
+    "signature": "documented-fixture-bootstrap",
+    "class": "process",
+    "title": "Documented fixture bootstrap",
+    "violates": "Describe the observed expected-versus-actual behavior",
+    "scope": "in",
+    "status": "lesson",
+    "sites": ["README.md"],
+    "sourcesNote": "Summarize the owner-reviewed evidence and lesson."
+  }
+}
+```
+
+Do not promote an unapproved, changed, or stale candidate. Keep full candidate reports and private inputs out of E-records, PRs, shared logs, and uploads.
+
+Promotion requires the target to already contain `.agents/harness-everything/errors/`. Before the first promotion, create that directory once:
+
+```sh
+mkdir -p "<target repo>/.agents/harness-everything/errors"
+```
+
+Promotion refuses when the directory is absent. No index file is needed beforehand; successful promotion updates the index through the sync command below.
 
 Before promotion, resolve a trusted local Harness checkout containing `scripts/errors-sync.js` and verify its Node dependencies are installed. The current sync script requires `js-yaml`; a read-only preflight is:
 

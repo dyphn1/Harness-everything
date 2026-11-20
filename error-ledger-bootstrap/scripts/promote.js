@@ -551,20 +551,35 @@ function promote(context) {
   if (lockFd !== undefined) {
     try { fs.closeSync(lockFd); } catch (_) { /* already closed */ }
   }
-  if (lockAcquired) {
-    try { fs.unlinkSync(context.lockPath); } catch (error) {
-      if (error.code !== 'ENOENT') failure = new Error(`${failure ? `${failure.message}; ` : ''}promotion lock cleanup failed: ${error.message}`);
+  const releaseLock = () => {
+    if (!lockAcquired) return;
+    try {
+      fs.unlinkSync(context.lockPath);
+      lockAcquired = false;
+    } catch (error) {
+      if (error.code === 'ENOENT') lockAcquired = false;
+      else failure = new Error(`${failure ? `${failure.message}; ` : ''}promotion lock cleanup failed: ${error.message}`);
     }
+  };
+  if (!failure) releaseLock();
+
+  let rollbackProblems = [];
+  if (failure) {
+    try {
+      rollbackProblems = saved && beforeNames && (identity || syncStarted)
+        ? rollback(context, saved, destination && destination.destination, identity, beforeNames)
+        : saved && beforeNames
+          ? (JSON.stringify(fs.readdirSync(context.errorsDir).filter(name => name !== LOCK).sort()) === JSON.stringify(beforeNames)
+            ? [] : ['errors directory listing differs from its pre-promotion state'])
+          : [];
+    } catch (error) {
+      rollbackProblems.push(`rollback failed: ${error.message}`);
+    }
+    releaseLock();
   }
 
   if (failure) {
-    const rollbackProblems = saved && beforeNames && (identity || syncStarted)
-      ? rollback(context, saved, destination && destination.destination, identity, beforeNames)
-      : saved && beforeNames
-        ? (JSON.stringify(fs.readdirSync(context.errorsDir).filter(name => name !== LOCK).sort()) === JSON.stringify(beforeNames)
-          ? [] : ['errors directory listing differs from its pre-promotion state'])
-        : [];
-    const lockStale = failure.message.includes('promotion lock cleanup failed');
+    const lockStale = lockAcquired;
     const detail = rollbackProblems.length || lockStale
       ? `; recovery needed: ${[...rollbackProblems, ...(lockStale ? ['verify no promotion is running, then remove .promote.lock'] : [])].join('; ')}`
       : '; ledger restored to its pre-promotion state';

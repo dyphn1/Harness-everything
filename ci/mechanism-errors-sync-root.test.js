@@ -21,6 +21,10 @@ function invoke(args) {
   return spawnSync(process.execPath, [SCRIPT, ...args], { cwd: ROOT, encoding: 'utf8' });
 }
 
+function invokeScript(script, args, cwd, env = process.env) {
+  return spawnSync(process.execPath, [script, ...args], { cwd, encoding: 'utf8', env });
+}
+
 function digest(file) {
   return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 }
@@ -105,8 +109,29 @@ try {
     file: path.posix.join('.agents/harness-everything/errors', 'E-0001-root-test.md'),
   })}\n`;
   fs.writeFileSync(targetIndex, expectedIndex);
+
+  const isolatedDefault = seedLedger('isolated default repo');
+  const isolatedScript = path.join(isolatedDefault.root, 'scripts', 'errors-sync.js');
+  fs.mkdirSync(path.dirname(isolatedScript), { recursive: true });
+  fs.copyFileSync(SCRIPT, isolatedScript);
+  const isolatedInvoke = args => invokeScript(isolatedScript, args, isolatedDefault.root, {
+    ...process.env,
+    NODE_PATH: [path.join(ROOT, 'node_modules'), process.env.NODE_PATH].filter(Boolean).join(path.delimiter),
+  });
+  assert.equal(isolatedInvoke(['--check']).status, 0, 'no-root check uses its isolated default ledger');
+  fs.writeFileSync(isolatedDefault.index, 'deliberately stale default ledger\n');
+  const defaultBeforeTypo = snapshot(isolatedDefault.dir);
+  const targetBeforeTypo = snapshot(errorsDir);
+  const typo = isolatedInvoke(['--rot', targetRoot]);
+  assert.deepEqual(snapshot(isolatedDefault.dir), defaultBeforeTypo, 'an unsupported option preserves default ledger bytes');
+  assert.deepEqual(snapshot(errorsDir), targetBeforeTypo, 'an unsupported option preserves target ledger bytes');
+  assert.notEqual(typo.status, 0, 'unsupported options fail before syncing the default root');
+  assert.match(typo.stderr, /unsupported argument.*--rot/i, 'unsupported options report the rejected argument');
+
   assert.equal(invoke(['--check', '--root', targetRoot]).status, 0,
     '--check --root must accept a current target index');
+  assert.equal(invoke(['--check', `--root=${targetRoot}`]).status, 0,
+    '--check --root= must accept a current target index');
 
   fs.appendFileSync(targetIndex, '{stale}\n');
   const stale = invoke(['--check', `--root=${targetRoot}`]);
