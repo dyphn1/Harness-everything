@@ -17,7 +17,7 @@ The minimal kernel establishes:
 - a selected workflow topology as a semantic execution contract when task evidence supports one,
 - ordered requirement decomposition and step-scoped knowledge bindings,
 - objective evidence before completion,
-- bounded re-plan/recovery after repeated failure,
+- agent-initiated reassessment when evidence warrants it, while productive work can continue,
 - explicit warnings/degraded/escape evidence instead of silent workflow deletion;
 - one mandatory user-visible Harness Status protocol for non-trivial work, independent of execution topology.
 
@@ -122,7 +122,7 @@ Harness aligns to each host's actual lifecycle/tool APIs. Shared skill text defi
 
 ### Runtime state vs. skill content
 
-Runtime state includes hook metadata, workflow lifecycle, circuit-breaker counters, handoff/verification evidence, and WAL-style session state. Skill content is independently discoverable and remains useful on instruction-only surfaces.
+Runtime state includes hook metadata, workflow lifecycle, handoff/verification evidence, and WAL-style session state. Skill content is independently discoverable and remains useful on instruction-only surfaces.
 
 ### Claude Code — hook observation plus explicit safety boundaries
 
@@ -130,15 +130,15 @@ The installer configures native lifecycle hooks and project skills.
 
 - `SessionStart`: bootstrap/restoration.
 - `UserPromptSubmit`: kernel routing + semantic workflow contract.
-- `PreToolUse`: workflow/boundary/depth/scope reminders (all advisory, fail-open), plus the separate `action-gate.js` permission boundary and the Rule-of-3 same-signature-failure boundary.
-- `PostToolUse`: outcomes, state, repeated-failure evidence, stage checks.
+- `PreToolUse`: workflow/boundary/depth/scope reminders (all advisory, fail-open), plus the separate `action-gate.js` permission boundary.
+- `PostToolUse`: outcomes, state, stage checks.
 - `Stop`: action-gate audit plus non-blocking workflow/verification reminders.
 
-Cognitive workflow contracts (boundary/depth/scope/commit/workflow guards) are made observable, not hard-enforced — [#190](https://github.com/dyphn1/Harness-everything/issues/190) downgraded their `exit(2)` blocking to reminders. `action-gate.js` and the Rule-of-3 zoom-out boundary are the two mechanisms that still hard-block on this hook path; #190 explicitly scoped both out of that downgrade as user/host permission and dangerous-action safety boundaries.
+Cognitive workflow contracts (boundary/depth/scope/commit/workflow guards) are made observable, not hard-enforced — [#190](https://github.com/dyphn1/Harness-everything/issues/190) downgraded their `exit(2)` blocking to reminders. `action-gate.js` remains the explicit user/host permission and dangerous-action safety boundary. The former Rule-of-3 counter and forced zoom-out path are retired under [#394](https://github.com/dyphn1/Harness-everything/issues/394).
 
 ### OpenCode — plugin enforcement, scoped live verification
 
-The retained [OpenCode evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md) supports **project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS)**. The final snapshot is **post-reset**. Hard-lock is an **interactive observation** with **no retained blocked-tool trace**; reflection was **operator-seeded** and then agent-rewritten. Global scope, npm-package installation, and other OpenCode versions remain unverified.
+The retained [OpenCode evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md) supports **project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS)**. The final snapshot is **post-reset**. The old hard-lock was an **interactive observation** with **no retained blocked-tool trace**; reflection was **operator-seeded** and then agent-rewritten. The former third-failure reflection and hard-lock paths are retired under [#394](https://github.com/dyphn1/Harness-everything/issues/394); the snapshot does not establish current host behavior. Global scope, npm-package installation, and other OpenCode versions remain unverified.
 
 This evidence predates #190 and does not establish behavioral effectiveness of the current contract-first lifecycle.
 
@@ -200,7 +200,9 @@ flowchart LR
     Y --> S[Summarize]
     S --> R[Record]
     S -- insufficient evidence --> T
-    Y -- same failure x3 --> Z[Zoom Out]
+    Y --> A{Would reassessment improve the next step?}
+    A -->|yes; agent chooses| Z[Agent-initiated Zoom Out]
+    A -->|no; next check is justified| Y
     Z --> T
 ```
 

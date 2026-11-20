@@ -25,10 +25,11 @@ graph TD
   RunGreen --> AssertGreen["Assert: Present terminal logs as evidence (Law 4)"]
   AssertGreen --> VerifyGreen{Gate: verify-gate.js}
   
-  VerifyGreen -->|Exit 1: Still Broken| DebugCode["Reflect: Read logs, fix code"]
-  DebugCode --> RunGreen
-  VerifyGreen -->|Exit 1: 3x Failures| CircuitBreaker["Trigger rule-of-3.js: ZOOM OUT"]
-  CircuitBreaker --> DebugCode
+  VerifyGreen -->|Exit 1| DebugCode["Read evidence; fix or choose to reassess"]
+  DebugCode -->|next check is justified| RunGreen
+  DebugCode -->|assumption is contradicted or impact is unknown| ZoomOut["Agent-initiated zoom-out"]
+  ZoomOut --> ReadFacts["Review goal, acceptance, and evidence"]
+  ReadFacts --> RunGreen
   
   VerifyGreen -->|Exit 0: Green| Refactor["Refactor: Optimize & audit Code-Doc Alignment (Law 6)"]
   
@@ -61,8 +62,7 @@ flowchart TD
 
 ## Recovery state
 
-The circuit breaker limits repeated edits. A third failed GREEN attempt moves
-the work into `zoom-out`, where the assumptions are rebuilt before retrying.
+The former Rule-of-3 counter and forced-reflection path are retired under [#394](https://github.com/dyphn1/Harness-everything/issues/394). The agent may choose Zoom-out whenever evidence contradicts an assumption or reveals an unknown impact boundary, including on the first failure. When each attempt adds evidence or narrows the cause, the next justified TDD check may continue without a count or report requirement.
 
 ```mermaid
 stateDiagram-v2
@@ -70,9 +70,9 @@ stateDiagram-v2
   Red --> GreenAttempt
   GreenAttempt --> Green: tests pass
   GreenAttempt --> Retry: tests fail
-  Retry --> GreenAttempt: attempts one or two
-  Retry --> ZoomOut: attempt three
-  ZoomOut --> Red: assumptions rebuilt
+  Retry --> GreenAttempt: next check justified by new evidence
+  Retry --> ZoomOut: agent chooses reassessment
+  ZoomOut --> Red: revised hypothesis
   Green --> Refactor
   Refactor --> [*]
 ```

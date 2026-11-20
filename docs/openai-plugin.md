@@ -17,9 +17,9 @@ flowchart TD
     Q --> V{Objective evidence?}
     V -->|yes| D[Evidence-backed completion]
     V -->|no| R[Diagnose and retry]
-    R --> F{Same-signature failure x3?}
-    F -->|no| E
-    F -->|yes| Z[Zoom out / re-plan]
+    R --> F{Would reassessment improve the next step?}
+    F -->|no; next check is justified| E
+    F -->|yes; agent chooses| Z[Agent-initiated Zoom out]
     Z --> E
 
     S[SessionStart hook] --> C[Cognitive OS policy]
