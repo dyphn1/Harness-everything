@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.55.1](https://github.com/dyphn1/Harness-everything/compare/v0.55.0...v0.55.1) (2026-11-20)
+
+### Bug Fixes
+
+* align first-stage report and verification contracts ([d6de493](https://github.com/dyphn1/Harness-everything/commit/d6de4938ddce7cd6139627ab567fbade526de6b7))
+
 ## [0.55.0](https://github.com/dyphn1/Harness-everything/compare/v0.54.1...v0.55.0) (2026-11-20)
 
 ### Features
