@@ -118,6 +118,12 @@ function gitBooleanConfig(repo, key, fallback) {
   return pathsFrom(result, args)[0]?.trim() === 'true';
 }
 
+function sparseCheckoutIncludes(repo, file) {
+  const args = ['sparse-checkout', 'check-rules', '-z'];
+  const input = Buffer.from(`${file}\\0`);
+  return pathsFrom(git(args, repo, input), args).includes(file);
+}
+
 function flaggedWorkingTreeChanges(repo) {
   const args = ['ls-files', '-v', '--stage', '-z'];
   const changes = [];
@@ -132,9 +138,11 @@ function flaggedWorkingTreeChanges(repo) {
     const absolute = path.join(repo, file);
     const stat = fs.lstatSync(absolute, { throwIfNoEntry: false });
     if (!stat) {
-      // Sparse checkouts intentionally omit skip-worktree entries.
+      // Skip only paths excluded by the active sparse rules; an in-cone deletion
+      // can also carry the skip-worktree bit.
       const sparseOmission = tag.toUpperCase() === 'S'
-        && (sparseCheckout ??= gitBooleanConfig(repo, 'core.sparseCheckout', false));
+        && (sparseCheckout ??= gitBooleanConfig(repo, 'core.sparseCheckout', false))
+        && !sparseCheckoutIncludes(repo, file);
       if (!sparseOmission) changes.push(file);
       continue;
     }

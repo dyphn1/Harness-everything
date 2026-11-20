@@ -232,6 +232,25 @@ test('compares only the requested commits when --head is not the worktree HEAD',
   }
 });
 
+test('reports hidden deletions inside the sparse cone and ignores omitted paths outside it', t => {
+  const { repo, tempRoot } = makeRepo(t);
+  write(repo, 'included/tracked.txt', 'inside sparse cone\\n');
+  write(repo, 'omitted/tracked.txt', 'outside sparse cone\\n');
+  const base = commitAll(repo, tempRoot, 'baseline');
+
+  runGit(repo, tempRoot, ['sparse-checkout', 'set', 'included']);
+  const omittedPath = path.join(repo, 'omitted', 'tracked.txt');
+  assert.equal(fs.existsSync(omittedPath), false, 'outside-cone path is omitted');
+  runGit(repo, tempRoot, ['update-index', '--skip-worktree', '--', 'included/tracked.txt']);
+  fs.rmSync(path.join(repo, 'included', 'tracked.txt'));
+  assert.equal(gitText(repo, tempRoot, 'status', '--porcelain'), '', 'Git hides the in-cone deletion');
+
+  const result = runChecker(repo, tempRoot, { base, allow: ['allowed/**'] });
+  assert.equal(result.status, 1, result.stderr);
+  assert.deepEqual(outOfSetPaths(result), ['included/tracked.txt']);
+  assert.doesNotMatch(result.stdout, /omitted\\/tracked\\.txt/, 'outside-cone omission is not reported');
+});
+
 for (const flag of ['assume-unchanged', 'skip-worktree']) {
   test(`checks actual worktree content hidden by --${flag}`, t => {
     const { repo, tempRoot } = makeRepo(t);
