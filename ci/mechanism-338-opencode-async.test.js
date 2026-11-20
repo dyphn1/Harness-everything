@@ -14,7 +14,7 @@ const helper = require('./test-helper');
   const mod = await import(pathToFileURL(path.join(helper.root, 'opencode-plugin/index.mjs')).href);
   const { HarnessEnforcement } = mod;
   const hooks = await HarnessEnforcement({ client, directory: workspace });
-  const runner = require('./lib/opencode-verification-loader')(helper.root);
+  const runner = require('./lib/opencode-verification-loader')(helper.root, { buildFailureSignature: undefined });
   const configure = scripts => fs.writeFileSync(path.join(workspace, 'package.json'), JSON.stringify({ name: 'async-fixture', scripts }));
   // npm uses cmd.exe on Windows: JSON string escaping is not shell quoting.
   // Keep source out of shell commands. setup-node places this Node on PATH;
@@ -52,15 +52,10 @@ const helper = require('./test-helper');
   await edit('large-output');
   await idle('large-output');
   helper.check('338. output beyond the former 16 MiB cap preserves a real test verdict', fs.existsSync(path.join(workspace, 'large-output-bytes.txt')) && fs.readFileSync(path.join(workspace, 'large-output-bytes.txt'), 'utf8') === String(largeBytes) && /verification failed/.test(prompts.at(-1)) && /large-output-check/.test(prompts.at(-1)), prompts.at(-1));
-  // A producer receipt proves the npm script ran; an independent expected
-  // stream digest additionally proves the runner consumed every emitted byte.
   const largeResult = await runner.runVerificationCommand(workspace, largeCommand, 10000);
-  const stdoutDigest = crypto.createHash('sha256').update('x'.repeat(largeBytes)).digest('hex');
-  const stderrDigest = crypto.createHash('sha256').update('AssertionError: large-output-check').digest('hex');
-  const expectedDigest = crypto.createHash('sha256').update(`stdout:${stdoutDigest}\nstderr:${stderrDigest}`).digest('hex').slice(0, 16);
-  helper.check('338. the complete >16 MiB producer stream reaches the runner',
+  helper.check('338. a nonzero exit above the former output cap remains a test failure',
     largeBytes > 16*1024*1024 && largeResult.outcome === 'test_failure' && largeResult.exitCode === 1
-      && largeResult.failureMarker === 'AssertionError: large-output-check' && largeResult.evidenceDigest === expectedDigest,
+      && /large-output-check/.test(largeResult.error),
     JSON.stringify(largeResult));
   helper.check('338. streamed diagnostics stay bounded', prompts.at(-1).length < 2600, `prompt bytes=${prompts.at(-1).length}`);
 
@@ -79,38 +74,8 @@ const helper = require('./test-helper');
   const pass = await runner.runVerificationCommand(workspace, node('process.exit(0)'), 2000);
   helper.check('338. actual exit zero is pass', pass.success && pass.outcome === 'pass' && pass.exitCode === 0, JSON.stringify(pass));
   const failed = await runner.runVerificationCommand(workspace, node("console.log('FAIL parser.test.js');console.error('AssertionError: parse alpha');process.exitCode=2"), 2000);
-  helper.check('338. nonzero exit preserves stderr marker and stdout suite context', failed.outcome === 'test_failure' && failed.exitCode === 2 && failed.failureMarker === 'FAIL parser.test.js: AssertionError: parse alpha' && /parse alpha/.test(failed.error), JSON.stringify(failed));
-
-  const signature = (out, err, chunks = 10000) => {
-    const stdout = runner.createVerificationCapture(), stderr = runner.createVerificationCapture();
-    for (let i=0; i<out.length; i+=chunks) stdout.write(out.slice(i, i+chunks));
-    for (let i=0; i<err.length; i+=chunks) stderr.write(err.slice(i, i+chunks));
-    const a = stdout.finish(), b = stderr.finish();
-    const marker = a.unsafeIdentity || b.unsafeIdentity ? null : a.marker
-      ? `${a.markerContext ? `${a.markerContext}: ` : ''}${a.marker}`
-      : b.marker ? `${b.markerContext || a.context ? `${b.markerContext || a.context}: ` : ''}${b.marker}` : null;
-    return runner.buildFailureSignature({ command: 'npm test', outcome: 'test_failure', exitCode: 1,
-      failureMarker: marker, evidenceDigest: crypto.createHash('sha256').update(`stdout:${a.digest}\nstderr:${b.digest}`).digest('hex').slice(0,16) });
-  };
-  const longPrefix = `not ok 1 - ${'same'.repeat(1500)}`;
-  helper.check('338. truncated test identities use complete stream digests', signature(`${longPrefix} ALPHA\n`, '') !== signature(`${longPrefix} BETA\n`, ''));
-  const observedLong = [];
-  for (const name of ['ALPHA', 'BETA']) {
-    fs.writeFileSync(path.join(workspace, 'long-marker.js'), `console.log(${JSON.stringify(longPrefix+name)});process.exitCode=1`);
-    observedLong.push(await runner.runVerificationCommand(workspace, nodeFile('long-marker.js'), 2000));
-  }
-  helper.check('338. real long-marker child verdicts cannot collide after truncation', observedLong.every(value => value.outcome === 'test_failure' && value.failureMarker === null) && runner.buildFailureSignature(observedLong[0]) !== runner.buildFailureSignature(observedLong[1]));
-  helper.check('338. truncated suite contexts cannot merge distinct failures', signature(`FAIL ${longPrefix}ALPHA\n`, 'AssertionError: same assertion\n') !== signature(`FAIL ${longPrefix}BETA\n`, 'AssertionError: same assertion\n'));
-  const stableFailures = [];
-  for (const banner of ['ALPHA', 'BETA']) {
-    fs.writeFileSync(path.join(workspace, 'volatile-banner.js'), `process.stdout.write('${banner}'+'x'.repeat(17*1024*1024));console.error('AssertionError: stable failure');process.exitCode=1`);
-    stableFailures.push(await runner.runVerificationCommand(workspace, nodeFile('volatile-banner.js'), 3000));
-  }
-  helper.check('338. huge volatile non-marker banners preserve a later stable failure identity', stableFailures.every(value => value.failureMarker === 'AssertionError: stable failure') && runner.buildFailureSignature(stableFailures[0]) === runner.buildFailureSignature(stableFailures[1]));
-  const context = 'FAIL parser.test.js\n  ● Console\n    console.log\n      ● payload\n';
-  const stderr = '  ● parser › alpha (1.2ms)\n';
-  helper.check('338. chunk boundaries preserve marker and stream context', signature(context, stderr, 1) === signature(context, stderr, 10000) && /FAIL parser.test.js: ● parser › alpha/.test(signature(context, stderr, 1)));
-  helper.check('338. markerless whitespace normalization survives chunk boundaries', signature('  progress \n still running   ', '   last  line ', 1) === signature('progress still running', 'last line', 10000));
+  helper.check('338. nonzero exit remains a test failure with bounded diagnostics',
+    failed.outcome === 'test_failure' && failed.exitCode === 2 && /parse alpha/.test(failed.error), JSON.stringify(failed));
 
   // Both shell and nested child remain in the inherited process group.
   fs.writeFileSync(path.join(workspace, 'grandchild.js'), "const fs=require('fs');process.on('SIGTERM',()=>{});setInterval(()=>fs.appendFileSync('heartbeat.txt','x'),20)");
@@ -121,11 +86,14 @@ const helper = require('./test-helper');
   await new Promise(resolve => setTimeout(resolve, 200));
   helper.check('338. timeout stops nested SIGTERM-ignoring child output', cleanupResult.outcome === 'timeout' && size > 0 && fs.statSync(heartbeat).size === size, JSON.stringify({ cleanupResult, size }));
   if (process.platform !== 'win32') {
-    const externalRunner = require('./lib/opencode-verification-loader')(helper.root, { spawn: (command, options) => {
-      const child = require('child_process').spawn(command, options);
-      setTimeout(() => { try { child.kill('SIGTERM'); } catch {} }, 300);
-      return child;
-    } });
+    const externalRunner = require('./lib/opencode-verification-loader')(helper.root, {
+      buildFailureSignature: undefined,
+      spawn: (command, options) => {
+        const child = require('child_process').spawn(command, options);
+        setTimeout(() => { try { child.kill('SIGTERM'); } catch {} }, 300);
+        return child;
+      },
+    });
     const signalled = await externalRunner.runVerificationCommand(workspace, nodeFile('worker.js'), 3000);
     const afterSignal = fs.statSync(heartbeat).size;
     await new Promise(resolve => setTimeout(resolve, 200));
@@ -202,7 +170,7 @@ const helper = require('./test-helper');
   await waitFor(() => fs.existsSync(v2Ready));
   await dispose();
   const v2DisposedDir = path.join(sessions, 'v2-disposed');
-  const disposeStateFiles = ['edit-state.json', 'circuit-breaker.json', 'compliance.json']
+  const disposeStateFiles = ['edit-state.json', 'compliance.json']
     .map(name => path.join(v2DisposedDir, name));
   const stateAtDispose = disposeStateFiles.map(file => fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null);
   const stopped = fs.statSync(v2Heartbeat).size;
@@ -210,11 +178,12 @@ const helper = require('./test-helper');
   const stateStable = disposeStateFiles.every((file, index) =>
     (fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null) === stateAtDispose[index]);
   const editAtDispose = JSON.parse(stateAtDispose[0]);
-  const complianceAtDispose = JSON.parse(stateAtDispose[2]);
-  helper.check('338. V2 disposal waits for active child cleanup without late follow-up, breaker, or compliance writes',
+  const complianceAtDispose = JSON.parse(stateAtDispose[1]);
+  helper.check('338. V2 disposal waits for active child cleanup without late follow-up or compliance writes',
     fs.statSync(v2Heartbeat).size === stopped && prompts.length === beforeConcurrent && stateStable
       && editAtDispose.verificationPending === true && editAtDispose.followUpPending === false
-      && complianceAtDispose.verifiedEdits === 0 && complianceAtDispose.circuitBreakerTrips === 0,
+      && complianceAtDispose.verifiedEdits === 0 && !Object.hasOwn(complianceAtDispose, 'circuitBreakerTrips')
+      && !fs.existsSync(path.join(v2DisposedDir, 'circuit-breaker.json')),
     JSON.stringify({ stateStable, editAtDispose, complianceAtDispose, prompts: prompts.length - beforeConcurrent }));
   // A new idle can arrive while an edit-cancelled child is still being reaped.
   // That idle must verify the newer revision after cleanup, rather than vanish.

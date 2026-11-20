@@ -11,7 +11,6 @@ const {
   grade,
   parseSimpleYaml,
 } = require('./run');
-const { verifyEvidence: verifyOpenCodeReflectionEvidence } = require('./opencode-reflection-gate-live');
 const { resolveFixtureSetup } = require('./case-validator');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -358,7 +357,7 @@ function recursiveFind(root, names) {
 }
 
 function inspectPluginAttribution(stateHome) {
-  const stateFiles = recursiveFind(stateHome, new Set(['edit-state.json', 'circuit-breaker.json', 'compliance.json']));
+  const stateFiles = recursiveFind(stateHome, new Set(['edit-state.json', 'compliance.json']));
   return {
     fired: stateFiles.length > 0,
     state_files: stateFiles.map((file) => path.relative(stateHome, file).split(path.sep).join('/')).sort(),
@@ -547,29 +546,6 @@ function runArm(c, context, arm, pairDir, execute = spawnSync) {
   return armRecord;
 }
 
-function validatePreflight(preflightDir) {
-  if (!preflightDir) return { passed: false, reason: 'plugin-enforcement requires --opencode-preflight <evidence-dir>' };
-  const absolute = path.resolve(preflightDir);
-  let verification;
-  try { verification = verifyOpenCodeReflectionEvidence(absolute); }
-  catch (error) { return { passed: false, reason: `preflight unreadable: ${error.message}` }; }
-  if (!verification.passed) return { passed: false, reason: 'OpenCode reflection-gate preflight evidence does not pass verification' };
-  let metadata;
-  try { metadata = JSON.parse(fs.readFileSync(path.join(absolute, 'metadata.json'), 'utf8')); }
-  catch (error) { return { passed: false, reason: `preflight metadata unreadable: ${error.message}` }; }
-  const currentHash = sha256File(PLUGIN_SOURCE);
-  if (!metadata.pluginSha256 || metadata.pluginSha256 !== currentHash) {
-    return { passed: false, reason: 'preflight plugin hash does not match the current canonical OpenCode plugin' };
-  }
-  return {
-    passed: true,
-    evidence_dir: absolute,
-    plugin_sha256: currentHash,
-    repo_commit: metadata.repoCommit || null,
-    opencode_version: metadata.opencodeVersion || null,
-  };
-}
-
 function validateRunConfig(options) {
   const problems = [];
   if (!EFFECT_TYPES.has(options.effect_type)) problems.push('effect must be skill-text, plugin-enforcement, or lesson-retrieval');
@@ -642,11 +618,8 @@ function validatePairRecord(record) {
         stableJson(treatment.loaded_skills.slice().sort()) !== stableJson(record.contract.loaded_skills)) {
       return { included: false, reason: 'plugin-skill-text-not-held-constant' };
     }
-    if (!record.preflight || record.preflight.passed !== true || !treatment.plugin_attribution || treatment.plugin_attribution.fired !== true) {
+    if (!treatment.plugin_attribution || treatment.plugin_attribution.fired !== true) {
       return { included: false, reason: 'plugin-attribution-missing' };
-    }
-    if (!treatment.plugin_sha256 || treatment.plugin_sha256 !== record.preflight.plugin_sha256) {
-      return { included: false, reason: 'plugin-hash-mismatch' };
     }
   } else if (record.effect_type === 'lesson-retrieval') {
     if (!baseline.intervention.skill_text || !treatment.intervention.skill_text ||
@@ -867,12 +840,6 @@ function runExperiment(options) {
     if (invalid.length) throw new Error(invalid.join('; '));
   }
 
-  let preflight = null;
-  if (options.effect_type === 'plugin-enforcement') {
-    preflight = validatePreflight(options.preflight);
-    if (!preflight.passed) throw new Error(preflight.reason);
-  }
-
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const experimentId = `${options.effect_type}-${timestamp}-${crypto.randomBytes(4).toString('hex')}`;
   const experimentDir = path.join(RESULTS_ROOT, experimentId);
@@ -887,7 +854,6 @@ function runExperiment(options) {
     model: options.model,
     min_effect_pp: options.min_effect_pp,
     repeats: options.repeats,
-    preflight,
     repo_commit: safeCommand('git', ['rev-parse', 'HEAD'], { cwd: ROOT }),
     cli_version: safeCommand(options.engine === 'claude' ? 'claude' : 'opencode', ['--version']),
     node_version: process.version,
@@ -921,7 +887,6 @@ function runExperiment(options) {
         arm_order: order,
         contract,
         contract_sha256: contractHash,
-        preflight,
         arms,
         created_at: new Date().toISOString(),
       };
@@ -971,7 +936,6 @@ function main(argv = process.argv.slice(2)) {
       case_id: flag(argv, '--case'),
       repeats: integerFlag(argv, '--repeats', 1),
       min_effect_pp: Number(flag(argv, '--min-effect-pp')),
-      preflight: flag(argv, '--opencode-preflight'),
     };
     const { summary } = runExperiment(options);
     if (summary.fixture_failures) process.exitCode = 1;
@@ -987,7 +951,7 @@ function main(argv = process.argv.slice(2)) {
   console.log([
     'Usage:',
     '  node behavioral-evals/paired-benchmark.js run --effect skill-text --engine claude|opencode --model <model> --min-effect-pp <n> [--case <id>] [--repeats <n>]',
-    '  node behavioral-evals/paired-benchmark.js run --effect plugin-enforcement --engine opencode --model <model> --min-effect-pp <n> --opencode-preflight <evidence-dir> [--case <id>] [--repeats <n>]',
+    '  node behavioral-evals/paired-benchmark.js run --effect plugin-enforcement --engine opencode --model <model> --min-effect-pp <n> [--case <id>] [--repeats <n>]',
     '  node behavioral-evals/paired-benchmark.js run --effect lesson-retrieval --engine claude|opencode --model <model> --min-effect-pp <n> [--case <lesson-case-id>] [--repeats <n>]',
     '  node behavioral-evals/paired-benchmark.js summarize <experiment-dir>',
   ].join('\n'));
@@ -1016,6 +980,5 @@ module.exports = {
   summarizePairs,
   validateLessonCase,
   validatePairRecord,
-  validatePreflight,
   validateRunConfig,
 };

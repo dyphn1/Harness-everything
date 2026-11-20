@@ -45,6 +45,7 @@ helper.check(
   const registered = [];
   const sessionHooks = [];
   let subscribeCount = 0;
+  let consumedEvents = 0;
   const eventQueue = [];
   const fakeCtx = {
     location: { directory: workspace },
@@ -76,6 +77,7 @@ helper.check(
                 if (options.signal.aborted) return { done: true, value: undefined };
                 await new Promise((resolve) => setTimeout(resolve, 5));
               }
+              consumedEvents++;
               return { done: false, value: eventQueue.shift() };
             },
           }),
@@ -89,7 +91,10 @@ helper.check(
   const waitFor = async (predicate) => {
     const deadline = Date.now() + 5000;
     while (!predicate()) {
-      if (Date.now() > deadline) throw new Error('V2 async verification did not settle');
+      if (Date.now() > deadline) {
+        const editState = path.join(stateRoot, 's1', 'edit-state.json');
+        throw new Error(`V2 async verification did not settle: prompts=${prompts.length}; consumedEvents=${consumedEvents}; queued=${eventQueue.length}; editState=${fs.existsSync(editState) ? fs.readFileSync(editState, 'utf8') : 'missing'}`);
+      }
       await new Promise(resolve => setTimeout(resolve, 20));
     }
   };
@@ -128,59 +133,73 @@ helper.check(
   const before = registered.find((r) => r.name === 'execute.before').callback;
   const after = registered.find((r) => r.name === 'execute.after').callback;
 
-  // Flow 1: a failure loop drives verification through real V2 event shapes:
+  // Flow 1: repeated failures use real V2 event shapes and leave edits available:
   // execute.before/after carry {tool, sessionID, id, input}; the event stream
   // carries flat {type, sessionID}.
   const sessionDir = path.join(stateRoot, 's1');
   for (let i = 1; i <= 3; i++) {
+    await before({ tool: 'edit', sessionID: 's1', id: `before-${i}`, input: {} });
     await after({ tool: 'edit', sessionID: 's1', id: `c${i}`, input: {} });
     push({ type: 'session.idle', sessionID: 's1' });
     await waitFor(() => prompts.length === i);
   }
 
   helper.check(
-    '2p. three v2-shaped edit/idle cycles force reflection',
+    '2p. three v2-shaped edit/idle cycles send verification reminders',
     prompts.length === 3,
     `prompts: ${prompts.length}`
   );
 
   helper.check(
     '2p. the V2 ctx.session.prompt receives {sessionID, text}, not the V1 {path, body} shape',
-    prompts.every((p) => typeof p.sessionID === 'string' && typeof p.text === 'string'),
+    prompts.every((p) => typeof p.sessionID === 'string' && typeof p.text === 'string'
+      && /verification failed/i.test(p.text) && !/reflection token|## Goal|forced reflection|retries before/i.test(p.text)),
     JSON.stringify(prompts)
   );
 
-  const breaker = JSON.parse(fs.readFileSync(path.join(sessionDir, 'circuit-breaker.json'), 'utf8'));
-  const signature = Object.keys(breaker.failures)[0];
   helper.check(
-    '2p. three same-signature failures via the v2 hooks force reflectionPending',
-    breaker.failures[signature].count === 3 && breaker.reflectionPending === true,
-    JSON.stringify(breaker)
+    '2p. repeated failures create no breaker state',
+    !fs.existsSync(path.join(sessionDir, 'circuit-breaker.json')),
+    sessionDir
   );
 
-  let blocked = false;
+  let nextEditAllowed = true;
   try {
-    await before({ tool: 'edit', sessionID: 's1', id: 'blocked-edit', input: {} });
+    await before({ tool: 'edit', sessionID: 's1', id: 'after-threshold', input: {} });
   } catch {
-    blocked = true;
+    nextEditAllowed = false;
   }
-  helper.check('2p. a pending reflection blocks a v2-shaped edit call', blocked, 'edit call was allowed during pending reflection');
+  if (nextEditAllowed) {
+    await after({ tool: 'edit', sessionID: 's1', id: 'after-threshold-ran', input: { filePath: path.join(workspace, 'after-threshold.js') } });
+  }
+  helper.check('2p. the next v2-shaped edit remains available after the former threshold', nextEditAllowed);
+  helper.check('2p. the permitted next edit reaches the V2 after hook',
+    nextEditAllowed && JSON.parse(fs.readFileSync(path.join(sessionDir, 'edit-state.json'), 'utf8')).editRevision === 4,
+    sessionDir);
 
-  // Flow 2: the reflection artifact is accepted through the V2 after hook,
-  // proving input-args mapping across the adapter.
-  const token = (prompts.map((p) => (p.text.match(/reflection token: ([A-Za-z0-9_-]+)/i) || [])[1]).filter(Boolean).pop());
-  const reflectionFile = path.join(sessionDir, 'zoom-out-report.md');
-  fs.writeFileSync(
-    reflectionFile,
-    `## Goal\nfix the fixture\n## Failed Attempts\nthree retries\n## Verified Facts\ntest stays red\n## Diagnosis\nthe fixture intentionally fails\n## Decision\nRESUME: change the fixture\nReflection token: ${token}\n`
-  );
-  await after({ tool: 'write', sessionID: 's1', id: 'reflect-write', input: { filePath: reflectionFile } });
-
-  const breakerAfter = JSON.parse(fs.readFileSync(path.join(sessionDir, 'circuit-breaker.json'), 'utf8'));
+  // A pre-retirement pending token is inert at the V2 adapter seam.
+  const legacyDir = path.join(stateRoot, 'legacy-pending');
+  const legacyBreakerFile = path.join(legacyDir, 'circuit-breaker.json');
+  fs.mkdirSync(legacyDir, { recursive: true });
+  const legacyState = JSON.stringify({
+    failures: { old: { count: 3, firstSeen: 1, lastSeen: 2 } },
+    reflectionPending: true, reflectionRequestedAt: 2, reflectionToken: 'old-token', reflectionSignature: 'old'
+  }, null, 2);
+  fs.writeFileSync(legacyBreakerFile, legacyState);
+  let legacyEditAllowed = true;
+  try {
+    await before({ tool: 'edit', sessionID: 'legacy-pending', id: 'legacy-edit', input: {} });
+  } catch {
+    legacyEditAllowed = false;
+  }
+  if (legacyEditAllowed) {
+    await after({ tool: 'edit', sessionID: 'legacy-pending', id: 'legacy-edit-after', input: { filePath: path.join(workspace, 'legacy.js') } });
+  }
   helper.check(
-    '2p. a v2-shaped reflection artifact completes the reflection',
-    breakerAfter.reflectionPending === false && Number.isFinite(breakerAfter.lastReflection) && breakerAfter.failures[signature].count === 0,
-    JSON.stringify(breakerAfter)
+    '2p. legacy pending token state stays inert and the V2 edit completes',
+    legacyEditAllowed && fs.readFileSync(legacyBreakerFile, 'utf8') === legacyState
+      && fs.existsSync(path.join(legacyDir, 'edit-state.json')),
+    legacyDir
   );
 
   // Flow 3: session reset through the flat V2 event shape.
