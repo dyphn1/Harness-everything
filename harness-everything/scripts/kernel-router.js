@@ -118,7 +118,7 @@ function persistWorkflow(contract, payload, prompt) {
     guidance: {
       mode: 'semantic-contract',
       reasoningPolicy: 'model-controls-how',
-      hardBoundaries: ['rule-of-3-reflection', 'user-host-permission'],
+      hardBoundaries: ['user-host-permission'],
     },
   };
   if (selected && ['tier2', 'tier3'].includes(plan.tier)) {

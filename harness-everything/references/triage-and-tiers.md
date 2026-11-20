@@ -2,7 +2,7 @@
 
 Harness uses tiers to estimate scope and select the smallest sufficient execution topology. A tier is **not** a fixed TODO/TDD/Fable pipeline. Once the router selects an applicable topology, however, that topology becomes the run's execution contract.
 
-> Architecture rule: **Contract-first lifecycle; flexible reasoning/implementation; semantic MUSTs may be reminder-observed, while only Rule-of-3 reflection and explicit permission boundaries may hard-block.**
+> Architecture rule: **Contract-first lifecycle; flexible reasoning/implementation; semantic MUSTs may be reminder-observed, while explicit permission boundaries may hard-block.**
 
 ## 0. When Harness Routing Applies
 
@@ -40,7 +40,7 @@ The kernel protects lifecycle obligations without micromanaging model reasoning.
 
 1. **Route before execution** — establish task scope/tier and the smallest justified topology.
 2. **Verify before claim** — completion requires objective evidence appropriate to the change.
-3. **Re-plan on repetition** — after three same-signature failures, stop micro-retrying and use a fresh diagnosis / `zoom-out`.
+3. **Loop awareness** — reconsider assumptions or re-plan when evidence shows stagnation; numeric iteration values MAY guide but never hard-stop.
 4. **Bind knowledge by step** — compose ordered requirement steps and declare required/optional skills or references before execution.
 5. **Resolve selected workflow** — selected-topology required obligations are semantic MUSTs; implementation tactics MAY adapt where the contract allows.
 6. **Surface status** — non-trivial software/project work MUST use the single Harness Status format at required phase boundaries.
@@ -134,7 +134,7 @@ flowchart LR
     Y --> S[Summarize]
     S --> R[Record]
     S -- evidence insufficient --> T
-    Y -- same failure x3 --> Z[Zoom Out]
+    Y -- evidence shows stagnation --> Z[Agent may use zoom-out]
     Z --> T
 ```
 
@@ -144,11 +144,11 @@ This describes a reasoning policy. The workflow contract governs lifecycle oblig
 
 | Host mode | Expected behavior |
 |---|---|
-| Lifecycle hooks available | Kernel records the selected semantic workflow contract. PreToolUse/Stop hooks observe/remind; Rule-of-3 and permission gates are the intentional blocking exceptions. |
+| Lifecycle hooks available | Kernel records the selected semantic workflow contract. PreToolUse/Stop hooks observe/remind; explicit permission gates are the intentional blocking exceptions. |
 | Instruction-only / advisory delivery | Agent receives the same MUST/SHOULD/MAY semantic contract without lifecycle observations or hard-enforcement claims. |
 | Manual use | Invoke `harness-everything` / `harness next`, then execute the selected topology explicitly. |
 
-On Claude and the local OpenAI package, supported hooks observe workflow/worktree/verification state and emit reminders. Rule-of-3 reflection and explicit action/permission gates remain separate blocking boundaries.
+On Claude and the local OpenAI package, supported hooks observe workflow/worktree/verification state and emit reminders. Explicit action/permission gates remain separate blocking boundaries.
 
 Never turn mechanism/package evidence into a cross-host live-enforcement claim. #82 owns host-specific retained evidence.
 

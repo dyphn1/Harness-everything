@@ -19,10 +19,10 @@ metadata:
 ## Invariants
 1. **Route (MUST)** — scope/tier plus selected/deferred topology.
 2. **Verify (MUST)** — objective evidence via `verify-gate.js --json`.
-3. **Zoom out (MUST)** — after 3 same-signature failures, use `zoom-out`.
+3. **Loop awareness (MUST)** — reconsider assumptions when evidence shows stagnation; numeric iteration values MAY guide but never hard-stop.
 4. **Bind knowledge by step (MUST)** — ordered steps declare required/optional skills/references; only the active step's bindings load and resolve.
 5. **Surface status (MUST)** — non-trivial work renders `### 🚦 Harness Status` with bold `Current`, `Read / Evidence`, `Next`; `Risk / Blocked` optional.
-6. **Keep agency** — required obligations are MUST; tactics MAY adapt. Numeric planning MAY guide, never hard-stop; only Rule-of-3 reflection and explicit user/host permission boundaries may block.
+6. **Keep agency** — required obligations are MUST; tactics MAY adapt. Only explicit user/host permission boundaries may block.
 7. **Windows PowerShell (MUST)** — `Get-Content -Encoding UTF8 -Raw`; npm `.cmd` shims (`npx.cmd`); never weaken `ExecutionPolicy`.
 
 ## Workflow
