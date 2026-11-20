@@ -51,13 +51,11 @@ This is a different failure from E-0011. There the cause was 8.3 short names fro
 
 ## Lesson
 
-To test whether a path is inside a root, use `!rel.startsWith('..') && !path.isAbsolute(rel)`. Do not use `startsWith('..')` alone. Check Windows cases with `path.win32` on every OS, so the logic is exercised without a Windows host.
-
-Episode 2 adds: a leading `..` must be a whole path segment. A root child named `..cache` begins with `..` but is inside the root, so a bare prefix check gives a false escape. Compare `..` as a segment (followed by a separator or end of string), not as a raw string prefix.
+Given `rel = pathApi.relative(root, target)`, a path is outside when `rel === '..' || rel.startsWith('..' + pathApi.sep) || pathApi.isAbsolute(rel)`. A child named `..cache` is inside. For a strict descendant, also require `rel !== ''` to exclude the root itself. Use `path.win32` to exercise Windows path logic on every OS.
 
 ## Mechanism candidate (not decided)
 
-A portability lint that flags `path.relative(...).startsWith('..')` without an `isAbsolute` check. The owner has not chosen it.
+A portability lint could flag relative-path containment checks that omit the absolute-path test or match `..` as a bare prefix. The owner has not chosen it.
 
 ## Evidence
 

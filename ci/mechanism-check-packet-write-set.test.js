@@ -14,11 +14,21 @@ const FIXED_DATE = '2000-01-01T00:00:00Z';
 
 function isOutside(root, target, pathApi = path) {
   const relative = pathApi.relative(root, target);
-  return relative.startsWith('..') || pathApi.isAbsolute(relative);
+  return relative === '..' || relative.startsWith('..' + pathApi.sep) || pathApi.isAbsolute(relative);
 }
 
-assert.equal(isOutside('D:\\repo', 'C:\\tmp\\fixture', path.win32), true, 'cross-drive fixtures are outside');
-assert.equal(isOutside('D:\\repo', path.win32.join('D:\\repo', 'fixture'), path.win32), false, 'same-drive children are inside');
+test('temporary fixture containment respects Windows path segments and drives', () => {
+  for (const [target, outside] of [
+    ['D:\\repo', false],
+    ['D:\\repo\\..cache', false],
+    ['D:\\repo\\child', false],
+    ['D:\\other', true],
+    ['D:\\', true],
+    ['C:\\temp', true],
+  ]) {
+    assert.equal(isOutside('D:\\repo', target, path.win32), outside, target);
+  }
+});
 
 function gitEnv(tempRoot) {
   const env = { ...process.env };
