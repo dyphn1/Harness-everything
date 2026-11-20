@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.55.2](https://github.com/dyphn1/Harness-everything/compare/v0.55.1...v0.55.2) (2026-11-20)
+
+### Bug Fixes
+
+* align second-stage evaluation and report contracts ([#491](https://github.com/dyphn1/Harness-everything/issues/491)) ([aae6403](https://github.com/dyphn1/Harness-everything/commit/aae6403aaabd3588b2ff6e4343f07659f1d40be2))
+
 ## [0.55.1](https://github.com/dyphn1/Harness-everything/compare/v0.55.0...v0.55.1) (2026-11-20)
 
 ### Bug Fixes
