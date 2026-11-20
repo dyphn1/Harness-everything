@@ -71,10 +71,10 @@ function makeCase(label) {
   };
 }
 
-function argsFor(testCase, runner = 'codex') {
+function argsFor(testCase, runner = 'codex', model = runner === 'codex' ? 'fixture/codex-model' : 'fixture/opencode-model') {
   return [
     '--runner', runner,
-    '--model', runner === 'codex' ? 'fixture/codex-model' : 'fixture/opencode-model',
+    '--model', model,
     '--packet', packet,
     '--worktree', worktree,
     '--scratch', testCase.scratch,
@@ -144,14 +144,14 @@ function assertNoScratchOrReport(testCase) {
   assert.equal(fs.existsSync(testCase.report), false);
 }
 
-function assertEvent(event, testCase, runner, phase) {
+function assertEvent(event, testCase, runner, phase, model = runner === 'codex' ? 'fixture/codex-model' : 'fixture/opencode-model') {
   assert.equal(event.runner, runner);
   assert.equal(event.phase, phase);
   assert.equal(event.cwd, fs.realpathSync(worktree));
   assert.equal(event.tmpdir, testCase.scratch);
   assert.equal(event.stdin, '');
   assert.equal(event.stdinIsCharacterDevice, true);
-  assert.equal(event.args[event.args.indexOf('-m') + 1], runner === 'codex' ? 'fixture/codex-model' : 'fixture/opencode-model');
+  assert.equal(event.args[event.args.indexOf('-m') + 1], model);
   assert.equal(event.args.at(-1), phase === 'readiness'
     ? 'Reply exactly with READY.'
     : `Execute the packet at ${packet} and ${runner === 'codex' ? 'return the complete report body.' : `write the complete report to ${testCase.report}.`}`);
@@ -169,10 +169,20 @@ function removeOption(args, option) {
   return args;
 }
 
-function runSuccessAndArgvMatch(runner) {
+function assertReadinessRefusal(testCase, runner, model = runner === 'codex' ? 'fixture/codex-model' : 'fixture/opencode-model') {
+  const actualEvents = events(testCase);
+  assert.equal(actualEvents.length, 1, 'refusal must make one readiness call and no execution or fallback call');
+  assertEvent(actualEvents[0], testCase, runner, 'readiness', model);
+  assert.equal(fs.existsSync(testCase.report), false);
+}
+
+function runSuccessAndArgvMatch(runner, requestedModel = runner === 'codex' ? 'fixture/codex-model' : 'fixture/opencode-model') {
   const testCase = makeCase(`${runner} success`);
-  const args = argsFor(testCase, runner);
+  const model = requestedModel.trim();
+  const args = argsFor(testCase, runner, requestedModel);
   const dryRun = jsonResponse(cli([...args, '--dry-run', '--json'], testCase), 0, 'DRY_RUN_OK');
+  assert.equal(dryRun.model, model);
+  assert.equal(dryRun.argv[dryRun.argv.indexOf('-m') + 1], model);
   assert.equal(dryRun.cwd, fs.realpathSync(worktree));
   assert.equal(dryRun.argv[0], runner);
   assertNoRunner(testCase);
@@ -180,12 +190,12 @@ function runSuccessAndArgvMatch(runner) {
 
   const result = jsonResponse(cli([...args, '--json'], testCase), 0, 'DONE');
   assert.equal(result.runner, runner);
-  assert.equal(result.model, runner === 'codex' ? 'fixture/codex-model' : 'fixture/opencode-model');
+  assert.equal(result.model, model);
   assert.equal(fs.existsSync(testCase.scratch), true);
   assert.equal(fs.readFileSync(result.evidence.report, 'utf8'), 'Fixture completed the packet.\nSTATUS: DONE\n');
   const actualEvents = events(testCase);
   assert.equal(actualEvents.length, 2, 'one readiness and one execution; no retry or fallback');
-  for (const event of actualEvents) assertEvent(event, testCase, runner, event.phase);
+  for (const event of actualEvents) assertEvent(event, testCase, runner, event.phase, model);
   const observedArgv = [actualEvents[1].runner, ...actualEvents[1].args];
   if (runner === 'codex') {
     const outputIndex = observedArgv.indexOf('-o') + 1;
@@ -336,6 +346,9 @@ try {
 
   for (const runner of ['codex', 'opencode']) {
     check(`${runner} real entry succeeds and dry-run argv/cwd match execution`, () => runSuccessAndArgvMatch(runner));
+    check(`${runner} reports one trimmed model across dry-run, both runner calls, and run JSON`, () => {
+      runSuccessAndArgvMatch(runner, ` ${runner === 'codex' ? 'fixture/codex-model' : 'fixture/opencode-model'} `);
+    });
 
     check(`${runner} READY with successful exit accepts quoted quota text`, () => {
       const testCase = makeCase(`${runner} quota prose`);
@@ -343,23 +356,29 @@ try {
         readiness: 'ready-with-quota-prose', execution: 'done-with-quota-prose',
       }), 0, 'DONE');
       assert.match(fs.readFileSync(response.evidence.readinessLog, 'utf8'), /429.*quota/);
-      assert.equal(events(testCase).length, 2);
+      const actualEvents = events(testCase);
+      assert.equal(actualEvents.length, 2);
+      assertEvent(actualEvents[0], testCase, runner, 'readiness');
+      assertEvent(actualEvents[1], testCase, runner, 'execution');
     });
 
-    for (const [scenario, code, expectedEvents] of [
-      ['no-ready', 'NOT_READY', 1],
-      ['ready-failed', 'NOT_READY', 1],
-      ['stdout-quota', 'NOT_READY', 1],
-    ]) {
-      check(`${runner} readiness ${scenario} -> ${code}`, () => {
+    for (const scenario of ['no-ready', 'ready-failed', 'stdout-quota', 'unrelated-quota', 'bare-429', 'quoted-quota']) {
+      check(`${runner} readiness ${scenario} -> NOT_READY`, () => {
         const testCase = makeCase(`${runner} ${scenario}`);
-        jsonResponse(cli([...argsFor(testCase, runner), '--json'], testCase, { readiness: scenario }), 12, code);
-        const actualEvents = events(testCase);
-        assert.equal(actualEvents.length, expectedEvents);
-        assertEvent(actualEvents[0], testCase, runner, 'readiness');
-        assert.equal(fs.existsSync(testCase.report), false);
+        jsonResponse(cli([...argsFor(testCase, runner), '--json'], testCase, { readiness: scenario }), 12, 'NOT_READY');
+        assertReadinessRefusal(testCase, runner);
       });
     }
+
+    check(`${runner} validated padded model is retained in readiness failure JSON`, () => {
+      const testCase = makeCase(`${runner} padded model refusal`);
+      const model = runner === 'codex' ? 'fixture/codex-model' : 'fixture/opencode-model';
+      const response = jsonResponse(cli([...argsFor(testCase, runner, ` ${model} `), '--json'], testCase, {
+        readiness: 'unrelated-quota',
+      }), 12, 'NOT_READY');
+      assert.equal(response.model, model);
+      assertReadinessRefusal(testCase, runner, model);
+    });
 
     check(`${runner} readiness timeout -> NOT_READY and child exited`, () => {
       const testCase = makeCase(`${runner} readiness timeout`);
@@ -367,17 +386,14 @@ try {
         readiness: 'timeout', testTimeoutMs: 300, outerTimeoutMs: 5000,
       }), 12, 'NOT_READY');
       const actualEvents = events(testCase);
-      assert.equal(actualEvents.length, 1);
+      assertReadinessRefusal(testCase, runner);
       assertProcessExited(actualEvents[0].pid);
     });
 
     check(`${runner} recognized readiness quota -> RUNNER_QUOTA without fallback`, () => {
       const testCase = makeCase(`${runner} quota`);
       jsonResponse(cli([...argsFor(testCase, runner), '--json'], testCase, { readiness: 'quota' }), 13, 'RUNNER_QUOTA');
-      const actualEvents = events(testCase);
-      assert.equal(actualEvents.length, 1);
-      assertEvent(actualEvents[0], testCase, runner, 'readiness');
-      assert.equal(fs.existsSync(testCase.report), false);
+      assertReadinessRefusal(testCase, runner);
     });
 
     check(`${runner} execution failure -> RUN_FAILED with no retry/fallback`, () => {

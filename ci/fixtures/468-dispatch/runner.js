@@ -30,7 +30,7 @@ function hang() {
 }
 
 function readyOutput() {
-  if (scenario === 'no-ready' || scenario === 'quota' || scenario === 'stdout-quota' || scenario === 'timeout') return;
+  if (scenario === 'no-ready' || scenario === 'quota' || scenario === 'stdout-quota' || scenario === 'quoted-quota' || scenario === 'bare-429' || scenario === 'timeout') return;
   if (runner === 'codex') {
     if (outputPath) fs.writeFileSync(outputPath, 'READY\n');
   } else process.stdout.write('READY\n');
@@ -77,6 +77,21 @@ if (phase === 'readiness') {
     process.exitCode = 7;
   } else if (scenario === 'stdout-quota') {
     process.stdout.write(runner === 'codex' ? 'ERROR: HTTP 429 quota exhausted\n' : 'Error: HTTP 429 quota exhausted\n');
+    process.exitCode = 7;
+  } else if (scenario === 'unrelated-quota') {
+    process.stderr.write(runner === 'codex'
+      ? 'ERROR: invalid --quota value; expected a positive integer\n'
+      : 'Error: invalid --quota value; expected a positive integer\n');
+    process.exitCode = 7;
+  } else if (scenario === 'bare-429') {
+    process.stderr.write(runner === 'codex'
+      ? 'ERROR: unrelated operation failed with code 429\n'
+      : 'Error: unrelated operation failed with code 429\n');
+    process.exitCode = 7;
+  } else if (scenario === 'quoted-quota') {
+    process.stderr.write(runner === 'codex'
+      ? 'Quoted text: "ERROR: provider returned HTTP 429 quota exhausted"\n'
+      : 'Quoted text: "Error: provider returned HTTP 429 quota exhausted"\n');
     process.exitCode = 7;
   } else if (scenario === 'ready-failed') {
     process.exitCode = 7;

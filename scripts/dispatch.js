@@ -136,7 +136,7 @@ function validateInput(options) {
   return { runner, model: model.trim(), packet, worktree, scratch, report };
 }
 
-function response(options, outcome, evidence = evidencePaths) {
+function response(options, outcome, evidence = evidencePaths, input) {
   const message = String(outcome.message || '').slice(0, 1000);
   const result = {
     ok: outcome.exitCode === 0,
@@ -144,8 +144,10 @@ function response(options, outcome, evidence = evidencePaths) {
     phase: outcome.phase,
     message,
   };
-  if (options['--runner'] === 'codex' || options['--runner'] === 'opencode') result.runner = options['--runner'];
-  if (options['--model']) result.model = options['--model'];
+  const runner = input?.runner ?? options['--runner'];
+  const model = input?.model ?? options['--model'];
+  if (runner === 'codex' || runner === 'opencode') result.runner = runner;
+  if (model) result.model = model;
   if (outcome.argv) result.argv = outcome.argv;
   if (outcome.cwd) result.cwd = outcome.cwd;
   const paths = Object.fromEntries(Object.entries(evidence).filter(([, value]) => value && fs.existsSync(value)));
@@ -190,7 +192,7 @@ function runnerArgs(input, prompt, outputPath) {
 
 function hasQuotaDiagnostic(runner, stderr) {
   const prefix = runner === 'codex' ? /^\s*ERROR:/i : /^\s*Error:/i;
-  const signature = /(?:429|usage limit|quota|rate limit|exhausted)/i;
+  const signature = /\bHTTP\s*429\b|\b429\s+Too Many Requests\b|\bprovider\b.*\bstatus(?:\s+code)?\s*429\b/i;
   const output = stderr.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '');
   return output.split(/\r?\n/).some(line => prefix.test(line) && signature.test(line));
 }
@@ -281,13 +283,14 @@ function execute(input, options) {
     code: 'DONE',
     phase: 'report',
     message: `Dispatch completed and the report is valid: ${input.report}`,
-  });
+  }, evidencePaths, input);
 }
 
 function main() {
   const argv = process.argv.slice(2);
   const jsonRequested = argv.includes('--json');
   let options = { '--json': jsonRequested };
+  let input;
   evidencePaths = {};
   try {
     if (argv.includes('--help')) {
@@ -297,7 +300,7 @@ function main() {
       return;
     }
     options = parseArgs(argv);
-    const input = validateInput(options);
+    input = validateInput(options);
     if (options['--dry-run']) {
       const outputPath = input.runner === 'codex' ? path.join(input.scratch, '<run-id>.raw.txt') : null;
       response(options, {
@@ -307,16 +310,16 @@ function main() {
         message: `Validated ${input.runner} model ${input.model} for packet ${input.packet} in ${input.worktree}; scratch ${input.scratch}; report ${input.report}`,
         argv: [input.runner, ...runnerArgs(input, executionPrompt(input), outputPath)],
         cwd: input.worktree,
-      });
+      }, evidencePaths, input);
       return;
     }
     execute(input, options);
   } catch (cause) {
     if (cause instanceof DispatchFailure) {
-      response(options, cause, evidencePaths);
+      response(options, cause, evidencePaths, input);
       return;
     }
-    response(options, new DispatchFailure(1, 'INTERNAL_ERROR', 'application', cause.message || 'unexpected dispatch error'), evidencePaths);
+    response(options, new DispatchFailure(1, 'INTERNAL_ERROR', 'application', cause.message || 'unexpected dispatch error'), evidencePaths, input);
   }
 }
 
