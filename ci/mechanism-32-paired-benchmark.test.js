@@ -312,7 +312,6 @@ try {
     effect_type: 'plugin-enforcement',
     contract: pluginContract,
     contract_sha256: hash(pluginContract),
-    preflight: { passed: true, plugin_sha256: 'plugin-hash' },
     arms: {
       baseline: {
         ...arm('fail', true),
@@ -329,7 +328,7 @@ try {
     },
   };
   helper.check(
-    '32. plugin pair is includable only when preflight, hash, constant skill text, and per-arm attribution agree',
+    '32. plugin pair is includable with a matching hash, constant skill text, and per-arm attribution',
     validatePairRecord(pluginPair).included,
     JSON.stringify(validatePairRecord(pluginPair)),
   );

@@ -136,11 +136,10 @@ node behavioral-evals/paired-benchmark.js run \
   --effect skill-text --engine claude --model <model> \
   --min-effect-pp <predeclared-threshold>
 
-# OpenCode plugin-enforcement effect (requires retained reflection-gate preflight)
+# OpenCode plugin-enforcement effect (requires per-treatment plugin attribution and byte evidence)
 node behavioral-evals/paired-benchmark.js run \
   --effect plugin-enforcement --engine opencode --model <model> \
-  --min-effect-pp <predeclared-threshold> \
-  --opencode-preflight <evidence-dir>
+  --min-effect-pp <predeclared-threshold>
 
 # accepted self-evolve lesson retrieval/exposure effect
 node behavioral-evals/paired-benchmark.js run \

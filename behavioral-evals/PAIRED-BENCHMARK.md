@@ -31,10 +31,10 @@ text constant.
 - treatment: the same named Harness skill text plus the canonical OpenCode
   enforcement module installed as `.opencode/plugins/harness-enforcement.js`.
 
-This experiment currently supports OpenCode only. Any plugin-specific host
-preflight must measure the intervention under study and bind retained evidence
-to the exact plugin bytes. The retired Rule-of-3 reflection-gate probe is not a
-prerequisite or evidence for current voluntary reassessment cases.
+This experiment currently supports OpenCode only. Each treatment arm must retain
+evidence that attributes the plugin and binds it to the exact plugin bytes. The
+retired Rule-of-3 reflection-gate probe is not a prerequisite or evidence for
+current voluntary reassessment cases.
 
 Each treatment case must also leave retained plugin state proving that the
 plugin fired during that case. Missing attribution is classified as
@@ -89,7 +89,7 @@ Excluded reasons include:
 - mismatched actual model when both hosts report it;
 - pair-contract hash mismatch;
 - intervention shape mismatch;
-- missing OpenCode plugin attribution/preflight/hash evidence.
+- missing OpenCode plugin attribution or hash evidence.
 
 `command_exit_0` remains a post-hoc workspace correctness check. It is tagged
 as such in the result and is never presented as proof that the agent itself
@@ -148,9 +148,9 @@ runner's baseline-only `--safe-mode` difference is not used in this protocol.
 
 The former Rule-of-3 probe and its preflight option are retired with those
 cases. A new plugin study needs host evidence that attributes the plugin to
-each treatment case and matches the bytes under test. If no suitable preflight
-is available, classify that arm as unavailable or inconclusive; archived
-Rule-of-3 records do not substitute for current evidence.
+each treatment case and matches the bytes under test. If either is missing,
+classify that arm as unavailable or inconclusive; archived Rule-of-3 records do
+not substitute for current evidence.
 
 ## Statistical output
 

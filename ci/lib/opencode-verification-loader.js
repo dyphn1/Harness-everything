@@ -8,10 +8,8 @@ const childProcess = require('child_process');
 // host-discovery surface. Parsing preserves async declarations and boundaries.
 module.exports = function loadRunner(root, overrides = {}) {
   const source = fs.readFileSync(path.join(root, 'opencode-plugin/index.mjs'), 'utf8');
-  const names = new Set(['FAILURE_MARKER_PATTERNS', 'CONTEXT_MARKER_PATTERNS',
-    'VERIFY_TIMEOUT_ENV', 'DEFAULT_VERIFY_TIMEOUT_MS', 'VERIFY_OUTPUT_LIMIT',
-    'VERIFY_LINE_LIMIT', 'VERIFY_KILL_GRACE_MS', 'normalizeFailureLine',
-    'firstFailureMarker', 'buildFailureSignature', 'getAvailableScripts',
+  const names = new Set(['VERIFY_TIMEOUT_ENV', 'DEFAULT_VERIFY_TIMEOUT_MS',
+    'VERIFY_OUTPUT_LIMIT', 'VERIFY_KILL_GRACE_MS', 'getAvailableScripts',
     'verifyTimeoutMs', 'createVerificationCapture', 'terminateVerificationChild',
     'runVerificationCommand', 'runVerification']);
   const ast = acorn.parse(source, { ecmaVersion: 'latest', sourceType: 'module' });
@@ -20,5 +18,5 @@ module.exports = function loadRunner(root, overrides = {}) {
     createHash: require('crypto').createHash, spawn: childProcess.spawn,
     existsSync: fs.existsSync, readFileSync: fs.readFileSync, join: path.join, ...overrides };
   return vm.runInNewContext(declarations.map(node => source.slice(node.start, node.end)).join('\n')
-    + '\n;({ runVerification, runVerificationCommand, createVerificationCapture, buildFailureSignature, verifyTimeoutMs })', context);
+    + '\n;({ runVerification, runVerificationCommand, createVerificationCapture, verifyTimeoutMs })', context);
 };

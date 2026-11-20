@@ -36,6 +36,6 @@ Shadow guard for `fable-mode`: **MUST** run in the background for its whole dura
 1. **Anti-context bloat**: After each milestone, **MUST** compact state and decisions; avoid irrelevant broad reads.
 2. **Physical boundaries**: **MUST** know the CWD. If commits are authorized, independent logic blocks **SHOULD** remain separate; otherwise leave changes uncommitted.
 3. **Agent handoff**: Outgoing agents **MUST** leave a state manifest; incoming agents **MUST** verify it first.
-4. **Divergence signal**: **MUST** surface diverging errors and recommend `zoom-out`; **SHOULD** map the dependency graph. Divergence alone does not hard-stop execution.
+4. **Divergence signal**: Divergence is a warning signal; **MUST** surface diverging errors and recommend `zoom-out`; **SHOULD** map the dependency graph. Divergence alone does not hard-stop execution.
 
 Deep dive: <this-skill-dir>/references/discipline-rules.md
