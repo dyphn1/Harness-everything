@@ -32,7 +32,7 @@ function parseArgs(argv) {
   return options;
 }
 
-function git(args, cwd = process.cwd()) {
+function git(args, cwd = process.cwd(), input) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
   if (process.env.GIT_CONFIG_GLOBAL !== undefined) env.GIT_CONFIG_GLOBAL = process.env.GIT_CONFIG_GLOBAL;
   Object.assign(env, {
@@ -43,6 +43,7 @@ function git(args, cwd = process.cwd()) {
   const result = spawnSync('git', ['-c', 'core.fsmonitor=false', '-c', 'core.untrackedCache=false', ...args], {
     cwd,
     encoding: null,
+    input,
     shell: false,
     env,
     maxBuffer: 16 * 1024 * 1024,
@@ -110,6 +111,79 @@ function readAllowPatterns(options) {
   });
 }
 
+function gitBooleanConfig(repo, key, fallback) {
+  const args = ['config', '--bool', '--get', key];
+  const result = git(args, repo);
+  if (result.status === 1 && !result.stderr.length) return fallback;
+  return pathsFrom(result, args)[0]?.trim() === 'true';
+}
+
+function sparseCheckoutIncludes(repo, files) {
+  const args = ['sparse-checkout', 'check-rules', '-z'];
+  const input = Buffer.from(`${files.join('\0')}\0`);
+  return new Set(pathsFrom(git(args, repo, input), args));
+}
+
+function flaggedWorkingTreeChanges(repo) {
+  const args = ['ls-files', '-v', '--stage', '-z'];
+  const changes = [];
+  const sparseRuleCandidates = [];
+  let sparseCheckout;
+  for (const entry of pathsFrom(git(args, repo), args)) {
+    // Lowercase tags mark assume-unchanged; S/s marks skip-worktree.
+    if (!/^[a-zS] /.test(entry)) continue;
+    const separator = entry.indexOf('\t');
+    const [tag, mode, oid, stage] = entry.slice(0, separator).split(' ');
+    if (stage !== '0') continue;
+    const file = entry.slice(separator + 1);
+    const absolute = path.join(repo, file);
+    const stat = fs.lstatSync(absolute, { throwIfNoEntry: false });
+    if (!stat) {
+      // Skip only paths excluded by the active sparse rules; an in-cone deletion
+      // can also carry the skip-worktree bit.
+      if (tag.toUpperCase() === 'S'
+        && (sparseCheckout ??= gitBooleanConfig(repo, 'core.sparseCheckout', false))) {
+        sparseRuleCandidates.push(file);
+      } else {
+        changes.push(file);
+      }
+      continue;
+    }
+
+    let hashArgs;
+    let hashCwd = repo;
+    let input;
+    if (mode === '160000' && stat.isDirectory()) {
+      // An uninitialized submodule has no checked-out commit to compare.
+      if (!fs.lstatSync(path.join(absolute, '.git'), { throwIfNoEntry: false })) continue;
+      hashArgs = ['rev-parse', '--verify', 'HEAD'];
+      hashCwd = absolute;
+    } else if (mode === '120000' && stat.isSymbolicLink()) {
+      hashArgs = ['hash-object', '--stdin'];
+      input = fs.readlinkSync(absolute, { encoding: 'buffer' });
+    } else if (mode === '120000' && stat.isFile() && !gitBooleanConfig(repo, 'core.symlinks', true)) {
+      // Git can check out a symlink as a plain file containing its target.
+      hashArgs = ['hash-object', '--no-filters', '--', file];
+    } else if (mode.startsWith('100') && stat.isFile()) {
+      // Apply Git's clean filters just as when comparing normal tracked files.
+      hashArgs = ['hash-object', `--path=${file}`, '--', file];
+    } else {
+      changes.push(file);
+      continue;
+    }
+    const actual = pathsFrom(git(hashArgs, hashCwd, input), hashArgs)[0]?.trim();
+    if (!actual) throw new Error(`could not compare tracked path ${JSON.stringify(file)}`);
+    if (actual !== oid) changes.push(file);
+  }
+  if (sparseRuleCandidates.length) {
+    const included = sparseCheckoutIncludes(repo, sparseRuleCandidates);
+    for (const file of sparseRuleCandidates) {
+      if (included.has(file)) changes.push(file);
+    }
+  }
+  return changes;
+}
+
 function changedPaths(base, head, includeWorkingTree, repo) {
   const paths = new Set();
   const diffs = [['diff', '--no-ext-diff', '--no-textconv', '--no-renames', '--name-only', '-z', base, head]];
@@ -123,6 +197,7 @@ function changedPaths(base, head, includeWorkingTree, repo) {
   if (includeWorkingTree) {
     const untrackedArgs = ['ls-files', '--others', '--exclude-standard', '-z'];
     for (const file of pathsFrom(git(untrackedArgs, repo), untrackedArgs)) paths.add(file);
+    for (const file of flaggedWorkingTreeChanges(repo)) paths.add(file);
   }
   return [...paths].sort();
 }
