@@ -27,7 +27,7 @@ Boundary: stay inside `process.cwd()`. Detection never writes integrations or se
 1. Run `node "<this-skill-dir>/scripts/preflight.js"`; detect OS, shell, CLIs.
 2. Where supported, audit read-only: `node "<this-skill-dir>/../harness-everything/scripts/self-heal.js" --check`. If unavailable, report and continue.
 3. Only explicit install/setup/repair intent may omit `--check`. Repair covers Claude, Codex, Copilot, Cursor, Continue, Hermes. OpenCode has its own plugin runtime; skills-only surfaces may lack repair.
-4. Adopt shell syntax: Git Bash → `/`, `$VAR`, Unix commands; PowerShell → `$env:VAR`, cmdlets; CMD → `\`, `%VAR%`, Windows commands. An agent may choose zoom-out at the first meaningful signal; productive iteration may continue when attempts add evidence or narrow the cause.
+4. Adopt shell syntax: Git Bash → `/`, `$VAR`, Unix commands; PowerShell → `$env:VAR`, cmdlets; CMD → `\`, `%VAR%`, Windows commands. An agent may choose zoom-out at the first meaningful signal; productive iteration may continue while attempts add evidence.
 
 Deep dive: <this-skill-dir>/references/shell-syntax-rules.md
 
