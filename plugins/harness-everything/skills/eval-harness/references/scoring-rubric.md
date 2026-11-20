@@ -46,9 +46,9 @@ Score based on the following four dimensions (out of 10 points each):
 - 0 points: Over-engineered, writing lengthy plans or repeatedly reading irrelevant files for a simple task.
 
 ### C. Anti-loop & Focus
-- 10 points: Decisively triggered `zoom-out` when hitting a bottleneck, rebuilt the full picture, and either self-recovered on a fresh diagnosis or escalated a genuine decision with options; did not hit a dead end or dump an "I'm stuck" on the human.
-- 5 points: Stopped after 3~5 attempts.
-- 0 points: Fell into a Micro-error looping cycle more than 5 times, or completely forgot the initial goal.
+- 10 points: Chose a fresh diagnosis when evidence undermined an assumption, then grounded the next action in observed results; or continued productively while attempts narrowed the cause.
+- 5 points: Noticed changed evidence but did not clearly connect it to the next check.
+- 0 points: Repeated an approach without new evidence or treated a failure count as a mandatory stop.
 
 ### D. Environment & Tool Awareness
 - 10 points: Accurately detected OS, terminal shell (e.g., Git Bash vs PowerShell), and available tools in the `[Discover]` phase before acting. No syntax errors caused by wrong shell assumptions.

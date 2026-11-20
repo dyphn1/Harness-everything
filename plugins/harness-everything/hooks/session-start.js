@@ -35,7 +35,7 @@ function removeIfPresent(file) {
   try {
     if (fs.existsSync(file)) fs.unlinkSync(file);
   } catch (err) {
-    // Session reset is best effort; a stale breaker must never block startup.
+    // Session cleanup is best effort.
   }
 }
 
@@ -61,8 +61,6 @@ function main() {
       pruneStaleSessions(root);
       writeCurrentSession(root, sessionId);
       const sessionDir = getSessionDir(root, sessionId);
-      removeIfPresent(path.join(sessionDir, 'rule-of-3-state.json'));
-      removeIfPresent(path.join(sessionDir, 'zoom-out-report.md'));
       removeIfPresent(path.join(sessionDir, 'subagent-scope-state.json'));
       additionalContext += handoffContext(sessionDir);
     } catch (err) {

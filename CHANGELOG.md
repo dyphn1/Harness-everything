@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+- Retired the Rule-of-3 failure-count breaker on Claude Code, Codex and OpenCode (#394). Hooks no longer count same-signature failures, block tools, demand a reflection report or offer `harness:reset`; legacy breaker state is ignored. Zoom-out is agent-initiated: an agent may reassess on a first meaningful failure and may keep iterating while attempts produce new evidence. Error-ledger lesson injection remains planned under #394.
+
 ## [0.55.2](https://github.com/dyphn1/Harness-everything/compare/v0.55.1...v0.55.2) (2026-11-20)
 
 ### Bug Fixes

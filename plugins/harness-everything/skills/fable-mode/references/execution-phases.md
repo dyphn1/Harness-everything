@@ -18,8 +18,8 @@ Read relevant files and sources before producing an artifact. Record the
 authorized write scope. Give each stage an objective, dependencies, write set,
 expected output, exact check command, and pass condition. Required and optional
 bindings belong on the stage that needs them. Replans are advisory and do not
-halt tools or Stop; after three same-signature failures, use Rule-of-3
-`zoom-out`.
+halt tools or Stop. An agent may choose `zoom-out` when evidence changes the
+diagnosis; productive stages may continue while their next actions are justified.
 
 ## Profiles and delegation
 
