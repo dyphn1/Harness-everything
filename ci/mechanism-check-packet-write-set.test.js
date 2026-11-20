@@ -81,7 +81,7 @@ function makeRepo(t) {
   return { repo, tempRoot };
 }
 
-function runChecker(repo, tempRoot, { base, head, allow = [], allowFile } = {}) {
+function runChecker(repo, tempRoot, { base, head, allow = [], allowFile } = {}, extraEnv = {}) {
   const args = [CHECKER_SOURCE, '--base', base];
   if (head) args.push('--head', head);
   for (const pattern of allow) args.push('--allow', pattern);
@@ -89,10 +89,46 @@ function runChecker(repo, tempRoot, { base, head, allow = [], allowFile } = {}) 
   const result = spawnSync(process.execPath, args, {
     cwd: repo,
     encoding: 'utf8',
-    env: gitEnv(tempRoot),
+    env: { ...gitEnv(tempRoot), ...extraEnv },
   });
   assert.equal(result.error, undefined, result.error && result.error.message);
   return result;
+}
+
+function sparseRuleCounter(tempRoot, { fail = false } = {}) {
+  const directory = path.join(tempRoot, 'git counter');
+  fs.mkdirSync(directory, { recursive: true });
+  const log = path.join(directory, 'check-rules calls');
+  const realGit = execFileSync('which', ['git'], { encoding: 'utf8' }).trim();
+  const wrapper = path.join(directory, 'git');
+  fs.writeFileSync(wrapper, [
+    '#!/usr/bin/env node',
+    "'use strict';",
+    "const fs = require('node:fs');",
+    "const { spawnSync } = require('node:child_process');",
+    `const realGit = ${JSON.stringify(realGit)};`,
+    'const args = process.argv.slice(2);',
+    "const checkRules = args.includes('sparse-checkout') && args.includes('check-rules');",
+    'if (checkRules) {',
+    "  if (process.env.WRITE_SET_FAIL_CHECK_RULES === '1') {",
+    "    process.stderr.write('injected check-rules failure\\n');",
+    '    process.exit(1);',
+    '  }',
+    "  fs.appendFileSync(process.env.WRITE_SET_CHECK_RULES_LOG, 'x');",
+    '}',
+    "const child = spawnSync(realGit, args, { stdio: 'inherit' });",
+    "if (child.error) { console.error(child.error.message); process.exitCode = 1; }",
+    'else process.exitCode = child.status ?? 1;',
+    '',
+  ].join('\n'), { mode: 0o755 });
+  return {
+    env: {
+      PATH: `${directory}${path.delimiter}${process.env.PATH}`,
+      WRITE_SET_CHECK_RULES_LOG: log,
+      WRITE_SET_FAIL_CHECK_RULES: fail ? '1' : '0',
+    },
+    count: () => fs.existsSync(log) ? fs.readFileSync(log, 'utf8').length : 0,
+  };
 }
 
 function outOfSetPaths(result) {
@@ -217,13 +253,132 @@ test('compares only the requested commits when --head is not the worktree HEAD',
   const head = commitAll(repo, tempRoot, 'requested head');
   write(repo, 'later.txt', 'after requested head\n');
   commitAll(repo, tempRoot, 'worktree HEAD');
-  write(repo, 'dirty.txt', 'uncommitted\n');
+  runGit(repo, tempRoot, ['update-index', '--assume-unchanged', '--', 'base.txt']);
+  try {
+    write(repo, 'base.txt', 'hidden workspace-only change\n');
+    write(repo, 'dirty.txt', 'uncommitted\n');
 
-  const result = runChecker(repo, tempRoot, { base, head, allow: ['allowed.txt'] });
-  assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(outOfSetPaths(result), []);
-  assert.match(result.stdout, /commits only/i);
-  assert.doesNotMatch(result.stdout, /later\.txt|dirty\.txt/);
+    const result = runChecker(repo, tempRoot, { base, head, allow: ['allowed.txt'] });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(outOfSetPaths(result), []);
+    assert.match(result.stdout, /commits only/i);
+    assert.doesNotMatch(result.stdout, /base\.txt|later\.txt|dirty\.txt/);
+  } finally {
+    runGit(repo, tempRoot, ['update-index', '--no-assume-unchanged', '--', 'base.txt']);
+  }
+});
+
+test('batches sparse-rule checks and distinguishes hidden deletions from omissions', { skip: process.platform === 'win32' }, t => {
+  const { repo, tempRoot } = makeRepo(t);
+  const includedPath = 'included/tracked\nname.txt';
+  const omittedPaths = ['omitted/space name.txt', 'omitted/new\nline.txt'];
+  write(repo, includedPath, 'inside sparse cone\n');
+  for (const file of omittedPaths) write(repo, file, `outside sparse cone: ${file}\n`);
+  const base = commitAll(repo, tempRoot, 'baseline');
+  write(repo, 'later.txt', 'committed after the requested head\n');
+  commitAll(repo, tempRoot, 'later commit');
+
+  runGit(repo, tempRoot, ['sparse-checkout', 'set', 'included']);
+  for (const file of omittedPaths) assert.equal(fs.existsSync(path.join(repo, ...file.split('/'))), false, `${file} is outside the sparse cone`);
+  runGit(repo, tempRoot, ['update-index', '--skip-worktree', '--', includedPath]);
+  fs.rmSync(path.join(repo, ...includedPath.split('/')));
+  assert.equal(gitText(repo, tempRoot, 'status', '--porcelain'), '', 'Git hides the in-cone deletion');
+
+  const counter = sparseRuleCounter(tempRoot);
+  const before = snapshotTree(repo);
+  const result = runChecker(repo, tempRoot, { base, allow: ['later.txt'] }, counter.env);
+  assert.equal(result.status, 1, result.stderr);
+  assert.deepEqual(outOfSetPaths(result), [includedPath]);
+  for (const file of omittedPaths) assert.ok(!result.stdout.includes(JSON.stringify(file)), `${file} is not reported`);
+  assert.equal(counter.count(), 1, 'all sparse candidates use one check-rules subprocess');
+  assert.deepEqual(snapshotTree(repo), before, 'inspection preserves the index flags and repository state');
+
+  const allowed = runChecker(repo, tempRoot, { base, head: 'HEAD', allow: [includedPath, 'later.txt'] }, counter.env);
+  assert.equal(allowed.status, 0, allowed.stderr);
+  assert.ok(allowed.stdout.includes(`ALLOWED ${JSON.stringify(includedPath)}`));
+  assert.equal(counter.count(), 2, 'the second candidate batch also uses one subprocess');
+  assert.deepEqual(snapshotTree(repo), before, 'allowed inspection preserves the index flags and repository state');
+
+  const historical = runChecker(repo, tempRoot, { base, head: base, allow: ['later.txt'] }, counter.env);
+  assert.equal(historical.status, 0, historical.stderr);
+  assert.match(historical.stdout, /commits only/);
+  assert.equal(counter.count(), 2, 'a non-current --head does not inspect sparse worktree paths');
+
+  const cleanFixture = makeRepo(t);
+  write(cleanFixture.repo, 'included/only.txt', 'present\n');
+  const cleanBase = commitAll(cleanFixture.repo, cleanFixture.tempRoot, 'baseline');
+  runGit(cleanFixture.repo, cleanFixture.tempRoot, ['sparse-checkout', 'set', 'included']);
+  const cleanCounter = sparseRuleCounter(cleanFixture.tempRoot);
+  const clean = runChecker(cleanFixture.repo, cleanFixture.tempRoot, { base: cleanBase, allow: ['included/**'] }, cleanCounter.env);
+  assert.equal(clean.status, 0, clean.stderr);
+  assert.equal(cleanCounter.count(), 0, 'no sparse-rule process is needed without missing skip-worktree paths');
+});
+
+test('fails closed when batched sparse-rule inspection fails', { skip: process.platform === 'win32' }, t => {
+  const { repo, tempRoot } = makeRepo(t);
+  write(repo, 'included/deleted.txt', 'inside sparse cone\n');
+  write(repo, 'omitted/hidden.txt', 'outside sparse cone\n');
+  const base = commitAll(repo, tempRoot, 'baseline');
+  runGit(repo, tempRoot, ['sparse-checkout', 'set', 'included']);
+  runGit(repo, tempRoot, ['update-index', '--skip-worktree', '--', 'included/deleted.txt']);
+  fs.rmSync(path.join(repo, 'included', 'deleted.txt'));
+  assert.equal(gitText(repo, tempRoot, 'status', '--porcelain'), '');
+  const before = snapshotTree(repo);
+
+  const counter = sparseRuleCounter(tempRoot, { fail: true });
+  const result = runChecker(repo, tempRoot, { base, allow: ['allowed/**'] }, counter.env);
+  assert.equal(result.status, 2, result.stdout);
+  assert.match(result.stderr, /git sparse-checkout failed/);
+  assert.equal(counter.count(), 0, 'the injected failing inspection is not recorded as a successful invocation');
+  assert.deepEqual(snapshotTree(repo), before, 'failed inspection does not mutate the index or worktree');
+});
+
+for (const flag of ['assume-unchanged', 'skip-worktree']) {
+  test(`checks actual worktree content hidden by --${flag}`, t => {
+    const { repo, tempRoot } = makeRepo(t);
+    const file = process.platform === 'win32' ? 'hidden [file].txt' : 'hidden [file]\nname.txt';
+    write(repo, file, 'before\n');
+    const base = commitAll(repo, tempRoot, 'baseline');
+    runGit(repo, tempRoot, ['update-index', `--${flag}`, '--', file]);
+    try {
+      const clean = runChecker(repo, tempRoot, { base, allow: ['allowed/**'] });
+      assert.equal(clean.status, 0, clean.stderr);
+      assert.equal(clean.stdout, '');
+
+      write(repo, file, 'after!\n');
+      assert.equal(gitText(repo, tempRoot, 'status', '--porcelain'), '', 'Git hides the edit');
+      const before = snapshotTree(repo);
+      const rejected = runChecker(repo, tempRoot, { base, allow: ['allowed/**'] });
+      assert.equal(rejected.status, 1, rejected.stderr);
+      assert.deepEqual(outOfSetPaths(rejected), [file]);
+
+      const allowed = runChecker(repo, tempRoot, { base, head: 'HEAD', allow: [file] });
+      assert.equal(allowed.status, 0, allowed.stderr);
+      assert.ok(allowed.stdout.includes(`ALLOWED ${JSON.stringify(file)}`));
+      assert.deepEqual(snapshotTree(repo), before, 'inspection preserves the index flags');
+    } finally {
+      runGit(repo, tempRoot, ['update-index', `--no-${flag}`, '--', file]);
+    }
+  });
+}
+
+test('reports a flagged-file inspection error when Git cannot clean its content', t => {
+  const { repo, tempRoot } = makeRepo(t);
+  const file = 'hidden.txt';
+  write(repo, '.gitattributes', 'hidden.txt filter=broken\n');
+  write(repo, file, 'tracked\n');
+  const base = commitAll(repo, tempRoot, 'baseline');
+  runGit(repo, tempRoot, ['update-index', '--assume-unchanged', '--', file]);
+  try {
+    runGit(repo, tempRoot, ['config', 'filter.broken.clean', 'exit 1']);
+    runGit(repo, tempRoot, ['config', 'filter.broken.required', 'true']);
+    const result = runChecker(repo, tempRoot, { base, allow: ['allowed/**'] });
+    assert.equal(result.status, 2, result.stderr);
+    assert.match(result.stderr, /git hash-object failed/);
+  } finally {
+    runGit(repo, tempRoot, ['config', '--remove-section', 'filter.broken']);
+    runGit(repo, tempRoot, ['update-index', '--no-assume-unchanged', '--', file]);
+  }
 });
 
 test('returns usage errors for an unknown base and a missing allow list', t => {

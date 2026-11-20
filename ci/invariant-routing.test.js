@@ -3,7 +3,12 @@
 const fs=require('fs'),path=require('path'),{spawnSync:spawnNodeSync}=require('child_process');
 function spawnSync(command,args,options={}){
  const {systemOneMode='off',...spawnOptions}=options;
- return spawnNodeSync(command,args,{...spawnOptions,env:{...process.env,...(spawnOptions.env||{}),HARNESS_SYSTEM_ONE_MODE:systemOneMode}});
+ const inheritedEnv = Object.fromEntries(Object.entries(process.env)
+   .filter(([key]) => !key.toUpperCase().startsWith('HARNESS_')));
+ return spawnNodeSync(command, args, {
+   ...spawnOptions,
+   env: { ...inheritedEnv, ...spawnOptions.env, HARNESS_SYSTEM_ONE_MODE: systemOneMode },
+ });
 }
 const ROOT=path.resolve(__dirname,'..');let failed=0;
 function check(c,m){if(c)console.log('  PASS '+m);else{console.error('  FAIL '+m);failed++;}}

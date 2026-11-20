@@ -96,6 +96,12 @@ enforcement logic is shared, not duplicated.
 The prompt/context routing and System One observation hooks are V2-only. The
 V1 factory keeps its existing enforcement hooks; it does not capture turns.
 
+When OpenCode runs on Bun, its Harness router needs `node` on the OpenCode
+process's `PATH`. Run `node --version` from the same environment that launches
+OpenCode and check it against the [Harness Node.js baseline](../docs/repository-contract.md).
+If the router cannot start or load, OpenCode still admits prompts and logs a
+`router-unavailable` warning with a reason and per-plugin count.
+
 Direction:
 named factory (V1 hosts/tests) → default-export setup adapter → V2 domains.
 

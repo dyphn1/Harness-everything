@@ -201,7 +201,8 @@ sessions whose directories matched setup; it establishes field availability,
 not mismatch handling or V2 hook behavior ([trace notes](../benchmarks/results/live-host/opencode-2026-11-15-workspace/README.md)). The adapter itself has deterministic mechanism
 coverage (`ci/mechanism-2n-opencode-plugin.test.js`, V1 shapes;
 `ci/mechanism-2p-opencode-v2-entrypoint.test.js`, V2 lifecycle shapes;
-`ci/mechanism-397-opencode-observations.test.js`, router injection, turn capture,
+`ci/mechanism-397-opencode-observations.test.js`, router injection, fail-open
+router diagnostics on launch or runtime failure, turn capture,
 malformed-label export counts and opt-out). The injection/capture path has
 mechanism evidence only; no live-host hook-fire or mismatch-handling artifact
 exists. Retained
