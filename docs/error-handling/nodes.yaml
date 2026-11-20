@@ -1,5 +1,6 @@
 # Canonical Action identity source for the Error Handling map (#437 concept, #402 implementation).
 # A-G are drawing-local aliases, NOT identity or ordered numbering.
+# H is the subordinate C8 dispatch identity under E · Treat; it adds no View 1 flow edge.
 # IDs use creation category/date/UUIDv4 and never change. Names can change independently.
 # status: proposed | accepted | retired.
 # links: Action-to-Action control flow of View 1 in README.md, where the path between the two
@@ -34,6 +35,10 @@ actions:
   G:
     identifier: ERR-20261112-5f7496e6-5e1a-4628-b818-5292dd011580
     name: Accept and retire
+    status: proposed
+  H:
+    identifier: ERR-20261120-333c36f7-24f5-4523-b604-7be7981728e1
+    name: "One-shot runner dispatch"
     status: proposed
 links:
   - { from: A, to: B }

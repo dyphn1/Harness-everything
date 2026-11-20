@@ -6,7 +6,7 @@
 
 ## Identity source — reuse the existing Action table
 
-The [Action identity registry](./nodes.yaml) is the only proposed source for the seven existing Action identities. Their UUIDs and names are **not copied into this file**, so edits to Action identity do not require changing two registries. A–G are drawing-local aliases, never global identifiers.
+The [Action identity registry](./nodes.yaml) is the only proposed source for the seven View 1 Action identities and the subordinate C8 dispatch identity H. Their UUIDs and names are **not copied into this file**, so edits to Action identity do not require changing two registries. A–G remain the View 1 drawing aliases; H adds no Level 1 flow edge.
 
 ## Table A — document registry (where to look)
 
@@ -31,6 +31,8 @@ The [Action identity registry](./nodes.yaml) is the only proposed source for the
 | `C6-template` | Template · packet briefing | [templates/packet-briefing.md](./templates/packet-briefing.md) | Copy per packet; every field filled or `N/A: <reason>` |
 | `C7-actions` | Level 2 · C7 write-set | [actions/c7-action-map.md](./actions/c7-action-map.md) | Did the slice stay inside its write-set |
 | `C7-detail` | Level 3 · C7 checker | [details/c7-write-set-check.md](./details/c7-write-set-check.md) | `scripts/check-packet-write-set.js`, run by the coordinator before accepting a slice |
+| `C8-actions` | Level 2 · C8 single-run dispatch | [actions/c8-action-map.md](./actions/c8-action-map.md) | One coordinator-selected runner attempt and its outcomes |
+| `C8-detail` | Level 3 · C8 CLI contract | [details/c8-dispatch-cli.md](./details/c8-dispatch-cli.md) | Invocation, exit/JSON behavior, evidence limits, and the #466 boundary |
 
 `Local reference` values are **table-local lookup keys only**, not new stable Action IDs, graph node identities, persistent state, or workflow instructions.
 
@@ -43,6 +45,7 @@ The [Action identity registry](./nodes.yaml) is the only proposed source for the
 | `E0002-actions` | `E0002-capture` | Detail supporting Capture / evidence | Read when raw evidence/provenance is required |
 | `E0002-actions` | `E0002-writer` | Detail supporting Treat / Report CLI | Read when producing or validating a report through the shipped W1 script |
 | `E0002-actions` | `E0002-ledger` | Existing class evidence / history | Read for Identify/history relevance; do not copy or reclassify the ledger |
+| `C8-actions` | `C8-detail` | Concrete coordinator CLI contract | Read when invoking or verifying the single-run dispatch CLI |
 
 **Maintenance contract (lightweight):** when a document moves, update its **Table A path**; Table B continues to refer to the same local key. When a new Level 2 behavior block or Level 3 reference is added, add only the relevant row and reference. Removing an obsolete procedure removes its registry relationship without rewriting Level 1. **Do not re-encode Mermaid/PlantUML execution arrows as registry edges**: the source diagrams own flow semantics, while the tables own *navigation/lookup*.
 

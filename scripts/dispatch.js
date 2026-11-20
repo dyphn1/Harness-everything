@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const REPORT_WRITER = path.join(__dirname, 'report-writer.js');
-const USAGE = 'Usage: dispatch --runner <codex|opencode> --model <id> --packet <path> --worktree <path> --scratch <absolute-path> --report <path> [--dry-run] [--json]';
+const USAGE = 'Usage: dispatch --runner <codex|opencode> --model <id> --packet <path> --worktree <path> --scratch <absolute-path> --report <path> [--dry-run] [--json] [--help]';
 const VALUE_OPTIONS = new Set(['--runner', '--model', '--packet', '--worktree', '--scratch', '--report']);
 let evidencePaths = {};
 
@@ -146,6 +146,8 @@ function response(options, outcome, evidence = evidencePaths) {
   };
   if (options['--runner'] === 'codex' || options['--runner'] === 'opencode') result.runner = options['--runner'];
   if (options['--model']) result.model = options['--model'];
+  if (outcome.argv) result.argv = outcome.argv;
+  if (outcome.cwd) result.cwd = outcome.cwd;
   const paths = Object.fromEntries(Object.entries(evidence).filter(([, value]) => value && fs.existsSync(value)));
   if (Object.keys(paths).length) result.evidence = paths;
   if (options['--json']) process.stdout.write(`${JSON.stringify(result)}\n`);
@@ -154,13 +156,21 @@ function response(options, outcome, evidence = evidencePaths) {
   process.exitCode = outcome.exitCode;
 }
 
+function childTimeout(timeout) {
+  // Keep fixture timeout cases bounded while production retains its fixed limits.
+  const testTimeout = Number(process.env.DISPATCH_TEST_TIMEOUT_MS);
+  return process.env.NODE_ENV === 'test' && Number.isSafeInteger(testTimeout) && testTimeout > 0
+    ? Math.min(timeout, testTimeout)
+    : timeout;
+}
+
 function runChild(command, args, worktree, scratch, logPath, timeout, appendLog = false) {
   const result = spawnSync(command, args, {
     cwd: worktree,
     env: { ...process.env, TMPDIR: scratch },
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
-    timeout,
+    timeout: childTimeout(timeout),
     maxBuffer: 16 * 1024 * 1024,
   });
   const stdout = result.stdout || '';
@@ -190,7 +200,7 @@ function readiness(input, paths) {
   const prompt = 'Reply exactly with READY.';
   const result = runChild(input.runner, runnerArgs(input, prompt, outputPath), input.worktree, input.scratch, paths.readinessLog, 120000);
   if (result.status !== 0) {
-    if (hasQuotaDiagnostic(input.runner, `${result.stderr}\n${result.stdout}`)) fail(13, 'RUNNER_QUOTA', 'readiness', `selected runner ${input.runner} reported a provider quota failure`);
+    if (hasQuotaDiagnostic(input.runner, result.stderr)) fail(13, 'RUNNER_QUOTA', 'readiness', `selected runner ${input.runner} reported a provider quota failure`);
     fail(12, 'NOT_READY', 'readiness', result.error?.code === 'ENOENT' ? `runner executable not found: ${input.runner}` : 'runner readiness failed');
   }
   const answer = input.runner === 'codex'
@@ -206,13 +216,20 @@ function reportedStatus(raw) {
   const line = lines.at(-1) || '';
   if (line === 'STATUS: DONE') return { status: 'DONE' };
   const blocked = /^STATUS: BLOCKED: (.+)$/.exec(line);
-  return blocked ? { status: 'BLOCKED', reason: blocked[1] } : { status: 'DONE' };
+  if (blocked && blocked[1].trim()) return { status: 'BLOCKED', reason: blocked[1].trim() };
+  fail(16, 'REPORT_INVALID', 'report', 'Codex output must end with STATUS: DONE or STATUS: BLOCKED: <reason>');
 }
 
 function reportWriter(input, paths, command, args) {
   const result = runChild(process.execPath, [REPORT_WRITER, ...args], input.worktree, input.scratch, paths.writerLog, 120000, true);
   if (result.status !== 0) fail(16, 'REPORT_INVALID', 'report', result.stderr.trim() || `${command} rejected the report`);
   return result;
+}
+
+function executionPrompt(input) {
+  return input.runner === 'codex'
+    ? `Execute the packet at ${input.packet} and return the complete report body.`
+    : `Execute the packet at ${input.packet} and write the complete report to ${input.report}.`;
 }
 
 function execute(input, options) {
@@ -235,9 +252,8 @@ function execute(input, options) {
   };
 
   readiness(input, paths);
-  const prompt = input.runner === 'codex'
-    ? `Execute the packet at ${input.packet} and return the complete report body.`
-    : `Execute the packet at ${input.packet} and write the complete report to ${input.report}.`;
+  if (fs.existsSync(input.report)) fail(16, 'REPORT_INVALID', 'report', 'report path was populated before execution; refusing stale delivery');
+  const prompt = executionPrompt(input);
   const outputPath = input.runner === 'codex' ? paths.rawOutput : null;
   const run = runChild(input.runner, runnerArgs(input, prompt, outputPath), input.worktree, input.scratch, paths.runLog, 2700000);
   if (run.status !== 0) {
@@ -283,11 +299,14 @@ function main() {
     options = parseArgs(argv);
     const input = validateInput(options);
     if (options['--dry-run']) {
+      const outputPath = input.runner === 'codex' ? path.join(input.scratch, '<run-id>.raw.txt') : null;
       response(options, {
         exitCode: 0,
         code: 'DRY_RUN_OK',
         phase: 'dry-run',
         message: `Validated ${input.runner} model ${input.model} for packet ${input.packet} in ${input.worktree}; scratch ${input.scratch}; report ${input.report}`,
+        argv: [input.runner, ...runnerArgs(input, executionPrompt(input), outputPath)],
+        cwd: input.worktree,
       });
       return;
     }
