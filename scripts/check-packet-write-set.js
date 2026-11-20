@@ -120,7 +120,7 @@ function gitBooleanConfig(repo, key, fallback) {
 
 function sparseCheckoutIncludes(repo, file) {
   const args = ['sparse-checkout', 'check-rules', '-z'];
-  const input = Buffer.from(`${file}\\0`);
+  const input = Buffer.from(`${file}\0`);
   return pathsFrom(git(args, repo, input), args).includes(file);
 }
 
