@@ -29,7 +29,7 @@ const advisoryInstructions = [
   ``,
   `## 🤖 COGNITIVE COMPLIANCE`,
   `- **No universal skill pipeline**: do not force every task through TODO/TDD/Fable.`,
-  `- **Rule of 3**: after 3 same-signature failures, stop micro-retrying and use a fresh diagnosis / zoom-out. This reflection boundary may block mutation until completed.`,
+  `- Agent-initiated zoom-out may start at a meaningful signal; productive iterations may continue while they yield new evidence or narrow the cause.`,
   `- **Permission boundaries are separate**: explicit host/user approval for destructive or external actions remains authoritative.`,
   `- **Contract strength**: MUST = required semantic obligation; SHOULD = default with evidence-based exception; MAY = optional optimization. Reminder-only mechanics never downgrade MUST.`,
   `- **Verification is evidence, not a cage**: MUST verify before completion claims; host hooks may remind rather than persistently block.`,
@@ -153,7 +153,7 @@ function buildCodexGlobalContent() {
     `- Do not impose a universal TODO/TDD/Fable sequence; use the smallest useful topology plus applicable skills.`,
     `- MUST verify before declaring done; a reminder-only host mechanism does not make verification optional.`,
     `- Tier-3/Fable broad mutation MUST resolve isolation: verified linked worktree or explicit degraded fallback.`,
-    `- After 3 same-signature failures, MUST stop retrying and use a fresh diagnosis / zoom-out.`,
+    `- Agent-initiated zoom-out may start at a meaningful signal; productive iterations may continue while they yield new evidence or narrow the cause.`,
     `- Targeted edits SHOULD be preferred; before committing, MUST inspect the staged diff and SHOULD split unrelated concerns.`,
     ``
   ].join('\n');

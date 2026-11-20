@@ -12,15 +12,9 @@ Before executing any command:
 3. Detect your package manager (npm, yarn, pnpm, bun, pip, cargo)
 4. Use only commands compatible with your detected environment
 
-## Circuit Breaker Rule (Rule of 3)
+## Reassess when useful
 
-If you encounter the same error 3 times:
-1. **STOP.** Do not attempt a 4th variation.
-2. Re-read the error message carefully - don't guess what it says.
-3. Check the actual file contents (don't assume you know them).
-4. Consider: is this a syntax error, logic error, environment issue, or missing dependency?
-5. Try a fundamentally different approach.
-6. If still stuck after reflection, escalate to your Human Partner with a clear decision request.
+An agent may use `zoom-out` when a meaningful signal contradicts a core assumption or exposes an unknown impact boundary. Productive attempts may continue when they yield new evidence or narrow the cause.
 
 ## Context Preservation (Anti-Bloat Protection)
 

@@ -29,6 +29,16 @@ const tier2=runKernel('add a login endpoint with tests and update the implementa
 check(tier2.status===0,'kernel router exits successfully');
 check(/RECOMMENDED TIER:\s*Tier 2/i.test(tier2.stdout),'classifier result is preserved');
 check(tier2.stdout.includes('"strategy":"iterative-single"'),'Tier 2 selects iterative-single workflow');
+const planMatch=tier2.stdout.match(/ROUTER WORKFLOW PLAN \(JSON\): ([^\r\n]+)/);
+const plan=planMatch?JSON.parse(planMatch[1]):{};
+check(!plan.requiredInvariants?.includes('replan-after-repeated-failure'),'router plan does not require recurrence-triggered replanning');
+check(plan.requiredInvariants?.includes('loop-awareness'),'iterative work retains loop-awareness');
+check(plan.requiredInvariants?.includes('objective-verification'),'iterative work retains objective verification');
+check(!tier2.stdout.includes('MUST stop micro-retrying after 3 same-signature failures'),'emitted prompt omits the Rule-of-3 invariant text');
+check(!tier2.stdout.includes('Rule-of-3 zoom-out'),'emitted prompt omits the forced-reflection boundary');
+check(tier2.stdout.includes('explicit user/host permission boundaries'),'emitted prompt retains the permission boundary');
+const kernelSource=read('harness-everything/scripts/kernel-router.js');
+check(/hardBoundaries:\s*\['user-host-permission'\]/.test(kernelSource),'machine-readable hardBoundaries retain only the permission boundary');
 check(tier2.stdout.includes('loop-awareness:'),'iterative work exposes loop-awareness instead of a hard budget');
 check(tier2.stdout.includes('ACTIVE-STEP KNOWLEDGE BINDINGS (MUST)'),'active-step binding resolution is explicitly mandatory');
 check(tier2.stdout.includes('ORCHESTRATION POLICY: Selected-topology required obligations and applicable skill core contracts are semantic MUSTs'),'orchestration policy preserves semantic MUST obligations');
@@ -58,7 +68,7 @@ check(tier3.stdout.includes('Tier 3 / Fable broad mutation MUST resolve isolatio
 
 const hs=read('harness-everything/SKILL.md');
 check(/required obligations are MUST; tactics MAY adapt/i.test(hs),'Harness skill separates required obligations from adaptable tactics');
-check(/only Rule-of-3 reflection and explicit user\/host permission boundaries may block/i.test(hs),'Harness skill names the only intentional blocking boundaries');
+check(/only explicit user\/host permission boundaries may block/i.test(hs)&&!/Rule-of-3|after 3 same-signature failures/i.test(hs),'Harness skill retains permission boundaries without recurrence blocking');
 check(/Surface status \(MUST\).*Harness Status/i.test(hs)&&/Read \/ Evidence/i.test(hs),'Harness skill requires the readable unified user-visible status');
 check(read('plugins/harness-everything/skills/harness-everything/SKILL.md')===hs,'Harness skill mirror matches');
 
@@ -96,7 +106,7 @@ check(!/Applicable workflow is guidance:/i.test(philosophy),'old ambiguous philo
 const advisory=read('scripts/lib/advisory-text.js');
 check(/Selected-topology required obligations are MUSTs/i.test(advisory)&&/numeric.*MAY guide planning/i.test(advisory),'instruction-only installer preserves MUST/MAY semantics');
 check(/USER-VISIBLE STATUS \(MUST\)/i.test(advisory)&&/### 🚦 Harness Status/i.test(advisory)&&/\*\*Read \/ Evidence:\*\*/i.test(advisory),'instruction-only installers carry the readable mandatory status contract');
-check(/Rule of 3/i.test(advisory)&&/Permission boundaries are separate/i.test(advisory),'installer text preserves Rule-of-3 and permission boundaries');
+check(/zoom-out.*meaningful signal/i.test(advisory)&&/productive iterations may continue/i.test(advisory)&&/Permission boundaries are separate/i.test(advisory)&&!/after 3 same-signature failures/i.test(advisory),'installer text permits agent-initiated reassessment and preserves permission boundaries');
 check(read('plugins/harness-everything/scripts/lib/advisory-text.js')===advisory,'OpenAI advisory mirror matches');
 
 const agents=read('AGENTS.md');
@@ -119,7 +129,6 @@ check(read('plugins/harness-everything/skills/git-commit/SKILL.md')===commitSkil
 
 const hooks=JSON.parse(read('hooks/hooks.json'));
 check((hooks.hooks.PreToolUse||[]).some(e=>e.id==='harness:pre:workflow-gate'),'Claude packages workflow reminder hook');
-check((hooks.hooks.PreToolUse||[]).some(e=>e.id==='harness:pre:rule-of-3'),'Claude preserves Rule-of-3 boundary');
 check((hooks.hooks.PreToolUse||[]).some(e=>e.id==='harness:pre:action-gate'),'Claude preserves action permission gate');
 
 console.log('\n'+(failed===0?'PASS':'FAIL')+': semantic contract-strength routing contract ('+failed+' failures)');

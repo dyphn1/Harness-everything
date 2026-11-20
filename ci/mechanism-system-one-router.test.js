@@ -59,7 +59,7 @@ test('S1-R04 integrated accepted route preserves policy and explicit model choic
     assert.notEqual(risky.workflowPlan.memory.write, 'none');
     const explicit = run('use fable-staged without subagents');
     assert.notEqual(explicit.workflowPlan.strategy, 'direct-single');
-    assert.ok(explicit.workflowPlan.requiredInvariants.includes('replan-after-repeated-failure'));
+    assert.ok(!explicit.workflowPlan.requiredInvariants.includes('replan-after-repeated-failure'));
     const normal = run('unusual bounded wording');
     assert.equal(normal.workflowPlan.tier, 'tier1');
   } finally { provider.score = original; console.log = log; if (env === undefined) delete process.env.HARNESS_SYSTEM_ONE_MODE; else process.env.HARNESS_SYSTEM_ONE_MODE = env; }
