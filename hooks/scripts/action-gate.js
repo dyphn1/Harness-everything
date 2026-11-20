@@ -547,6 +547,11 @@ function finalizeExecution(payload, outcome, options = {}) {
     record.disposition = 'integrity-violation';
     record.integrityViolation = 'executed-payload-hash-differs-from-approved-payload';
   } else {
+    // A replay without status cannot replace an already observed outcome.
+    const known = record.executionOutcome === 'success' || record.executionOutcome === 'failure';
+    if (record.disposition === 'executed' && known && outcome === 'unknown') {
+      return { kind: 'audit', exitCode: 0, record };
+    }
     record.disposition = 'executed';
     record.executionOutcome = outcome;
   }

@@ -18,8 +18,12 @@ for (const [canonical, packaged] of [
 ]) {
   const body = read(canonical);
   assert.strictEqual(read(packaged), body, canonical + ' packaged contract matches');
-  assert.ok(/advisory replan/i.test(body), canonical + ' must describe replans as advisory');
-  assert.ok(/Rule-of-3/i.test(body), canonical + ' must preserve same-signature failure reflection');
+  // #476: fable-mode moved the planning rules into the execution-phases reference its Workflow points to.
+  const phases = canonical === 'fable-mode/SKILL.md' && body.includes('references/execution-phases.md')
+    ? read('fable-mode/references/execution-phases.md') : '';
+  const contract = body + '\n' + phases;
+  assert.ok(/advisory replan|replans are advisory/i.test(contract), canonical + ' must describe replans as advisory');
+  assert.ok(/Rule-of-3/i.test(contract), canonical + ' must preserve same-signature failure reflection');
   assert.ok(!/at most two (?:full )?replans/i.test(body), canonical + ' must not imply a two-replan hard cap');
 }
 for (const rel of [

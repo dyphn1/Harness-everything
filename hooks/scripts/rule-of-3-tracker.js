@@ -4,6 +4,8 @@ const path = require('path');
 const crypto = require('crypto');
 const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
 const { createLearningOpportunity } = require('./lib/learning-opportunity');
+const { readCodexToolOutcome } = require('./lib/codex-tool-outcome');
+const codex = process.argv.includes('--codex');
 
 // PostToolUse/PostToolUseFailure hooks in Claude Code receive their payload via stdin
 let inputData = '';
@@ -15,12 +17,14 @@ process.stdin.on('data', chunk => {
 process.stdin.on('end', () => {
   try {
     const payload = JSON.parse(inputData);
+    const codexResult = codex ? readCodexToolOutcome(payload) : null;
+    if (codexResult?.outcome === 'unknown') return;
     const hookEventName = payload.hook_event_name || payload.hookEventName || '';
     const isFailureEvent = hookEventName === 'PostToolUseFailure';
     const isSuccessEvent = hookEventName === 'PostToolUse';
     const toolResponse = payload.tool_response || {};
-    const stdout = toolResponse.stdout ?? payload.stdout ?? '';
-    const stderr = toolResponse.stderr ?? payload.stderr ?? '';
+    const stdout = codexResult?.stdout ?? toolResponse.stdout ?? payload.stdout ?? '';
+    const stderr = codexResult?.stderr ?? toolResponse.stderr ?? payload.stderr ?? '';
     const failureText = typeof payload.error === 'string' ? payload.error : '';
     const rawExitCode = toolResponse.exitCode ?? toolResponse.exit_code ?? payload.exitCode ?? payload.exit_code;
     const exitCode = typeof rawExitCode === 'number' ? rawExitCode : undefined;
@@ -33,11 +37,14 @@ process.stdin.on('end', () => {
     const explicitFailure = exitCode !== undefined && exitCode !== 0;
     const stderrSignal = typeof stderr === 'string' && stderr.trim().length > 0;
     const looksLikeError = /\b(error|fail|failed|failure|exception|fatal|panic|traceback|denied|refused|cannot|unable)\b/i.test(stderr);
-    const isFailure = isFailureEvent || explicitFailure ||
+    const isFailure = codex ? codexResult.outcome === 'failure' : isFailureEvent || explicitFailure ||
       (!isSuccessEvent && exitCode === undefined && stderrSignal && looksLikeError);
-    const errorText = isFailureEvent
+    const reportedError = isFailureEvent
       ? (failureText || (stderrSignal ? stderr : stdout) || '')
       : ((stderrSignal ? stderr : stdout) || failureText || '');
+    const errorText = reportedError || (codexResult?.outcome === 'failure'
+      ? (codexResult.exitCode === undefined ? 'Tool reported failure' : `Tool exited with code ${codexResult.exitCode}`)
+      : '');
 
     const root = getWorkspaceRoot(payload);
     const stateFile = path.join(getSessionDir(root, payload.session_id || payload.sessionId), 'rule-of-3-state.json');
