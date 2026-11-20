@@ -29,8 +29,8 @@ change follows this document (docs → RED → GREEN) in its own commit.
    not exact accuracy.
 3. **Deterministic controls stay outside learned scoring.** Tier structural
    floor, explicit workflow requests, action/security approval, scope and
-   memory ownership and the Rule of 3 are unchanged. Abstention always falls
-   back to the lexical path.
+   memory ownership are unchanged. Abstention always falls back to the
+   lexical path.
 
 ## Readout per stage
 
@@ -126,8 +126,8 @@ on `actionable` prompts.
 conversation context. Agent-written dispatch packets and worker instructions
 are ordinary prompts; their audience does not make them invalid. The small
 model judges the prompt text itself, without trying to recover missing
-context. Deterministic controls (action gates, scope and memory ownership,
-the Rule of 3) apply unchanged. The noise-gate experiment (#265)
+context. Deterministic controls (action gates, scope and memory ownership)
+apply unchanged. The noise-gate experiment (#265)
 showed that tier labels given to such prompts from session context were
 what kept a text-only model unsure.
 

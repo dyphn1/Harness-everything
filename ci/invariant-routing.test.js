@@ -120,8 +120,8 @@ check(/User-visible Harness Status is mandatory/i.test(agents)&&/### 🚦 Harnes
 check(/Tier-3\/Fable isolation disposition is mandatory/i.test(agents)&&/degraded fallback/i.test(agents),'repository worktree rule requires disposition without hard lock');
 
 const architectureSkill=read('improve-codebase-architecture/SKILL.md');
-check(/3 same-signature failures.*zoom-out/i.test(architectureSkill),'architecture skill aligns rollback with the third same-signature failure');
-check(!/>3 cascading errors/i.test(architectureSkill),'architecture skill no longer waits beyond the Rule-of-3 threshold');
+check(/first meaningful signal/i.test(architectureSkill)&&/productive iteration may continue/i.test(architectureSkill),'architecture skill allows voluntary reassessment and productive iteration');
+check(!/(?:3 same-signature failures.*(?:rollback|zoom-out)|>3 cascading errors)/i.test(architectureSkill),'architecture skill has no count-triggered rollback or zoom-out');
 check(read('plugins/harness-everything/skills/improve-codebase-architecture/SKILL.md')===architectureSkill,'architecture skill mirror matches');
 
 const envSkill=read('environment-detection/SKILL.md');
