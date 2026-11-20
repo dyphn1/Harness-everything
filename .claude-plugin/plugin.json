@@ -24,6 +24,7 @@
   "skills": [
     "./multi-agent-workspace",
     "./code-review",
+    "./error-ledger-bootstrap",
     "./environment-detection",
     "./eval-harness",
     "./fable-discipline",

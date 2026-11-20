@@ -1,0 +1,16 @@
+id: negative-error-ledger-bootstrap-map-001
+name: Explain the general Error Handling map
+description: A conceptual Error Handling map request should not route to ledger bootstrap.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Explain the Error Handling overview's three views and A–G flow in docs/error-handling/README.md. I want a conceptual walkthrough of the process, not an inventory of this repository."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "candidate report"
+        - "promote.js"

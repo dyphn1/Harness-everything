@@ -239,6 +239,7 @@ This repo uses a flat layout (waza/agentskills.io convention). The table below m
 | `references` | **Documentation** | Shared checklists (security, performance, definition-of-done) |
 | `multi-agent-workspace` | **Skill (Tier 3)** | Scaffold a verified multi-agent workspace and select bounded specialists from an external catalog without vendoring the full roster |
 | `code-review` | **Skill (Tier 2)** | Independent, evidence-tiered PR/diff code review (read-only by default) |
+| `error-ledger-bootstrap` | **Skill (Tier 2)** | Inventory local lessons and promote owner-approved error-ledger entries |
 | `environment-detection` | **Foundation** | Preflight: detect OS, shell, package manager |
 | `eval-harness` | **Skill (Tier 2)** | Evaluate agent outputs against rubrics |
 | `fable-discipline` | **Skill (Tier 3)** | Fable execution guardrails when Fable is selected |
