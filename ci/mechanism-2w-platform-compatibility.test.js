@@ -79,6 +79,7 @@ for (const platform of matrix.platforms) {
       assert.ok(fs.statSync(path.join(artifactRoot, file)).size > 0, `Missing OpenCode evidence: ${file}`);
     }
     const session = path.join(artifactRoot, 'state', 'sessions', 'ses_f5520f1d9ffeB8KLTIUKgA5ng8');
+    // This is an archived post-reset snapshot, not a current behavior witness.
     const breaker = JSON.parse(fs.readFileSync(path.join(session, 'circuit-breaker.json'), 'utf8'));
     const compliance = JSON.parse(fs.readFileSync(path.join(session, 'compliance.json'), 'utf8'));
     assert.strictEqual(breaker.hardLock, false, 'Retained snapshot is post-reset, not hard-lock proof');

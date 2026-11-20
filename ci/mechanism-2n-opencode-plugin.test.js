@@ -51,8 +51,8 @@ helper.check(
 // packages/plugin/src/index.ts and packages/web/.../plugins.mdx in the
 // opencode source - see opencode-plugin/README.md). Two isolations are
 // load-bearing: HOME -> temp, because the plugin persists under
-// ~/.agents/harness-everything/ and an un-redirected run would corrupt a
-// real session's circuit-breaker state; workspace -> temp, with a
+// ~/.agents/harness-everything/ and an un-redirected run would corrupt real
+// session state; workspace -> temp, with a
 // package.json this test controls, so verification pass/fail is
 // deterministic.
 (async () => {
@@ -147,45 +147,40 @@ helper.check(
   );
   helper.check('2n. no follow-up prompt is sent when verification passes', promptCalls.length === 0, `${promptCalls.length} prompt(s) sent`);
 
-  // --- verification gate: failing case drives the circuit breaker ---
+  // Repeated verification failures keep reminding but never block permitted edits.
   writePackageScript('node -e "process.exit(1)"');
-
-  for (let i = 1; i <= 2; i++) {
+  const editAllowedAfterFailures = [];
+  for (let i = 1; i <= 4; i++) {
+    let allowed = true;
+    try {
+      await hooks['tool.execute.before']({ tool: 'edit', sessionID: 's1', callID: `retry-${i}` }, { args: {} });
+    } catch {
+      allowed = false;
+    }
+    editAllowedAfterFailures.push(allowed);
+    if (!allowed) break;
     await hooks['tool.execute.after']({ tool: 'edit', sessionID: 's1', callID: `c${i + 1}` }, { title: '', output: '', metadata: {} });
     await hooks.event({ event: { type: 'session.idle', properties: { sessionID: 's1' } } });
   }
-  let breaker = JSON.parse(fs.readFileSync(breakerFile, 'utf8'));
-  const sig = Object.keys(breaker.failures)[0];
   helper.check(
-    '2n. two failures on the same signature: still allowed, not yet tripped',
-    breaker.failures[sig].count === 2 && breaker.hardLock === undefined,
-    JSON.stringify(breaker)
+    '2n. four edits proceed through repeated failures, including beyond the former threshold',
+    editAllowedAfterFailures.every(Boolean),
+    JSON.stringify(editAllowedAfterFailures)
   );
-  helper.check('2n. each failed verification sends exactly one follow-up prompt', promptCalls.length === 2, `${promptCalls.length} prompt(s) sent`);
-
-  // 3rd failure -> force reflection
-  await hooks['tool.execute.after']({ tool: 'edit', sessionID: 's1', callID: 'c4' }, { title: '', output: '', metadata: {} });
-  await hooks.event({ event: { type: 'session.idle', properties: { sessionID: 's1' } } });
-  breaker = JSON.parse(fs.readFileSync(breakerFile, 'utf8'));
-  let compliance = JSON.parse(fs.readFileSync(complianceFile, 'utf8'));
+  const failurePrompts = promptCalls.map((call) => call.body.parts[0].text);
   helper.check(
-    '2n. 3rd failure on the same signature forces reflection',
-    breaker.failures[sig].count === 3 && compliance.reflectionsForced === 1,
-    JSON.stringify({ breaker, compliance })
+    '2n. each failed verification sends a reminder without a trip, token, or report demand',
+    failurePrompts.length === 4 && failurePrompts.every((text) => /verification failed/i.test(text)
+      && !/reflection token|## Goal|forced reflection|retries before/i.test(text)),
+    JSON.stringify(failurePrompts)
   );
   helper.check(
-    '2n. the forced-reflection prompt says to reflect',
-    /reflect/i.test(promptCalls[promptCalls.length - 1].body.parts[0].text),
-    promptCalls[promptCalls.length - 1].body.parts[0].text
+    '2n. verification failures create no breaker file or trip counters',
+    !fs.existsSync(breakerFile)
+      && !Object.hasOwn(JSON.parse(fs.readFileSync(complianceFile, 'utf8')), 'circuitBreakerTrips')
+      && !Object.hasOwn(JSON.parse(fs.readFileSync(complianceFile, 'utf8')), 'reflectionsForced'),
+    fs.existsSync(breakerFile) ? fs.readFileSync(breakerFile, 'utf8') : JSON.stringify(JSON.parse(fs.readFileSync(complianceFile, 'utf8')))
   );
-
-  let pendingEditBlocked = false;
-  try {
-    await hooks['tool.execute.before']({ tool: 'edit', sessionID: 's1', callID: 'pending-edit' }, { args: {} });
-  } catch {
-    pendingEditBlocked = true;
-  }
-  helper.check('2n. pending reflection blocks another code edit', pendingEditBlocked, 'tool.execute.before allowed an edit before the report');
 
   let pendingReadAllowed = true;
   try {
@@ -193,217 +188,84 @@ helper.check(
   } catch {
     pendingReadAllowed = false;
   }
-  helper.check('2n. pending reflection still allows read tools', pendingReadAllowed, 'tool.execute.before blocked a read during reflection');
+  helper.check('2n. non-edit tools remain available after repeated failures', pendingReadAllowed, 'tool.execute.before blocked a read');
 
-  // Complete the reflection through the real hook sequence: the forced
-  // prompt names a token and artifact, then the agent writes that artifact
-  // through an edit-shaped tool call. No test seeding of breaker state.
-  const reflectionPrompt = promptCalls[promptCalls.length - 1].body.parts[0].text;
-  const reflectionTokenMatch = reflectionPrompt.match(/reflection token: ([A-Za-z0-9_-]+)/i);
-  helper.check('2n. the forced-reflection prompt names a verifiable artifact token', !!reflectionTokenMatch, reflectionPrompt);
-  const reflectionToken = reflectionTokenMatch && reflectionTokenMatch[1];
-  const reflectionFile = path.join(stateDir, 'zoom-out-report.md');
-  fs.writeFileSync(
-    reflectionFile,
-    `RESUME: misplaced\n## Goal\nfix the fixture\n## Failed Attempts\nthree retries\n## Verified Facts\ntest remains red\n## Diagnosis\nthe fixture intentionally fails\n## Decision\nA decision without a directive\nReflection token: ${reflectionToken}\n`,
-    'utf8'
-  );
-  await hooks['tool.execute.after'](
-    { tool: 'write', sessionID: 's1', callID: 'reflection' },
-    { title: '', output: '', metadata: {}, args: { filePath: reflectionFile } }
-  );
-  breaker = JSON.parse(fs.readFileSync(breakerFile, 'utf8'));
+  const legacyPendingDir = path.join(stateRoot, 'sessions', 'legacy-pending');
+  const legacyBreakerFile = path.join(legacyPendingDir, 'circuit-breaker.json');
+  fs.mkdirSync(legacyPendingDir, { recursive: true });
+  const legacyPendingState = JSON.stringify({
+    failures: { old: { count: 3, firstSeen: 1, lastSeen: 2 } },
+    reflectionPending: true, reflectionRequestedAt: 2, reflectionToken: 'old-token', reflectionSignature: 'old'
+  }, null, 2);
+  fs.writeFileSync(legacyBreakerFile, legacyPendingState);
+  let legacyEditAllowed = true;
+  try {
+    await hooks['tool.execute.before']({ tool: 'edit', sessionID: 'legacy-pending', callID: 'legacy-edit' }, { args: {} });
+  } catch {
+    legacyEditAllowed = false;
+  }
   helper.check(
-    '2n. a directive outside the Decision section does not complete reflection',
-    breaker.reflectionPending === true && breaker.lastReflection === null,
-    JSON.stringify(breaker)
+    '2n. legacy pending reflection state stays inert and does not block an edit',
+    legacyEditAllowed && fs.readFileSync(legacyBreakerFile, 'utf8') === legacyPendingState,
+    fs.readFileSync(legacyBreakerFile, 'utf8')
   );
+  if (legacyEditAllowed) {
+    await hooks['tool.execute.after'](
+      { tool: 'edit', sessionID: 'legacy-pending', callID: 'legacy-edit-after' },
+      { title: '', output: '', metadata: {}, args: { filePath: path.join(workspace, 'legacy.js') } }
+    );
+  }
+  helper.check('2n. legacy pending state permits the full V1 edit lifecycle',
+    JSON.parse(fs.readFileSync(path.join(legacyPendingDir, 'edit-state.json'), 'utf8')).verificationPending === true,
+    path.join(legacyPendingDir, 'edit-state.json'));
 
-  fs.writeFileSync(
-    reflectionFile,
-    `## Goal\nfix the fixture\n## Failed Attempts\nthree retries\n## Verified Facts\ntest remains red\n## Diagnosis\nthe fixture intentionally fails\n## Decision\nRESUME: change the fixture\nReflection token: ${reflectionToken}\n`,
-    'utf8'
-  );
-  await hooks['tool.execute.after'](
-    { tool: 'apply_patch', sessionID: 's1', callID: 'reflection-patch' },
-    {
-      title: '',
-      output: '',
-      metadata: {},
-      args: { patchText: `*** Begin Patch\n*** Update File: ${reflectionFile}\n@@\n*** End Patch` }
-    }
-  );
-  breaker = JSON.parse(fs.readFileSync(breakerFile, 'utf8'));
-  helper.check(
-    '2n. apply_patch reflection completes the lifecycle, resets the signature count, and persists lastReflection',
-    Number.isFinite(breaker.lastReflection) && breaker.lastReflection > 0 && breaker.reflectionPending === false && breaker.failures[sig].count === 0,
-    JSON.stringify(breaker)
-  );
-
-  // A repeated idle event after the follow-up is already pending is a no-op.
-  // The breaker must wait for a fresh code edit before counting another try.
-  const promptsAfterReflection = promptCalls.length;
+  // A repeated idle event after a follow-up is already pending is a no-op.
+  const promptsAfterFailure = promptCalls.length;
   await hooks.event({ event: { type: 'session.idle', properties: { sessionID: 's1' } } });
   helper.check(
     '2n. repeated idle does not duplicate verification or follow-up prompts',
-    promptCalls.length === promptsAfterReflection,
+    promptCalls.length === promptsAfterFailure,
     `${promptCalls.length} prompt(s) sent`
   );
 
-  const patchSessionDir = path.join(stateRoot, 'sessions', 'patch-only');
-  const patchBreakerFile = path.join(patchSessionDir, 'circuit-breaker.json');
-  const patchReflectionFile = path.join(patchSessionDir, 'zoom-out-report.md');
-  const patchReflectionToken = 'patch-reflection-token';
-  fs.mkdirSync(patchSessionDir, { recursive: true });
-  fs.writeFileSync(
-    patchBreakerFile,
-    JSON.stringify({
-      failures: { fixture: { count: 3, firstSeen: Date.now() - 1000 } },
-      hardLock: false,
-      lastReflection: null,
-      lastReflectionSignature: null,
-      reflectionPending: true,
-      reflectionRequestedAt: Date.now(),
-      reflectionToken: patchReflectionToken,
-      reflectionSignature: 'fixture'
-    }, null, 2),
-    'utf8'
-  );
-  fs.writeFileSync(
-    patchReflectionFile,
-    `## Goal\nfix the fixture\n## Failed Attempts\nthree retries\n## Verified Facts\ntest remains red\n## Diagnosis\nthe fixture intentionally fails\n## Decision\nRESUME: change the fixture\nReflection token: ${patchReflectionToken}\n`,
-    'utf8'
-  );
-  const patchText = `*** Begin Patch\n*** Update File: ${patchReflectionFile}\n@@\n*** End Patch`;
-  let patchBeforeAllowed = true;
-  try {
-    await hooks['tool.execute.before'](
-      { tool: 'apply_patch', sessionID: 'patch-only', callID: 'patch-before' },
-      { args: { patchText } }
-    );
-  } catch (error) {
-    patchBeforeAllowed = false;
-  }
-  helper.check(
-    '2n. apply_patch is allowed to write a pending reflection artifact',
-    patchBeforeAllowed,
-    'tool.execute.before blocked output.args.patchText'
-  );
-  await hooks['tool.execute.after'](
-    { tool: 'apply_patch', sessionID: 'patch-only', callID: 'patch-after' },
-    { title: '', output: '', metadata: {}, args: { patchText } }
-  );
-  const patchBreaker = JSON.parse(fs.readFileSync(patchBreakerFile, 'utf8'));
-  helper.check(
-    '2n. apply_patch output args complete a pending reflection',
-    patchBreaker.reflectionPending === false && Number.isFinite(patchBreaker.lastReflection),
-    JSON.stringify(patchBreaker)
-  );
-
-  const mixedPatchSessionDir = path.join(stateRoot, 'sessions', 'mixed-patch');
-  const mixedPatchBreakerFile = path.join(mixedPatchSessionDir, 'circuit-breaker.json');
-  const mixedPatchReflectionFile = path.join(mixedPatchSessionDir, 'zoom-out-report.md');
-  fs.mkdirSync(mixedPatchSessionDir, { recursive: true });
-  fs.writeFileSync(mixedPatchBreakerFile, JSON.stringify({
-    failures: { fixture: { count: 3, firstSeen: Date.now() - 1000 } },
-    hardLock: false,
-    lastReflection: null,
-    lastReflectionSignature: null,
-    reflectionPending: true,
-    reflectionRequestedAt: Date.now(),
-    reflectionToken: 'mixed-patch-token',
-    reflectionSignature: 'fixture'
-  }, null, 2));
-  fs.writeFileSync(mixedPatchReflectionFile, [
-    '## Goal', 'fix the fixture', '## Failed Attempts', 'three retries',
-    '## Verified Facts', 'test remains red', '## Diagnosis', 'the fixture intentionally fails',
-    '## Decision', 'RESUME: change the fixture', 'Reflection token: mixed-patch-token', ''
-  ].join('\n'));
-  let mixedPatchBlocked = false;
-  try {
-    await hooks['tool.execute.before'](
-      { tool: 'apply_patch', sessionID: 'mixed-patch', callID: 'mixed-before' },
-      { args: { patchText: `*** Begin Patch\n*** Update File: ${mixedPatchReflectionFile}\n@@\n*** Update File: ${path.join(workspace, 'unrelated.js')}\n@@\n*** End Patch` } }
-    );
-  } catch {
-    mixedPatchBlocked = true;
-  }
-  helper.check('2n. mixed apply_patch cannot bypass a pending reflection', mixedPatchBlocked, 'unrelated files were accepted with the reflection artifact');
-
-  // A fresh failure after reflection starts a new three-failure cycle.
-  await hooks['tool.execute.after']({ tool: 'edit', sessionID: 's1', callID: 'c5' }, { title: '', output: '', metadata: {} });
-  await hooks.event({ event: { type: 'session.idle', properties: { sessionID: 's1' } } });
-  breaker = JSON.parse(fs.readFileSync(breakerFile, 'utf8'));
-  helper.check('2n. first post-reflection failure starts again at count=1', breaker.failures[sig].count === 1 && breaker.reflectionPending === false, JSON.stringify(breaker));
-  let postReflectionEditAllowed = true;
-  try {
-    await hooks['tool.execute.before']({ tool: 'edit', sessionID: 's1', callID: 'c6' }, { args: {} });
-  } catch {
-    postReflectionEditAllowed = false;
-  }
-  helper.check('2n. no permanent post-reflection hard lock remains', postReflectionEditAllowed, 'tool.execute.before unexpectedly blocked after one fresh failure');
-
-  // The same workspace can host independent sessions. Session s2 starts with
-  // a fresh breaker and cannot inherit s1 state.
+  // The same workspace can host independent sessions.
   await hooks['tool.execute.after']({ tool: 'edit', sessionID: 's2', callID: 's2-c1', args: {} }, { title: '', output: '', metadata: {} });
   await hooks.event({ event: { type: 'session.idle', properties: { sessionID: 's2' } } });
-  const secondBreaker = JSON.parse(fs.readFileSync(path.join(secondSessionDir, 'circuit-breaker.json'), 'utf8'));
   helper.check(
-    '2n. a second session has an independent breaker stream',
-    secondBreaker.hardLock === undefined && Object.values(secondBreaker.failures).some((entry) => entry.count === 1),
-    JSON.stringify(secondBreaker)
+    '2n. a second session keeps independent edit state',
+    fs.existsSync(path.join(secondSessionDir, 'edit-state.json')) && !fs.existsSync(path.join(secondSessionDir, 'circuit-breaker.json')),
+    secondSessionDir
   );
 
-  const corruptSessionDir = path.join(stateRoot, 'sessions', 'corrupt');
-  const corruptBreakerFile = path.join(corruptSessionDir, 'circuit-breaker.json');
-  fs.mkdirSync(corruptSessionDir, { recursive: true });
-  fs.writeFileSync(corruptBreakerFile, '{not-json', 'utf8');
-  let corruptStateBlocked = false;
-  let corruptStateMessage = '';
-  try {
-    await hooks['tool.execute.before']({ tool: 'edit', sessionID: 'corrupt', callID: 'corrupt-edit' }, { args: {} });
-  } catch (error) {
-    corruptStateBlocked = true;
-    corruptStateMessage = String(error && error.message ? error.message : error);
-  }
-  helper.check(
-    '2n. corrupt breaker state fails open instead of becoming a cognitive lock',
-    !corruptStateBlocked,
-    corruptStateMessage || 'corrupt state was ignored as expected'
-  );
-
-  // A prompt transport failure is retryable without re-running verification
-  // or incrementing the circuit-breaker count.
+  // A prompt transport failure is retryable without re-running verification.
   const promptsBeforeDeliveryFailure = promptCalls.length;
   rejectNextPrompt = true;
   await hooks['tool.execute.after']({ tool: 'edit', sessionID: 'prompt-retry', callID: 'retry-c1' }, { title: '', output: '', metadata: {} });
   await hooks.event({ event: { type: 'session.idle', properties: { sessionID: 'prompt-retry' } } });
   let retryEditState = JSON.parse(fs.readFileSync(path.join(retrySessionDir, 'edit-state.json'), 'utf8'));
-  let retryBreaker = JSON.parse(fs.readFileSync(path.join(retrySessionDir, 'circuit-breaker.json'), 'utf8'));
   helper.check(
     '2n. failed prompt delivery remains retryable',
     promptCalls.length === promptsBeforeDeliveryFailure + 1 &&
       retryEditState.followUpPending === false &&
       retryEditState.followUpDeliveryPending === true &&
-      retryBreaker.failures[Object.keys(retryBreaker.failures)[0]].count === 1,
-    JSON.stringify({ retryEditState, retryBreaker })
+      !fs.existsSync(path.join(retrySessionDir, 'circuit-breaker.json')),
+    JSON.stringify(retryEditState)
   );
   await hooks.event({ event: { type: 'session.idle', properties: { sessionID: 'prompt-retry' } } });
   retryEditState = JSON.parse(fs.readFileSync(path.join(retrySessionDir, 'edit-state.json'), 'utf8'));
-  retryBreaker = JSON.parse(fs.readFileSync(path.join(retrySessionDir, 'circuit-breaker.json'), 'utf8'));
   helper.check(
     '2n. next idle retries the saved follow-up exactly once',
     promptCalls.length === promptsBeforeDeliveryFailure + 2 &&
       retryEditState.followUpPending === true &&
       retryEditState.followUpDeliveryPending === false &&
-      retryBreaker.failures[Object.keys(retryBreaker.failures)[0]].count === 1,
-    JSON.stringify({ retryEditState, retryBreaker })
+      !fs.existsSync(path.join(retrySessionDir, 'circuit-breaker.json')),
+    JSON.stringify(retryEditState)
   );
 
   // A fresh session event is the explicit reset contract for a reused session
   // identity, and it removes only that session's plugin state.
   await hooks.event({ event: { type: 'session.created', properties: { info: { id: 's1' } } } });
-  helper.check('2n. session.created resets only the current session state', !fs.existsSync(breakerFile), breakerFile);
+  helper.check('2n. session.created resets only the current session state', !fs.existsSync(editStateFile), editStateFile);
   let resetAllowed = true;
   try {
     await hooks['tool.execute.before']({ tool: 'edit', sessionID: 's1', callID: 'after-reset' }, { args: {} });
@@ -429,7 +291,7 @@ helper.check(
     sessionEntries.map((entry) => entry.name).join(', ')
   );
   helper.check('2n. resetting an unsafe session cannot delete an outside sentinel', fs.existsSync(path.join(outsideSentinel, 'keep.txt')), outsideSentinel);
-  helper.check('2n. resetting s1 leaves the independent s2 state', fs.existsSync(path.join(secondSessionDir, 'circuit-breaker.json')), secondSessionDir);
+  helper.check('2n. resetting s1 leaves the independent s2 state', fs.existsSync(path.join(secondSessionDir, 'edit-state.json')), secondSessionDir);
 
   const workspaceStateRoot = path.dirname(stateRoot);
   helper.check(
