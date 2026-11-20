@@ -4,7 +4,7 @@ description: "Stage large tasks through plans, named fable agents, failable chec
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.31.3
+  version: 0.54.1
 ---
 
 # Fable Mode

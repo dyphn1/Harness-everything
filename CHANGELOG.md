@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.54.1](https://github.com/dyphn1/Harness-everything/compare/v0.54.0...v0.54.1) (2026-11-20)
+
+### Bug Fixes
+
+* **codex:** handle hook outcomes and subagent warnings ([420b36f](https://github.com/dyphn1/Harness-everything/commit/420b36f4f21e32d1ce416abbcda0c239a4ee0a8b))
+* **fable:** move planning rules into execution phases and relax the prompt contract pin ([149bc78](https://github.com/dyphn1/Harness-everything/commit/149bc785ee9575c839f15a50ecb73606be0d3b0e)), closes [#476](https://github.com/dyphn1/Harness-everything/issues/476)
+* **fable:** restore quoted skill description within the token budget ([7935939](https://github.com/dyphn1/Harness-everything/commit/7935939f4455ba4c885f8cfaa4b3bbb4de3a5ee5))
+
 ## [0.54.0](https://github.com/dyphn1/Harness-everything/compare/v0.53.0...v0.54.0) (2026-11-19)
 
 ### Features
