@@ -4,7 +4,7 @@ description: "Bootstrap a local error ledger for an existing repository by inven
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.54.0
+  version: 0.55.0
 ---
 
 # Error Ledger Bootstrap

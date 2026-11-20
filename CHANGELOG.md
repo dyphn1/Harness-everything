@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.55.0](https://github.com/dyphn1/Harness-everything/compare/v0.54.1...v0.55.0) (2026-11-20)
+
+### Features
+
+* **errors:** add a local scanner for ledger bootstrap candidates ([b34be38](https://github.com/dyphn1/Harness-everything/commit/b34be38145348176c63f0faf26fd071115e1485f)), closes [#479](https://github.com/dyphn1/Harness-everything/issues/479)
+* **errors:** add the error-ledger-bootstrap skill with routing eval ([71e64c3](https://github.com/dyphn1/Harness-everything/commit/71e64c3ba691b2c5f3c8647976c46a27a9916445)), closes [#479](https://github.com/dyphn1/Harness-everything/issues/479)
+* **errors:** promote an owner-approved candidate into a target ledger ([7c8b672](https://github.com/dyphn1/Harness-everything/commit/7c8b6723f0120559805fddf9e54ea8eb8e2e8a86)), closes [#479](https://github.com/dyphn1/Harness-everything/issues/479)
+* **errors:** scan repeated doc fixes and offline tracker exports ([5e36882](https://github.com/dyphn1/Harness-everything/commit/5e368829464abe8f5f66129045fe685f31ae5950)), closes [#479](https://github.com/dyphn1/Harness-everything/issues/479)
+* **errors:** sync the ledger index of a target repository with --root ([0973bec](https://github.com/dyphn1/Harness-everything/commit/0973bec75a0f45b4cd4de0c9ef158c75f0186ed5)), closes [#479](https://github.com/dyphn1/Harness-everything/issues/479)
+
+### Bug Fixes
+
+* **errors:** close the pr 483 owner review findings ([7e35a65](https://github.com/dyphn1/Harness-everything/commit/7e35a6574bd450ebe67e866a555ad8bfd15c355d))
+* **errors:** confine ledger index writes to the target ledger ([410231c](https://github.com/dyphn1/Harness-everything/commit/410231c88addb1ce8ce6666784aa05c926709d8e)), closes [#479](https://github.com/dyphn1/Harness-everything/issues/479)
+* **errors:** keep private memory labels opaque in bootstrap reports ([c61f080](https://github.com/dyphn1/Harness-everything/commit/c61f08060193bb4030c21f310e197e5012b7800c)), closes [#479](https://github.com/dyphn1/Harness-everything/issues/479)
+* **errors:** label the oracle unmatched share as a path-overlap proxy ([79cb92c](https://github.com/dyphn1/Harness-everything/commit/79cb92c81fae064a60c11c8bb2dc3b2868800be9)), closes [#479](https://github.com/dyphn1/Harness-everything/issues/479)
+
 ## [0.54.1](https://github.com/dyphn1/Harness-everything/compare/v0.54.0...v0.54.1) (2026-11-20)
 
 ### Bug Fixes
