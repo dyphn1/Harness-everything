@@ -202,8 +202,8 @@ function getWorkspaceRoot(context) {
   return root;
 }
 
-// Single global root for ALL Harness runtime state (session counters,
-// circuit-breaker trips, audit logs, handoff timestamps, ...). Never
+// Single global root for ALL Harness runtime state (session state, audit
+// logs, handoff timestamps, ...). Never
 // cwd-derived, so a script invoked from a fixture dir, worktree, submodule,
 // or any other nested non-git directory can never scatter files there
 // (issue #42). `$HARNESS_STATE_HOME` matches the env var the opencode

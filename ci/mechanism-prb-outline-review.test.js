@@ -3248,18 +3248,8 @@ test('legacy session-dir keying stays aligned through an aliased workspace root'
         tool_name: 'Agent', tool_use_id: 'pilot-alias-capture', agent_type: 'worker',
         tool_input: { prompt: 'alias capture probe' },
       }, true);
-      writeJson(path.join(aliasSessionDir, 'rule-of-3-state.json'), {
-        count: 3, threshold: 3, lastHash: 'alias-keying-control', lastFailureAt: 0,
-      });
-      const breaker = runHook('hooks/scripts/rule-of-3.js', {
-        hook_event_name: 'PreToolUse', session_id: sessionId, cwd: aliasRoot,
-        tool_name: 'apply_patch', tool_input: { patch: '*** Update File: unrelated.txt\n@@\n-old\n+new\n' },
-      });
       assert.strictEqual(legacy.status, 0, `pilot-OFF state-persist must remain fail-open: ${legacy.stderr}`);
       assert.strictEqual(pilot.status, 0, `pilot capture must remain fail-open: ${pilot.stderr}`);
-      assert.strictEqual(breaker.status, 2, `rule-of-3 must find the tripped alias session: ${breaker.stderr}`);
-      assert.match(breaker.stderr, /RULE OF 3 CIRCUIT BREAKER TRIGGERED/);
-      console.log('PASS rule-of-3 alias-root positive control blocks at exit 2');
       return {
         legacyExit: legacy.status,
         pilotOffCaptureCount,
@@ -3267,7 +3257,6 @@ test('legacy session-dir keying stays aligned through an aliased workspace root'
         handoffInCanonicalSession: fs.existsSync(path.join(canonicalSessionDir, 'handoff-state.json')),
         pilotCaptureInAliasSession: provider.readCaptureView(aliasSessionDir).records.some(item => item.tool_use_id === 'pilot-alias-capture'),
         pilotCaptureInCanonicalSession: provider.readCaptureView(canonicalSessionDir).records.some(item => item.tool_use_id === 'pilot-alias-capture'),
-        breakerExit: breaker.status,
       };
     } finally {
       fs.rmSync(stateHome, { recursive: true, force: true });
@@ -3281,7 +3270,6 @@ test('legacy session-dir keying stays aligned through an aliased workspace root'
   assert.deepStrictEqual(first, second, 'identical alias-root inputs must produce the same normalized state and exits');
   assert.strictEqual(first.legacyExit, 0, 'pilot OFF remains fail-open');
   assert.strictEqual(first.pilotOffCaptureCount, 0, 'pilot OFF writes no capture record');
-  assert.strictEqual(first.breakerExit, 2, 'the aliased rule-of-3 positive control blocks');
   assert.deepStrictEqual({
     handoffInAliasSession: first.handoffInAliasSession,
     handoffInCanonicalSession: first.handoffInCanonicalSession,
@@ -3292,7 +3280,7 @@ test('legacy session-dir keying stays aligned through an aliased workspace root'
     handoffInCanonicalSession: false,
     pilotCaptureInAliasSession: true,
     pilotCaptureInCanonicalSession: false,
-  }, `legacy handoff and pilot capture must stay in rule-of-3's original session directory: ${JSON.stringify(first)}`);
+  }, `legacy handoff and pilot capture must stay in the bound alias session directory: ${JSON.stringify(first)}`);
 });
 
 test('no final D stays incomplete and hand-authored JSON without a host seam earns no outline credit', () => {

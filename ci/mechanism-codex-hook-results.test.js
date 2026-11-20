@@ -11,6 +11,9 @@ const pluginRoot = path.join(root, 'plugins', 'harness-everything');
 const manifest = require('../plugins/harness-everything/hooks/hooks.json');
 const { getSessionDir, getStateRoot } = require('../hooks/scripts/lib/harness-state');
 
+assert.doesNotMatch(JSON.stringify(manifest.hooks), /rule-of-3(?:-tracker)?\.js|reset-circuit-breaker\.js/,
+  'packaged Codex hooks must not register retired breaker entry points');
+
 function registeredHook(event, script) {
   const handler = manifest.hooks[event].flatMap(group => group.hooks)
     .find(hook => hook.command.includes('/' + script + '"'));
@@ -61,22 +64,22 @@ try {
     }));
     function read(file) { return JSON.parse(fs.readFileSync(file, 'utf8')); }
     function post(response) {
-      for (const script of ['state-persist.js', 'rule-of-3-tracker.js', 'contract-test.js']) {
+      for (const script of ['state-persist.js', 'contract-test.js']) {
         hook('PostToolUse', script, { ...shell, tool_response: response });
       }
     }
 
     const handoff = path.join(session, 'handoff-state.json');
-    const tracker = path.join(session, 'rule-of-3-state.json');
     post({ exit_code: 1, stderr: 'test failed' });
     assert.equal(read(handoff).status, 'failed');
-    assert.equal(read(tracker).count, 1);
+    assert.equal(fs.existsSync(path.join(session, 'rule-of-3-state.json')), false,
+      'failure result capture must not create retired breaker state');
     assert.equal(read(contract).status, 'fail');
     function evidenceSnapshot() {
       // Test commands can themselves write files, so the edit timestamp is
       // independent of whether the host confirmed success.
       const { lastEditAt, ...verification } = read(handoff);
-      return [verification, ...[tracker, contract, evidence].map(read)];
+      return [verification, ...[contract, evidence].map(read)];
     }
     const snapshots = evidenceSnapshot();
 
@@ -91,7 +94,8 @@ try {
     post({ exitCode: 0, stderr: 'benign test warning' });
     assert.equal(read(handoff).status, 'idle');
     assert.ok(read(handoff).lastVerifyAt > 0);
-    assert.equal(read(tracker).count, 0);
+    assert.equal(fs.existsSync(path.join(session, 'rule-of-3-state.json')), false,
+      'successful result capture must not create retired breaker state');
     assert.equal(read(contract).status, 'pass');
 
     const priorEdit = read(handoff).lastEditAt;
