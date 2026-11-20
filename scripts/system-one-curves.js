@@ -10,6 +10,7 @@ const { assertPrivateHistoryFile, appendPrivateHistory } = require('./system-one
 const STAGE_SET = new Set(STAGES);
 const EPSILON = 1e-12;
 const LOG_EPSILON = Number.EPSILON;
+const VERSION_ALREADY_RECORDED = 'version already recorded; resume with the original cycle artifacts or use a new version';
 const fail = () => { throw new TypeError('invalid-system-one-curves-input'); };
 const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isText = value => typeof value === 'string' && value.trim().length > 0;
@@ -442,15 +443,15 @@ function run(argv) {
   }
   if (Object.keys(holdoutFiles).length && Object.keys(holdoutFiles).length !== Object.keys(valFiles).length) fail();
   const history = readHistory(args.history);
+  if (history.some(row => row.version === args.version)) throw new TypeError(VERSION_ALREADY_RECORDED);
   const floor = assessFloor(Object.keys(holdoutMetrics).length ? holdoutMetrics : null, history);
   const curves = { schemaVersion: 1, version: args.version, createdAt: new Date().toISOString(), stages, floor };
-  const existing = assertVersionReusable(history, curves);
   validateBaselineReferences(curves, history);
   const trend = decideTrend(curves, history, floor);
   fs.mkdirSync(args.out, { recursive: true });
   fs.writeFileSync(path.join(args.out, 'curves.json'), `${JSON.stringify(curves, null, 2)}\n`);
   fs.writeFileSync(path.join(args.out, 'trend.json'), `${JSON.stringify(trend, null, 2)}\n`);
-  if (!existing) appendHistoryRow(args.history, history, curves);
+  appendHistoryRow(args.history, history, curves);
   const summary = Object.fromEntries(Object.entries(stages).map(([stage, value]) => [stage, {
     rows: readJsonl(valFiles[stage]).length,
     logLoss: value.logLoss,
@@ -463,8 +464,10 @@ function run(argv) {
 }
 
 if (require.main === module) {
-  try { run(process.argv.slice(2)); } catch (_) {
-    console.error('system-one-curves: invalid arguments, manifest, history, or score input');
+  try { run(process.argv.slice(2)); } catch (error) {
+    const message = error?.message === VERSION_ALREADY_RECORDED ? VERSION_ALREADY_RECORDED
+      : 'invalid arguments, manifest, history, or score input';
+    console.error(`system-one-curves: ${message}`);
     process.exitCode = 1;
   }
 }

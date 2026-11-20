@@ -14,7 +14,6 @@ function fixture(t, { stage = 'validity', options = ['invalid'], referenceOnly =
   const versionDir = path.join(dir, 'version');
   fs.mkdirSync(versionDir);
   const history = path.join(dir, 'history.jsonl');
-  const out = path.join(dir, 'out');
   const writeVersion = version => {
     const catalogs = { validity: ['invalid'], intent: ['fix'], tier: ['tier1'] };
     catalogs[stage] = options;
@@ -36,15 +35,19 @@ function fixture(t, { stage = 'validity', options = ['invalid'], referenceOnly =
     fs.writeFileSync(path.join(versionDir, 'manifest.json'), JSON.stringify(manifest));
     return manifest;
   };
-  function run({ version = 'v1', val, holdout, mutateManifest, expectFailure = false } = {}) {
+  function run({ version = 'v1', val, otherVal = {}, holdout, mutateManifest,
+    expectFailure = false, out = path.join(dir, 'out') } = {}) {
     const manifest = writeVersion(version);
     if (mutateManifest) {
       mutateManifest(manifest);
       fs.writeFileSync(path.join(versionDir, 'manifest.json'), JSON.stringify(manifest));
     }
-    const valFile = path.join(dir, `${version}-val.jsonl`);
-    fs.writeFileSync(valFile, val.map(row => JSON.stringify(row)).join('\n') + '\n');
-    const args = [cli, '--version', version, '--version-dir', versionDir, '--val-scores', `${stage}=${valFile}`, '--history', history, '--out', out];
+    const args = [cli, '--version', version, '--version-dir', versionDir, '--history', history, '--out', out];
+    for (const [name, rows] of Object.entries({ [stage]: val, ...otherVal })) {
+      const file = path.join(dir, `${version}-${name}-val.jsonl`);
+      fs.writeFileSync(file, rows.map(row => JSON.stringify(row)).join('\n') + '\n');
+      args.push('--val-scores', `${name}=${file}`);
+    }
     if (holdout) {
       const holdoutFile = path.join(dir, `${version}-holdout.jsonl`);
       fs.writeFileSync(holdoutFile, holdout.map(row => JSON.stringify(row)).join('\n') + '\n');
@@ -52,7 +55,9 @@ function fixture(t, { stage = 'validity', options = ['invalid'], referenceOnly =
     }
     const child = spawnSync(process.execPath, args, { cwd: root, encoding: 'utf8', env: { ...process.env, HARNESS_SYSTEM_ONE_HOME: dir } });
     if (expectFailure) {
-      assert.notEqual(child.status, 0, child.stdout);
+      assert.notEqual(child.status, 0, JSON.stringify({ stdout: child.stdout,
+        compared: fs.existsSync(path.join(out, 'trend.json'))
+          ? JSON.parse(fs.readFileSync(path.join(out, 'trend.json'), 'utf8')).compared : null }));
       return child;
     }
     assert.equal(child.status, 0, child.stderr || child.stdout);
@@ -120,6 +125,42 @@ test('one successful run appends exactly one history line', t => {
   lines = fs.readFileSync(f.history, 'utf8').trim().split('\n');
   assert.equal(lines.length, 2);
   assert.deepEqual(JSON.parse(lines[1]), second.curves);
+});
+
+test('458 rejects a recorded version in a fresh cycle before writing artifacts', t => {
+  const f = fixture(t);
+  const original = path.join(f.dir, 'original-cycle');
+  const fresh = path.join(f.dir, 'fresh-cycle');
+  fs.mkdirSync(fresh);
+  const scores = {
+    val: validityRows([['invalid', 0.8], ['actionable', 0.2]]),
+    otherVal: {
+      intent: [{ id: 'i0', gold: ['fix'], scores: { fix: 0.8 } }],
+      tier: [{ id: 't0', gold: 'tier1', scores: { tier1: 0.8 } }],
+    },
+  };
+  f.run({ version: 'v0', ...scores, out: original });
+  assert.deepEqual(f.run({ version: 'v1', ...scores, out: original }).trend.compared, ['v0', 'v1']);
+  const saved = ['curves.json', 'trend.json'].map(name => fs.readFileSync(path.join(original, name)));
+  const history = fs.readFileSync(f.history);
+
+  const refusal = f.run({ version: 'v1', ...scores, out: fresh, expectFailure: true });
+  assert.equal(refusal.status, 1, refusal.stderr);
+  assert.match(refusal.stderr, /version already recorded/);
+  assert.deepEqual(fs.readdirSync(fresh), []);
+
+  const resumed = spawnSync(process.execPath, [cli, '--version', 'v1', '--version-dir', path.join(f.dir, 'version'),
+    '--history', f.history, '--out', original, '--resume-curves', path.join(original, 'curves.json')],
+    { cwd: root, encoding: 'utf8', env: { ...process.env, HARNESS_SYSTEM_ONE_HOME: f.dir } });
+  assert.equal(resumed.status, 0, resumed.stderr);
+  assert.deepEqual(JSON.parse(resumed.stdout), { resumed: true, version: 'v1' });
+  assert.deepEqual(fs.readFileSync(f.history), history);
+  assert.deepEqual(['curves.json', 'trend.json'].map(name => fs.readFileSync(path.join(original, name))), saved);
+
+  assert.deepEqual(f.run({ version: 'v2', ...scores, out: fresh }).trend.compared, ['v0', 'v1', 'v2']);
+  const after = fs.readFileSync(f.history);
+  assert.deepEqual(after.subarray(0, history.length), history);
+  assert.deepEqual(after.toString().trimEnd().split('\n').map(line => JSON.parse(line).version), ['v0', 'v1', 'v2']);
 });
 
 test('446 H2: empty, LF, and CRLF histories append readable rows without rewriting prior bytes', t => {

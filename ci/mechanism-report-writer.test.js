@@ -9,6 +9,10 @@ const { test } = require('node:test');
 
 const ROOT = path.resolve(__dirname, '..');
 const CLI = path.join(ROOT, 'scripts', 'report-writer.js');
+// Existing Codex acceptance example in ci/mechanism-397-host-acceptance.test.js.
+const CODEX_LABEL = { v: 1, validity: 'actionable', tier: 'tier2', intents: ['fix'], workflow: 'iterative-single', skills: [] };
+const labelLine = value => `<!-- harness-label ${JSON.stringify(value)} -->`;
+const VALID_LABEL = labelLine(CODEX_LABEL);
 
 function tempDir(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-report-writer-'));
@@ -122,7 +126,7 @@ test('strips only one valid terminal host label and reports the extraction', t =
   const dir = tempDir(t);
   const raw = path.join(dir, 'raw.txt');
   const output = path.join(dir, 'report.md');
-  const rawBytes = Buffer.from('Summary\nSTATUS: DONE\n<!-- harness-label {"v":1,"validity":"actionable"} -->\n');
+  const rawBytes = Buffer.from(`Summary\nSTATUS: DONE\n${VALID_LABEL}\n`);
   fs.writeFileSync(raw, rawBytes);
   const result = run(writeArgs(output, 'DONE', ['--from-codex-output', raw]));
   assertOk(result);
@@ -152,7 +156,7 @@ test('assembles BLOCKED from a raw body, blank line, and one EOF host label', t 
   const dir = tempDir(t);
   const raw = path.join(dir, 'raw.txt');
   const output = path.join(dir, 'report.md');
-  const rawBytes = Buffer.from('Summary\n\nEvidence\n\n<!-- harness-label {"v":1,"validity":"actionable","tier":"tier2","intents":["test"],"workflow":"iterative-single","skills":[]} -->');
+  const rawBytes = Buffer.from(`Summary\n\nEvidence\n\n${labelLine({ ...CODEX_LABEL, intents: ['fix', 'lookup'], contextDependent: false })}`);
   const body = rawBytes.subarray(0, rawBytes.lastIndexOf(Buffer.from('<!-- harness-label')));
   fs.writeFileSync(raw, rawBytes);
 
@@ -208,6 +212,37 @@ test('rejects missing, blank, multiline, or unused outcome reasons without chang
   }
 });
 
+test('464 rejects unrecognized terminal label schemas before touching report or raw evidence', t => {
+  const dir = tempDir(t);
+  const raw = path.join(dir, 'raw.txt');
+  const output = path.join(dir, 'report.md');
+  const before = Buffer.from('Keep this report\nSTATUS: DONE\n');
+  fs.writeFileSync(output, before);
+  const invalid = [
+    {},
+    { note: 'unrelated' },
+    { v: 1 },
+    { validity: 'actionable' },
+    { ...CODEX_LABEL, v: 2 },
+    { ...CODEX_LABEL, validity: 'unknown' },
+    { ...CODEX_LABEL, tier: 'tier9' },
+    { ...CODEX_LABEL, workflow: 'unknown' },
+    { ...CODEX_LABEL, intents: 'fix' },
+    { ...CODEX_LABEL, skills: [42] },
+    [],
+  ];
+  for (const [label, reason] of [
+    ...invalid.map(value => [labelLine(value), /recognized.*harness-label/]),
+    ['<!-- harness-label {bad json} -->', /valid JSON/],
+  ]) {
+    const rawBytes = Buffer.from(`Summary\nSTATUS: DONE\n${label}\n`);
+    fs.writeFileSync(raw, rawBytes);
+    assertRejected(run(writeArgs(output, 'DONE', ['--from-codex-output', raw])), reason);
+    assert.deepEqual(fs.readFileSync(raw), rawBytes);
+    assert.deepEqual(fs.readFileSync(output), before);
+  }
+});
+
 test('rejects mismatched, malformed, duplicate, or trailing Codex controls and preserves both files', t => {
   const dir = tempDir(t);
   const raw = path.join(dir, 'raw.txt');
@@ -222,13 +257,12 @@ test('rejects mismatched, malformed, duplicate, or trailing Codex controls and p
     ['Summary\nSTATUS: DONE\nSTATUS: DONE\n', 'DONE'],
     ['Summary\nSTATUS: DONE\n\n', 'DONE'],
     ['Summary\nSTATUS: DONE\ntext after status\n', 'DONE'],
-    ['Summary\nSTATUS: DONE\n\n<!-- harness-label {"v":1} -->', 'DONE'],
-    ['Summary\nSTATUS: DONE\ntext\n<!-- harness-label {"v":1} -->', 'DONE'],
-    ['Summary\nSTATUS: DONE\n<!-- harness-label {bad json} -->\n', 'DONE'],
-    ['Summary\nSTATUS: DONE\n<!-- harness-label [] -->\n', 'DONE'],
-    ['Summary\nSTATUS: DONE\n<!-- harness-label {"v":1} -->\n<!-- harness-label {"v":1} -->\n', 'DONE'],
-    ['Summary\nSTATUS: DONE\n<!-- harness-label {"v":1} -->\ntrailing text', 'DONE'],
-    ['Summary <!-- harness-label {"v":1} -->\nSTATUS: DONE\n', 'DONE'],
+    [`Summary\nSTATUS: DONE\n\n${VALID_LABEL}`, 'DONE'],
+    [`Summary\nSTATUS: DONE\ntext\n${VALID_LABEL}`, 'DONE'],
+    [`Summary\nSTATUS: DONE\n${VALID_LABEL}\n${VALID_LABEL}\n`, 'DONE'],
+    [`Summary\nSTATUS: DONE\n${VALID_LABEL}\ntrailing text`, 'DONE'],
+    [`Summary ${VALID_LABEL}\nSTATUS: DONE\n`, 'DONE'],
+    ['Summary\nSTATUS: DONE\n<!-- unrelated metadata -->\n', 'DONE'],
   ];
   for (const [contents, status, ...extra] of invalidRaw) {
     const rawBytes = Buffer.from(contents);
