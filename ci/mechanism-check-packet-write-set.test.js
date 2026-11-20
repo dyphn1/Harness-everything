@@ -217,13 +217,67 @@ test('compares only the requested commits when --head is not the worktree HEAD',
   const head = commitAll(repo, tempRoot, 'requested head');
   write(repo, 'later.txt', 'after requested head\n');
   commitAll(repo, tempRoot, 'worktree HEAD');
-  write(repo, 'dirty.txt', 'uncommitted\n');
+  runGit(repo, tempRoot, ['update-index', '--assume-unchanged', '--', 'base.txt']);
+  try {
+    write(repo, 'base.txt', 'hidden workspace-only change\n');
+    write(repo, 'dirty.txt', 'uncommitted\n');
 
-  const result = runChecker(repo, tempRoot, { base, head, allow: ['allowed.txt'] });
-  assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(outOfSetPaths(result), []);
-  assert.match(result.stdout, /commits only/i);
-  assert.doesNotMatch(result.stdout, /later\.txt|dirty\.txt/);
+    const result = runChecker(repo, tempRoot, { base, head, allow: ['allowed.txt'] });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(outOfSetPaths(result), []);
+    assert.match(result.stdout, /commits only/i);
+    assert.doesNotMatch(result.stdout, /base\.txt|later\.txt|dirty\.txt/);
+  } finally {
+    runGit(repo, tempRoot, ['update-index', '--no-assume-unchanged', '--', 'base.txt']);
+  }
+});
+
+for (const flag of ['assume-unchanged', 'skip-worktree']) {
+  test(`checks actual worktree content hidden by --${flag}`, t => {
+    const { repo, tempRoot } = makeRepo(t);
+    const file = process.platform === 'win32' ? 'hidden [file].txt' : 'hidden [file]\nname.txt';
+    write(repo, file, 'before\n');
+    const base = commitAll(repo, tempRoot, 'baseline');
+    runGit(repo, tempRoot, ['update-index', `--${flag}`, '--', file]);
+    try {
+      const clean = runChecker(repo, tempRoot, { base, allow: ['allowed/**'] });
+      assert.equal(clean.status, 0, clean.stderr);
+      assert.equal(clean.stdout, '');
+
+      write(repo, file, 'after!\n');
+      assert.equal(gitText(repo, tempRoot, 'status', '--porcelain'), '', 'Git hides the edit');
+      const before = snapshotTree(repo);
+      const rejected = runChecker(repo, tempRoot, { base, allow: ['allowed/**'] });
+      assert.equal(rejected.status, 1, rejected.stderr);
+      assert.deepEqual(outOfSetPaths(rejected), [file]);
+
+      const allowed = runChecker(repo, tempRoot, { base, head: 'HEAD', allow: [file] });
+      assert.equal(allowed.status, 0, allowed.stderr);
+      assert.ok(allowed.stdout.includes(`ALLOWED ${JSON.stringify(file)}`));
+      assert.deepEqual(snapshotTree(repo), before, 'inspection preserves the index flags');
+    } finally {
+      runGit(repo, tempRoot, ['update-index', `--no-${flag}`, '--', file]);
+    }
+  });
+}
+
+test('reports a flagged-file inspection error when Git cannot clean its content', t => {
+  const { repo, tempRoot } = makeRepo(t);
+  const file = 'hidden.txt';
+  write(repo, '.gitattributes', 'hidden.txt filter=broken\n');
+  write(repo, file, 'tracked\n');
+  const base = commitAll(repo, tempRoot, 'baseline');
+  runGit(repo, tempRoot, ['update-index', '--assume-unchanged', '--', file]);
+  try {
+    runGit(repo, tempRoot, ['config', 'filter.broken.clean', 'exit 1']);
+    runGit(repo, tempRoot, ['config', 'filter.broken.required', 'true']);
+    const result = runChecker(repo, tempRoot, { base, allow: ['allowed/**'] });
+    assert.equal(result.status, 2, result.stderr);
+    assert.match(result.stderr, /git hash-object failed/);
+  } finally {
+    runGit(repo, tempRoot, ['config', '--remove-section', 'filter.broken']);
+    runGit(repo, tempRoot, ['update-index', '--no-assume-unchanged', '--', file]);
+  }
 });
 
 test('returns usage errors for an unknown base and a missing allow list', t => {

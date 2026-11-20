@@ -89,11 +89,15 @@ function harnessRuntime() {
   return process.versions.bun ? "node" : process.execPath
 }
 
-function runKernelRouter(payload, signal) {
-  if (!ROUTER_FILE || signal?.aborted) return Promise.resolve(null)
+function runKernelRouter(payload, signal, unavailable) {
+  if (signal?.aborted) return Promise.resolve(null)
+  if (!ROUTER_FILE) {
+    unavailable("runtime-missing")
+    return Promise.resolve(null)
+  }
   return new Promise(resolveOutput => {
     let stdout = ""
-    let child, timeout, termination, spawnError = false, timedOut = false, cancelled = false, settled = false
+    let child, timeout, termination, failureReason, timedOut = false, settled = false
     const terminate = () => {
       if (!termination && child) termination = terminateVerificationChild(child)
     }
@@ -101,11 +105,19 @@ function runKernelRouter(payload, signal) {
       if (settled) return
       settled = true
       clearTimeout(timeout)
-      signal?.removeEventListener("abort", abort)
+      signal?.removeEventListener("abort", terminate)
       if (termination) await termination
-      resolveOutput(!spawnError && !timedOut && !cancelled && code === 0 ? stdout.trim() : null)
+      if (signal?.aborted || timedOut) {
+        resolveOutput(null)
+        return
+      }
+      if (failureReason || code !== 0) {
+        unavailable(failureReason || "runtime-failed")
+        resolveOutput(null)
+        return
+      }
+      resolveOutput(stdout.trim())
     }
-    const abort = () => { cancelled = true; terminate() }
     try {
       child = spawn(harnessRuntime(), [ROUTER_FILE], {
         cwd: payload.cwd || HARNESS_ROOT,
@@ -115,21 +127,22 @@ function runKernelRouter(payload, signal) {
         windowsHide: true,
       })
     } catch {
+      unavailable("spawn-failed")
       resolveOutput(null)
       return
     }
     child.stdout.on("data", chunk => { stdout += chunk })
-    child.stdin.on("error", () => { spawnError = true; terminate() })
+    child.stdin.on("error", () => { failureReason ||= "runtime-failed"; terminate() })
     child.once("error", () => {
-      spawnError = true
+      failureReason = child.pid ? "runtime-failed" : "spawn-failed"
       if (!child.pid) void finish(null)
       else terminate()
     })
     child.once("close", code => { void finish(code) })
-    signal?.addEventListener("abort", abort, { once: true })
-    if (signal?.aborted) abort()
+    signal?.addEventListener("abort", terminate, { once: true })
+    if (signal?.aborted) terminate()
     timeout = setTimeout(() => { timedOut = true; terminate() }, 5000)
-    try { child.stdin.end(JSON.stringify(payload)) } catch { spawnError = true; terminate() }
+    try { child.stdin.end(JSON.stringify(payload)) } catch { failureReason ||= "runtime-failed"; terminate() }
   })
 }
 
@@ -1344,7 +1357,13 @@ export default {
       return pending
     }
     let unresolvedIdentityCount = 0
+    const routerUnavailableCounts = new Map()
 
+    const routerUnavailable = reason => {
+      const count = (routerUnavailableCounts.get(reason) || 0) + 1
+      routerUnavailableCounts.set(reason, count)
+      try { console.warn(`[Harness] OpenCode router-unavailable (${reason}; count=${count})`) } catch {}
+    }
     const unresolvedIdentity = reason => {
       unresolvedIdentityCount++
       try { console.warn(`[Harness] OpenCode session workspace unresolved (${reason}; count=${unresolvedIdentityCount}); workspace-dependent handling skipped.`) } catch {}
@@ -1483,7 +1502,7 @@ export default {
               if (events.signal.aborted) return
               const routerPayload = { host: "opencode", session_id: event.sessionID,
                 ...(prompt.messageID ? { turn_id: prompt.messageID } : {}), cwd: prompt.workspace, prompt: event.prompt.text }
-              const routerOutput = await runKernelRouter(routerPayload, events.signal)
+              const routerOutput = await runKernelRouter(routerPayload, events.signal, routerUnavailable)
               if (!events.signal.aborted && promptRoutes.get(event.sessionID) === prompt) prompt.routerOutput = routerOutput
             })
           await prompt.routerPromise

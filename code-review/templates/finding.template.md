@@ -9,8 +9,24 @@
 - Prior rounds (findings per decision class, for re-review):
 - Changed files and relevant callers/consumers:
 - CI state and commands observed:
-- Counterexample categories covered:
 - Risks not examined / evidence limits:
+
+### Counterexample categories covered
+
+Derive the families from the scope anchor and the implementation's supported syntax. Include equivalent spellings or transformations and unknown syntax that could affect the scoped decision. Keep unverified families visible as `UNCHECKED`.
+
+| family | representative / equivalent spelling | expected | actual per implementation | evidence tier or UNCHECKED |
+| --- | --- | --- | --- | --- |
+| <family from scope> | <representative inputs> | <expected decision> | <observed or source-traced decision, or blank> | <tier and evidence reference, or UNCHECKED> |
+
+<!--
+Illustrative example for a scope that treats inputs as literal strings (fictional contract and implementation):
+
+| family | representative / equivalent spelling | expected | actual per implementation | evidence tier or UNCHECKED |
+| --- | --- | --- | --- | --- |
+| Repeated literal | `abc` compared with `abc` | Equal | Equal via the example implementation's `left === right` | source-traced (illustrative expression) |
+| Unknown escape syntax | `\a` compared with `a` | Distinct literals | | UNCHECKED |
+-->
 
 ## Findings
 
