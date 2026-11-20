@@ -273,7 +273,7 @@ For a deep dive into individual modules and the underlying philosophy, explore o
 
 * [Harness Philosophy](docs/philosophy.md): The core behavior-first, intervention-only design.
 * [Harness Architecture](docs/architecture.md): Lifecycle hooks, security model, and data locality.
-* [Semantic Contracts and Safety Boundary Diagnostic Flows](docs/enforcement-locks.md): Distinguish MUST/SHOULD/MAY obligations from reminder mechanics and the two intentional blocking boundaries.
+* [Semantic Contracts and Safety Boundary Diagnostic Flows](docs/enforcement-locks.md): Distinguish MUST/SHOULD/MAY obligations from reminder mechanics; only user/host permission and dangerous-action approval can block.
 * [Platform Capability Matrix](docs/platform-capabilities.md): Canonical current enforcement/install/evidence boundary per surface.
 * [Repository Runtime & Workflow Contract](docs/repository-contract.md): Generated Node/action/workflow/gate state used by consistency CI.
 * [OpenAI / ChatGPT Plugin Packaging](docs/openai-plugin.md): Local Codex/OpenAI plugin packaging plus public Skills-only submission boundary.

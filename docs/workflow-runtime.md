@@ -33,25 +33,26 @@ The unified status shape uses a visible Markdown hierarchy:
 
 Keep one short evidence item inline; use nested evidence bullets when multiple items improve scanability. Emit it before substantive execution, after major phases, on material direction changes, at meaningful long-running phase boundaries, and before final completion.
 
-The two intentionally separate hard boundaries are:
+The explicit hard boundary is:
 
-1. **Rule of 3** — the third matching failure pauses mutation until a zoom-out reflection is written;
-2. **user/host permission and dangerous-action approval** — authorization boundaries such as the action gate.
+**User/host permission and dangerous-action approval** — authorization boundaries such as the action gate.
+
+Zoom-out is agent-initiated. An agent may reassess at the first meaningful
+signal or later; productive iteration may continue when attempts add evidence,
+narrow the cause, and justify the next check.
 
 ## Runtime flow
 
-```text
-route
-  -> selected workflow semantic contract
-  -> execute with model-chosen tactics
-  -> observe edits / verification / stage evidence
-  -> emit reminders when evidence is weak
-  -> complete only when MUST obligations resolve
-
-same failure signature x3
-  -> zoom-out reflection required
-  -> reflection accepted
-  -> normal execution resumes
+```mermaid
+flowchart TD
+  Route["Route and resolve the selected workflow contract"] --> Execute["Execute with model-chosen tactics"]
+  Execute --> Observe["Observe edit, verification, and stage evidence"]
+  Observe --> Remind["Emit reminders when evidence is weak"]
+  Remind --> Complete["Complete when required obligations resolve"]
+  Observe --> Signal["Evidence conflicts with an assumption or leaves the next check unclear"]
+  Signal --> Reassess["Agent may choose zoom-out at the first meaningful signal"]
+  Observe --> Productive["Attempts add evidence or narrow the cause"]
+  Productive --> Continue["Productive iteration may continue with a justified next check"]
 ```
 
 There is no `budget-exhausted -> blocked -> reset-budget` lifecycle.
@@ -128,7 +129,7 @@ Regression tests **MUST** prove:
 - commands/Stop remain available;
 - no mutation-probe lock or reservation state is created;
 - `exec_command` verification can update `lastVerifyAt`;
-- Rule of 3 trips exactly at three matching failures;
-- a valid reflection resets the cycle;
-- a later three-failure cycle requests another reflection rather than a permanent hard lock;
+- reassessment is available at the first meaningful signal;
+- productive iteration may continue when attempts add evidence or narrow the cause;
+- no recurrence counter, reflection token, compulsory report, reset, or escalation state is created;
 - permission/dangerous-action boundaries remain separate and intact.

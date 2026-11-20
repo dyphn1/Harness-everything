@@ -17,7 +17,7 @@ const POLICY = [
   'Cross-cutting invariants:',
   '- Route before execution: establish task scope before mutating work.',
   '- Verify before claim: require objective evidence appropriate to the change.',
-  '- Re-plan on repetition: after 3 same-signature failures, zoom out instead of repeating the same attempt.',
+  '- Reassess when evidence warrants it: an agent may choose zoom-out at the first meaningful signal or later; productive iteration may continue when attempts add evidence, narrow the cause, and justify the next check.',
   'Domain skills are advisory. Do not enforce a universal workflow order; choose the smallest useful skill/tool set.'
 ].join('\n');
 
