@@ -73,4 +73,4 @@ Toolchain self-heal: the harness itself is part of the environment. Audit whethe
 
 ## Verification & reflection
 
-If any shell command fails, do not blindly retry the exact same command. Stop and ask yourself: "Did I use the wrong syntax for this terminal? Is this a Git Bash vs. PowerShell syntax issue?" If you fail 3 times on the same command, trigger the `zoom-out` circuit breaker.
+If any shell command fails, do not blindly retry the exact same command. Stop and ask yourself: "Did I use the wrong syntax for this terminal? Is this a Git Bash vs. PowerShell syntax issue?" If a command failure changes the diagnosis or the next check is unclear, the agent may choose `zoom-out` immediately. Continue when the next attempt is evidence-based; no retry count triggers a circuit breaker.

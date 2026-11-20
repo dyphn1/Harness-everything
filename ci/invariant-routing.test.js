@@ -128,6 +128,18 @@ const envSkill=read('environment-detection/SKILL.md');
 check(/semantic \*\*MUST\*\*/i.test(envSkill)&&/environment-sensitive/i.test(envSkill),'environment discovery is a conditional semantic MUST');
 check(read('plugins/harness-everything/skills/environment-detection/SKILL.md')===envSkill,'environment skill mirror matches');
 
+const countTriggeredZoomOut = /\b(?:3|three)\b[^.\n;]{0,100}\b(?:zoom-out|circuit breaker)\b|\b(?:zoom-out|circuit breaker)\b[^.\n;]{0,100}\b(?:3|three)\b/i;
+for (const [source, mirror] of [
+  ['tdd/SKILL.md', 'plugins/harness-everything/skills/tdd/SKILL.md'],
+  ['environment-detection/references/shell-syntax-rules.md', 'plugins/harness-everything/skills/environment-detection/references/shell-syntax-rules.md'],
+]) {
+  const text = read(source);
+  check(!countTriggeredZoomOut.test(text), source + ' has no count-triggered zoom-out instruction');
+  check(/agent may (?:invoke|choose) `zoom-out`/i.test(text), source + ' permits voluntary zoom-out reassessment');
+  check(/Continue when .{0,100}\bevidence(?:-based)?\b/i.test(text), source + ' permits productive evidence-based continuation');
+  check(text === read(mirror), source + ' packaged mirror matches byte for byte');
+}
+
 const commitSkill=read('git-commit/SKILL.md');
 check(/MUST.*git diff --cached/i.test(commitSkill)&&/SHOULD.*split/i.test(commitSkill),'commit skill separates staged-diff MUST from split SHOULD');
 check(read('plugins/harness-everything/skills/git-commit/SKILL.md')===commitSkill,'git-commit skill mirror matches');
