@@ -118,15 +118,16 @@ function gitBooleanConfig(repo, key, fallback) {
   return pathsFrom(result, args)[0]?.trim() === 'true';
 }
 
-function sparseCheckoutIncludes(repo, file) {
+function sparseCheckoutIncludes(repo, files) {
   const args = ['sparse-checkout', 'check-rules', '-z'];
-  const input = Buffer.from(`${file}\0`);
-  return pathsFrom(git(args, repo, input), args).includes(file);
+  const input = Buffer.from(`${files.join('\0')}\0`);
+  return new Set(pathsFrom(git(args, repo, input), args));
 }
 
 function flaggedWorkingTreeChanges(repo) {
   const args = ['ls-files', '-v', '--stage', '-z'];
   const changes = [];
+  const sparseRuleCandidates = [];
   let sparseCheckout;
   for (const entry of pathsFrom(git(args, repo), args)) {
     // Lowercase tags mark assume-unchanged; S/s marks skip-worktree.
@@ -140,10 +141,12 @@ function flaggedWorkingTreeChanges(repo) {
     if (!stat) {
       // Skip only paths excluded by the active sparse rules; an in-cone deletion
       // can also carry the skip-worktree bit.
-      const sparseOmission = tag.toUpperCase() === 'S'
-        && (sparseCheckout ??= gitBooleanConfig(repo, 'core.sparseCheckout', false))
-        && !sparseCheckoutIncludes(repo, file);
-      if (!sparseOmission) changes.push(file);
+      if (tag.toUpperCase() === 'S'
+        && (sparseCheckout ??= gitBooleanConfig(repo, 'core.sparseCheckout', false))) {
+        sparseRuleCandidates.push(file);
+      } else {
+        changes.push(file);
+      }
       continue;
     }
 
@@ -171,6 +174,12 @@ function flaggedWorkingTreeChanges(repo) {
     const actual = pathsFrom(git(hashArgs, hashCwd, input), hashArgs)[0]?.trim();
     if (!actual) throw new Error(`could not compare tracked path ${JSON.stringify(file)}`);
     if (actual !== oid) changes.push(file);
+  }
+  if (sparseRuleCandidates.length) {
+    const included = sparseCheckoutIncludes(repo, sparseRuleCandidates);
+    for (const file of sparseRuleCandidates) {
+      if (included.has(file)) changes.push(file);
+    }
   }
   return changes;
 }
