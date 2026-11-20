@@ -4,6 +4,7 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
+const { validLabel } = require('../hooks/scripts/lib/observations');
 
 const USAGE = 'usage: report-writer write --output <path> --status <DONE|BLOCKED|0|nonzero-int> (--body-file <path>|--context <text>|--from-codex-output <path>) [--reason <text>|--error <text>...] | report-writer check --file <path>';
 const WRITE_OPTIONS = new Set(['--output', '--status', '--reason', '--error', '--body-file', '--context', '--from-codex-output']);
@@ -109,7 +110,7 @@ function parseHostLabel(line) {
   } catch {
     error('terminal host label must contain valid JSON');
   }
-  if (!value || typeof value !== 'object' || Array.isArray(value)) error('terminal host label JSON must be an object');
+  if (!validLabel(value)) error('terminal host label must use the recognized harness-label schema');
 }
 
 function extractCodexBody(raw, expectedStatus) {

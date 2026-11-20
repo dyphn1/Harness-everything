@@ -77,7 +77,7 @@ The same subcommands and flags work with `node scripts/report-writer.js`.
 | Scope | Operate on explicitly designated report output only; do not rewrite unrelated files, judge semantic success, touch the Ledger, or automatically change permissions |
 | Revision | Re-run `write` using the edited body + true status; never mutate the terminal report with ordinary append commands |
 
-In `--from-codex-output` mode, the writer can remove one terminal harness-label comment containing a JSON object. If the raw input already includes a STATUS line, it must match the requested status and be terminal or immediately precede the label. Invalid input returns nonzero and preserves the raw file.
+In `--from-codex-output` mode, the writer can remove one terminal comment that conforms to the [Observations v1 harness-label contract](../../system-one-observations.md#label-line). If the raw input already includes a STATUS line, it must match the requested status and be terminal or immediately precede the label. Invalid input returns nonzero and preserves the raw file.
 
 ## Interaction with other Actions and existing facilities
 

@@ -7,7 +7,8 @@ const path = require('node:path');
 const { createHash } = require('node:crypto');
 const { spawnSync } = require('node:child_process');
 const install = require('../harness-everything/scripts/system-one/install');
-const { PINNED_CUA_S1_REVISION } = require('../harness-everything/scripts/system-one/provider');
+const { PINNED_CUA_S1_REVISION, readActive } = require('../harness-everything/scripts/system-one/provider');
+const { validateVersionManifest } = require('../harness-everything/scripts/system-one/manifest');
 const script = path.join(__dirname, '../harness-everything/scripts/system-one/install.js');
 const sha = buf => createHash('sha256').update(buf).digest('hex');
 const stages = ['validity', 'intent', 'tier'];
@@ -17,17 +18,17 @@ function tempDir(prefix) {
   return fs.realpathSync.native(dir);
 }
 
-function makeRepo(root, version = 'v1') {
+function makeRepo(root, version = 'v1', weightsExtension = '.weights') {
   const checkpoint = path.join(root, 'models', 'cua-s1', version);
   fs.mkdirSync(checkpoint, { recursive: true });
   const manifest = { schemaVersion: 1, version, createdAt: '2026-11-14T00:00:00.000Z', stages: {}, evaluation: 'evaluation.json' };
   for (const stage of stages) {
     const weights = Buffer.from(`${stage}-weights`);
     const config = Buffer.from(JSON.stringify({ stage, format: 'fixture' }));
-    fs.writeFileSync(path.join(checkpoint, `${stage}.weights`), weights);
+    fs.writeFileSync(path.join(checkpoint, `${stage}${weightsExtension}`), weights);
     fs.writeFileSync(path.join(checkpoint, `${stage}.json`), config);
     manifest.stages[stage] = {
-      weights: `${stage}.weights`, config: `${stage}.json`, sha256: sha(weights),
+      weights: `${stage}${weightsExtension}`, config: `${stage}.json`, sha256: sha(weights),
       options: [`${stage}-a`, `${stage}-b`], thresholds: { [`${stage}-a`]: 0.5, [`${stage}-b`]: 0.6 },
     };
   }
@@ -101,6 +102,41 @@ test('install accepts referenceOnly only when its option threshold is one', () =
       assert.equal(fs.existsSync(path.join(invalidHome, 'versions', 'v1')), false);
     } finally { remove(invalidRoot, invalidHome); }
   } finally { remove(root, home); }
+});
+
+test('447 rejects nested live stage paths at install while flat stages and nested evaluation still work', t => {
+  const root = tempDir('harness-s1-repo-');
+  const home = tempDir('harness-s1-home-');
+  t.after(() => remove(root, home));
+  const source = makeRepo(root, 'v1', '.safetensors');
+  const manifestFile = path.join(source, 'manifest.json');
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+  const artifacts = path.join(source, 'artifacts');
+  fs.mkdirSync(artifacts);
+  fs.renameSync(path.join(source, manifest.evaluation), path.join(artifacts, manifest.evaluation));
+  manifest.evaluation = 'artifacts/evaluation.json';
+
+  for (const field of ['weights', 'config']) {
+    const name = manifest.stages.intent[field];
+    fs.copyFileSync(path.join(source, name), path.join(artifacts, name));
+    const nested = structuredClone(manifest);
+    nested.stages.intent[field] = `artifacts/${name}`;
+    fs.writeFileSync(manifestFile, JSON.stringify(nested));
+    assert.throws(() => validateVersionManifest(nested), /intent weights and config must be flat filenames/);
+    assert.throws(() => install.installVersion(root, 'v1', home), /intent weights and config must be flat filenames/);
+    assert.equal(fs.existsSync(path.join(home, 'versions')), false);
+    assert.equal(fs.existsSync(path.join(home, 'active.json')), false);
+  }
+
+  fs.writeFileSync(manifestFile, JSON.stringify(manifest));
+  assert.equal(validateVersionManifest(manifest), manifest);
+  const installed = install.installVersion(root, 'v1', home);
+  install.activate('v1', home);
+  const active = readActive({ HARNESS_SYSTEM_ONE_HOME: home });
+  assert.equal(active?.version, 'v1');
+  assert.equal(active.stages.intent.weightsPath, path.join(installed.dir, manifest.stages.intent.weights));
+  assert.equal(active.stages.intent.configPath, path.join(installed.dir, manifest.stages.intent.config));
+  assert.equal(fs.readFileSync(path.join(installed.dir, manifest.evaluation), 'utf8'), '{"samples":2}');
 });
 
 test('S1-I03 activation and rollback round-trip through the previous pointer', () => {

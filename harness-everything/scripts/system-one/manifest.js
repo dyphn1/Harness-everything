@@ -38,6 +38,7 @@ function validateVersionManifest(manifest, expectedVersion) {
         || Object.values(stage.thresholds).some(value => typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1)) {
       fail(`malformed ${name} stage`);
     }
+    if (stage.weights.includes('/') || stage.config.includes('/')) fail(`${name} weights and config must be flat filenames`);
     if (Object.hasOwn(stage, 'referenceOnly')
         && (!Array.isArray(stage.referenceOnly) || new Set(stage.referenceOnly).size !== stage.referenceOnly.length
           || stage.referenceOnly.some(id => !stage.options.includes(id) || stage.thresholds[id] !== 1))) {
