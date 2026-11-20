@@ -56,11 +56,13 @@ function assertScopeGating({ ci, release, governance }) {
   assert.ok(classifier, 'the ci-change-scope job exists');
   assert.ok(selfRegression, 'the self-regression job exists');
 
-  // Only self-regression may be gated by the classifier. Other jobs, their
-  // steps and later added ungated jobs are deliberately left unpinned.
+  // Only self-regression may depend on the classifier or read its result.
   for (const [jobId, job] of Object.entries(jobs)) {
     if (jobId === CHANGE_SCOPE_JOB || jobId === 'self-regression') continue;
-    assert.ok(!Object.hasOwn(job, 'if'), `${jobId} must not be gated`);
+    const needs = Array.isArray(job.needs) ? job.needs : [job.needs];
+    assert.ok(!needs.includes(CHANGE_SCOPE_JOB), `${jobId} must not depend on the classifier`);
+    const classifierReference = /\bneeds\s*(?:\.\s*ci-change-scope\b(?!-)|\[\s*'ci-change-scope'\s*\])/i;
+    assert.ok(!classifierReference.test(job.if ?? ''), `${jobId} must not use the classifier in its condition`);
   }
 
   // The classifier runs only on pull requests and wires its scope output.
@@ -275,6 +277,55 @@ test('the workflow gates only self-regression and fails open on every uncertain 
 function unusedGitForWorkflow() {
   throw new Error('the release caller is a push/dispatch, so no PR diff may authorize a skip');
 }
+
+test('scope invariants accept independent jobs and reject classifier-scope mutants', () => {
+  const readWorkflow = name => yaml.load(fs.readFileSync(path.join(ROOT, '.github', 'workflows', name), 'utf8'));
+  const baseline = {
+    ci: readWorkflow('ci.yml'),
+    release: readWorkflow('release.yml'),
+    governance: readWorkflow('doc-governance.yml'),
+  };
+  const independentJob = { 'runs-on': 'ubuntu-latest', steps: [{ run: 'echo extra check' }] };
+  for (const job of [
+    {},
+    { needs: 'consistency', if: "${{ github.event_name == 'pull_request' }}" },
+  ]) {
+    const workflows = structuredClone(baseline);
+    workflows.ci.jobs.extra = { ...independentJob, ...job };
+    assert.doesNotThrow(() => assertScopeGating(workflows), job.if ?? 'ungated job');
+  }
+
+  const extraJobs = [
+    { needs: CHANGE_SCOPE_JOB },
+    { needs: ['consistency', CHANGE_SCOPE_JOB] },
+    { if: "${{ needs.ci-change-scope.outputs.scope != 'docs-only' }}" },
+    { if: "${{ needs['ci-change-scope'].outputs['scope'] != 'docs-only' }}" },
+  ];
+  for (const job of extraJobs) {
+    const workflows = structuredClone(baseline);
+    workflows.ci.jobs.extra = { ...independentJob, ...job };
+    assert.throws(() => assertScopeGating(workflows), /extra must not/, JSON.stringify(job));
+  }
+
+  for (const [label, mutate, expected] of [
+    ['self-regression dependency', ({ ci }) => { ci.jobs['self-regression'].needs = []; }, /Expected values/],
+    ['self-regression fallback', ({ ci }) => {
+      ci.jobs['self-regression'].if = "${{ needs.ci-change-scope.outputs.scope != 'docs-only' }}";
+    }, /full fallback predicate/],
+    ['classifier output', ({ ci }) => { delete ci.jobs[CHANGE_SCOPE_JOB].outputs.scope; }, /Expected values/],
+    ['classifier wiring', ({ ci }) => { delete ci.jobs[CHANGE_SCOPE_JOB].steps.find(step => step.id === 'scope').env.PR_HEAD_SHA; }, /Expected values/],
+    ['OS leg', ({ ci }) => { ci.jobs['self-regression'].strategy.matrix.os.pop(); }, /Expected values/],
+    ['path filter', ({ ci }) => { ci.on.pull_request = { paths: ['docs/**'] }; }, /no workflow-level paths filter/],
+    ['release gate', ({ release }) => { release.jobs.gate.if = SELF_REGRESSION_IF; }, /release.yml job gate must not be gated/],
+    ['governance gate', ({ governance }) => {
+      Object.values(governance.jobs)[0].if = SELF_REGRESSION_IF;
+    }, /doc-governance.yml job .* must not be gated/],
+  ]) {
+    const workflows = structuredClone(baseline);
+    mutate(workflows);
+    assert.throws(() => assertScopeGating(workflows), expected, label);
+  }
+});
 
 // Exported so the in-report mutant harness can replay the same oracle against
 // parsed copies of the workflow documents without registering these tests.

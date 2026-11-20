@@ -41,7 +41,7 @@ The [Action identity registry](./nodes.yaml) is the only proposed source for the
 | `EH-overview` | `EH-activity-source` | Same Level 1 representation | Open when UML source/notation is needed; not a new Level |
 | `EH-overview` | `E0002-actions` | Context-specific expansion: **E-0002** | Open when handling this Error Class/context, rather than loading all Action Maps |
 | `E0002-actions` | `E0002-capture` | Detail supporting Capture / evidence | Read when raw evidence/provenance is required |
-| `E0002-actions` | `E0002-writer` | Detail supporting Treat / Report CLI | Read when producing or validating a report through the proposed script |
+| `E0002-actions` | `E0002-writer` | Detail supporting Treat / Report CLI | Read when producing or validating a report through the shipped W1 script |
 | `E0002-actions` | `E0002-ledger` | Existing class evidence / history | Read for Identify/history relevance; do not copy or reclassify the ledger |
 
 **Maintenance contract (lightweight):** when a document moves, update its **Table A path**; Table B continues to refer to the same local key. When a new Level 2 behavior block or Level 3 reference is added, add only the relevant row and reference. Removing an obsolete procedure removes its registry relationship without rewriting Level 1. **Do not re-encode Mermaid/PlantUML execution arrows as registry edges**: the source diagrams own flow semantics, while the tables own *navigation/lookup*.

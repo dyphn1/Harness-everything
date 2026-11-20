@@ -1,6 +1,6 @@
 # Error Handling — three-view overview
 
-> **Canonical map** for [#437](https://github.com/dyphn1/Harness-everything/issues/437) (concept and decisions) and [#402](https://github.com/dyphn1/Harness-everything/issues/402) (implementation). Moved from `discussion/437-*` on 2026-11-18; concept decisions still change only through #437. Action identities live in [nodes.yaml](./nodes.yaml); its `links` must match View 1. Level 2/3 documents marked *proposed* describe designs, not shipped behaviour, unless they name the shipped script.
+> **Canonical map** for [#437](https://github.com/dyphn1/Harness-everything/issues/437) (concept and decisions) and [#402](https://github.com/dyphn1/Harness-everything/issues/402) (implementation). Moved from `discussion/437-*` on 2026-11-18; concept decisions still change only through #437. Action identities live in [nodes.yaml](./nodes.yaml); its `links` must match View 1. Levels 1 and 2 describe the proposed workflow. The Level 3 [E-0002 W1 report writer](./details/e0002-report-writer.md) shipped in [#462](https://github.com/dyphn1/Harness-everything/pull/462).
 
 An Overview contains **three distinct views**. Their responsibilities must not be merged into a single linear picture:
 
@@ -18,7 +18,7 @@ An Overview contains **three distinct views**. Their responsibilities must not b
 - **P2-2 · Registry mapping:** use [the lightweight document/relationship registry](./registry.md) to relate Layer → Document → relevant detail while keeping the existing [Action identities](./nodes.yaml). Registry references are for **lookup/lazy loading**, not a second set of workflow arrows or Action IDs.
 - **P2-3 · Action handoff:** do **not** impose mandatory input/output schemas on general Actions or behavior blocks. An Action guides what to do and keeps legitimate Agent discretion; concrete Script/CLI/API boundaries document inputs, outputs and return codes only when required (see the E-0002 [Level 3 report writer contract](./details/e0002-report-writer.md)).
 
-This is a **discussion-only** mapping. No evidence yet establishes View/Level confusion; no new global validation gate, loader, governance process or runtime Script exists. Measure Error Handling effectiveness only after the full mechanism including Hook/Skill delivery is integrated.
+This mapping records design decisions. Measure Error Handling effectiveness after the full mechanism, including Hook/Skill delivery, is integrated.
 
 ## Level 2 — magnified behavior blocks (E-0002 example)
 
@@ -26,16 +26,16 @@ This is a **discussion-only** mapping. No evidence yet establishes View/Level co
 
 The E-0002 example expands two blocks: **ASSESS (A Capture, B Triage, C Identify)** and **RESPOND (D Decide, E Treat, F Deliver, G Accept)**. It retains Level 1's branching authority, including the distinction **unidentified → Hold** versus **identified/non-blocking → Defer**. Script/CLI return codes let Agent handle unmet constraints **inside the relevant block**; no extra Level 1 control loop is introduced. The Level 1 Action sequence and recurrence boundary remain authoritative.
 
-**Action priority:** tell Agent what to do, not just how to document the last mistake. Here a proposed scoped writer/checker would take truthful content/status, consume `codex exec -o` **as script-mediated raw input**, write/check the final report, and return actionable failure codes. A failed treatment result still reaches the **Deliver and Accept** outcome for the current occurrence. Delivering a reusable command now and exposing it through Hook/Skill in a future relevant task are **different time contexts**, not contradictory Action ordering.
+For a required E-0002 report, use the shipped W1 writer/checker (`npm run report -- write` and `npm run report -- check`). Supply the report content and status, then check the finished file. For `codex exec -o`, supply the raw output through `--from-codex-output`. A failed treatment result still reaches **Deliver and Accept** for the current occurrence.
 
 ## Level 3 — optional procedure, CLI/Script contract and evidence
 
 Read only the details required for the current Action/block:
 - [Capture evidence and artifact provenance](./details/e0002-capture-evidence.md): raw report vs final turn, source and unknowns.
-- [Treat report writer and `-o` script contract](./details/e0002-report-writer.md): candidate commands, deterministic validation, return codes, negative cases and host-boundary handling.
+- [Treat report writer and `-o` script contract](./details/e0002-report-writer.md): runnable commands, validation, return codes, negative cases and host-boundary handling.
 - [Existing E-0002 ledger](../../.agents/harness-everything/errors/E-0002-report-missing-terminal-status.md) and [ROUTE-001](../adr/ROUTE-001-error-lesson-delivery.md): existing evidence and delivery background, not duplicated as another store.
 
-**Status:** this is a discussion draft. Level 1 activity / Action identity / Error Ledger / live Hooks are **unchanged**; the proposed CLI has **not** been implemented. A structural PASS from a script is not a substantive task PASS. The integrated Error Handling + Hook system must exist before measuring recurrence and total cost.
+W1 runs locally through `scripts/report-writer.js`. Hook/Skill disclosure ([#394](https://github.com/dyphn1/Harness-everything/issues/394)) and future node/registry expansion remain proposals. A successful CLI check confirms report structure. Use task evidence to assess the underlying result.
 
 ## Decision — Error occurrence and recurrence boundary
 

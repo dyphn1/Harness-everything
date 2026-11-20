@@ -18,13 +18,29 @@ const codexHooksCompat = require('../scripts/codex-hooks-compat');
 // A fake host runner does not mock the compatibility installer's filesystem
 // writes. Fail closed if any case forgets to pass its explicit temporary home.
 const realInstall = codexHooksCompat.install;
+function isInsideTempRoot(root, target, pathApi = path) {
+  const relative = pathApi.relative(root, target);
+  const outside = relative === '..' || relative.startsWith('..' + pathApi.sep) || pathApi.isAbsolute(relative);
+  return relative !== '' && !outside;
+}
+
 codexHooksCompat.install = options => {
   assert(options && options.codexHome, 'tests must supply an explicit temporary Codex home');
-  const relative = path.relative(os.tmpdir(), path.resolve(options.codexHome));
-  assert(relative && !relative.startsWith('..') && !path.isAbsolute(relative),
+  assert(isInsideTempRoot(os.tmpdir(), path.resolve(options.codexHome)),
     'test Codex home must be inside the temporary directory');
   return realInstall(options);
 };
+
+for (const [target, inside] of [
+  ['D:\\repo', false],
+  ['D:\\repo\\..cache', true],
+  ['D:\\repo\\child', true],
+  ['D:\\other', false],
+  ['D:\\', false],
+  ['C:\\temp', false],
+]) {
+  assert.strictEqual(isInsideTempRoot('D:\\repo', target, path.win32), inside, target);
+}
 
 
 function fakeHost({ claudeInstalled = false, codexInstalled = false, codexPluginSourcePath = path.join(ROOT, 'plugins', 'harness-everything'), codexPluginSourceType = 'local', codexAvailableOnly = false, claudeMarketplace = true, codexMarketplace = true, unknownClaudePluginState = false, unknownClaudeYesFlag = false, unknownClaudeJsonFlag = false, clapCodexJsonFlag = false, missingCodexPluginCommand = false, codexHooksError = null } = {}) {
