@@ -12,10 +12,11 @@ graph TD
   Compact --> Handoff[Verify handoff manifest]
   Handoff --> Diverge{Build errors diverging?}
   Diverge -->|no| Continue[Continue guarded work]
-  Diverge -->|yes| Warn[Surface regression + recommend zoom-out]
-  Warn --> Rule3{Rule-of-3 reached?}
-  Rule3 -->|yes| Reflect[Mandatory reflection]
-  Rule3 -->|no| Continue
+  Diverge -->|yes| Warn[Surface regression and evidence]
+  Warn --> Choose{Would reassessment help?}
+  Choose -->|yes| Reassess[Agent-initiated zoom-out]
+  Choose -->|not yet| Continue
+  Reassess --> Continue
 ```
 
 Commit boundaries are guidance only. Create commits only when the user or active host/workflow has authorized them; otherwise leave changes uncommitted.
@@ -25,6 +26,6 @@ Commit boundaries are guidance only. Create commits only when the user or active
 - [ ] Milestone state compacted and irrelevant broad reads avoided.
 - [ ] Handoff manifest written and verified.
 - [ ] Divergence surfaced without creating an independent hard stop.
-- [ ] Rule-of-3 remains the mandatory reflection owner.
+- [ ] Reassessment remains agent-initiated; productive work can continue when checks add evidence.
 - [ ] Commits occur only with user/host authorization.
 - [ ] Detail follows `fable-discipline/references/discipline-rules.md`.

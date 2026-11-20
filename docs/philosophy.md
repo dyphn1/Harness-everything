@@ -78,7 +78,7 @@ Relevant environment discovery is a conditional **MUST**: establish OS, shell, p
 
 ### 2. Guardrails — Lifecycle Boundaries
 
-Circuit breakers, action gates, workflow gates, scope guards, and completion gates protect specific transitions. They **SHOULD** remain narrow and evidence-driven. On integration surfaces that expose the required lifecycle/tool hooks, Harness can mechanically block supported violations; elsewhere the same contract is instruction-governed and must not be mislabeled hard enforcement.
+Action gates, scope guards, and completion checks protect specific transitions. They **SHOULD** remain narrow and evidence-driven. Explicit user/host permission and safety boundaries can block supported operations; workflow and recovery guidance remains agent-directed. The former Rule-of-3 counter and forced-reflection path are retired under [#394](https://github.com/dyphn1/Harness-everything/issues/394).
 
 ### 3. Context Preservation — Progressive Disclosure
 

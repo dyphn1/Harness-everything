@@ -30,9 +30,10 @@ graph TD
   GitBash --> GuardCwd[Stay inside process cwd]
   PowerShell --> GuardCwd
   CmdShell --> GuardCwd
-  GuardCwd --> FailCount{Same command failed 3 times?}
-  FailCount -->|yes| ZoomEsc[Trigger zoom-out]
-  FailCount -->|no| ContinueRun[Continue with aligned syntax]
+  GuardCwd --> Evidence{Does the result contradict assumptions or reveal unknown impact?}
+  Evidence -->|yes| ZoomChoice[Agent may choose zoom-out]
+  Evidence -->|not yet| ContinueRun[Continue with aligned syntax]
+  ZoomChoice --> ContinueRun
 ```
 
 ## 2. Triggering and Routing Path
@@ -42,9 +43,10 @@ graph LR
   StartTrigger[Session start request] --> EnvDetect[environment-detection SKILL]
   ComplexSeq[Complex terminal sequence] --> EnvDetect
   EnvDetect --> AlignedRun[Aligned command execution]
-  AlignedRun --> RepeatedFail{Three failures on same command?}
-  RepeatedFail -->|yes| ZoomOut[zoom-out]
-  RepeatedFail -->|no| AlignedRun
+  AlignedRun --> Evidence{Would reassessment improve the next step?}
+  Evidence -->|yes| ZoomOut[Agent-initiated zoom-out]
+  Evidence -->|no; next check is justified| AlignedRun
+  ZoomOut --> AlignedRun
 ```
 
 ## 3. Real-World Use Case
@@ -56,7 +58,7 @@ A session starts on Windows with PowerShell as the active shell. The agent needs
 3. If the helper/runtime is absent (for example a skills-only distribution), report that the local repair surface is unavailable and continue without searching parent/cache paths.
 4. Only an explicit install/setup/repair request may invoke mutating self-heal. OpenCode keeps its separate plugin installation/runtime boundary.
 5. Adopt PowerShell syntax for paths and env vars instead of Git Bash assumptions. If `preflight.js` cannot run, inspect `<environment_info>` and probe minimally.
-6. Stay inside `process.cwd()`; if the same aligned command still fails three times, trigger `zoom-out`.
+6. Stay inside `process.cwd()`. A first failure may justify reassessment when it contradicts assumptions or reveals an unknown impact boundary; continue when new evidence justifies the next check.
 
 ```mermaid
 graph TD
@@ -65,7 +67,7 @@ graph TD
   FoundShell --> UseCmd[Use PowerShell syntax for listing and env lookup]
   UseCmd --> CmdResult{Command works?}
   CmdResult -->|yes| ProceedTask[Proceed with task]
-  CmdResult -->|no after 3 tries| ZoomStep[Trigger zoom-out]
+  CmdResult -->|no; evidence warrants reassessment| ZoomStep[Agent chooses zoom-out]
 ```
 
 ## 4. Verification Check
@@ -77,5 +79,5 @@ graph TD
 - [ ] Mutating self-heal ran only for explicit install/setup/repair intent and only on a supported local platform surface
 - [ ] OpenCode was kept on its separate plugin runtime; skills-only distributions did not assume a local installer
 - [ ] No toolchain installation was attempted; scope stayed to detection and alignment
-- [ ] After three failures of the same command, execution stopped blind retry and triggered `zoom-out`
+- [ ] Reassessment was agent-initiated when evidence warranted it; productive checks could continue without a count threshold
 - [ ] Shell detail followed `environment-detection/references/shell-syntax-rules.md` where needed

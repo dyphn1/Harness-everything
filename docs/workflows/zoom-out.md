@@ -1,26 +1,22 @@
 # Workflow: Zoom Out
 
-> Reflect-first breaker after three failures: stop edits, rebuild the full picture with read-only tools, write a fact-check report, then resume or escalate.
+> Agent-initiated reassessment when evidence contradicts an assumption or reveals an unknown impact boundary. A first failure may be enough; productive work can continue when attempts add evidence or narrow the cause.
 
 Source of truth: `zoom-out/SKILL.md`.
 
-Contract summary from SKILL.md — Trigger: three same-signature failures or an explicit loop/rethink request. Output: fact-checked report ending in `RESUME` or `ESCALATE`. State: writes the session `zoom-out-report.md`; reset may clear breaker state. Gate: `hooks/scripts/rule-of-3.js` plus a valid report; a later three-failure cycle requests another reflection. USE FOR: "you are stuck in a loop", "the same error keeps failing", "rethink your assumptions". DO NOT USE FOR: routine single-failure debugging, greenfield planning without failures.
+Zoom-out is voluntary. An agent may choose it on the first meaningful signal or an explicit loop/rethink request, and may continue productive iteration when the next check is justified by new evidence. The former `rule-of-3*.js` counter, `reset-circuit-breaker.js`, forced report/unlock path, and OpenCode hard-lock path are retired under [#394](https://github.com/dyphn1/Harness-everything/issues/394). No counter, lock, reflection token, compulsory report, reset, or automatic escalation is part of this procedure. A short fact-check note can help organize reassessment, but no special artifact is required.
 
 ## 1. Skill Behavior Workflow
 
 ```mermaid
 graph TD
-  Third[Third Same Signature Failure] --> Stop[Stop Edits No User Ask Yet]
-  Stop --> ReadOnly[ReadOnly Restate Goal Check Files Config Logs]
-  ReadOnly --> Fill[Fill zoom-out-report template]
-  Fill --> Decide{RESUME or ESCALATE?}
-  Decide -->|untried path| Resume[RESUME On Untried Path]
-  Decide -->|genuine user decision| Escalate[ESCALATE With Options]
-  Resume --> Again{Three More Matching Failures?}
-  Again -->|yes| Cycle[Another Zoom-Out Cycle]
-  Cycle --> Evolve[Record Insight With self-evolve]
-  Again -->|no| Done([Report Complete])
-  Escalate --> Done
+  Signal[Evidence contradicts assumptions or exposes unknown impact] --> Choose{Would reassessment help now?}
+  Request[Explicit loop/rethink request] --> Reassess[Agent chooses to zoom out]
+  Choose -->|yes| Reassess
+  Choose -->|not yet| Continue[Continue justified work]
+  Productive[Attempt adds evidence or narrows cause] --> Continue
+  Reassess --> ReadOnly[Review goal, acceptance, files, configuration, and evidence]
+  ReadOnly --> Next[Choose a justified next check]
 ```
 
 ## 2. Triggering and Routing Path
@@ -30,33 +26,27 @@ graph TD
   LoopReq[Stuck In Loop Request] --> Skill[zoom-out SKILL]
   SameErr[Same Error Keeps Failing] --> Skill
   Rethink[Rethink Assumptions Request] --> Skill
-  ThreeFail[Three Same Signature Failures] --> Breaker[hooks scripts rule-of-3 js]
-  Breaker --> Skill
+  Evidence[First meaningful signal or explicit request] --> Skill
+  Productive[Productive iteration] --> Continue[Continue with justified next check]
   SingleFail[Routine Single Failure] --> DirectFix[Fix Directly]
   Greenfield[Greenfield Planning No Failures] --> Fable[fable-mode SKILL]
-  Skill --> ReportGate[Valid Report RESUME or ESCALATE]
+  Skill --> EvidenceReview[Review evidence and choose a justified next check]
 ```
 
 ## 3. Real-World Use Case
 
 ```mermaid
 graph TD
-  Fail[Same Test Fails Three Times Same Signature] --> Halt[Stop Edits Rebuild Picture ReadOnly]
-  Halt --> Inspect[Restate Goal Check Files Config Logs]
-  Inspect --> Write[Fill templates zoom-out-report template md]
-  Write --> Choice{Untried Path Exists?}
-  Choice -->|yes| Resume2[RESUME On Untried Path]
-  Choice -->|no| Esc2[ESCALATE With Options]
-  Resume2 -->|three more matching failures| Cycle2[Another Zoom-Out Cycle Then self-evolve]
+  Signal2[Evidence changes assumptions or impact boundary] --> Reassess2[Agent reviews goal, acceptance, and evidence]
+  Reassess2 --> Next2[Select a justified next check]
+  Productive2[Attempts produce evidence or narrow cause] --> Continue2[Continue iteration]
 ```
 
-Template: `zoom-out/templates/zoom-out-report.template.md`. Enforcement: `hooks/scripts/rule-of-3.js`. Deep dive: `zoom-out/references/circuit-breaker.md`.
+Optional note template: `zoom-out/templates/zoom-out-report.template.md`. The former enforcement hook is retired under [#394](https://github.com/dyphn1/Harness-everything/issues/394). The linked [`zoom-out/references/circuit-breaker.md`](../../zoom-out/references/circuit-breaker.md) describes the retired mechanism and is historical reference material.
 
 ## 4. Verification Check
 
-- [ ] After three same-signature failures, edits stopped and the same approach was not retried
-- [ ] Goal, files, configuration, and logs were rechecked with read-only tools before any resume
-- [ ] `templates/zoom-out-report.template.md` was filled and the session `zoom-out-report.md` ends in `RESUME` or `ESCALATE`
-- [ ] Resume targeted only an untried path; genuine user decisions were escalated with options
-- [ ] A later three-failure cycle ran another zoom-out; `npm run harness:reset` was used only as an optional manual clear, with the insight recorded via `self-evolve`
-- [ ] Routine single-failure debugging and greenfield planning without failures were not routed here
+- [ ] The agent chose whether reassessment would improve the next step; it may start on the first meaningful signal
+- [ ] When reassessing, the goal, acceptance, files, configuration, and evidence were checked before choosing the next step
+- [ ] Productive iteration continued when attempts added evidence or narrowed the cause
+- [ ] No failure counter, lock, reflection token, compulsory report, reset, or automatic escalation was assumed
