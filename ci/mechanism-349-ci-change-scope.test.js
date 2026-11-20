@@ -56,13 +56,21 @@ function assertScopeGating({ ci, release, governance }) {
   assert.ok(classifier, 'the ci-change-scope job exists');
   assert.ok(selfRegression, 'the self-regression job exists');
 
-  // Only self-regression may depend on the classifier or read its result.
+  // Every dependency chain that could inherit the docs-only skip has a first
+  // job that needs the classifier or self-regression.
+  const scopeJobs = [CHANGE_SCOPE_JOB, 'self-regression'];
+  // Match needs.job and needs['job'] references while skipping quoted strings.
+  const needsReference = /'(?:[^']|'')*'|(?<![\w.-])needs\s*(?:\.\s*([\w-]+)|\[\s*'([\w-]+)'\s*\])/gi;
   for (const [jobId, job] of Object.entries(jobs)) {
-    if (jobId === CHANGE_SCOPE_JOB || jobId === 'self-regression') continue;
+    if (scopeJobs.includes(jobId)) continue;
     const needs = Array.isArray(job.needs) ? job.needs : [job.needs];
-    assert.ok(!needs.includes(CHANGE_SCOPE_JOB), `${jobId} must not depend on the classifier`);
-    const classifierReference = /\bneeds\s*(?:\.\s*ci-change-scope\b(?!-)|\[\s*'ci-change-scope'\s*\])/i;
-    assert.ok(!classifierReference.test(job.if ?? ''), `${jobId} must not use the classifier in its condition`);
+    for (const scopeJob of scopeJobs) {
+      assert.ok(!needs.includes(scopeJob), `${jobId} must not depend on ${scopeJob}`);
+    }
+    for (const [, dotJob, bracketJob] of String(job.if ?? '').matchAll(needsReference)) {
+      const dependency = dotJob ?? bracketJob;
+      assert.ok(!scopeJobs.includes(dependency?.toLowerCase()), `${jobId} must not reference scope-gated jobs in its condition`);
+    }
   }
 
   // The classifier runs only on pull requests and wires its scope output.
@@ -246,13 +254,17 @@ test('real Git merge-base diff includes earlier code, deletions, both rename end
   }
 });
 
-test('the workflow gates only self-regression and fails open on every uncertain dependency/output state', () => {
+function readScopeWorkflows() {
   const readWorkflow = file => yaml.load(fs.readFileSync(path.join(ROOT, file), 'utf8'));
-  assertScopeGating({
+  return {
     ci: readWorkflow('.github/workflows/ci.yml'),
     release: readWorkflow('.github/workflows/release.yml'),
     governance: readWorkflow('.github/workflows/doc-governance.yml'),
-  });
+  };
+}
+
+test('the workflow gates only self-regression and fails open on every uncertain dependency/output state', () => {
+  assertScopeGating(readScopeWorkflows());
 
   const gateCases = [
     ['successful docs-only classifier', false, 'success', 'docs-only', false],
@@ -274,58 +286,56 @@ test('the workflow gates only self-regression and fails open on every uncertain 
   assert.equal(classifyChangeSet('push', 'a'.repeat(40), 'b'.repeat(40), { runGit: unusedGitForWorkflow }), 'full');
 });
 
+test('the oracle accepts jobs with independent conditions and dependencies', () => {
+  const workflows = readScopeWorkflows();
+  const jobs = workflows.ci.jobs;
+  jobs['pilot-offline-evidence'].if = "${{ github.event_name == 'push' }}";
+  jobs['extra-check'] = {
+    'runs-on': 'ubuntu-latest',
+    steps: [{ run: 'echo check' }],
+  };
+  assertScopeGating(workflows);
+
+  jobs['extra-check'].needs = 'pilot-offline-evidence';
+  jobs['extra-check'].if = "${{ github.head_ref == 'docs-only' && contains(github.event.pull_request.body, 'needs.ci-change-scope') }}";
+  assertScopeGating(workflows);
+});
+
+test('the oracle rejects additional jobs wired to scope gating', () => {
+  for (const [job, expected] of [
+    [{ needs: CHANGE_SCOPE_JOB }, /must not depend on ci-change-scope/],
+    [{ needs: ['self-regression'] }, /must not depend on self-regression/],
+    [{ if: "needs.ci-change-scope.outputs.scope != 'docs-only'" }, /must not reference scope-gated jobs/],
+    [{ if: "needs[ 'ci-change-scope' ].outputs.scope != 'docs-only'" }, /must not reference scope-gated jobs/],
+  ]) {
+    const workflows = readScopeWorkflows();
+    workflows.ci.jobs['extra-check'] = job;
+    workflows.ci.jobs['downstream-check'] = { needs: 'extra-check' };
+    assert.throws(() => assertScopeGating(workflows), expected);
+  }
+});
+
+test('the oracle retains the existing scope-gating invariants', () => {
+  for (const [mutate, expected] of [
+    [({ ci }) => { delete ci.jobs['self-regression'].needs; }, /deep-equal/],
+    [({ ci }) => { ci.jobs['self-regression'].if = "${{ needs.ci-change-scope.outputs.scope != 'docs-only' }}"; }, /fallback predicate/],
+    [({ ci }) => { ci.jobs[CHANGE_SCOPE_JOB].outputs.scope = '${{ steps.wrong.outputs.scope }}'; }, /steps\.scope\.outputs\.scope/],
+    [({ ci }) => { ci.jobs[CHANGE_SCOPE_JOB].steps.find(step => step.id === 'scope').env.PR_BASE_SHA = ''; }, /base\.sha/],
+    [({ ci }) => { ci.jobs['self-regression'].strategy.matrix.os.pop(); }, /macos-latest/],
+    [({ ci }) => { ci.on.push['paths-ignore'] = ['docs/**']; }, /no workflow-level paths-ignore filter/],
+    [({ release }) => { release.jobs.gate.uses = './.github/workflows/other.yml'; }, /\.\/\.github\/workflows\/ci\.yml/],
+    [({ release }) => { release.jobs.gate.needs = CHANGE_SCOPE_JOB; }, /release\.yml job gate must not depend on the classifier/],
+    [({ governance }) => { Object.values(governance.jobs)[0].if = SELF_REGRESSION_IF; }, /doc-governance\.yml job .* must not be gated/],
+  ]) {
+    const workflows = readScopeWorkflows();
+    mutate(workflows);
+    assert.throws(() => assertScopeGating(workflows), expected);
+  }
+});
+
 function unusedGitForWorkflow() {
   throw new Error('the release caller is a push/dispatch, so no PR diff may authorize a skip');
 }
-
-test('scope invariants accept independent jobs and reject classifier-scope mutants', () => {
-  const readWorkflow = name => yaml.load(fs.readFileSync(path.join(ROOT, '.github', 'workflows', name), 'utf8'));
-  const baseline = {
-    ci: readWorkflow('ci.yml'),
-    release: readWorkflow('release.yml'),
-    governance: readWorkflow('doc-governance.yml'),
-  };
-  const independentJob = { 'runs-on': 'ubuntu-latest', steps: [{ run: 'echo extra check' }] };
-  for (const job of [
-    {},
-    { needs: 'consistency', if: "${{ github.event_name == 'pull_request' }}" },
-  ]) {
-    const workflows = structuredClone(baseline);
-    workflows.ci.jobs.extra = { ...independentJob, ...job };
-    assert.doesNotThrow(() => assertScopeGating(workflows), job.if ?? 'ungated job');
-  }
-
-  const extraJobs = [
-    { needs: CHANGE_SCOPE_JOB },
-    { needs: ['consistency', CHANGE_SCOPE_JOB] },
-    { if: "${{ needs.ci-change-scope.outputs.scope != 'docs-only' }}" },
-    { if: "${{ needs['ci-change-scope'].outputs['scope'] != 'docs-only' }}" },
-  ];
-  for (const job of extraJobs) {
-    const workflows = structuredClone(baseline);
-    workflows.ci.jobs.extra = { ...independentJob, ...job };
-    assert.throws(() => assertScopeGating(workflows), /extra must not/, JSON.stringify(job));
-  }
-
-  for (const [label, mutate, expected] of [
-    ['self-regression dependency', ({ ci }) => { ci.jobs['self-regression'].needs = []; }, /Expected values/],
-    ['self-regression fallback', ({ ci }) => {
-      ci.jobs['self-regression'].if = "${{ needs.ci-change-scope.outputs.scope != 'docs-only' }}";
-    }, /full fallback predicate/],
-    ['classifier output', ({ ci }) => { delete ci.jobs[CHANGE_SCOPE_JOB].outputs.scope; }, /Expected values/],
-    ['classifier wiring', ({ ci }) => { delete ci.jobs[CHANGE_SCOPE_JOB].steps.find(step => step.id === 'scope').env.PR_HEAD_SHA; }, /Expected values/],
-    ['OS leg', ({ ci }) => { ci.jobs['self-regression'].strategy.matrix.os.pop(); }, /Expected values/],
-    ['path filter', ({ ci }) => { ci.on.pull_request = { paths: ['docs/**'] }; }, /no workflow-level paths filter/],
-    ['release gate', ({ release }) => { release.jobs.gate.if = SELF_REGRESSION_IF; }, /release.yml job gate must not be gated/],
-    ['governance gate', ({ governance }) => {
-      Object.values(governance.jobs)[0].if = SELF_REGRESSION_IF;
-    }, /doc-governance.yml job .* must not be gated/],
-  ]) {
-    const workflows = structuredClone(baseline);
-    mutate(workflows);
-    assert.throws(() => assertScopeGating(workflows), expected, label);
-  }
-});
 
 // Exported so the in-report mutant harness can replay the same oracle against
 // parsed copies of the workflow documents without registering these tests.
