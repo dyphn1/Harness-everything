@@ -4,7 +4,7 @@ description: "Independently review a PR, diff or finished implementation for cor
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.47.5
+  version: 0.55.3
 ---
 
 # Code Review

@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.55.3](https://github.com/dyphn1/Harness-everything/compare/v0.55.2...v0.55.3) (2026-11-20)
+
+### Bug Fixes
+
+* address four bounded Harness regressions ([fb27a44](https://github.com/dyphn1/Harness-everything/commit/fb27a4478890848038bec61d8c549ac9bc4eb4e6)), closes [#413](https://github.com/dyphn1/Harness-everything/issues/413) [#469](https://github.com/dyphn1/Harness-everything/issues/469) [#470](https://github.com/dyphn1/Harness-everything/issues/470) [#451](https://github.com/dyphn1/Harness-everything/issues/451)
+* batch sparse checkout rule checks ([eb3bfa0](https://github.com/dyphn1/Harness-everything/commit/eb3bfa08f68d1514efc23528194ec958556e7361))
+* distinguish in-cone sparse deletions ([ec602ab](https://github.com/dyphn1/Harness-everything/commit/ec602ab7b6c3c8eecf36c5fcb2b78341dac20718))
+* encode sparse path checks with NUL delimiters ([d52d63f](https://github.com/dyphn1/Harness-everything/commit/d52d63f31991d15482a7e5877d1b5b319667fce3))
+
 ## [0.55.2](https://github.com/dyphn1/Harness-everything/compare/v0.55.1...v0.55.2) (2026-11-20)
 
 ### Bug Fixes
