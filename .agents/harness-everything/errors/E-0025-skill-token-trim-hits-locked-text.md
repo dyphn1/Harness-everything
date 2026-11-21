@@ -59,7 +59,7 @@ episodes:
       - round: 1
         change: "Pinned phrase restored before the R3b merge into the integration branch"
         review: "prompt-contract-regressions + verify:all --fast"
-        result: "episode closed; second episode of the class, so a pinned-line report check is now the mechanism candidate"
+        result: "episode closed; third episode of the class, so a pinned-line report check is now the mechanism candidate"
 ---
 
 ## Cue
