@@ -1,12 +1,14 @@
 ---
 id: ROUTE-001
-status: proposed
+status: superseded
 ---
 
 # ROUTE-001 — Error lesson delivery into active-step context
 
-**This is a design ADR for a mechanism that is not shipped.** Nothing in this repository is modified
-by this document; the follow-up implementation it defines does not exist yet. This ADR does **not** claim:
+> **Superseded (2026-11-21).** The E-0002 delivery design below is no longer the governing design. Owner decision [#394 comment 7062351415](https://github.com/dyphn1/Harness-everything/issues/394#issuecomment-7062351415) supersedes it; E-0002 is now owned by the C4 report writer shipped in [#462](https://github.com/dyphn1/Harness-everything/pull/462), and the Rule-of-3 breaker it carved out around was retired in [#494](https://github.com/dyphn1/Harness-everything/pull/494). Obsolete design is struck through; the enduring policy and historical evidence remain unstruck.
+
+~~**This is a design ADR for a mechanism that is not shipped.** Nothing in this repository is modified
+by this document; the follow-up implementation it defines does not exist yet.~~ This ADR does **not** claim:
 
 - that error handling improved, or that any behavior changed (no paired evidence exists);
 - that the chosen error class is closed or its recurrence prevented;
@@ -19,7 +21,7 @@ by this document; the follow-up implementation it defines does not exist yet. Th
 
 ## Decision
 
-- **Chosen error class: `E-0002` (`report-protocol` — reports ending without a plain column-zero
+- ~~**Chosen error class: `E-0002` (`report-protocol` — reports ending without a plain column-zero
   terminal `STATUS` line).** The generated ledger index has no rank field; E-0002 is not the most
   frequent class (E-0009 has 7 episodes, E-0002 and E-0003 have 5 each — counts freshly verified by
   `node scripts/errors-sync.js --check` at this SHA). E-0002 is chosen because it fits #402's stated
@@ -28,7 +30,7 @@ by this document; the follow-up implementation it defines does not exist yet. Th
   `425-review2-label-after-status` (2026-11-11) occurred *after* the lesson existed, in packets that did
   not state the terminal-line condition. Sources:
   [#402 comment 6785928296](https://github.com/dyphn1/Harness-everything/issues/402#issuecomment-6785928296);
-  `.agents/harness-everything/errors/E-0002-report-missing-terminal-status.md`.
+  `.agents/harness-everything/errors/E-0002-report-missing-terminal-status.md`.~~
 - **The existing ledger lesson (carried verbatim, not restated):** every report ends with one plain
   column-zero `STATUS: DONE` or `STATUS: BLOCKED: <reason>` line; when a host rule also requires a
   trailing line, the packet must state which line is terminal. The E-0002 record file is the content
@@ -44,14 +46,16 @@ by this document; the follow-up implementation it defines does not exist yet. Th
 | `SONE` | System One domain; this decision does not change System One provider or routing internals |
 | `DIST` | Distribution domain; this decision changes no packaging or distribution behavior |
 
-- **Delivery channel: prompt context at `UserPromptSubmit`, through the existing `additionalContext`
+- ~~**Delivery channel: prompt context at `UserPromptSubmit`, through the existing `additionalContext`
   seam (owner ruling A7.1).** No new hook file, no second router. On Claude Code the router already runs
   at `UserPromptSubmit` (`hooks/hooks.json`, id `harness:pre:kernel-router`); on Codex,
   `hooks/scripts/codex-user-prompt.js` pipes the whole hook payload to the router and wraps its stdout as
   JSON `hookSpecificOutput.additionalContext` (`plugins/harness-everything/hooks/hooks.json`), because
   Codex adds prompt-time context to the model only from that JSON field
   ([system-one-observations.md](../system-one-observations.md#hosts)). The lesson rides in the context the
-  seam already sends; the hook stays a **context carrier, not a decision maker** (A2).
+  seam already sends;~~ the hook stays a **context carrier, not a decision maker** (A2).
+
+### Mermaid flow (superseded, historical)
 
 ```mermaid
 flowchart LR
@@ -64,7 +68,7 @@ flowchart LR
   W --> O["Observation: the report file's raw<br/>final line is column-zero STATUS —<br/>or it is not"]
 ```
 
-- **Relevance: an explicit report-required signal selects the E-0002 record only (owner ruling A7.2).**
+- ~~**Relevance: an explicit report-required signal selects the E-0002 record only (owner ruling A7.2).**
   The signal is defined concretely:
   - *Source:* the prompt text of the `UserPromptSubmit` payload — `payload.prompt`, which the router
     already reads (`harness-everything/scripts/kernel-router.js`: `const prompt = promptArg ||
@@ -84,19 +88,18 @@ flowchart LR
     (`activeExecutionFor` → `activeStepSnapshot`) — defined only when a retained workflow with a loaded
     obligation set exists, so it covers a subset of report work through a second selection surface; and
     agent-side grep of the index at task start — no code change but depends on agent discipline, the
-    failure mode the ledger README already records.
-
+    failure mode the ledger README already records.~~
 - **Label vs STATUS (owner ruling A7.4), stated as decided:**
   - A report **file** ends with its raw column-zero `STATUS:` line and carries no harness-label; the
     **turn's** final message summarises or links the report and ends with the hidden harness-label line
     (`docs/routing.md` § Turn label line).
-  - When the report *is* the turn's final message, the rule is a **report-turn exception to
+  - ~~When the report *is* the turn's final message, the rule is a **report-turn exception to
     label-last**. That exception is owned by `AGENTS.md` (applicability) and `docs/routing.md` (label
-    contract); making it is a follow-up change, **not made here** — those files are not edited by this ADR.
+    contract); making it is a follow-up change, **not made here** — those files are not edited by this ADR.~~
   - E-0002's recorded episodes (including the label-after-status ones) stay as history; a
     provenance-carrying correction of the lesson text is **#359's** follow-up. This ADR does not rewrite
     the ledger record.
-- **Success / failure observation, in three layers that are never merged into one PASS:**
+- **Success / failure observation, in three layers that are never merged into one PASS:** *(historical E-0002 example)*
 
 | Layer | What is recorded | What is not claimed |
 | --- | --- | --- |
@@ -108,25 +111,25 @@ flowchart LR
     nonconformant. Neither is recorded as a single PASS.
   - Any later behavior-improvement claim requires paired baseline/treatment evidence; this ADR's
     observation contract does not provide it.
-- **Smallest follow-up implementation acceptance (design only; nothing is implemented here):** one seam
+- ~~**Smallest follow-up implementation acceptance (design only; nothing is implemented here):** one seam
   (the `UserPromptSubmit` context assembly above), one minimal change (signal match ⇒ read
   `.agents/harness-everything/errors/E-0002-report-missing-terminal-status.md` § Lesson and append it
-  verbatim to the existing context), with these controls:
+  verbatim to the existing context), with these controls:~~
 
-| Control | Expected result | Evidence layer the check gives |
+| ~~Control~~ | ~~Expected result~~ | ~~Evidence layer the check gives~~ |
 | --- | --- | --- |
-| No marker in the prompt | No injection; context identical to today | Deterministic mechanism test |
-| Marker present, record readable | The exact E-0002 lesson text delivered in context | Deterministic mechanism test, then one real-host task for receipt |
-| Marker present, record unreadable or source stale | Delivery unavailable; tools stay usable; no fallback to the whole ledger | Deterministic mechanism test |
-| Report produced | Final line conformant or not, recorded per the observation table | One real-host task (one-run outcome) |
+| ~~No marker in the prompt~~ | ~~No injection; context identical to today~~ | ~~Deterministic mechanism test~~ |
+| ~~Marker present, record readable~~ | ~~The exact E-0002 lesson text delivered in context~~ | ~~Deterministic mechanism test, then one real-host task for receipt~~ |
+| ~~Marker present, record unreadable or source stale~~ | ~~Delivery unavailable; tools stay usable; no fallback to the whole ledger~~ | ~~Deterministic mechanism test~~ |
+| ~~Report produced~~ | ~~Final line conformant or not, recorded per the observation table~~ | ~~One real-host task (one-run outcome)~~ |
 
   - Explicitly forbidden: no fallback to the whole ledger, no fabricated receipt, no automatic rewrite of
     the report, no error counter, no fixed recurrence threshold, no reflection tokens, no forced report,
     no mutation lock, no automatic escalation or reset ritual (A2).
-  - Host evidence boundary: only the host seam chosen here (`UserPromptSubmit` context on Claude Code and
+  - ~~Host evidence boundary: only the host seam chosen here (`UserPromptSubmit` context on Claude Code and
     Codex) is covered by future checks. Other hosts and other lifecycle events are unverified; a file
-    existing in a package proves no host loaded it ([platform-capabilities.md](../platform-capabilities.md)).
-- **Rule-of-3 boundary (owner ruling A7.5), stated exactly:** this cycle's lesson delivery adds, extends,
+    existing in a package proves no host loaded it ([platform-capabilities.md](../platform-capabilities.md)).~~
+- ~~**Rule-of-3 boundary (owner ruling A7.5), stated exactly:** this cycle's lesson delivery adds, extends,
   calls or depends on **no counter, lock or forced reflection**; the existing Rule-of-3 breaker
   (`hooks/scripts/rule-of-3.js` `isTripped`/`blockForReflection`, `hooks/scripts/rule-of-3-tracker.js`,
   `hooks/scripts/reset-circuit-breaker.js`, [docs/enforcement-locks.md](../enforcement-locks.md)) is not
@@ -138,7 +141,7 @@ flowchart LR
   own separate Rule-of-3 breaker (`opencode-plugin/index.mjs` — an independent counter, required
   reflection, block on the covered edit tools), which this delivery neither uses nor modifies and which
   this ADR does not claim conforms to A2. The OpenCode sources are reading-list evidence only: they do not
-  mean OpenCode was run and do not extend the hosts the lesson injection supports.
+  mean OpenCode was run and do not extend the hosts the lesson injection supports.~~
 - **Non-goals (from A2 and the ownership boundary):** the hook stays a context carrier, not a decision
   maker; this ADR does not duplicate #359 (Error Ledger), #394 (ledger context injection and
   agent-initiated zoom-out) or #141 (candidate creation/evaluation); candidate creation/evaluation
@@ -150,7 +153,7 @@ flowchart LR
 
 - **The problem:** agent mistakes recur even when a lesson is already recorded in the ledger — the
   recording-to-application gap [#402 comment 6785928296](https://github.com/dyphn1/Harness-everything/issues/402#issuecomment-6785928296).
-- **What exists today (each verified in this repository):**
+- **What exists ~~today~~ (each verified in this repository):**
   - the ledger and generated index (`.agents/harness-everything/errors/README.md`, `index.jsonl`,
     `E-*.md`) with a lookup convention (grep by write-set or signature); a convention, not a gate;
   - hook context seams that carry *policy and routing* context but do not retrieve ledger records:
@@ -164,22 +167,22 @@ flowchart LR
     `self-evolve/scripts/lesson-candidate.js`);
   - zoom-out and self-evolve skills as agent-initiated reflection/evaluation paths (`zoom-out/SKILL.md`,
     `self-evolve/SKILL.md`).
-  - No ledger-aware delivery seam exists today.
-- **What zoom-out carries today (correction):** when an agent enters a repair-loop reflection, the
+  - ~~No ledger-aware delivery seam exists today.~~
+- ~~**What zoom-out carries today (correction):** when an agent enters a repair-loop reflection, the
   carried material is the acceptance anchor, links to the previous comparable report, prior finding IDs
   and dispositions, the fix made since, and round counts per class in the error ledger
   (`zoom-out/references/circuit-breaker.md`). It does **not** carry the static ledger lesson text; no
-  current seam delivers the E-0002 record.
+  current seam delivers the E-0002 record.~~
 - **Ownership boundary:** #359 owns the Error Ledger; #394 owns ledger context injection and
   agent-initiated zoom-out; #141 owns candidate creation/evaluation
   ([#402 comment 6785928296](https://github.com/dyphn1/Harness-everything/issues/402#issuecomment-6785928296)).
-  **Unverified:** current tracker state of #394 (no #394-specific implementation found on local `main`).
+  ~~**Unverified:** current tracker state of #394 (no #394-specific implementation found on local `main`).~~
 
 ## Evidence
 
 - **E-0002 episode table** (counts freshly verified by `node scripts/errors-sync.js --check`, exit 0, at
   this SHA) drawn from `.agents/harness-everything/errors/E-0002-report-missing-terminal-status.md` and
-  its index row:
+  its index row: *(historical)*
 
 | Episode | Date | Rounds | Closed |
 | --- | --- | --- | --- |
@@ -201,20 +204,20 @@ flowchart LR
 - **The rule conflict witness:** episode `412-review13-label-after-status` (a column-zero
   `STATUS: DONE` followed by a hidden harness-label line) as the concrete observation that motivates the
   label/STATUS decision above.
-- **Candidate-class context:** the index has 14 records; only E-0003 carries a non-null `mechanism_ref`
-  (`.husky/commit-msg`). E-0002 has `mechanism_ref: null`.
+- ~~**Candidate-class context:** the index has 14 records; only E-0003 carries a non-null `mechanism_ref`
+  (`.husky/commit-msg`). E-0002 has `mechanism_ref: null`.~~
 
 ## Open gates
 
-- **Owner acceptance of this ADR** (`status: proposed`); the follow-up implementation and its
-  verification (deterministic mechanism tests, then one real-host task) are not started.
-- **`AGENTS.md` / `docs/routing.md` wording change** for the report-turn exception to label-last (A7.4)
-  is a follow-up owned by those files; not made here.
-- **A provenance-carrying correction of the E-0002 lesson text** is a #359 follow-up.
-- **Whether A2 requires a separate change to the existing Rule-of-3 breaker** — separate item outside
-  this ADR, unresolved for its owner (A7.5).
-- **#394 tracker state** is unverified against the tracker; no #394-specific implementation exists on
-  local `main`.
+- ~~**Owner acceptance of this ADR** (`status: proposed`); the follow-up implementation and its
+  verification (deterministic mechanism tests, then one real-host task) are not started.~~
+- ~~**`AGENTS.md` / `docs/routing.md` wording change** for the report-turn exception to label-last (A7.4)
+  is a follow-up owned by those files; not made here.~~
+- ~~**A provenance-carrying correction of the E-0002 lesson text** is a #359 follow-up.~~
+- ~~**Whether A2 requires a separate change to the existing Rule-of-3 breaker** — separate item outside
+  this ADR, unresolved for its owner (A7.5).~~
+- ~~**#394 tracker state** is unverified against the tracker; no #394-specific implementation exists on
+  local `main`.~~
 
 ## Reading list
 
@@ -285,21 +288,21 @@ Decision rests on. One line each.
 - **`AGENTS.md` rule 14 / `docs/routing.md` vs the E-0002 terminal rule:** the repository requires a
   trailing hidden harness-label line on every final message; the ledger lesson requires `STATUS:` to be
   the last line at column zero. Episode `412-review13-label-after-status` records the conflict. This ADR
-  states the A7.4 decision and its report-turn exception, but the wording change in `AGENTS.md` and
-  `docs/routing.md` is a follow-up; until it lands, the conflict stands as written.
-- **Existing generic Rule-of-3 lock vs A2:** `hooks/scripts/rule-of-3.js` and
+  states the A7.4 decision and its report-turn exception, ~~but the wording change in `AGENTS.md` and
+  `docs/routing.md` is a follow-up; until it lands, the conflict stands as written.~~
+- ~~**Existing generic Rule-of-3 lock vs A2:** `hooks/scripts/rule-of-3.js` and
   [docs/enforcement-locks.md](../enforcement-locks.md) describe a generic three-failure mutation lock with
   a required reflection report; #402 prohibits exactly such mechanisms for ledger lesson handling. This
   ADR adds, extends, calls or depends on none of them and does not modify the breaker; whether A2 requires
   a separate change to the existing breaker stays unresolved for its owner. The OpenCode plugin's separate
   breaker (`opencode-plugin/index.mjs`, [opencode-plugin/README.md](../../opencode-plugin/README.md)) is
-  likewise neither used nor modified by this delivery, and this ADR does not claim it conforms to A2.
+  likewise neither used nor modified by this delivery, and this ADR does not claim it conforms to A2.~~
 - **Ledger README lookup rule vs the owner's full-read standard:** the README says grep `index.jsonl` for
   the packet's write-set; the owner standard requires reading every record. Injecting one record does not
   change that operational standard for packets.
-- **#394 point-of-action proposals vs shipped code:** E-0002 and E-0003 propose point-of-action injection
-  in #394, but no #394-specific implementation exists on local `main` (**unverified** against the tracker).
-- **Index freshness:** `scripts/errors-sync.js` is not wired into CI or hooks (its own source comment), so
-  the index can be stale; this design never injects index content — the E-0002 record file is the content
+- ~~**#394 point-of-action proposals vs shipped code:** E-0002 and E-0003 propose point-of-action injection
+  in #394, but no #394-specific implementation exists on local `main` (**unverified** against the tracker).~~
+- **Index freshness:** ~~`scripts/errors-sync.js` is not wired into CI or hooks (its own source comment), so
+  the index can be stale;~~ this design never injects index content — the E-0002 record file is the content
   authority and the index is a locator. Counts cited in this ADR were verified by
   `node scripts/errors-sync.js --check` at this SHA.
