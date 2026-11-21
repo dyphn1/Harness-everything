@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.56.0](https://github.com/dyphn1/Harness-everything/compare/v0.55.4...v0.56.0) (2026-11-21)
+
+### Features
+
+* **dispatch:** add single-run dispatch cli entry and first full path ([7268d46](https://github.com/dyphn1/Harness-everything/commit/7268d46bff18eec11736d1079bded367d1dfc288)), closes [#468](https://github.com/dyphn1/Harness-everything/issues/468)
+* **dispatch:** cover single-run outcomes and document c8 ([99083cb](https://github.com/dyphn1/Harness-everything/commit/99083cb254703ce0af0135798ff2bb4e202e6c46)), closes [#468](https://github.com/dyphn1/Harness-everything/issues/468)
+
+### Bug Fixes
+
+* **dispatch:** classify quota from provider diagnostics and report the resolved model ([e6cf6ab](https://github.com/dyphn1/Harness-everything/commit/e6cf6abfa79d7fb8e162be6dff47cd665108555f)), closes [#468](https://github.com/dyphn1/Harness-everything/issues/468)
+* **dispatch:** return not_ready when readiness diagnostics are ambiguous ([7c10235](https://github.com/dyphn1/Harness-everything/commit/7c1023594452cf3fa36b3b1e8e5ab7711cc6224a)), closes [#493](https://github.com/dyphn1/Harness-everything/issues/493) [#468](https://github.com/dyphn1/Harness-everything/issues/468)
+* **dispatch:** separate provider rate limits from quota and canonicalize windows paths in tests ([3fbff51](https://github.com/dyphn1/Harness-everything/commit/3fbff51fac0d646598c94d5842c89695e12b7fbc)), closes [#493](https://github.com/dyphn1/Harness-everything/issues/493) [#468](https://github.com/dyphn1/Harness-everything/issues/468)
+
 ## [0.55.4](https://github.com/dyphn1/Harness-everything/compare/v0.55.3...v0.55.4) (2026-11-21)
 
 ### Bug Fixes
