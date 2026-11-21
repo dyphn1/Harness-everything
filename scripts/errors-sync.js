@@ -17,6 +17,59 @@ const RECORD = /^E-\d{4}-[a-z0-9-]+\.md$/;
 const REQUIRED = ['id', 'signature', 'class', 'scope', 'status'];
 const SCOPES = new Set(['in', 'out', 'unresolved']);
 const STATUSES = new Set(['open', 'lesson', 'mechanism']);
+const MATCH_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+
+function hasExactKeys(value, expected) {
+  const keys = Object.keys(value).sort();
+  return keys.length === expected.length && keys.every((key, index) => key === expected[index]);
+}
+
+function isMatchId(value) {
+  return typeof value === 'string' && MATCH_ID.test(value);
+}
+
+function parseMatch(match, file) {
+  if (!match || typeof match !== 'object' || Array.isArray(match)
+      || Object.keys(match).length === 0 || Object.keys(match).some(key => !['actions', 'failures'].includes(key))) {
+    throw new Error(`${file}: invalid match: expected actions and/or failures only`);
+  }
+
+  const parsed = {};
+  for (const phase of ['actions', 'failures']) {
+    if (!Object.prototype.hasOwnProperty.call(match, phase)) continue;
+    const rules = match[phase];
+    if (!Array.isArray(rules) || rules.length < 1 || rules.length > 8) {
+      throw new Error(`${file}: invalid match.${phase}: expected 1 to 8 rules`);
+    }
+    parsed[phase] = rules.map((rule, index) => {
+      const failure = phase === 'failures';
+      const keys = failure
+        ? ['diagnostics', 'executable', 'subcommand', 'tool']
+        : ['executable', 'subcommand', 'tool'];
+      if (!rule || typeof rule !== 'object' || Array.isArray(rule) || !hasExactKeys(rule, keys)) {
+        throw new Error(`${file}: invalid match.${phase}[${index}]: rule keys must be exactly ${keys.join(', ')}`);
+      }
+      if (rule.tool !== 'shell') throw new Error(`${file}: invalid match.${phase}[${index}].tool: expected shell`);
+      if (!isMatchId(rule.executable)) {
+        throw new Error(`${file}: invalid match.${phase}[${index}].executable: expected a lowercase literal id of 1 to 64 characters`);
+      }
+      if (!isMatchId(rule.subcommand)) {
+        throw new Error(`${file}: invalid match.${phase}[${index}].subcommand: expected a lowercase literal id of 1 to 64 characters`);
+      }
+      const parsedRule = { tool: 'shell', executable: rule.executable, subcommand: rule.subcommand };
+      if (failure) {
+        const diagnostics = rule.diagnostics;
+        if (!Array.isArray(diagnostics) || diagnostics.length < 1 || diagnostics.length > 16
+            || !diagnostics.every(isMatchId) || new Set(diagnostics).size !== diagnostics.length) {
+          throw new Error(`${file}: invalid match.failures[${index}].diagnostics: expected 1 to 16 unique lowercase literal ids of 1 to 64 characters`);
+        }
+        parsedRule.diagnostics = [...diagnostics];
+      }
+      return parsedRule;
+    });
+  }
+  return parsed;
+}
 
 function errorsDirectory(root) {
   const resolvedRoot = path.resolve(root);
@@ -62,7 +115,8 @@ function parseRecord(file, dir = DIR) {
   const text = fs.readFileSync(path.join(dir, file), 'utf8').replace(/\r\n/g, '\n');
   const match = /^---\n([\s\S]*?)\n---\n/.exec(text);
   if (!match) throw new Error(`${file}: missing YAML frontmatter`);
-  const meta = yaml.load(match[1]);
+  const rawFrontmatter = match[1].replace(/\r\n?/g, '\n');
+  const meta = yaml.load(rawFrontmatter);
   if (!meta || typeof meta !== 'object') throw new Error(`${file}: frontmatter is not a mapping`);
   for (const key of REQUIRED) {
     if (meta[key] === undefined || meta[key] === null || meta[key] === '') throw new Error(`${file}: missing ${key}`);
@@ -71,7 +125,7 @@ function parseRecord(file, dir = DIR) {
   if (!SCOPES.has(meta.scope)) throw new Error(`${file}: scope must be in, out or unresolved`);
   if (!STATUSES.has(meta.status)) throw new Error(`${file}: status must be open, lesson or mechanism`);
   const episodes = Array.isArray(meta.episodes) ? meta.episodes : [];
-  return {
+  const record = {
     id: meta.id,
     signature: meta.signature,
     class: meta.class,
@@ -81,6 +135,7 @@ function parseRecord(file, dir = DIR) {
     sites: Array.isArray(meta.sites) ? meta.sites : [],
     violates: meta.violates || null,
     mechanism_ref: meta.mechanism_ref || null,
+    ...(Object.prototype.hasOwnProperty.call(meta, 'match') ? { match: parseMatch(meta.match, file) } : {}),
     episodes: episodes.length,
     rounds: episodes.map(e => ({
       episode: e.episode || null,
@@ -90,6 +145,12 @@ function parseRecord(file, dir = DIR) {
     })),
     file: path.posix.join('.agents/harness-everything/errors', file),
   };
+  if (record.match) {
+    record.matchBinding = crypto.createHash('sha256').update(JSON.stringify([
+      rawFrontmatter, record.id, record.signature, record.file, record.match
+    ])).digest('hex');
+  }
+  return record;
 }
 
 function renderDirectory(dir) {

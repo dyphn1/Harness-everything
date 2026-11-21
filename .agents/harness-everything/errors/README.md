@@ -34,6 +34,7 @@ One `E-xxxx-<slug>.md` per error class: YAML frontmatter plus a short body (cue,
 | `scope` | `in`, `out` (a known limit) or `unresolved` (owner decision) |
 | `status` | `open`, `lesson` or `mechanism`. Learning state, not closure |
 | `mechanism_ref` | Test, hook, template or skill that now carries the lesson, or `null` |
+| `match` | Optional. `actions` and/or `failures`, each 1–8 rules of literal `tool: shell`, `executable`, `subcommand` (lowercase, 1–64 chars); failure rules add 1–16 `diagnostics` ids. No regex. Read by the lesson-injection matcher (#394) |
 | `episodes` | Independent occurrences. Each lists its `rounds` |
 
 - **Episodes vs rounds.** An episode is one independent occurrence (a new feature or session meeting the same class). Rounds are attempts inside an episode: round 0 is discovery; each corrective change followed by a substantive review is one round, including the closing review. A rerun of the same report is not a new round, and several reviewers describing one incident is one episode.

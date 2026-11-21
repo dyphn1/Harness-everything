@@ -108,6 +108,18 @@
             "statusMessage": "Recording local Harness skill telemetry"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/codex-ledger-lesson.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\codex-ledger-lesson.js\"",
+            "timeout": 10,
+            "statusMessage": "Checking relevant workspace lessons"
+          }
+        ]
       }
     ],
     "PermissionRequest": [
@@ -211,6 +223,18 @@
             "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\observation-hook.js\"",
             "timeout": 10,
             "statusMessage": "Recording a local System One turn observation"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/codex-ledger-lesson.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\codex-ledger-lesson.js\"",
+            "timeout": 10,
+            "statusMessage": "Checking relevant workspace lessons"
           }
         ]
       }

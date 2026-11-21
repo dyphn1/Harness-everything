@@ -1,0 +1,5 @@
+⧗   input: merge origin/main
+✖   subject may not be empty [subject-empty]
+✖   type may not be empty [type-empty]
+
+✖   found 2 problems, 0 warnings

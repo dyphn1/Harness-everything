@@ -123,6 +123,17 @@
         ],
         "description": "Record privacy-safe Harness skill load start telemetry",
         "id": "harness:pre:skill-telemetry"
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/ledger-lesson.js\""
+          }
+        ],
+        "description": "Inject a matched workspace ledger lesson as fail-open Bash context",
+        "id": "harness:pre:ledger-lesson"
       }
     ],
     "Stop": [
@@ -309,6 +320,17 @@
         ],
         "description": "Record a local, content-private System One turn observation (docs/system-one-observations.md); fail-open and silent",
         "id": "harness:obs:observation-posttoolusefailure"
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/ledger-lesson.js\""
+          }
+        ],
+        "description": "Inject a matched workspace ledger lesson after a failed Bash tool",
+        "id": "harness:post-failure:ledger-lesson"
       }
     ],
     "SubagentStart": [

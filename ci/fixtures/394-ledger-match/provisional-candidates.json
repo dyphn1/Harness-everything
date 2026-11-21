@@ -1,0 +1,20 @@
+[
+  {
+    "identity": "local-commit-a",
+    "signature": "local-commit-a",
+    "match": {
+      "actions": [{ "tool": "shell", "executable": "git", "subcommand": "commit" }]
+    },
+    "cue": "A local note about a commit.",
+    "lesson": "Check the proposed message before retrying."
+  },
+  {
+    "identity": "local-commit-b",
+    "signature": "local-commit-b",
+    "match": {
+      "actions": [{ "tool": "shell", "executable": "git", "subcommand": "commit" }]
+    },
+    "cue": "A second local note about a commit.",
+    "lesson": "Keep the corrected message within the project's rules."
+  }
+]
