@@ -408,6 +408,17 @@ try {
       });
     }
 
+    for (const scenario of ['rate-limit-and-quota', 'quota-and-rate-limit']) {
+      check(`${runner} readiness ${scenario} -> NOT_READY regardless of diagnostic order`, () => {
+        const testCase = makeCase(`${runner} ${scenario}`);
+        const response = jsonResponse(cli([...argsFor(testCase, runner), '--json'], testCase, { readiness: scenario }), 12, 'NOT_READY');
+        const readinessLog = fs.readFileSync(response.evidence.readinessLog, 'utf8');
+        assert.ok(readinessLog.includes('Provider request failed with HTTP 429'));
+        assert.ok(readinessLog.includes('Free usage limit reached'));
+        assertReadinessRefusal(testCase, runner, response);
+      });
+    }
+
     check(`${runner} validated padded model is retained in readiness failure JSON`, () => {
       const testCase = makeCase(`${runner} padded model refusal`);
       const model = runner === 'codex' ? 'fixture/codex-model' : 'fixture/opencode-model';

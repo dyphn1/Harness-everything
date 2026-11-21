@@ -33,7 +33,7 @@ function hang() {
 }
 
 function readyOutput() {
-  if (['no-ready', 'rate-limited', 'quota-exhausted', 'stdout-provider-rate', 'wrong-envelope', 'quoted-provider-rate', 'local-http-429', 'invalid-quota', 'bare-429', 'provider-rate-with-extra-text', 'provider-timeout', 'timeout', 'signal-provider-rate'].includes(scenario)) return;
+  if (['no-ready', 'rate-limited', 'quota-exhausted', 'rate-limit-and-quota', 'quota-and-rate-limit', 'stdout-provider-rate', 'wrong-envelope', 'quoted-provider-rate', 'local-http-429', 'invalid-quota', 'bare-429', 'provider-rate-with-extra-text', 'provider-timeout', 'timeout', 'signal-provider-rate'].includes(scenario)) return;
   if (runner === 'codex') {
     if (outputPath) fs.writeFileSync(outputPath, 'READY\n');
   } else process.stdout.write('READY\n');
@@ -86,6 +86,11 @@ if (phase === 'readiness') {
     process.exitCode = 7;
   } else if (scenario === 'quota-exhausted') {
     process.stderr.write(diagnosticLine(providerQuota));
+    process.exitCode = 7;
+  } else if (scenario === 'rate-limit-and-quota' || scenario === 'quota-and-rate-limit') {
+    const diagnostics = [providerRateLimit, providerQuota];
+    if (scenario === 'quota-and-rate-limit') diagnostics.reverse();
+    process.stderr.write(diagnostics.map(diagnosticLine).join(''));
     process.exitCode = 7;
   } else if (scenario === 'stdout-provider-rate') {
     process.stdout.write(diagnosticLine(providerRateLimit));

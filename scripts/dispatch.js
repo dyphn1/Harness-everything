@@ -204,7 +204,8 @@ const READINESS_DIAGNOSTICS = {
 function readinessDiagnostic(runner, stderr) {
   const output = stderr.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '');
   const lines = output.split(/\r?\n/);
-  return READINESS_DIAGNOSTICS[runner].find(diagnostic => lines.includes(diagnostic.line)) || null;
+  const matches = READINESS_DIAGNOSTICS[runner].filter(diagnostic => lines.includes(diagnostic.line));
+  return matches.length === 1 ? matches[0] : null;
 }
 
 function readiness(input, paths) {
