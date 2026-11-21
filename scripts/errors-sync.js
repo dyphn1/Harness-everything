@@ -115,7 +115,8 @@ function parseRecord(file, dir = DIR) {
   const text = fs.readFileSync(path.join(dir, file), 'utf8').replace(/\r\n/g, '\n');
   const match = /^---\n([\s\S]*?)\n---\n/.exec(text);
   if (!match) throw new Error(`${file}: missing YAML frontmatter`);
-  const meta = yaml.load(match[1]);
+  const rawFrontmatter = match[1].replace(/\r\n?/g, '\n');
+  const meta = yaml.load(rawFrontmatter);
   if (!meta || typeof meta !== 'object') throw new Error(`${file}: frontmatter is not a mapping`);
   for (const key of REQUIRED) {
     if (meta[key] === undefined || meta[key] === null || meta[key] === '') throw new Error(`${file}: missing ${key}`);
@@ -124,7 +125,7 @@ function parseRecord(file, dir = DIR) {
   if (!SCOPES.has(meta.scope)) throw new Error(`${file}: scope must be in, out or unresolved`);
   if (!STATUSES.has(meta.status)) throw new Error(`${file}: status must be open, lesson or mechanism`);
   const episodes = Array.isArray(meta.episodes) ? meta.episodes : [];
-  return {
+  const record = {
     id: meta.id,
     signature: meta.signature,
     class: meta.class,
@@ -144,6 +145,12 @@ function parseRecord(file, dir = DIR) {
     })),
     file: path.posix.join('.agents/harness-everything/errors', file),
   };
+  if (record.match) {
+    record.matchBinding = crypto.createHash('sha256').update(JSON.stringify([
+      rawFrontmatter, record.id, record.signature, record.file, record.match
+    ])).digest('hex');
+  }
+  return record;
 }
 
 function renderDirectory(dir) {

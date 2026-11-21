@@ -11,11 +11,11 @@ const compat = require('../scripts/codex-hooks-compat');
 
 const ROOT = path.resolve(__dirname, '..');
 const PLUGIN_ROOT = path.join(ROOT, 'plugins', 'harness-everything');
+const ERRORS_SYNC = path.join(ROOT, 'scripts', 'errors-sync.js');
+const LEDGER_DIR = path.join(ROOT, '.agents', 'harness-everything', 'errors');
 const TEMP = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), '394 codex ledger ')));
 const STATE_HOME = path.join(TEMP, 'state');
-const INDEX_FILE = path.join(ROOT, '.agents', 'harness-everything', 'errors', 'index.jsonl');
-const ROW_E3 = JSON.parse(fs.readFileSync(INDEX_FILE, 'utf8').split(/\r?\n/)
-  .find(line => line && JSON.parse(line).id === 'E-0003'));
+const E3_FILE = fs.readdirSync(LEDGER_DIR).find(file => /^E-0003-[a-z0-9-]+\.md$/.test(file));
 const COMMITLINT_OUTPUT = fs.readFileSync(
   path.join(ROOT, 'ci', 'fixtures', '394-ledger-match', 'commitlint-subject-case.txt'), 'utf8');
 const FIXTURES = path.join(__dirname, 'fixtures', '394-codex-ledger-lesson');
@@ -39,10 +39,11 @@ function workspace(name, { ledger = true } = {}) {
   const root = path.join(TEMP, name);
   fs.mkdirSync(path.join(root, '.git'), { recursive: true });
   if (ledger) {
-    const recordDir = path.join(root, path.dirname(ROW_E3.file));
+    const recordDir = path.join(root, '.agents', 'harness-everything', 'errors');
     fs.mkdirSync(recordDir, { recursive: true });
-    fs.copyFileSync(INDEX_FILE, path.join(recordDir, 'index.jsonl'));
-    fs.copyFileSync(path.join(ROOT, ROW_E3.file), path.join(root, ROW_E3.file));
+    fs.copyFileSync(path.join(LEDGER_DIR, E3_FILE), path.join(recordDir, E3_FILE));
+    const generated = spawnSync(process.execPath, [ERRORS_SYNC, '--root', root], { cwd: ROOT, encoding: 'utf8' });
+    assert.equal(generated.status, 0, generated.stderr);
   }
   return fs.realpathSync.native(root);
 }
@@ -136,6 +137,14 @@ function carrierRoundTrip(run, name) {
   failure.tool_response.stderr = COMMITLINT_OUTPUT;
   context(run('PostToolUse', failure), 'PostToolUse');
   assert.equal(run('PostToolUse', failure), '', 'repeated failure context is deduplicated');
+
+  const prefixedAction = payload('pre-tool-use.json', root, `${name}-session-prefixed`);
+  prefixedAction.tool_input.command = 'git -C x commit -m "Docs: rejected subject"';
+  context(run('PreToolUse', prefixedAction), 'PreToolUse');
+  const prefixedFailure = payload('post-tool-use-failure.json', root, `${name}-session-prefixed`);
+  prefixedFailure.tool_input.command = prefixedAction.tool_input.command;
+  prefixedFailure.tool_response.stderr = COMMITLINT_OUTPUT;
+  context(run('PostToolUse', prefixedFailure), 'PostToolUse');
 
   const anotherSession = payload('pre-tool-use.json', root, `${name}-session-b`);
   context(run('PreToolUse', anotherSession), 'PreToolUse');

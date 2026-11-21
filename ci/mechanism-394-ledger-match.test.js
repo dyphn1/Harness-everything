@@ -2,7 +2,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -16,18 +16,28 @@ try {
 }
 
 const ROOT = path.resolve(__dirname, '..');
+const ERRORS_SYNC = path.join(ROOT, 'scripts', 'errors-sync.js');
 const LEDGER_DIR = path.join(ROOT, '.agents', 'harness-everything', 'errors');
-const INDEX_FILE = path.join(LEDGER_DIR, 'index.jsonl');
-const REAL_E3 = JSON.parse(fs.readFileSync(INDEX_FILE, 'utf8').split(/\r?\n/)
-  .find(line => line && JSON.parse(line).id === 'E-0003'));
-const E3_TEXT = fs.readFileSync(path.join(ROOT, REAL_E3.file), 'utf8');
+const E3_FILE = fs.readdirSync(LEDGER_DIR).find(file => /^E-0003-[a-z0-9-]+\.md$/.test(file));
+const E3_TEXT = fs.readFileSync(path.join(LEDGER_DIR, E3_FILE), 'utf8');
 const COMMITLINT_OUTPUT = fs.readFileSync(path.join(__dirname, 'fixtures/394-ledger-match/commitlint-subject-case.txt'), 'utf8');
 const COMMITLINT_EMPTY_SUBJECT_OUTPUT = fs.readFileSync(
   path.join(__dirname, 'fixtures/394-ledger-match/commitlint-empty-subject.txt'), 'utf8');
+const QUOTED_RECORD = fs.readFileSync(path.join(__dirname, 'fixtures/394-ledger-match/quoted-match-record.md'), 'utf8');
 const PROVISIONAL_FIXTURE = JSON.parse(fs.readFileSync(
   path.join(__dirname, 'fixtures/394-ledger-match/provisional-candidates.json'), 'utf8'));
 const TMP = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), '394 ledger match ')));
 let serial = 0;
+const GENERATED_E3_ROOT = path.join(TMP, 'generated-e3');
+write(path.join(GENERATED_E3_ROOT, '.agents', 'harness-everything', 'errors', E3_FILE), E3_TEXT);
+const E3_GENERATION = spawnSync(process.execPath, [ERRORS_SYNC, '--root', GENERATED_E3_ROOT], {
+  cwd: ROOT,
+  env: Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== 'HARNESS_SYSTEM_ONE_MODE')),
+  encoding: 'utf8'
+});
+if (E3_GENERATION.status !== 0) throw new Error(E3_GENERATION.stderr);
+const REAL_E3 = JSON.parse(fs.readFileSync(
+  path.join(GENERATED_E3_ROOT, '.agents', 'harness-everything', 'errors', 'index.jsonl'), 'utf8').trim());
 
 test.after(() => fs.rmSync(TMP, { recursive: true, force: true }));
 
@@ -71,7 +81,7 @@ function localSource(candidates) {
 
 function input(overrides = {}) {
   return {
-    workspaceRoot: ROOT,
+    workspaceRoot: GENERATED_E3_ROOT,
     workspaceIdentity: 'workspace:fixture',
     sessionIdentity: 'session:one',
     stateDir: stateDir('session-state'),
@@ -117,6 +127,29 @@ test('exports the conservative git commit executable/subcommand normalizer', () 
   assert.deepEqual(matcher.normalizeGitCommitCommand("git commit -m 'message; with separator'"), {
     tool: 'shell', executable: 'git', subcommand: 'commit'
   });
+  for (const command of [
+    'git -C x commit',
+    'git -c user.name=Harness commit',
+    'git --git-dir=/repo/.git commit',
+    'git --work-tree=/repo commit',
+    'git --no-pager commit',
+    'git -P commit',
+    'git -C x -c user.name=Harness --git-dir=/repo/.git --work-tree=/repo --no-pager -P commit'
+  ]) assert.deepEqual(matcher.normalizeGitCommitCommand(command), {
+    tool: 'shell', executable: 'git', subcommand: 'commit'
+  }, command);
+  for (const command of [
+    'git -C',
+    'git -C x',
+    'git -c',
+    'git -c user.name commit',
+    'git -c =Harness commit',
+    'git --git-dir= commit',
+    'git --work-tree= commit',
+    'git --git-dir /repo/.git commit',
+    'git --other=option commit',
+    'git -C x status'
+  ]) assert.equal(matcher.normalizeGitCommitCommand(command), null, command);
 });
 
 test('a direct git commit selects the real E-0003 record at action', () => {
@@ -148,6 +181,95 @@ test('a failed commit with captured commitlint output selects again at failure',
     event: { phase: 'failure', tool: 'shell', command: 'git commit', outcome: { failed: true, output: COMMITLINT_EMPTY_SUBJECT_OUTPUT } }
   }));
   assert.deepEqual(emptySubject.ids, ['E-0003']);
+});
+
+test('the real generator and runtime accept quoted identity and match scalars', () => {
+  const root = workspace('generated quoted record');
+  const ledger = path.join(root, '.agents', 'harness-everything', 'errors');
+  const recordFile = 'E-0999-quoted-match-record.md';
+  write(path.join(ledger, recordFile), QUOTED_RECORD);
+  const env = { ...process.env };
+  delete env.HARNESS_SYSTEM_ONE_MODE;
+  const generated = spawnSync(process.execPath, [ERRORS_SYNC, '--root', root], {
+    cwd: ROOT,
+    env,
+    encoding: 'utf8'
+  });
+  assert.equal(generated.status, 0, generated.stderr);
+  const row = JSON.parse(fs.readFileSync(path.join(ledger, 'index.jsonl'), 'utf8').trim());
+  const state = stateDir('generated-quoted');
+  const action = select(input({
+    workspaceRoot: root,
+    stateDir: state,
+    event: { phase: 'action', tool: 'shell', command: 'git commit', outcome: { failed: 'unknown' } }
+  }));
+  assert.deepEqual(action?.ids, ['E-0999'], 'the generated quoted rule selects its real Cue/Lesson at action');
+  assert.ok(action.text.includes('A generated quoted rule is still an ordinary Git commit.'));
+  assert.ok(action.text.includes('Review the commit message before retrying.'));
+  assert.match(row.matchBinding, /^[0-9a-f]{64}$/, 'the generator binds every match-bearing row');
+
+  const failure = select(input({
+    workspaceRoot: root,
+    stateDir: state,
+    event: {
+      phase: 'failure',
+      tool: 'shell',
+      command: 'git commit',
+      outcome: { failed: true, output: COMMITLINT_OUTPUT }
+    }
+  }));
+  assert.deepEqual(failure?.ids, ['E-0999'], 'the same generated rule selects at failure');
+
+  const recordPath = path.join(ledger, recordFile);
+  fs.writeFileSync(recordPath, QUOTED_RECORD.replace('status: "lesson"', 'status: "open"'));
+  assert.equal(select(input({ workspaceRoot: root, stateDir: stateDir('stale-frontmatter') })), null,
+    'a frontmatter change makes its generated binding stale');
+  fs.writeFileSync(recordPath, QUOTED_RECORD.replace('id: "E-0999"', 'id: "E-1000"'));
+  assert.equal(select(input({ workspaceRoot: root, stateDir: stateDir('wrong-record-id') })), null,
+    'a record identity change makes its generated binding stale');
+  fs.writeFileSync(recordPath, QUOTED_RECORD);
+  const indexPath = path.join(ledger, 'index.jsonl');
+  const tamperedRow = { ...row, signature: 'tampered-signature' };
+  fs.writeFileSync(indexPath, JSON.stringify(tamperedRow) + '\n');
+  assert.equal(select(input({ workspaceRoot: root, stateDir: stateDir('tampered-row') })), null,
+    'an independently edited row fails open');
+});
+
+test('git -C commit reaches E-0003 at action and captured failure', () => {
+  const command = 'git -C x commit';
+  const state = stateDir('git-C-action-failure');
+  const action = select(input({
+    stateDir: state,
+    event: { phase: 'action', tool: 'shell', command, outcome: { failed: 'unknown' } }
+  }));
+  assert.deepEqual(action?.ids, ['E-0003'], 'git -C x commit selects at action');
+  const failure = select(input({
+    stateDir: state,
+    event: { phase: 'failure', tool: 'shell', command, outcome: { failed: true, output: COMMITLINT_OUTPUT } }
+  }));
+  assert.deepEqual(failure?.ids, ['E-0003'], 'git -C x commit selects at failure with captured commitlint output');
+  assert.equal(action.text, failure.text, 'action and failure carry the same reminder under separate phase keys');
+
+  for (const prefix of [
+    '-c user.name=Harness',
+    '--no-pager',
+    '-P',
+    '-C x -c user.name=Harness --git-dir=/repo/.git --work-tree=/repo --no-pager -P'
+  ]) {
+    assert.deepEqual(matcher.normalizeGitCommitCommand('git ' + prefix + ' commit'), {
+      tool: 'shell', executable: 'git', subcommand: 'commit'
+    }, prefix);
+  }
+  const combined = select(input({
+    stateDir: stateDir('combined-global-options'),
+    event: {
+      phase: 'action',
+      tool: 'shell',
+      command: 'git -C x -c user.name=Harness --git-dir=/repo/.git --work-tree=/repo --no-pager -P commit',
+      outcome: { failed: 'unknown' }
+    }
+  }));
+  assert.deepEqual(combined?.ids, ['E-0003'], 'combined Git globals do not change the bound workspace ledger');
 });
 
 test('quoted mentions, unrelated commands and unqualified failures stay silent', () => {
@@ -336,7 +458,10 @@ test('repo corruption fails open while an independent valid provisional source s
 });
 
 test('malformed or oversized repo inputs produce no repo text', () => {
+  const unboundRow = { ...REAL_E3 };
+  delete unboundRow.matchBinding;
   const cases = [
+    ['unbound matched row', repoWorkspace('unbound row', { indexText: JSON.stringify(unboundRow) + '\n' })],
     ['oversized index', repoWorkspace('large index', { indexText: ' '.repeat(600 * 1024) })],
     ['missing record', repoWorkspace('missing record', { missingRecord: true })],
     ['oversized record', repoWorkspace('large record', { recordText: E3_TEXT + 'x'.repeat(40 * 1024) })],

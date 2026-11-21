@@ -85,6 +85,12 @@ function assertMatchSchema() {
     actions: [ACTION_RULE],
     failures: [{ ...ACTION_RULE, diagnostics: ['subject-case', 'header-max-length', 'type-empty', 'subject-empty'] }],
   }, 'the real E-0003 row carries both match rule lists');
+  const e3Text = fs.readFileSync(path.join(ROOT, e3.file), 'utf8');
+  const rawFrontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(e3Text)[1].replace(/\r\n?/g, '\n');
+  const expectedBinding = crypto.createHash('sha256').update(JSON.stringify([
+    rawFrontmatter, e3.id, e3.signature, e3.file, e3.match
+  ])).digest('hex');
+  assert.equal(e3.matchBinding, expectedBinding, 'the binding hashes normalized raw frontmatter and the generated rule row');
   assert.equal(Object.hasOwn(rows.find(row => row.id === 'E-0001'), 'match'), false,
     'records without match keep the field absent');
 
@@ -150,10 +156,10 @@ function assertUnsafeRefused(target, unchanged, tempDirs) {
 
 try {
   const harnessIndexDigest = digest(HARNESS_INDEX);
-  const harnessIndex = fs.readFileSync(HARNESS_INDEX, 'utf8');
-  assert.equal(invoke(['--check']).status, 0, 'the no-root Harness check is the regression control');
-  assert.equal(render(), harnessIndex, 'render() defaults to the current Harness root');
   assertMatchSchema();
+  const generatedControl = seedLedger('generated check control');
+  assert.equal(invoke(['--check', '--root', generatedControl.root]).status, 0,
+    'errors-sync --check validates a generated temporary ledger');
   assert.ok(targetRoot.includes(' '), 'the target root must contain a space');
   assert.equal(isWithin(ROOT, targetRoot), false, 'the temporary target must stay outside the Harness root');
 

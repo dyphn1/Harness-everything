@@ -63,74 +63,10 @@ function validateMatch(match) {
   return result;
 }
 
-function canonicalMatch(match) {
-  const normalized = {};
-  if (match.actions) normalized.actions = match.actions.map(rule => ({
-    tool: rule.tool, executable: rule.executable, subcommand: rule.subcommand
-  }));
-  if (match.failures) normalized.failures = match.failures.map(rule => ({
-    tool: rule.tool, executable: rule.executable, subcommand: rule.subcommand, diagnostics: rule.diagnostics
-  }));
-  return JSON.stringify(normalized);
-}
-
-function parseMatchFrontmatter(frontmatter) {
-  const lines = frontmatter.split(/\r?\n/);
-  const start = lines.findIndex(line => line === 'match:');
-  if (start === -1) return null;
-  let currentList = null;
-  let currentRule = null;
-  let inDiagnostics = false;
-  const match = {};
-  for (const line of lines.slice(start + 1)) {
-    if (!line.trim()) continue;
-    if (!/^\s/.test(line)) break;
-    let found = line.match(/^  (actions|failures):$/);
-    if (found) {
-      currentList = found[1];
-      if (Object.hasOwn(match, currentList)) throw new Error('duplicate match list');
-      match[currentList] = [];
-      currentRule = null;
-      inDiagnostics = false;
-      continue;
-    }
-    if (line === '    - tool: shell' && currentList) {
-      currentRule = { tool: 'shell' };
-      match[currentList].push(currentRule);
-      inDiagnostics = false;
-      continue;
-    }
-    found = line.match(/^      (executable|subcommand): ([a-z0-9][a-z0-9_-]{0,63})$/);
-    if (found && currentRule) {
-      if (Object.hasOwn(currentRule, found[1])) throw new Error('duplicate match field');
-      currentRule[found[1]] = found[2];
-      continue;
-    }
-    if (line === '      diagnostics:' && currentRule && currentList === 'failures') {
-      if (Object.hasOwn(currentRule, 'diagnostics')) throw new Error('duplicate diagnostics');
-      currentRule.diagnostics = [];
-      inDiagnostics = true;
-      continue;
-    }
-    found = line.match(/^        - ([a-z0-9][a-z0-9_-]{0,63})$/);
-    if (found && inDiagnostics && currentRule) {
-      currentRule.diagnostics.push(found[1]);
-      continue;
-    }
-    throw new Error('malformed match frontmatter');
-  }
-  return validateMatch(match);
-}
-
 function frontmatter(text) {
   const found = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
   if (!found) throw new Error('missing frontmatter');
   return found[1];
-}
-
-function scalar(frontmatterText, key) {
-  const found = frontmatterText.match(new RegExp(`^${key}: ([^\\r\\n]+)$`, 'm'));
-  return found ? found[1].trim() : null;
 }
 
 function section(text, name) {
@@ -162,12 +98,30 @@ function canonicalWorkspace(root) {
 }
 
 function validIndexRow(row) {
-  if (!isObject(row) || !RECORD_ID_PATTERN.test(row.id) || !validIdentifier(row.signature) ||
+  if (!isObject(row) || !hasOnlyKeys(row, [
+    'id', 'signature', 'class', 'title', 'scope', 'status', 'sites', 'violates',
+    'mechanism_ref', 'episodes', 'rounds', 'file', 'match', 'matchBinding'
+  ]) ||
+      !RECORD_ID_PATTERN.test(row.id) || !validIdentifier(row.signature) ||
       typeof row.file !== 'string') throw new Error('invalid index row');
   const file = FILE_PATTERN.exec(row.file);
   if (!file || file[1] !== row.id) throw new Error('invalid record path');
   const match = Object.hasOwn(row, 'match') ? validateMatch(row.match) : null;
-  return { id: row.id, signature: row.signature, file: row.file, match };
+  if (match ? (typeof row.matchBinding !== 'string' || !/^[a-f0-9]{64}$/.test(row.matchBinding))
+    : Object.hasOwn(row, 'matchBinding')) throw new Error('invalid match binding');
+  return {
+    id: row.id,
+    signature: row.signature,
+    file: row.file,
+    match,
+    ...(match ? { matchBinding: row.matchBinding } : {})
+  };
+}
+
+function matchBinding(frontmatterText, row) {
+  return crypto.createHash('sha256').update(JSON.stringify([
+    frontmatterText.replace(/\r\n?/g, '\n'), row.id, row.signature, row.file, row.match
+  ])).digest('hex');
 }
 
 function readIndex(root) {
@@ -192,11 +146,7 @@ function readRecord(ledger, row) {
   const stat = fs.statSync(real);
   if (stat.size > LIMITS.recordBytes) throw new Error('oversized record');
   const text = fs.readFileSync(real, 'utf8');
-  const fm = frontmatter(text);
-  if (scalar(fm, 'id') !== row.id || scalar(fm, 'signature') !== row.signature) throw new Error('stale record identity');
-  const sourceMatch = parseMatchFrontmatter(fm);
-  if (row.match && (!sourceMatch || canonicalMatch(row.match) !== canonicalMatch(sourceMatch))) throw new Error('stale indexed match');
-  if (!row.match && sourceMatch) throw new Error('stale indexed match');
+  if (matchBinding(frontmatter(text), row) !== row.matchBinding) throw new Error('stale indexed match binding');
   return {
     id: row.id,
     signature: row.signature,
@@ -208,7 +158,7 @@ function readRecord(ledger, row) {
   };
 }
 
-// shortcut: only simple direct invocations are parsed; add wrapper support if a carrier needs it.
+// shortcut: only direct commands and listed Git prefixes are parsed; add wrapper support if a carrier needs it.
 function words(command) {
   if (typeof command !== 'string' || command.length > LIMITS.command || /[\r\n\0]/.test(command)) return null;
   const tokens = [];
@@ -244,8 +194,30 @@ function normalizeShellCommand(command) {
     const tokens = words(command);
     if (!tokens || tokens.length < 2) return null;
     const executable = tokens[0].replaceAll('\\', '/').split('/').at(-1).toLowerCase().replace(/\.exe$/, '');
-    if (!validIdentifier(executable) || !validIdentifier(tokens[1])) return null;
-    return { tool: 'shell', executable, subcommand: tokens[1] };
+    if (!validIdentifier(executable)) return null;
+    let index = 1;
+    if (executable === 'git') {
+      while (tokens[index]?.startsWith('-')) {
+        const option = tokens[index++];
+        if (option === '-C') {
+          if (!tokens[index++]) return null;
+        } else if (option === '-c') {
+          const setting = tokens[index++];
+          const equals = setting?.indexOf('=');
+          if (!setting || equals < 1 || equals === setting.length - 1) return null;
+        } else if (option === '--no-pager' || option === '-P') {
+          continue;
+        } else if (option.startsWith('--git-dir=')) {
+          if (option.length === '--git-dir='.length) return null;
+        } else if (option.startsWith('--work-tree=')) {
+          if (option.length === '--work-tree='.length) return null;
+        } else {
+          return null;
+        }
+      }
+    }
+    if (!validIdentifier(tokens[index])) return null;
+    return { tool: 'shell', executable, subcommand: tokens[index] };
   } catch (_) {
     return null;
   }
