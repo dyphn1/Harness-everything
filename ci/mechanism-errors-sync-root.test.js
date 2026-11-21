@@ -57,6 +57,81 @@ function seedLedger(name) {
   return { root, dir, index: path.join(dir, 'index.jsonl'), record: path.join(dir, 'E-0001-root-test.md') };
 }
 
+const ACTION_RULE = { tool: 'shell', executable: 'git', subcommand: 'commit' };
+
+function recordWithMatch(match) {
+  const metadata = { id: 'E-0003', signature: 'schema-test', class: 'test', scope: 'in', status: 'lesson', match };
+  return `---\n${JSON.stringify(metadata)}\n---\nA schema fixture.\n`;
+}
+
+let invalidMatchNumber = 0;
+function assertInvalidMatch(label, match) {
+  const root = path.join(temp, `invalid match ${++invalidMatchNumber}`);
+  const dir = path.join(root, '.agents', 'harness-everything', 'errors');
+  const record = 'E-0003-schema-test.md';
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, record), recordWithMatch(match));
+
+  const result = invoke(['--root', root]);
+  assert.notEqual(result.status, 0, `${label}: errors:sync rejects malformed match data`);
+  assert.ok(result.stderr.includes(record), `${label}: errors:sync names the malformed record: ${result.stderr}`);
+  assert.equal(fs.existsSync(path.join(dir, 'index.jsonl')), false, `${label}: malformed data does not publish an index`);
+}
+
+function assertMatchSchema() {
+  const rows = render().trimEnd().split('\n').map(JSON.parse);
+  const e3 = rows.find(row => row.id === 'E-0003');
+  assert.deepEqual(e3.match, {
+    actions: [ACTION_RULE],
+    failures: [{ ...ACTION_RULE, diagnostics: ['subject-case', 'header-max-length', 'type-empty', 'subject-empty'] }],
+  }, 'the real E-0003 row carries both match rule lists');
+  assert.equal(Object.hasOwn(rows.find(row => row.id === 'E-0001'), 'match'), false,
+    'records without match keep the field absent');
+
+  const boundaryRoot = path.join(temp, 'match boundary repo');
+  const boundaryDir = path.join(boundaryRoot, '.agents', 'harness-everything', 'errors');
+  fs.mkdirSync(boundaryDir, { recursive: true });
+  const boundaryMatch = {
+    actions: Array.from({ length: 8 }, (_, i) => ({
+      tool: 'shell', executable: i === 0 ? 'a'.repeat(64) : 'git', subcommand: i === 0 ? 'c' : `cmd${i}`,
+    })),
+    failures: Array.from({ length: 8 }, (_, i) => ({
+      ...ACTION_RULE,
+      subcommand: `cmd${i}`,
+      diagnostics: i === 0 ? Array.from({ length: 16 }, (_, j) => `diag-${j}`) : ['x'],
+    })),
+  };
+  fs.writeFileSync(path.join(boundaryDir, 'E-0003-schema-test.md'), recordWithMatch(boundaryMatch));
+  assert.deepEqual(JSON.parse(render(boundaryRoot).trim()).match, boundaryMatch,
+    'schema accepts the 1/64-character, 8-rule, and 16-diagnostic boundaries');
+
+  const failure = (overrides = {}) => ({ ...ACTION_RULE, ...overrides });
+  const malformed = [
+    ['match mapping', null],
+    ['match has a supported field', { actions: [ACTION_RULE], unknown: [] }],
+    ['match contains actions or failures', {}],
+    ['actions is an array', { actions: ACTION_RULE }],
+    ['actions has at least one rule', { actions: [] }],
+    ['actions has at most eight rules', { actions: Array(9).fill(ACTION_RULE) }],
+    ['action rule is a mapping', { actions: ['git'] }],
+    ['action rule has exact keys', { actions: [failure({ extra: true })] }],
+    ['action tool is shell', { actions: [failure({ tool: 'git' })] }],
+    ['executable is lowercase', { actions: [failure({ executable: 'Git' })] }],
+    ['subcommand is a literal id', { actions: [failure({ subcommand: 'commit --amend' })] }],
+    ['literal id is at most 64 characters', { actions: [failure({ executable: 'a'.repeat(65) })] }],
+    ['failures is an array', { failures: ACTION_RULE }],
+    ['failures has at least one rule', { failures: [] }],
+    ['failures has at most eight rules', { failures: Array(9).fill({ ...ACTION_RULE, diagnostics: ['subject-case'] }) }],
+    ['failure rule has exact keys', { failures: [{ ...ACTION_RULE, diagnostics: ['subject-case'], extra: true }] }],
+    ['failure rule requires diagnostics', { failures: [ACTION_RULE] }],
+    ['diagnostics has 1 to 16 values', { failures: [{ ...ACTION_RULE, diagnostics: [] }] }],
+    ['diagnostics has at most 16 values', { failures: [{ ...ACTION_RULE, diagnostics: Array(17).fill('x') }] }],
+    ['diagnostics are unique', { failures: [{ ...ACTION_RULE, diagnostics: ['type-empty', 'type-empty'] }] }],
+    ['diagnostics are lowercase literal ids', { failures: [{ ...ACTION_RULE, diagnostics: ['Subject-Case'] }] }],
+  ];
+  for (const [label, match] of malformed) assertInvalidMatch(label, match);
+}
+
 function assertUnsafeRefused(target, unchanged, tempDirs) {
   const before = unchanged.map(snapshot);
   const harnessBefore = fs.readFileSync(HARNESS_INDEX);
@@ -78,6 +153,7 @@ try {
   const harnessIndex = fs.readFileSync(HARNESS_INDEX, 'utf8');
   assert.equal(invoke(['--check']).status, 0, 'the no-root Harness check is the regression control');
   assert.equal(render(), harnessIndex, 'render() defaults to the current Harness root');
+  assertMatchSchema();
   assert.ok(targetRoot.includes(' '), 'the target root must contain a space');
   assert.equal(isWithin(ROOT, targetRoot), false, 'the temporary target must stay outside the Harness root');
 
@@ -116,7 +192,7 @@ try {
   fs.copyFileSync(SCRIPT, isolatedScript);
   const isolatedInvoke = args => invokeScript(isolatedScript, args, isolatedDefault.root, {
     ...process.env,
-    NODE_PATH: [path.join(ROOT, 'node_modules'), process.env.NODE_PATH].filter(Boolean).join(path.delimiter),
+    NODE_PATH: [...require.resolve.paths('js-yaml'), process.env.NODE_PATH].filter(Boolean).join(path.delimiter),
   });
   assert.equal(isolatedInvoke(['--check']).status, 0, 'no-root check uses its isolated default ledger');
   fs.writeFileSync(isolatedDefault.index, 'deliberately stale default ledger\n');
