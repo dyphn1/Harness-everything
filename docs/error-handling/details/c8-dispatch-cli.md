@@ -50,7 +50,7 @@ In JSON mode the common shape is `{ok, code, phase, message}` with resolved `run
 
 ## Readiness classification and evidence
 
-The readiness prompt is `Reply with the single word READY`. One terminal Harness host label line (`<!-- harness-label {…} -->`, valid JSON object) is dropped first, because Harness hosts append it to every final message. After trimming outer whitespace, only `READY` and `READY.` are accepted. Any other reply returns `12 NOT_READY`. A nonzero, signaled, or timed-out child is refused even if it produced an accepted reply.
+The readiness prompt is `Reply with the single word READY`. One terminal Harness host label line (`<!-- harness-label {…} -->`, valid JSON object; its fields are not validated) is dropped first, because Harness hosts append it to every final message. After trimming outer whitespace, only `READY` and `READY.` are accepted. Any other reply returns `12 NOT_READY`. A nonzero, signaled, or timed-out child is refused even if it produced an accepted reply.
 
 Classification requires a full runner-specific diagnostic line on the failed readiness child's stderr after ANSI stripping. Only a normal nonzero exit is eligible; zero exits, signals, timeouts, stdout, quoted text, a different envelope, and partial or bare `429` text do not receive provider credit. Everything else, including local/cache errors, invalid `--quota`, header timeout, or a missing/ambiguous diagnostic, returns `12 NOT_READY`. The JSON `code` distinguishes throttling from usage/quota exhaustion.
 

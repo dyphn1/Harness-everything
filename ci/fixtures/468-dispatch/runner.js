@@ -48,6 +48,7 @@ function readyOutput() {
     // Live OpenCode reply 2026-11-21: the Harness turn-label rule appends a label line.
     'ready-host-label': 'READY\n<!-- harness-label {"v":1,"validity":"actionable","tier":"tier1","intents":[],"workflow":"deferred","skills":[]} -->\n',
     'ready-bad-label': 'READY\n<!-- harness-label not json -->\n',
+    'ready-bad-schema-label': 'READY\n<!-- harness-label {"bad":true} -->\n',
     'ready-label-then-text': 'READY\n<!-- harness-label {"v":1,"validity":"actionable","tier":"tier1","intents":[],"workflow":"deferred","skills":[]} -->\nmore\n',
   }[scenario] || 'READY\n';
   if (runner === 'codex') {

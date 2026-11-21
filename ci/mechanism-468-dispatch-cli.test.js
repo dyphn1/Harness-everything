@@ -410,6 +410,8 @@ try {
     for (const { scenario, answer } of [
       { scenario: 'ready-period', answer: 'READY.\n' },
       { scenario: 'ready-padded-period', answer: ' \tREADY. \n' },
+      // Advisor answer 3: the label object is an opaque wrapper; its fields are not validated here.
+      { scenario: 'ready-bad-schema-label', answer: 'READY\n<!-- harness-label {"bad":true} -->\n' },
       { scenario: 'ready-host-label', answer: 'READY\n<!-- harness-label {"v":1,"validity":"actionable","tier":"tier1","intents":[],"workflow":"deferred","skills":[]} -->\n' },
     ]) {
       check(`${runner} accepts trimmed ${scenario} through the real entry and validates a fresh report`, () => {
