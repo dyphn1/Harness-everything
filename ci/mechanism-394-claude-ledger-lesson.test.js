@@ -11,10 +11,10 @@ const test = require('node:test');
 const ROOT = path.resolve(__dirname, '..');
 const HOOKS = JSON.parse(fs.readFileSync(path.join(ROOT, 'hooks/hooks.json'), 'utf8')).hooks;
 const ADAPTER = path.join(ROOT, 'hooks/scripts/ledger-lesson.js');
+const ERRORS_SYNC = path.join(ROOT, 'scripts/errors-sync.js');
 const FIXTURES = path.join(__dirname, 'fixtures/394-claude-ledger-lesson');
 const LEDGER = path.join(ROOT, '.agents/harness-everything/errors');
-const E3 = JSON.parse(fs.readFileSync(path.join(LEDGER, 'index.jsonl'), 'utf8')
-  .split(/\r?\n/).find(line => line && JSON.parse(line).id === 'E-0003'));
+const E3_FILE = fs.readdirSync(LEDGER).find(file => /^E-0003-[a-z0-9-]+\.md$/.test(file));
 const COMMITLINT_OUTPUT = fs.readFileSync(
   path.join(__dirname, 'fixtures/394-ledger-match/commitlint-subject-case.txt'), 'utf8');
 const TMP = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), '394 claude ledger lesson ')));
@@ -37,8 +37,9 @@ function newWorkspace(name) {
   const root = path.join(TMP, `${name}-${++serial}`);
   const ledger = path.join(root, '.agents/harness-everything/errors');
   fs.mkdirSync(ledger, { recursive: true });
-  fs.copyFileSync(path.join(ROOT, E3.file), path.join(ledger, path.basename(E3.file)));
-  fs.writeFileSync(path.join(ledger, 'index.jsonl'), `${JSON.stringify(E3)}\n`);
+  fs.copyFileSync(path.join(LEDGER, E3_FILE), path.join(ledger, E3_FILE));
+  const generated = spawnSync(process.execPath, [ERRORS_SYNC, '--root', root], { cwd: ROOT, encoding: 'utf8' });
+  assert.equal(generated.status, 0, generated.stderr);
   return root;
 }
 
@@ -119,6 +120,20 @@ test('emits action then failure context once per phase and session without chang
   assert.equal(actionContext, failureContext, 'both phases carry the same canonical Cue and Lesson');
   assert.ok(!failureContext.includes(COMMITLINT_OUTPUT),
     'failure diagnostics are matching input, not copied into context');
+
+  const prefixedSession = sessionId + '-prefixed';
+  const prefixedAction = {
+    ...action,
+    session_id: prefixedSession,
+    tool_input_command: 'git -C x commit -m "Bad Subject"'
+  };
+  const prefixedFailure = {
+    ...failure,
+    session_id: prefixedSession,
+    tool_input: { command: 'git -C x commit -m "Bad Subject"' }
+  };
+  assertContext(run(JSON.stringify(prefixedAction)), 'PreToolUse');
+  assertContext(run(JSON.stringify(prefixedFailure)), 'PostToolUseFailure');
 
   assertSilent(run(JSON.stringify(action)));
   assertSilent(run(JSON.stringify(failure)));

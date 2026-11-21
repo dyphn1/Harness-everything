@@ -4,12 +4,14 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
 const { test } = require('node:test');
 
 const ROOT = path.resolve(__dirname, '..');
 const PLUGIN = path.join(ROOT, 'opencode-plugin', 'index.mjs');
 const LEDGER = path.join(ROOT, '.agents', 'harness-everything', 'errors');
+const ERRORS_SYNC = path.join(ROOT, 'scripts', 'errors-sync.js');
 const COMMITLINT = fs.readFileSync(path.join(__dirname, 'fixtures/394-ledger-match/commitlint-subject-case.txt'), 'utf8');
 const OLD_ENV = Object.fromEntries(['HOME', 'USERPROFILE', 'HARNESS_STATE_HOME', 'HARNESS_TELEMETRY', 'HARNESS_SYSTEM_ONE_MODE']
   .map(key => [key, process.env[key]]));
@@ -21,7 +23,10 @@ function isOutside(root, target) {
 }
 
 function addLedger(workspace) {
-  fs.cpSync(LEDGER, path.join(workspace, '.agents', 'harness-everything', 'errors'), { recursive: true });
+  const target = path.join(workspace, '.agents', 'harness-everything', 'errors');
+  fs.cpSync(LEDGER, target, { recursive: true });
+  const generated = spawnSync(process.execPath, [ERRORS_SYNC, '--root', workspace], { cwd: ROOT, encoding: 'utf8' });
+  assert.equal(generated.status, 0, generated.stderr);
 }
 
 function packagePlugin() {
@@ -156,7 +161,7 @@ test('OpenCode V2 carries real ledger matches through the source and packaged co
     sessionCleanup: workspace,
   };
   const harness = await createV2Context(sessionWorkspaces);
-  const command = 'git commit -m "docs(errors): Bad Case"';
+  const command = 'git -C x commit -m "docs(errors): Bad Case"';
   try {
     assert.ok(harness.toolHooks.has('execute.before') && harness.toolHooks.has('execute.after'));
     assert.ok(harness.sessionHooks.has('context'));
