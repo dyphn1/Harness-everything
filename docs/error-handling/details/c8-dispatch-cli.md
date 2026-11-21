@@ -68,7 +68,7 @@ Codex writes raw output with `codex exec -o`; it must contain an explicit termin
 | --- | --- | --- |
 | Fixture | The real Node entry with stubbed child runners exercises argv, cwd, closed stdin, readiness, quota, timeout, fresh delivery, report writing/checking, and exit/JSON outcomes. | No real provider behavior or live host behavior. |
 | Checkout/package entry | The npm script invokes the checked-in entry, and documented options work through that entry; named repository gates validate local consistency and portability. | No installed npm tarball or distributed plugin integration. |
-| Live | None claimed. | No Codex/OpenCode provider call, host dispatch, or live report delivery was performed. |
+| Live (channel probe only) | `opencode run --auto -m <model>`, the exact C8 OpenCode readiness argv, against failing nvidia models on OpenCode 2.1.4 (2026-11-21): provider errors reach stderr as one ANSI `Error: <message>` line, exit 1, empty stdout. | Not a C8 dispatch: no live 429 or quota reproduction (the 429 and quota bodies come from the retained OpenCode log), no Codex provider call, no host dispatch or live report delivery. |
 
 ## #466 boundary
 
