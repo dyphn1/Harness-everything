@@ -67,6 +67,27 @@ episodes:
         change: "C7b repair (bcf3c577): the check no longer depends on the checker's own repository or untracked files"
         review: "RC7"
         result: "RC7 found no blocker; episode closed 2026-11-18."
+  - episode: 497-dispatch-readiness-live-shapes
+    feature: "#497 dispatch CLI first real use (PR #499)"
+    date: 2026-11-21
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "live OpenCode dispatch"
+        result: "readiness reply READY. (with period) returned 12 NOT_READY; fixtures only had READY."
+      - round: 1
+        change: "6e3bcc2f: accept READY or READY."
+        review: "live OpenCode dispatch"
+        result: "the reply also ended with a harness-label line (Harness turn-label rule) → NOT_READY again"
+      - round: 2
+        change: "b41a9662: drop one terminal label line; accept a blank line before the label in dispatch and the report writer"
+        review: "live dispatch on OpenCode and Codex"
+        result: "both runners 0 DONE; the codex -o output had a blank line before the label, also absent from fixtures"
+      - round: 3
+        change: "d0e91ef9: label object kept opaque in readiness (advisor answer 3)"
+        review: "review RV + hosted CI"
+        result: "merged as PR #499; episode closed"
 ---
 
 ## Cue
@@ -103,3 +124,4 @@ A one-shot runner template's `--self-test` passed while the first real dispatch 
 ## Episode 4 (2026-11-18, PR #471 C7)
 
 The C7 report said the pinned real-slice check passed. The coordinator re-ran it from the C2 worktree and got exit 1, because the checker inspected its own repository (`__dirname`) and that worktree's untracked files — a claim that held only in the reporter's own checkout. The C7b repair (`bcf3c577`) removed that dependence and RC7 found no blocker. This also touches E-0005 (a review claim that could not be reproduced from the evidence).
+- PR #499: commits `6e3bcc2f`, `b41a9662`, `d0e91ef9`; three real host shapes found only by live runs.

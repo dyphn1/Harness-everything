@@ -30,6 +30,19 @@ episodes:
         change: null
         review: coordinator
         result: "H1 for PR #456 was told 'no git commands'; its environment-detection preflight probed git (read-only). The probe crossed the briefed command boundary even though nothing was written."
+  - episode: 501-adr-status-without-derived-index
+    feature: "#394 packet D (PR #501)"
+    date: 2026-11-21
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "verify:all F3 case-d15"
+        result: "packet D changed ROUTE-001 status to superseded; its write-set omitted the derived docs/governed-index.md, so the dogfood index check failed."
+      - round: 1
+        change: "5ac9f047: regenerated the governed index"
+        review: "F3 derived-views + verify:all"
+        result: "pass; episode closed"
 ---
 
 ## Cue
@@ -52,3 +65,4 @@ A second shape: not a write outside the write-set but a read-only probe outside 
 
 - F13 packet write-set and the F13 report's disclosure section.
 - Compare E-0009, whose lesson ("coordinator runs verify:all") covers the sandbox side of the same arrangement. It does not cover writes outside the write-set.
+- PR #501: `5ac9f047`.

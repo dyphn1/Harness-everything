@@ -51,6 +51,19 @@ episodes:
         change: "The test fixture moved its new alias to `I` (PR #493); it still hard-codes the next free alias, so the next Action added to the map hits the same coupling"
         review: "mechanism test + verify:all --fast"
         result: "Green again; episode left open because the fixture still assumes the map state"
+  - episode: 501-s2-asserts-packet-time-stale-index
+    feature: "#394 packet S2 (PR #501)"
+    date: 2026-11-21
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "coordinator focused test after index regeneration"
+        result: "the worker replaced the current-index regression control with an assertion that the committed index is stale — true only while the packet ran."
+      - round: 1
+        change: "4dc6f8f4: restored the current-index control"
+        review: "verify:all"
+        result: "pass; episode closed"
 ---
 
 ## Cue
@@ -77,3 +90,4 @@ Every test that touches a store, an environment variable or a home-directory pat
 
 The shell-inherited `HARNESS_SYSTEM_ONE_MODE=live` also failed local `verify:all` row 8 on the PR #462 head and on main, while hosted CI stayed green. C3 in PR #471 (`42b0a45f`) made every routing child take the mode from one env builder and added an inherited-live regression plus an explicit live control. Episode closed on executed evidence: live, unset, off and unknown value, with mutant 7 detected.
 - PR #493 (2026-11-20): map test hard-coded the unused alias H.
+- PR #501: `4dc6f8f4`.
