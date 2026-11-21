@@ -58,7 +58,11 @@ const HARNESS_ROOT = findHarnessRoot()
 const STOP_GATE_FILE = join(HARNESS_ROOT || resolve(PLUGIN_DIRECTORY, ".."), "hooks", "scripts", "workflow-stop-gate.js")
 const OBSERVATIONS_FILE = HARNESS_ROOT && join(HARNESS_ROOT, "hooks", "scripts", "lib", "observations.js")
 const ROUTER_FILE = HARNESS_ROOT && join(HARNESS_ROOT, "harness-everything", "scripts", "kernel-router.js")
+const LEDGER_MATCHER_FILE = HARNESS_ROOT && join(HARNESS_ROOT, "hooks", "scripts", "lib", "ledger-match.js")
+const HARNESS_STATE_FILE = HARNESS_ROOT && join(HARNESS_ROOT, "hooks", "scripts", "lib", "harness-state.js")
 let observationsApi
+let ledgerMatcherApi
+let harnessStateApi
 
 function systemOneObservations() {
   if (!OBSERVATIONS_FILE) return null
@@ -66,6 +70,48 @@ function systemOneObservations() {
     try { observationsApi = requireFromPlugin(OBSERVATIONS_FILE) } catch { return null }
   }
   return observationsApi
+}
+
+function ledgerMatcher() {
+  if (!LEDGER_MATCHER_FILE || !HARNESS_STATE_FILE) return null
+  try {
+    ledgerMatcherApi ||= requireFromPlugin(LEDGER_MATCHER_FILE)
+    harnessStateApi ||= requireFromPlugin(HARNESS_STATE_FILE)
+    if (typeof ledgerMatcherApi.matchLedgerLessons !== "function"
+      || typeof ledgerMatcherApi.releaseLedgerMatch !== "function"
+      || typeof harnessStateApi.resolveWorkspaceIdentity !== "function"
+      || typeof harnessStateApi.getSessionDir !== "function") return null
+    return { matcher: ledgerMatcherApi, state: harnessStateApi }
+  } catch { return null }
+}
+
+function queueLedgerLesson(pending, workspace, sessionID, event) {
+  try {
+    if (typeof workspace !== "string" || !workspace || typeof sessionID !== "string" || !sessionID) return
+    const api = ledgerMatcher()
+    if (!api) return
+    const context = { workspace_root: workspace, session_id: sessionID, host_id: "opencode" }
+    const identity = api.state.resolveWorkspaceIdentity(context)
+    if (!identity?.workspaceRoot || !identity.workspaceKey || identity.sessionId !== sessionID) return
+    if (identity.workspaceKey !== getWorkspaceKey(workspace)) return
+    const result = api.matcher.matchLedgerLessons({
+      workspaceRoot: identity.workspaceRoot,
+      workspaceIdentity: identity.workspaceKey,
+      sessionIdentity: sessionID,
+      stateDir: api.state.getSessionDir(identity.workspaceRoot, sessionID, context),
+      event,
+    })
+    if (!result) return
+    const lessons = pending.get(sessionID) || []
+    lessons.push({ workspace: identity.workspaceRoot, phase: event.phase, result })
+    pending.set(sessionID, lessons)
+  } catch { /* ledger context is fail-open */ }
+}
+
+function releaseLedgerLessons(lessons) {
+  const api = ledgerMatcher()
+  if (!api) return lessons
+  return lessons.filter(lesson => !api.matcher.releaseLedgerMatch(lesson.result))
 }
 
 // OpenCode's host process is a compiled Bun binary, so process.execPath is the
@@ -1000,6 +1046,8 @@ export default {
     const promptRoutes = new Map()
     const sessionBindings = new Map()
     const sessionOwners = new Map()
+    const pendingLedgerLessons = new Map()
+    const ledgerReleaseRetry = new Set()
     const invalidatedSessions = new Set()
     const enforcementByWorkspace = new Map()
     const pendingEvents = new Set()
@@ -1009,6 +1057,22 @@ export default {
       pending.then(() => pendingEvents.delete(pending), () => pendingEvents.delete(pending))
       return pending
     }
+    const retryLedgerReleases = () => {
+      for (const lesson of ledgerReleaseRetry) {
+        if (releaseLedgerLessons([lesson]).length === 0) ledgerReleaseRetry.delete(lesson)
+      }
+    }
+    const releaseSessionLedger = sessionID => {
+      const lessons = pendingLedgerLessons.get(sessionID) || []
+      pendingLedgerLessons.delete(sessionID)
+      for (const lesson of releaseLedgerLessons(lessons)) ledgerReleaseRetry.add(lesson)
+      retryLedgerReleases()
+    }
+    const releaseAllLedger = () => {
+      for (const sessionID of pendingLedgerLessons.keys()) releaseSessionLedger(sessionID)
+      retryLedgerReleases()
+    }
+    events.signal.addEventListener("abort", releaseAllLedger, { once: true })
     let unresolvedIdentityCount = 0
     const routerUnavailableCounts = new Map()
 
@@ -1112,6 +1176,24 @@ export default {
       if (events.signal.aborted || invalidatedSessions.has(sessionID) || promptRoutes.get(sessionID) !== prompt) return null
       return bindSessionWorkspace(sessionID, identity.workspace, hooks)
     }
+    const deliverLedgerLessons = event => {
+      const sessionID = event?.sessionID
+      if (typeof sessionID !== "string" || !sessionID || (event.kind && event.kind !== "primary")) return
+      const lessons = pendingLedgerLessons.get(sessionID)
+      if (!lessons?.length) return
+      const workspace = sessionBindings.get(sessionID)?.workspace
+      if (!Array.isArray(event.system) || invalidatedSessions.has(sessionID) || !workspace
+        || lessons.some(lesson => getWorkspaceKey(lesson.workspace) !== getWorkspaceKey(workspace))) {
+        releaseSessionLedger(sessionID)
+        return
+      }
+      try {
+        event.system.push(...lessons.map(lesson => ({ type: "text", text: lesson.result.text })))
+        pendingLedgerLessons.delete(sessionID)
+      } catch {
+        releaseSessionLedger(sessionID)
+      }
+    }
 
     await ctx.session.hook("prompt", event => {
       if (events.signal.aborted) return
@@ -1165,8 +1247,9 @@ export default {
     await ctx.session.hook("context", event => {
       if (events.signal.aborted) return
       const output = promptRoutes.get(event?.sessionID)?.routerOutput
-      if (!output || (event.kind && event.kind !== "primary") || !Array.isArray(event.system)) return
-      if (!event.system.some(part => part && part.text === output)) event.system.push({ type: "text", text: output })
+      if (output && (!event.kind || event.kind === "primary") && Array.isArray(event.system)
+        && !event.system.some(part => part && part.text === output)) event.system.push({ type: "text", text: output })
+      deliverLedgerLessons(event)
     })
 
     await ctx.tool.hook("execute.before", event => {
@@ -1174,7 +1257,14 @@ export default {
       return trackPending(async () => {
         if (events.signal.aborted) return
         const binding = await bindingForSession(event?.sessionID)
-        if (events.signal.aborted || !binding?.workspace || !binding.hooks) return
+        if (events.signal.aborted || !binding?.workspace) return
+        retryLedgerReleases()
+        if (event.tool === "bash" && typeof event.input?.command === "string") {
+          queueLedgerLesson(pendingLedgerLessons, binding.workspace, event.sessionID, {
+            phase: "action", tool: "shell", command: event.input.command, outcome: { failed: "unknown" },
+          })
+        }
+        if (!binding.hooks) return
         return binding.hooks["tool.execute.before"](toolEventInput(event), { args: event.input })
       })
     })
@@ -1185,6 +1275,21 @@ export default {
         const prompt = promptRoutes.get(event?.sessionID)
         const binding = await bindingForSession(event?.sessionID)
         if (events.signal.aborted || !binding?.workspace) return
+        retryLedgerReleases()
+        const errorOutput = event.status === "error"
+          ? typeof event.error === "string" ? event.error
+            : typeof event.error?.message === "string" ? event.error.message : undefined
+          : undefined
+        const resultFailed = event.status === "completed"
+          && Number.isFinite(event.result?.metadata?.exit) && event.result.metadata.exit !== 0
+        const resultOutput = resultFailed && typeof event.result?.output === "string" ? event.result.output : undefined
+        const failureOutput = errorOutput ?? resultOutput
+        if (event.tool === "bash" && failureOutput !== undefined && typeof event.input?.command === "string") {
+          queueLedgerLesson(pendingLedgerLessons, binding.workspace, event.sessionID, {
+            phase: "failure", tool: "shell", command: event.input.command,
+            outcome: { failed: true, output: failureOutput },
+          })
+        }
         if (prompt?.status === "resolved" && prompt.workspace) observeOpenCodeTool(event, prompt.workspace)
         if (!binding.hooks) return
         return binding.hooks["tool.execute.after"](toolEventInput(event), {
@@ -1209,9 +1314,13 @@ export default {
           const turnEnded = raw.type === "session.idle" || raw.type === "session.execution.succeeded"
           const lifecycleEvent = ["session.idle", "session.created", "session.deleted"].includes(raw.type)
           if ((!turnEnded && !lifecycleEvent) || typeof sessionID !== "string" || !sessionID) continue
+          retryLedgerReleases()
           if (raw.type === "session.deleted") invalidatedSessions.add(sessionID)
           else if (raw.type === "session.created") invalidatedSessions.delete(sessionID)
-          if (raw.type === "session.created" || raw.type === "session.deleted") promptRoutes.delete(sessionID)
+          if (raw.type === "session.created" || raw.type === "session.deleted") {
+            releaseSessionLedger(sessionID)
+            promptRoutes.delete(sessionID)
+          }
           const prompt = promptRoutes.get(sessionID)
           if (turnEnded && prompt?.status === "resolved") {
             trackPending(() => observeOpenCodeCompletion(sessionID, ctx, promptRoutes, events.signal))
