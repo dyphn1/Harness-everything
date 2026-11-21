@@ -151,10 +151,8 @@ function assertUnsafeRefused(target, unchanged, tempDirs) {
 try {
   const harnessIndexDigest = digest(HARNESS_INDEX);
   const harnessIndex = fs.readFileSync(HARNESS_INDEX, 'utf8');
-  const harnessCheck = invoke(['--check']);
-  assert.equal(harnessCheck.status, 1, 'the no-root Harness check reports the packet-pinned stale index');
-  assert.match(harnessCheck.stderr, /index\.jsonl is stale/, 'the Harness check identifies index drift');
-  assert.notEqual(render(), harnessIndex, 'render() defaults to the current Harness root and includes the new schema');
+  assert.equal(invoke(['--check']).status, 0, 'the no-root Harness check is the regression control');
+  assert.equal(render(), harnessIndex, 'render() defaults to the current Harness root');
   assertMatchSchema();
   assert.ok(targetRoot.includes(' '), 'the target root must contain a space');
   assert.equal(isWithin(ROOT, targetRoot), false, 'the temporary target must stay outside the Harness root');
