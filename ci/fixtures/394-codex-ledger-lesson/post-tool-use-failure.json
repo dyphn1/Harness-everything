@@ -1,0 +1,17 @@
+{
+  "session_id": "fixture-session",
+  "cwd": "/tmp/ledger-workspace",
+  "hook_event_name": "PostToolUse",
+  "turn_id": "fixture-turn",
+  "tool_name": "Bash",
+  "tool_use_id": "fixture-tool-use",
+  "permission_mode": "default",
+  "tool_input": {
+    "command": "git commit -m \"Docs: rejected subject\""
+  },
+  "tool_response": {
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": ""
+  }
+}
