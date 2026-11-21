@@ -16,7 +16,7 @@ For software/project work, Harness establishes routing context and lightweight r
 
 1. **Route before execution** — establish scope/tier and the smallest justified topology.
 2. **Verify before claim** — completion requires objective evidence appropriate to the change.
-3. **Re-plan after repeated failure** — after three same-signature failures, stop micro-retrying and use a fresh diagnosis / `zoom-out`.
+3. **Loop awareness** — reconsider assumptions or re-plan when evidence shows stagnation; numeric iteration values MAY guide but never hard-stop.
 4. **Bind knowledge by step** — compose ordered requirement steps and declare their required/optional skill or reference bindings before execution.
 5. **Resolve selected workflow** — satisfy the selected topology's required obligations before completion; tactics MAY adapt, but required lifecycle evidence cannot be silently skipped.
 6. **Surface status** — non-trivial work MUST keep the user informed through the single Harness Status format at required phase boundaries.
@@ -184,7 +184,7 @@ Keep semantic strength separate from runtime mechanics:
 - **mechanism:** which transitions a packaged hook/plugin can block, observe, or remind about;
 - **live evidence:** whether a real host actually loaded/fired that mechanism.
 
-A semantic MUST does not require a hard lock. Outside Rule-of-3 reflection and explicit permission/safety boundaries, lifecycle hooks stay fail-open/reminder-oriented.
+A semantic MUST does not require a hard lock. Outside explicit permission/safety boundaries, lifecycle hooks stay fail-open/reminder-oriented.
 
 Instruction-only integrations receive the same semantic contract through instructions, but must not be labeled hard-enforced. Kernel emission alone does not prove model compliance. #82 owns host-specific retained evidence.
 

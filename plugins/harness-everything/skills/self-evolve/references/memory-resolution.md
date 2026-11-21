@@ -4,11 +4,11 @@ Details moved from SKILL.md. Read when you need the full decision matrix or the 
 
 ## Responsibility Boundary
 
-Harness may observe only its own structured runtime events. Rule-of-3 recovery and verifier fail→pass transitions can create privacy-minimal lesson candidates automatically; raw prompts, commands, tool output, source text, and global host transcripts are not copied into those candidates. The agent or Human Partner still supplies the generalized rule before evaluation. `self-evolve` MUST NOT scan global transcript stores, persist raw transcripts, or act as a transcript daemon.
+Harness may observe only its own structured runtime events. Agent-initiated reassessment is not triggered by a retry counter; supported structured events such as verifier fail→pass may create privacy-minimal lesson candidates automatically. Raw prompts, commands, tool output, source text, and global host transcripts are not copied into those candidates. The agent or Human Partner still supplies the generalized rule before evaluation. `self-evolve` MUST NOT scan global transcript stores, persist raw transcripts, or act as a transcript daemon.
 
 ## Triggers
 
-- **Post-Circuit Breaker**: Following successful recovery after a `zoom-out` reflection.
+- **After Reassessment**: When an agent-chosen `zoom-out` yields a reusable insight.
 - **Major Breakthrough**: Upon completing complex tasks that revealed non-obvious framework limits or architectural edge cases.
 - **Explicit Request**: When the user asks to "remember this lesson" or "save this to memory".
 
@@ -58,7 +58,7 @@ observed -> proposed -> screened -> evaluated
                               -> inconclusive
 ```
 
-- `rule-of-3-recovery` is intentionally non-replayable from one linear trace and remains `inconclusive` until paired/later recurrence evidence exists.
+- Legacy `rule-of-3-recovery` candidates are historical, remain `inconclusive`, and do not act as an active trigger.
 - `verifier-fail-pass` can pass deterministic grounding checks because the retained contract records an objective fail→pass transition, but this still does not prove future behavioral improvement.
 - Identical runtime evidence is idempotent and maps to one candidate ID.
 - Runtime hooks can create candidates but cannot call the durable memory writer directly.

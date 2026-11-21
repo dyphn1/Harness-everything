@@ -1,10 +1,10 @@
-id: negative-trivial-edit-001
-name: Trivial edit must not trigger reflection
-description: Routine single-failure debugging and greenfield planning without failures must not trip the circuit breaker.
+id: negative-greenfield-trivial-001
+name: Greenfield planning and a clear edit need no reassessment
+description: Routine debugging with a clear next check or greenfield planning does not need voluntary reassessment.
 tags:
   - negative-trigger
 inputs:
-  prompt: "Fix the typo in README.md line 3: change 'recieve' to 'receive'."
+  prompt: "Start a small greenfield project with a hello-world function, then fix the clear typo in README.md line 3 from 'recieve' to 'receive'. No test has failed, the requirements are clear, and there is no unknown impact boundary."
 expected:
   should_trigger: false
 graders:
@@ -12,5 +12,5 @@ graders:
     name: not-contains-keywords
     config:
       contains:
-        - "circuit breaker tripped"
-        - "reflection report"
+        - "mandatory zoom-out"
+        - "required reflection report"

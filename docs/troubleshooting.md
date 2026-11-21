@@ -112,23 +112,9 @@ npx.cmd github:dyphn1/Harness-everything uninstall
 npx.cmd github:dyphn1/Harness-everything install
 ```
 
-### Circuit Breaker Tripping Too Often
+### Retired Rule-of-3 and reset paths
 
-**Symptom:** `RULE OF 3 CIRCUIT BREAKER TRIGGERED!` frequently
-
-**Solution:**
-1. This is normal behavior on an integration surface that actually packages the circuit-breaker hooks: Harness is protecting you from infinite loops.
-2. Follow the zoom-out instructions in the error message.
-3. If it's a false positive on the Claude Code hook path, check the error signature:
-   ```bash
-   cat .claude/harness-everything/state/sessions/default/rule-of-3-state.json
-   ```
-4. Reset if needed:
-   ```bash
-   npm run harness:reset
-   ```
-
-Do not expect this Claude Code state file merely because Harness skills or an instruction-only platform integration are installed.
+The former `hooks/scripts/rule-of-3*.js`, `reset-circuit-breaker.js`, forced report/unlock path, and OpenCode hard-lock path are retired under [#394](https://github.com/dyphn1/Harness-everything/issues/394). Old breaker messages or state files are historical; they are not a current retry counter or reset workflow. Zoom-out is agent-initiated and can be chosen on the first meaningful signal; productive work may continue when the next check is justified by evidence. See [the Zoom-out workflow](workflows/zoom-out.md).
 
 ## Platform-Specific Issues
 
@@ -262,19 +248,11 @@ Do not troubleshoot a missing `SessionStart` or `UserPromptSubmit` hook in the p
 **Symptom:** Terminal commands feel slower on a hook-enabled integration.
 
 **Solution:**
-1. Check Claude Code hook execution time where applicable:
-   ```bash
-   time node hooks/scripts/rule-of-3.js < /dev/null
-   ```
-2. If >200ms, check for:
+1. Check the host's diagnostics for the active hook path.
+2. If execution remains slow, check for:
    - Large state files
    - Network calls in hooks
    - Complex file operations
-3. Reset state if appropriate:
-   ```bash
-   rm -rf .claude/harness-everything/state/sessions/
-   ```
-
 ### High Memory Usage
 
 **Symptom:** Node.js processes consuming too much memory
@@ -293,19 +271,15 @@ Do not troubleshoot a missing `SessionStart` or `UserPromptSubmit` hook in the p
 
 ```bash
 export HARNESS_DEBUG=1
-node hooks/scripts/rule-of-3.js < payload.json
 ```
+
+The former Rule-of-3 hook and its state diagnostics are retired under [#394](https://github.com/dyphn1/Harness-everything/issues/394); this flag does not provide a current breaker trace.
 
 ### Check State Files
 
 ```bash
-# Claude Code hook-path state example
-cat .claude/harness-everything/state/sessions/default/rule-of-3-state.json
+# Claude Code hook-path handoff state example
 cat .claude/harness-everything/state/sessions/default/handoff-state.json
-
-# Reset Claude hook-path state
-rm -rf .claude/harness-everything/state/sessions/
-npm run harness:reset
 ```
 
 ### Manual Hook Testing
@@ -364,8 +338,8 @@ cat .claude/settings.json | grep -A 20 "hooks" >> harness-diagnostic.txt 2>/dev/
 - **Solution:** Confirm the platform/integration surface first; on a supported stateful hook path, state is created on first use
 
 ### "Zoom-out report not found"
-- **Cause:** Circuit breaker tripped but no report written
-- **Solution:** Follow the zoom-out instructions in the error message
+- **Cause:** An old Rule-of-3 integration expected a compulsory report; that path is retired under [#394](https://github.com/dyphn1/Harness-everything/issues/394).
+- **Solution:** Use [the agent-initiated Zoom-out guidance](workflows/zoom-out.md) when evidence warrants reassessment; no special report or reset is required.
 
 ---
 

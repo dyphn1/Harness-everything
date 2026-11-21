@@ -17,9 +17,10 @@ graph TD
   SafetyNet -->|No| CharTests["Write Characterization Tests first via tdd"]
   SafetyNet -->|Yes| Extract["Extract incrementally via tdd; verify tests after each change"]
   CharTests --> Extract
-  Extract --> ErrorCheck{"Third same-signature failure?"}
-  ErrorCheck -->|Yes| Rollback["Rollback plus zoom-out; record traps in self-evolve"]
-  ErrorCheck -->|No| DoneState["Refactoring complete"]
+  Extract --> ErrorCheck{"Does evidence undermine an assumption or reveal unknown impact?"}
+  ErrorCheck -->|Yes; reassessment helps| Reassess["Agent-initiated zoom-out; revise next check"]
+  ErrorCheck -->|No; next check is justified| DoneState["Continue incremental refactoring"]
+  Reassess --> Extract
 ```
 
 ## 2. Triggering and Routing Path
@@ -28,7 +29,7 @@ graph TD
 graph LR
   TechDebt["Trigger: refactor architecture or split object or apply SRP or tech debt"] --> ICA["improve-codebase-architecture / SKILL.md"]
   ICA --> TDD["tdd: Characterization Tests first, then incremental extraction"]
-  ICA --> ZoomOut["zoom-out: invoked with rollback on the third same-signature failure"]
+  ICA --> ZoomOut["zoom-out: agent-initiated when evidence warrants reassessment"]
   ICA --> SelfEvolve["self-evolve: record traps"]
 ```
 
@@ -40,9 +41,10 @@ graph TD
   ScanInterfaces --> SRPProposal["Propose split into focused units plus seam abstractions"]
   SRPProposal --> CharNet["Add Characterization Tests for untested legacy paths"]
   CharNet --> Incremental["Incremental extraction with test check after each step"]
-  Incremental --> RollbackGate{"Third same-signature failure?"}
-  RollbackGate -->|Yes| RollbackZoom["Rollback and zoom-out"]
-  RollbackGate -->|No| ModularDone["SRP-compliant modules with safety net"]
+  Incremental --> ReassessGate{"Would reassessment improve the next step?"}
+  ReassessGate -->|Yes| RollbackZoom["Revisit assumptions; rollback only if needed for safety"]
+  ReassessGate -->|No; tests narrow the cause| ModularDone["Continue with safety net"]
+  RollbackZoom --> Incremental
 ```
 
 Concrete example: a 600-line utility module is scanned for interfaces and ADR constraints, proposed for splitting into single-purpose units, guarded by Characterization Tests, then extracted step by step with verification after each change.
@@ -56,5 +58,5 @@ Deep detail: `improve-codebase-architecture/references/README.md`.
 - [ ] Deepening and SRP proposal with object splitting and seam abstraction presented and approved before code changes
 - [ ] `tdd` launched; Characterization Tests added first when legacy code lacks tests
 - [ ] Extraction done incrementally with tests verified after each change
-- [ ] On the third same-signature failure, changes rolled back with `zoom-out` and traps recorded in `self-evolve`
+- [ ] Zoom-out was optional and agent-initiated when evidence warranted it; productive steps could continue as tests narrowed the cause
 - [ ] Not used for features, bugfixes, or style-only cleanups with no structure change

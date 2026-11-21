@@ -1,43 +1,31 @@
 ---
 name: zoom-out
-description: "Reflect-first circuit breaker - after 3 failures, stop edits, rebuild the full picture with read-only tools, write a fact-check report, then resume or escalate. USE FOR: \"you are stuck in a loop\", \"the same error keeps failing\", \"rethink your assumptions\". DO NOT USE FOR: \"routine single-failure debugging\", \"greenfield planning without failures\"."
+description: "Agent-initiated reassessment when evidence contradicts assumptions, exposes an unknown boundary, or a path stops producing useful information. Use for voluntary diagnosis of stalled or changing work. DO NOT USE FOR: routine debugging when the next check is clear, or greenfield planning."
 license: Apache-2.0
 metadata:
   author: Miya Daniel
   version: 0.47.5
 ---
 
-# Zoom Out (Circuit Breaker)
+# Zoom Out
 
-Stop repeated failures, rebuild the facts, and choose a safe next step.
+Choose a fresh diagnosis when evidence changes your understanding, an important boundary is unknown, or the next action is unclear. You may do this after the first failure or later. Continue while attempts yield useful evidence and the next step is justified.
 
-## Skill Contract
+## Reassess
 
-| Component | Specification |
-| :--- | :--- |
-| **Trigger / Input** | Three same-signature failures, a repair loop, or an explicit loop/rethink request. |
-| **Expected Output** | Fact-checked report ending in `RESUME` or `ESCALATE`. |
-| **State Mutations** | Writes the session `zoom-out-report.md`; reset may clear breaker state. |
-| **Enforcement Gate** | `<skills-repo-root>/hooks/scripts/rule-of-3.js` plus a valid report; a later three-failure cycle requests another reflection. |
+1. Restate the goal and acceptance criteria.
+2. Review observed evidence, assumptions, and attempts; separate facts from guesses.
+3. Trace callers and consumers when a shared decision or impact boundary is unclear.
+4. Choose the next smallest check or correction. Continue, revise, or surface a genuine user decision.
 
-## Circuit Breaker Flow
-
-1. After three same-signature failures, stop edits and do not ask the user yet.
-2. Use read-only tools to restate the goal and check files, configuration, and logs.
-3. Fill `<this-skill-dir>/templates/zoom-out-report.template.md` and end with `RESUME` or `ESCALATE`.
-4. Resume only on an untried path; escalate genuine user decisions with options. Repair loop: inventory sites first.
-5. If three more matching failures occur, run another zoom-out cycle. `npm run harness:reset` is only an optional manual state clear; record the insight with `self-evolve`.
+This is agent-chosen guidance: no failure count or threshold requires a stop, report, or reset ritual. A written note is optional.
 
 ## USE FOR:
-- "you are stuck in a loop"
-- "the same error keeps failing"
-- "every round finds a new edge case"
-- "rethink your assumptions"
+- Evidence contradicts a core assumption or exposes an unknown impact boundary.
+- The current approach stops producing useful information, or you request a fresh diagnosis.
 
 ## DO NOT USE FOR:
-- Routine single-failure debugging — fix it directly
-- Greenfield planning without failures (`fable-mode`)
-
-Never retry the same approach after the third failure, even under pressure.
+- Routine debugging when the next check is clear.
+- Greenfield planning (`fable-mode`).
 
 Deep dive: `<this-skill-dir>/references/circuit-breaker.md`

@@ -16,9 +16,9 @@ graph TD
   Discover --> Think["Think: establish intent, scope, and failure modes"]
   Think --> Try["Try: make the smallest useful change and gather evidence"]
   Try --> Summarize["Summarize: ground conclusions in tool output"]
-  Summarize --> FailCheck{Same-signature failure x3?}
-  FailCheck -->|Yes| ZoomOut["zoom-out: stop edits, rebuild facts, report RESUME or ESCALATE"]
-  FailCheck -->|No| Record["Record: persist milestones only when evidence supports them"]
+  Summarize --> Reassess{Would reassessment improve the next step?}
+  Reassess -->|Yes; agent chooses| ZoomOut["Review assumptions, acceptance, and evidence"]
+  Reassess -->|No; next check is justified| Record["Record: persist milestones only when evidence supports them"]
   ZoomOut --> Think
   Record --> End([Evidence-grounded work, no fixed domain sequence])
 ```
@@ -34,7 +34,7 @@ graph LR
   Trigger["Explain policy / Apply loop manually / Debug cognitive behavior"] --> Skill["install-cognitive-os / SKILL.md"]
   Skill -->|No kernel context| Manual["Run Discover → Think → Try → Summarize → Record explicitly"]
   Skill -->|Kernel present| Policy["Treat as policy reference; domain skill proceeds directly"]
-  Manual --> Gates["Gates: evidence before claims; re-plan after x3 same-signature failures"]
+  Manual --> Gates["Guidance: evidence before claims; agent-initiated reassessment when evidence warrants"]
   Policy --> Gates
 
   style Skill fill:#d35400,stroke:#e67e22,stroke-width:2px,color:#ffffff
@@ -63,5 +63,5 @@ To ensure that the `install-cognitive-os` skill is operating in strict complianc
 
 - [ ] **Policy, not installation**: no hook deployment, file copying, or config mutation claimed as this skill's effect.
 - [ ] **Full five-step loop**: Discover → Think → Try → Summarize → Record applied in order, not the truncated four-step variant.
-- [ ] **Evidence gates honored**: completion claims need evidence; repeated same-signature failures require re-planning via `zoom-out`.
+- [ ] **Evidence gates honored**: completion claims need evidence; an agent may choose `zoom-out` when evidence warrants reassessment, while productive work may continue.
 - [ ] **No prerequisite fabrication**: domain skills (`tdd`, `security-review`, `repo-docs`) proceed without selecting this skill first.

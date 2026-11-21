@@ -27,9 +27,9 @@ graph TD
   Execute --> VerifyGate{Objective evidence supports completion?}
   VerifyGate -->|Yes| Done([Evidence-backed completion])
   VerifyGate -->|No| Diagnose["Diagnose / bounded re-plan"]
-  Diagnose --> RetryCheck{Same-signature failure x3?}
-  RetryCheck -->|No| Execute
-  RetryCheck -->|Yes| ZoomOut["zoom-out: stop edits, rebuild facts read-only, report RESUME or ESCALATE"]
+  Diagnose --> Choice{What does the evidence support?}
+  Choice -->|Reassess now| ZoomOut["zoom-out: rebuild facts read-only and revise the next check"]
+  Choice -->|Productive iteration| Execute["Continue while attempts yield evidence or narrow the cause"]
   ZoomOut --> Execute
 ```
 
@@ -48,7 +48,7 @@ graph LR
   Router -->|Large / Multi-source / Multi-session| Ch3["Fable stages expose bindings only when dependencies pass"]
   Router -->|Architecture / Plan review| Ch4["Bind domain skills/references only to their consuming step"]
 
-  Ch1 --> Invariants["Invariants: route-before-execution, verify-before-claim, re-plan-after-x3, resolve-active-required-bindings, resolve-selected-workflow"]
+  Ch1 --> Invariants["Invariants: route-before-execution, verify-before-claim, loop-awareness, resolve-active-required-bindings, resolve-selected-workflow"]
   Ch2 --> Invariants
   Ch3 --> Invariants
   Ch4 --> Invariants
@@ -94,4 +94,4 @@ To ensure that the `harness-everything` skill is operating in strict compliance 
 - [ ] **Bind knowledge by step**: required/optional skills and references are declared per ordered requirement; only active paths are loaded/disclosed.
 - [ ] **Resolve selected workflow**: the selected topology executed to resolution; escape only for uncovered scope with evidence.
 - [ ] **Verify before claim**: objective evidence (tests, checks, quoted tool output) supports completion.
-- [ ] **Re-plan on repetition**: after 3 same-signature failures, `zoom-out` reflection completed before resuming.
+- [ ] **Loop awareness**: an agent may use `zoom-out` at the first meaningful signal, while productive iterations may continue at any attempt.

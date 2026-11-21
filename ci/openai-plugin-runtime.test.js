@@ -61,12 +61,28 @@ assert.ok(fs.existsSync(path.join(PLUGIN, 'scripts', 'lib', 'advisory-text.js'))
 const packagedState = fs.readFileSync(path.join(PLUGIN, 'hooks', 'scripts', 'lib', 'harness-state.js'), 'utf8');
 assert.doesNotMatch(packagedState, /\.\.\/\.\.\/\.\.\/scripts[\\/]lib[\\/]workspace/);
 
-function runHook(relative, payload, stateHome) {
-  return spawnSync(process.execPath, [path.join(PLUGIN, relative)], {
+function runHook(relative, payload, stateHome, args = []) {
+  return spawnSync(process.execPath, [path.join(PLUGIN, relative), ...args], {
     input: JSON.stringify(payload),
     encoding: 'utf8',
     cwd: ROOT,
     env: { ...process.env, HARNESS_STATE_HOME: stateHome }
+  });
+}
+
+function registeredHooks(event, tool) {
+  return (hooks[event] || [])
+    .filter(group => !group.matcher || group.matcher.split('|').some(pattern =>
+      pattern === tool || pattern === '.*' || (pattern.endsWith('.*') && tool.startsWith(pattern.slice(0, -2)))))
+    .flatMap(group => group.hooks || []);
+}
+
+function runRegistered(event, tool, payload, stateHome) {
+  return registeredHooks(event, tool).map(hook => {
+    const match = hook.command.match(/^node "\$\{PLUGIN_ROOT\}\/([^"]+)"(.*)$/);
+    assert.ok(match, `unrecognized packaged hook command: ${hook.command}`);
+    const args = match[2].trim().split(/\s+/).filter(Boolean);
+    return runHook(match[1], { ...payload, hook_event_name: event, tool_name: tool }, stateHome, args);
   });
 }
 
@@ -117,39 +133,55 @@ assert.ok(handoff, 'SessionStart/state-persist should create a handoff state fil
 assert.ok(JSON.parse(fs.readFileSync(handoff, 'utf8')).lastEditAt, 'apply_patch must count as an edit');
 
 const sessionDir = path.dirname(handoff);
-fs.writeFileSync(path.join(sessionDir, 'rule-of-3-state.json'), JSON.stringify({
-  count: 3,
-  threshold: 3,
-  lastHash: 'runtime-test-failure',
-  lastFailureAt: 0
-}), 'utf8');
+assert.doesNotMatch(hookText, /rule-of-3(?:-tracker)?\.js|reset-circuit-breaker\.js/,
+  'packaged Codex hooks must not register retired breaker entry points');
+
+const legacyState = { count: 3, lastHash: 'legacy-trip', zoomOutResolved: false, lastFailureAt: 123, zoomOutCycles: 0 };
+const legacyStateFile = path.join(sessionDir, 'rule-of-3-state.json');
 const reportFile = path.join(sessionDir, 'zoom-out-report.md');
-const reportWrite = runHook('hooks/scripts/rule-of-3.js', {
-  hook_event_name: 'PreToolUse',
-  session_id: 'openai-runtime-test',
-  cwd: fixture,
-  tool_name: 'apply_patch',
-  tool_input: { patch: `*** Add File: ${reportFile}\n## Goal` }
-}, stateHome);
-assert.strictEqual(reportWrite.status, 0, 'apply_patch must be allowed to write the zoom-out report');
+const note = 'agent-authored recovery note\n';
+fs.writeFileSync(legacyStateFile, JSON.stringify(legacyState), 'utf8');
+fs.writeFileSync(reportFile, note, 'utf8');
+const resumedSession = runHook('hooks/session-start.js', sessionPayload, stateHome);
+assert.strictEqual(resumedSession.status, 0, resumedSession.stderr);
+assert.deepStrictEqual(JSON.parse(fs.readFileSync(legacyStateFile, 'utf8')), legacyState,
+  'Codex startup leaves stale breaker state inert and intact');
+assert.strictEqual(fs.readFileSync(reportFile, 'utf8'), note,
+  'Codex startup preserves optional agent-authored notes');
 
-const mixedPatch = runHook('hooks/scripts/rule-of-3.js', {
-  hook_event_name: 'PreToolUse',
-  session_id: 'openai-runtime-test',
-  cwd: fixture,
-  tool_name: 'apply_patch',
-  tool_input: { patch: `*** Update File: ${reportFile}\n@@\n*** Update File: unrelated.txt\n@@` }
-}, stateHome);
-assert.strictEqual(mixedPatch.status, 2, 'report exemption must not allow a mixed apply_patch');
+for (const scenario of [
+  { name: 'fresh', state: null, command: `${process.execPath} -e "process.exit(1)"`, response: { exitCode: 1, stderr: 'fixture failure' } },
+  { name: 'legacy-tripped', state: legacyState, command: `${process.execPath} -e "process.stdout.write('permitted')"`, response: { exitCode: 0, stdout: 'permitted' } },
+]) {
+  if (scenario.state) fs.writeFileSync(legacyStateFile, JSON.stringify(scenario.state), 'utf8');
+  else fs.rmSync(legacyStateFile, { force: true });
+  const payload = {
+    host: 'codex', session_id: 'openai-runtime-test', cwd: fixture,
+    tool_use_id: `r1-${scenario.name}`, tool_input: { command: scenario.command },
+  };
+  const before = runRegistered('PreToolUse', 'Bash', payload, stateHome);
+  assert.ok(before.every(result => result.status === 0), `${scenario.name} pre-tool hooks should permit this command: ${before.map(item => item.stderr).join('\n')}`);
+  const call = spawnSync(process.execPath, ['-e', scenario.name === 'fresh' ? 'process.exit(1)' : 'process.stdout.write("permitted")'], {
+    cwd: fixture, encoding: 'utf8',
+  });
+  assert.strictEqual(call.status, scenario.response.exitCode, `${scenario.name} otherwise-permitted tool call must run`);
+  const after = runRegistered('PostToolUse', 'Bash', { ...payload, tool_response: scenario.response }, stateHome);
+  assert.ok(after.every(result => result.status === 0), `${scenario.name} result hooks should complete: ${after.map(item => item.stderr).join('\n')}`);
+  if (scenario.state) {
+    assert.deepStrictEqual(JSON.parse(fs.readFileSync(legacyStateFile, 'utf8')), legacyState,
+      'legacy tripped state remains unchanged after the next tool call');
+  } else {
+    assert.strictEqual(fs.existsSync(legacyStateFile), false, 'fresh tool call creates no breaker state');
+  }
+}
 
-const blockedPatch = runHook('hooks/scripts/rule-of-3.js', {
-  hook_event_name: 'PreToolUse',
-  session_id: 'openai-runtime-test',
-  cwd: fixture,
-  tool_name: 'apply_patch',
-  tool_input: { patch: '*** Update File: unrelated.txt\n@@' }
+const denied = runRegistered('PreToolUse', 'mcp__codex_apps__github__delete_issue', {
+  host: 'codex', session_id: 'openai-runtime-test', cwd: fixture, tool_use_id: 'r1-denied-control',
+  tool_input: { repository_full_name: 'example/repo', issue_number: 7 },
 }, stateHome);
-assert.strictEqual(blockedPatch.status, 2, 'tripped circuit breaker must block unrelated apply_patch writes');
+assert.strictEqual(denied.length, 1);
+assert.strictEqual(denied[0].status, 2, 'the independent Codex action gate still blocks a destructive MCP action');
+assert.match(denied[0].stderr, /no Harness-verified ask-style decision path/);
 
 const subagentStart = runHook('hooks/scripts/subagent-start.js', {
   hook_event_name: 'SubagentStart',

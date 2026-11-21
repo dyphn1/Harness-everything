@@ -24,7 +24,7 @@ This policy covers the Harness-everything repository and its published npm packa
 
 ## Hooks and Runtime Behavior
 
-Harness installs execution hooks (circuit breaker, scope guard, stop gate) into Claude Code sessions. These hooks:
+Harness installs execution hooks (action gate, scope guard, stop gate) into Claude Code sessions. These hooks:
 
 - Enforce file-scope boundaries
 - Track verification state

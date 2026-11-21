@@ -26,7 +26,6 @@ const INVARIANT_TEXT = {
   'environment-alignment': 'MUST establish relevant OS/shell/toolchain/host facts before relying on environment-sensitive behavior.',
   'verify-before-claim': 'MUST verify before claim with objective evidence appropriate to the change.',
   'visible-status-updates': 'MUST render the single Markdown Harness Status with a visible heading, bullet-aligned bold labels, Current, Read / Evidence, and Next; add Risk / Blocked only when materially applicable.',
-  'replan-after-repeated-failure': 'MUST stop micro-retrying after 3 same-signature failures and zoom out/re-diagnose.',
   'loop-awareness': 'MUST reconsider assumptions/re-plan when evidence shows iterative stagnation; numeric iteration values MAY guide but never hard-stop.',
   'objective-verification': 'MUST use an objective check for iterative work; self-critique alone is not verification.',
   'stage-contracts': 'When Fable is selected, stages MUST have explicit stage contracts and pass conditions.',
@@ -181,7 +180,7 @@ function printKernelContract(plan) {
     console.log('\n=> ROUTING DEGRADATION: Structured routing is degraded. Keep the strategy deferred unless independent evidence supports a route; do not silently downgrade to Tier 1/direct execution.');
   }
 
-  console.log('\n=> ORCHESTRATION POLICY: Selected-topology required obligations and applicable skill core contracts are semantic MUSTs; implementation tactics MAY adapt. Lifecycle hooks observe/remind rather than hard-block, except user/host permission boundaries and the Rule-of-3 zoom-out.');
+  console.log('\n=> ORCHESTRATION POLICY: Selected-topology required obligations and applicable skill core contracts are semantic MUSTs; implementation tactics MAY adapt. Lifecycle hooks observe/remind rather than hard-block, except explicit user/host permission boundaries.');
 }
 
 function printRetainedWorkflow(plan, workflow, activeStep = null, activeStages = []) {
@@ -219,7 +218,7 @@ function printRetainedWorkflow(plan, workflow, activeStep = null, activeStages =
     console.log('   - Active step: planning/execution obligations; step bindings are not composed or started yet.');
   }
   console.log('   - Harness Status stays MUST: one block with Current, Read / Evidence, and Next; add Risk / Blocked only when material. Turn label stays MUST.');
-  console.log('   - Permission boundary and Rule-of-3 remain active; this reminder is non-blocking.');
+  console.log('   - Explicit user/host permission boundaries remain active.');
 }
 
 function route(prompt, stdinPayload) {

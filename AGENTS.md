@@ -55,7 +55,7 @@ The retained [OpenCode evidence](benchmarks/results/live-host/opencode-2026-09-1
 
 - The final snapshot is post-reset (`hardLock: false`, `count: 1`).
 - Hard lock is only an interactive observation with no retained blocked-tool trace.
-- Reflection was operator-seeded, then agent-rewritten. Agent-controlled state deletion resets the breaker.
+- Historical reflection was operator-seeded, then agent-rewritten; agent-controlled state deletion reset the breaker. Rule-of-3 enforcement has since been retired.
 - Global scope, npm-package installation, and other OpenCode versions remain unverified.
 
 ## Change Rules

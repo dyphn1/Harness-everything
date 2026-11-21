@@ -98,11 +98,7 @@ Claude Code currently has the broadest verified Harness hook surface: `SessionSt
 
 When isolating a Claude hook manually on Windows, prefer `child_process.spawnSync` with JSON on stdin rather than a shell `echo '...' | node ...` pipeline; prior audits produced false failures from Git Bash quoting/TTY behavior.
 
-Example — Rule of 3 blocking path:
-
-```bash
-node -e "const {spawnSync}=require('child_process'); const r=spawnSync('node',['hooks/scripts/rule-of-3.js'],{input:JSON.stringify({}),encoding:'utf8'}); process.stdout.write(r.stdout||''); process.stderr.write(r.stderr||''); console.log('exit='+r.status)"
-```
+The former `hooks/scripts/rule-of-3*.js`, `reset-circuit-breaker.js`, forced-reflection, and OpenCode hard-lock paths are retired under [#394](https://github.com/dyphn1/Harness-everything/issues/394). The old blocking-path command is not a current verification target. Zoom-out remains an agent-initiated reassessment that can start on the first meaningful signal; productive iteration may continue when the next check is justified by new evidence.
 
 Use the dedicated `ci/mechanism-2*.test.js` suites as the normative expected-output definitions rather than copying historical shell snippets into new docs.
 
@@ -129,7 +125,7 @@ npm run test:mechanism
 
 and inspect the OpenCode-specific mechanism suites (`ci/mechanism-2n-opencode-plugin.test.js` for hook behavior, `ci/mechanism-30-opencode-plugin-loadability.test.js` for install-filename loadability).
 
-**Current evidence boundary:** deterministic mechanism coverage plus partial live-host evidence for project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS). See [retained evidence](benchmarks/results/live-host/opencode-2026-09-16/README.md). The retained snapshot predates #190's simplification and is historical evidence, not the current state machine: its final snapshot was post-reset; the old hard-lock was only an interactive observation, with no retained blocked-tool trace. Current OpenCode keeps the third-failure reflection boundary but removes the permanent post-reflection hard lock. Reflection was operator-seeded, then agent-rewritten; no behavioral-effectiveness claim is inferred. `.mjs` auto-discovery is broken on this host version (issue #127). Global scope, npm-package installation, and other host versions remain unverified.
+**Historical evidence boundary:** deterministic mechanism coverage and partial live-host evidence for project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS) are retained in [the evidence archive](benchmarks/results/live-host/opencode-2026-09-16/README.md). Its snapshot predates #190, is post-reset, and records the old hard-lock only as an interactive observation with no retained blocked-tool trace; reflection was operator-seeded, then agent-rewritten. The former third-failure reflection boundary and hard-lock path are retired under [#394](https://github.com/dyphn1/Harness-everything/issues/394). The archive does not establish current host behavior or behavioral effectiveness. `.mjs` auto-discovery was reported broken on that host version (issue #127). Global scope, npm-package installation, and other host versions remain unverified.
 
 ---
 
@@ -205,7 +201,7 @@ If the agent chooses multi-agent execution, specialist scopes and merge/verifica
 
 The current architecture follows one rule:
 
-> **Do not hard-enforce workflow order or numeric budgets. Observe, remind, and preserve evidence; only Rule of 3 and explicit permission boundaries may block.**
+> **Do not hard-enforce workflow order or numeric budgets. Observe, remind, and preserve evidence; explicit permission and safety boundaries may block. Recovery guidance is agent-initiated.**
 
 Therefore conformance testing must not require a universal chain such as `TODO → TDD → verification-loop`, nor assert that every TDD task must auto-load a fixed set of companion skills.
 
@@ -213,7 +209,7 @@ For a task run, check these instead:
 
 1. **Route before execution** — software/project work receives a reasonable scope/tier classification before mutation.
 2. **Verify before claim** — completion claims are backed by objective evidence appropriate to the change.
-3. **Re-plan after repeated same-signature failure** — where the host surface has the mechanism, the Rule-of-3 guard may require a zoom-out at the third matching failure; other workflow guidance remains advisory.
+3. **Agent-initiated reassessment** — the agent may choose Zoom-out on the first meaningful evidence that contradicts an assumption or reveals an unknown impact boundary. Productive attempts may continue when they add evidence or narrow the cause; no count or reflection artifact is required.
 4. **Skill-local workflow conformance** — when a skill is actually selected, follow that skill's documented local lifecycle (for example RED/GREEN/REFACTOR inside `tdd`).
 5. **No false mechanism parity** — do not grade an advisory surface as mechanically broken simply because it lacks a hook that was never packaged there.
 

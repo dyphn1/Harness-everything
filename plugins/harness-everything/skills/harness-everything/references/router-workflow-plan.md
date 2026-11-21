@@ -61,7 +61,7 @@ If the structured contract is missing or invalid, the kernel emits a degraded/un
 
 Tier 3 alone never implies a persistent workspace. Likewise, an `independent` label alone is insufficient for `fable-parallel`: the write set must also be `read-only` or `disjoint`.
 
-The Phase 2 `iterative-single` plan exposes **8 iterations** as advisory planning guidance, not a machine-enforced stop. Continue when evidence justifies it; the separate rule-of-3 repeated-failure reflection gate remains the hard boundary.
+The Phase 2 `iterative-single` plan exposes **8 iterations** as advisory planning guidance, not a machine-enforced stop. The existing `loop-awareness` obligation covers stagnation; an agent may start a zoom-out at the first meaningful signal, and productive iteration may continue at any attempt.
 
 ## Explicit user choice and prohibitions
 
@@ -110,7 +110,7 @@ This does not choose a topology and does not itself enforce the gate. Phase 5 ow
 
 Examples:
 
-- `loop-awareness` and `objective-verification` are mandatory for `iterative-single`, on top of the base `scope-lock`, `verify-before-claim`, and `replan-after-repeated-failure`;
+- `loop-awareness` and `objective-verification` are mandatory for `iterative-single`, on top of the base `scope-lock` and `verify-before-claim`;
 - TDD and verification-loop bindings are declared on behavior-change and verification steps, respectively;
 - `stage-contracts` and `cold-verification` are mandatory for Fable topologies;
 - domain skills and references are bound only to steps that need them;

@@ -126,6 +126,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Retired the Rule-of-3 failure-count breaker on Claude Code, Codex and OpenCode (#394). Hooks no longer count same-signature failures, block tools, demand a reflection report or offer `harness:reset`; legacy breaker state is ignored. Zoom-out is agent-initiated: an agent may reassess on a first meaningful failure and may keep iterating while attempts produce new evidence. Error-ledger lesson injection remains planned under #394.
+
 ### Features
 
 * **system-one:** Opt-in machines can run System One live (`HARNESS_SYSTEM_ONE_MODE=live`): CUA-S1 validity → intent → tier with independent per-option sigmoid scores shown as reference confidence, explicit choices and the structural floor ahead of it, the lexical tier as fallback. Weights are private versions installed, activated and rolled back with `install.js`; nothing is enabled by default.

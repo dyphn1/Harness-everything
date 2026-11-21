@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-Harness is a lightweight, local behavior and orchestration runtime that wraps around your AI development sessions (Claude Code, Cursor, GitHub Copilot agent surfaces, Codex, Continue.dev, Hermes Agent). It provides reactive hooks, routing boundaries, and circuit breakers designed to prevent infinite trial-and-error loops, costly over-engineering, and "lost-in-the-middle" context drift.
+Harness is a lightweight, local behavior and orchestration runtime that wraps around your AI development sessions (Claude Code, Cursor, GitHub Copilot agent surfaces, Codex, Continue.dev, Hermes Agent). It provides reactive hooks, routing boundaries, and evidence-based workflow guidance for iterative problem solving, scope control, and context preservation.
 
 ---
 
@@ -17,16 +17,16 @@ AI coding agents are highly capable, but they struggle with self-regulation, env
 
 ## Why Harness?
 
-Harness acts as an automated system supervisor. It remains completely silent and out of the way, intervening only when execution boundaries are violated or failures are detected.
+Harness provides workflow guidance and supported hooks for explicit execution boundaries.
 
-Harness deliberately follows a **minimal rails, maximum freedom** design: semantic obligations are explicit, while runtime observation remains lightweight and mostly fail-open. It does not hard-stop work on iteration/revision/replan/worker counts. The one cognitive hard boundary is Rule of 3: three matching failures pause mutation for a zoom-out reflection. Router keywords are planning signals, not document selectors. Ordered requirement steps declare their required/optional skills and references; only active bindings are exposed, and required bindings resolve before the step passes. Implementation tactics remain flexible inside those obligations.
+Harness deliberately follows a **minimal rails, maximum freedom** design: semantic obligations are explicit, while runtime observation remains lightweight and mostly fail-open. It does not hard-stop work on iteration/revision/replan/worker counts. Zoom-out is an agent-initiated reassessment: an agent may choose it on the first meaningful signal, while productive work can continue when attempts add evidence or narrow the cause. The former Rule-of-3 counter, forced reflection, reset path, and OpenCode hard-lock path are retired under [#394](https://github.com/dyphn1/Harness-everything/issues/394); explicit permission and safety boundaries remain. Router keywords are planning signals, not document selectors. Ordered requirement steps declare their required/optional skills and references; only active bindings are exposed, and required bindings resolve before the step passes. Implementation tactics remain flexible inside those obligations.
 
 ### Comparison: Prompt vs. Skill vs. Harness
 
 | Dimension | Prompt-Only (Custom Instructions) | Skill-Only (Task Guides) | Harness (Behavior Layer) |
 |---|---|---|---|
 | **Activation** | Always loaded (wastes prompt space) | Loaded on demand (requires manual trigger) | Reacts dynamically when the selected host surface exposes compatible hooks/plugins |
-| **Fail-Safe** | No protection (model keeps retrying) | No protection by itself | Can add mechanical retry/verification boundaries on surfaces that package those mechanisms |
+| **Fail-Safe** | No protection (model keeps retrying) | No protection by itself | Can add mechanical permission and verification boundaries on surfaces that package those mechanisms |
 | **Context Aware** | High risk of lost-in-the-middle bloat | Manages scope manually | Can add preflight/boundary mechanisms where the host exposes the required lifecycle/tool hooks |
 | **System Audit** | Blindly assumes shell syntax | Requires manual shell check | Uses environment detection and explicit verification paths instead of assuming one shell/runtime |
 | **Memory** | Resets on every new chat session | Static text rules | Stateful hook/plugin integrations can persist bounded runtime state; instruction-only integrations cannot |
@@ -144,14 +144,13 @@ flowchart TD
     A --> Exec[Execute Code / Run Commands]
     Exec --> Gate{Objective evidence supports completion?}
     Gate -->|No| Retry[Diagnose / iterate]
-    Retry --> CB{Same-signature failure x3?}
-    CB -->|No| Exec
-    CB -->|Yes| ZO[Zoom Out / Re-plan]
+    Retry --> Reassess{Would reassessment improve the next step?}
+    Reassess -->|No; next check is justified| Exec
+    Reassess -->|Yes; agent chooses| ZO[Agent-initiated Zoom Out]
     ZO --> Exec
     Gate -->|Yes| Done[Evidence-backed completion]
     Done --> SE[Optional Self-Evolve / Record]
     style K fill:#c8e6c9,stroke:#2e7d32,stroke-width:1px,color:#000000
-    style CB fill:#fff9c4,stroke:#fbc02d,stroke-width:1px,color:#000000
     style ZO fill:#ffcc80,stroke:#ef6c00,stroke-width:1px,color:#000000
     style Gate fill:#ffcdd2,stroke:#c62828,stroke-width:1px,color:#000000
 ```
@@ -165,7 +164,7 @@ The Tier changes task shape and selected topology, not a universal required orde
 Harness operates through six core cognitive concepts:
 
 1. **Kernel Router (`kernel-router.js` + `tier-router.js`):** `tier-router.js` classifies tasks and emits normalized knowledge signals; it does not select skill/reference paths. `kernel-router.js` is the public runtime boundary: it preserves the classifier result, injects baseline MUST invariants, and records ordered active-step bindings after requirement composition. Active required skills MUST be read and followed before their step passes. Selected-topology obligations are semantic MUSTs, but the runtime generally observes/reminds rather than hard-blocking. This preserves agent autonomy over tactics without allowing confidence to erase the lifecycle. If a step needs a skill not already available, `find-skills` checks `npx skills list` and searches `skills.sh`/`npx skills` under its own installation contract.
-2. **Guard (`rule-of-3.js`):** The fail-safe circuit breaker. Tracks failure signatures across terminal runs on integration surfaces that package the required lifecycle hooks. If a test or command fails 3 times with the same signature, it locks mutating tools and forces a `zoom-out` reflection: re-verify every assumption with read-only tools, write a fact-checked report, then resume on a fresh diagnosis. A companion `Stop` hook (`stop-gate.js`) emits a non-blocking reminder when edits were never followed by successful verification on hosts where that hook is installed.
+2. **Retired Rule-of-3 enforcement:** The former `rule-of-3*.js` counter, `reset-circuit-breaker.js`, forced reflection, and OpenCode hard-lock path are retired under [#394](https://github.com/dyphn1/Harness-everything/issues/394). Zoom-out remains agent-initiated; a first meaningful signal may prompt reassessment, and justified productive iteration may continue. Explicit permission boundaries remain separate.
 3. **Memory (`state-persist.js`):** Session transaction logging for stateful hook/plugin integrations. Static skills/instructions alone do not create WAL state.
 4. **Reflection (`self-evolve`):** Long-term workspace immunization. Upon task completion, the agent reflects on the root cause of resolved issues, then judges whether the lesson is a simple rule or a reusable, complex pattern: simple rules are appended to local workspace rules (`RULES.md`); genuinely reusable patterns are instead packaged as a dynamic skill (via `skill-creator`'s Dynamic Skill Generation Contract) and registered in `manifest.json` so the Router picks it up in future sessions. Either path is validated by a hermetic self-regression suite before it's persisted.
 5. **Subagent Scope Guard (`subagent-scope-guard.js`):** Diffs the whole repo's `git status` before and after every supported subagent (`Task`) burst, not just the files it was briefed to touch. Catches a subagent that was told to only read/verify but edited files anyway — where that host/integration actually invokes the guard.
@@ -177,14 +176,14 @@ Harness operates through six core cognitive concepts:
 
 The authoritative current matrix is [docs/platform-capabilities.md](docs/platform-capabilities.md). The important distinction is that **one host can have multiple Harness installation surfaces**.
 
-[`opencode-plugin/`](opencode-plugin/) (`index.mjs`) implements verification observation/reminders and a Rule of 3 breaker against OpenCode's real, source-verified plugin API (`tool.execute.before`/`.after`, the `session.idle` event). `ci/mechanism-2n-opencode-plugin.test.js` drives the exported hooks directly against a mock context matching that API. Retained evidence supports project-scope `.js` plugin loading and edit/verification state on OpenCode 1.18.31 (macOS): [live-host evidence](benchmarks/results/live-host/opencode-2026-09-16/README.md). The retained snapshot predates #190's simplification and is historical evidence only: its final snapshot was post-reset; the old hard-lock was only an interactive observation, with no retained blocked-tool trace. Current OpenCode behavior keeps the third-failure reflection boundary but no permanent post-reflection hard lock. Reflection was operator-seeded, then agent-rewritten, not unaided; no behavioral-effectiveness claim is made. Install with a **`.js`** destination name: this host silently ignores `.mjs` (issue #127, guarded by `test:opencode:loadability`). Global scope, npm-package installation, and other host versions remain unverified.
+[`opencode-plugin/`](opencode-plugin/) (`index.mjs`) implements verification observation/reminders against OpenCode's plugin API (`tool.execute.before`/`.after`, the `session.idle` event). `ci/mechanism-2n-opencode-plugin.test.js` drives the exported hooks directly against a mock context matching that API. Retained evidence supports project-scope `.js` plugin loading and edit/verification state on OpenCode 1.18.31 (macOS): [live-host evidence](benchmarks/results/live-host/opencode-2026-09-16/README.md). That snapshot is historical: it is post-reset, the old hard-lock was only an interactive observation with no retained blocked-tool trace, and reflection was operator-seeded then agent-rewritten. The former third-failure reflection boundary and hard-lock path are retired under [#394](https://github.com/dyphn1/Harness-everything/issues/394); this evidence does not establish current host behavior or behavioral effectiveness. Install with a **`.js`** destination name: this host silently ignores `.mjs` (issue #127, guarded by `test:opencode:loadability`). Global scope, npm-package installation, and other host versions remain unverified.
 
 | AI Agent Tool / Surface | Integration Method | Local Target Location | Enforcement claim |
 |---|---|---|---|
-| **Claude Code** | Native lifecycle hooks (`PreToolUse`, `PostToolUse`, `SessionStart`, `UserPromptSubmit`, `Stop`) | `.claude/settings.json`, `.claude/skills/`, `.claude/agents/` | Semantic workflow contracts are reminder-observed; Rule-of-3 reflection and explicit permission boundaries may block |
-| **OpenCode** | Native plugin module ([`opencode-plugin/index.mjs`](opencode-plugin/index.mjs), install as `harness-enforcement.js`) | `.opencode/plugins/` | **Partial live-host evidence** — project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS); current workflow/verification behavior is reminder-oriented, with only the third-failure reflection boundary blocking edits |
+| **Claude Code** | Native lifecycle hooks (`PreToolUse`, `PostToolUse`, `SessionStart`, `UserPromptSubmit`, `Stop`) | `.claude/settings.json`, `.claude/skills/`, `.claude/agents/` | Semantic workflow contracts are reminder-observed; the former Rule-of-3 reflection path is retired, while explicit permission boundaries remain |
+| **OpenCode** | Native plugin module ([`opencode-plugin/index.mjs`](opencode-plugin/index.mjs), install as `harness-enforcement.js`) | `.opencode/plugins/` | **Partial historical live-host evidence** — project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS); former third-failure reflection and hard-lock paths are retired under #394 |
 | **Codex — general installer path** | Skills + `AGENTS.md` instructions | `AGENTS.md` + repo-scoped `.agents/skills/` | **Instruction/advisory delivery only**; semantic MUST/SHOULD/MAY still applies, without a hard-enforcement claim |
-| **Codex / local OpenAI plugin** | `.codex-plugin` package with session, prompt, supported-tool, subagent, and stop hooks plus 27 canonical skills | `.agents/plugins/marketplace.json` → `plugins/harness-everything/` | **Mechanism-tested local contract observation plus explicit permission/Rule-of-3 boundaries** for the packaged mappings; live host loading remains unverified |
+| **Codex / local OpenAI plugin** | `.codex-plugin` package with session, prompt, supported-tool, subagent, and stop hooks plus 27 canonical skills | `.agents/plugins/marketplace.json` → `plugins/harness-everything/` | **Mechanism-tested local contract observation plus explicit permission boundaries** for the packaged mappings; live host loading remains unverified |
 | **Public OpenAI Skills-only plugin** | Public Skills-only bundle | Generated submission ZIP from `plugins/harness-everything/skills/` | **Skill/workflow behavior only**; no local `.codex-plugin` lifecycle hooks in the public artifact |
 | **Cursor** | Native Project Rules + project skills | `.cursorrules` + `.cursor/skills/` | Advisory only |
 | **GitHub Copilot agent surfaces** | Agent Skills + repository custom instructions | `.github/copilot-instructions.md` + `.github/skills/` | Agent Skills path is documented; no live Harness session or plugin install is verified |
@@ -220,7 +219,7 @@ This repo uses a flat layout (waza/agentskills.io convention). The table below m
 | Directory | Category | Description |
 |---|---|---|
 | `harness-everything` | **Core Runtime** | Bootstrap, kernel-router, tier-router, verify-gate, self-heal |
-| `hooks` | **Core Runtime** | Claude Code lifecycle hooks (prompt routing, circuit breaker, scope guard, stop gate, etc.) |
+| `hooks` | **Core Runtime** | Claude Code lifecycle hooks (prompt routing, action gate, scope reminders, stop gate, etc.) |
 | `scripts` | **Core Runtime** | Installer, manifest, prompts, workspace utilities, repository contract extraction/sync |
 | `bin` | **Core Runtime** | `harness` CLI entry point |
 | `ci` | **Quality Gates** | Consistency checks, description collision, mechanism tests, invariant-routing regression, documentation/runtime contract drift guards |
@@ -263,7 +262,7 @@ This repo uses a flat layout (waza/agentskills.io convention). The table below m
 | `using-git-worktrees` | **Skill (Tier 2)** | Git worktree concurrency patterns |
 | `verification-loop` | **Skill (Tier 2)** | Select systematic verification evidence; kernel still requires evidence before completion |
 | `verify-before-claim` | **Always-on discipline** | Fact-audit before asserting claims |
-| `zoom-out` | **Circuit breaker** | Circuit-breaker reflection protocol |
+| `zoom-out` | **Agent-initiated reassessment** | Voluntary evidence review and diagnosis |
 | `opencode-plugin` | **Platform Plugin** | Enforcement logic for OpenCode's real plugin API; live-session firing still unverified (#37) |
 
 ---
@@ -274,7 +273,7 @@ For a deep dive into individual modules and the underlying philosophy, explore o
 
 * [Harness Philosophy](docs/philosophy.md): The core behavior-first, intervention-only design.
 * [Harness Architecture](docs/architecture.md): Lifecycle hooks, security model, and data locality.
-* [Semantic Contracts and Safety Boundary Diagnostic Flows](docs/enforcement-locks.md): Distinguish MUST/SHOULD/MAY obligations from reminder mechanics and the two intentional blocking boundaries.
+* [Semantic Contracts and Safety Boundary Diagnostic Flows](docs/enforcement-locks.md): Distinguish MUST/SHOULD/MAY obligations from reminder mechanics; only user/host permission and dangerous-action approval can block.
 * [Platform Capability Matrix](docs/platform-capabilities.md): Canonical current enforcement/install/evidence boundary per surface.
 * [Repository Runtime & Workflow Contract](docs/repository-contract.md): Generated Node/action/workflow/gate state used by consistency CI.
 * [OpenAI / ChatGPT Plugin Packaging](docs/openai-plugin.md): Local Codex/OpenAI plugin packaging plus public Skills-only submission boundary.

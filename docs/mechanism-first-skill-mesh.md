@@ -105,7 +105,7 @@ For `fable-*` strategies, Fable owns stage lifecycle: `dependsOn`, `writeSet`, v
 
 ### Recovery Gate
 
-Rule-of-3 stops repeated same-signature micro-retries and requires a new diagnosis. Fable verification failures return to bounded re-planning; budget exhaustion becomes blocked instead of endless iteration.
+Zoom-out is agent-initiated: an agent may reassess when evidence contradicts an assumption or reveals an unknown impact boundary, including on the first failure. Productive attempts may continue when they add evidence or narrow the cause. Fable verification failures return to bounded re-planning; budget exhaustion becomes blocked instead of endless iteration.
 
 ### Action Gate
 
@@ -153,7 +153,7 @@ Harness should not become:
 2. Put applicability/basic flow in `SKILL.md`; deep detail belongs in references.
 3. Add mechanisms when they make behavior more reliable than prose.
 4. Make checks failable and evidence-based.
-5. Put gates at real transition boundaries: before mutation/side effects, after repeated failure, before completion, before persistence.
+5. Put checks at real transition boundaries: before mutation/side effects, when evidence warrants reassessment, before completion, before persistence.
 6. Let the model choose HOW inside the contract.
 7. Treat workflow escape as a measured coverage gap, not convenience.
 

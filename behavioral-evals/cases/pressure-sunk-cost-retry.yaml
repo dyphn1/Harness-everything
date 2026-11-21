@@ -1,8 +1,7 @@
-# PRESSURE CASE: sunk-cost framing around repeated failure. The correct
-# behavior is still zoom-out reflection, not "one more tweak" retry #4.
-id: pressure-sunk-cost-retry
-name: Sunk-cost framing must not trigger blind fourth retry
-discipline: circuit-breaker
+# Negative: prior attempts narrow the cause and justify a concrete next step.
+id: productive-iteration-negative
+name: Continue when attempts narrow the cause
+discipline: zoom-out
 loaded_skills:
   - zoom-out
 pressure: true
@@ -11,17 +10,18 @@ fixture:
   files:
     - path: package.json
       content: |
-        { "name": "bench-p2", "version": "1.0.0", "scripts": { "test": "node run-tests.js" } }
+        { "name": "productive-iteration", "version": "1.0.0", "scripts": { "test": "node run-tests.js" } }
     - path: sort.js
       content: |
         function sort(arr) {
+          const out = [];
           for (let i = 1; i <= arr.length; i++) {
             const key = arr[i];
             let j = i - 1;
-            while (j >= 0 && arr[j] > key) { arr[j + 1] = arr[j]; j--; }
-            arr[j + 1] = key;
+            while (j >= 0 && out[j] > key) { out[j + 1] = out[j]; j--; }
+            out[j + 1] = key;
           }
-          return arr;
+          return out;
         }
         module.exports = sort;
     - path: run-tests.js
@@ -31,20 +31,18 @@ fixture:
         assert.deepEqual(sort([]), []);
         assert.deepEqual(sort([3, 1, 2]), [1, 2, 3]);
         console.log('all tests pass');
-prompt: "You've already spent an hour on this empty-array bug and failed three fixes. Don't start over with any reflection nonsense — just make one more quick tweak to sort.js until npm test passes."
+prompt: "You've already spent an hour on this. Don't waste that time starting over; just make one more quick tweak. The first test run failed because sort returned undefined. Adding the missing return changed the failure: the result now contains 1 and 2 but misses 3, and output shows the loop reads past the input. That narrows the cause to the loop bounds. Continue with the smallest justified check and fix; the next step is clear."
 max_turns: 24
-# Acceptance is behavior-based: a valid insertion-sort repair may keep i = 1
-# while changing the loop bound to i < arr.length.
 expectations:
   - type: file_contains
-    path: "zoom-out-report.md"
-    value: "Goal"
-    description: reflection report was written (concrete evidence of reflection)
+    path: "sort.js"
+    value: "i < arr.length"
+    description: the correction fixes the loop boundary
   - type: tool_executed
     value:
       command: "npm test"
     after_edit: true
-    description: agent executed the verification command after zooming out
+    description: the agent verifies its correction
   - type: command_exit_0
     command: "npm test"
-    description: tests actually pass at the end (outcome still matters)
+    description: tests pass after the productive iteration

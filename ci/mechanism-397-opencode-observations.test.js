@@ -1112,9 +1112,9 @@ test('V2 consumers α3: both completion orders and a post-completion counterpart
   }
 });
 
-test('V2 consumers α3: duplicate completion notifications do not advance Rule-of-3', { concurrency: false }, async () => {
+test('V2 consumers α3: duplicate completion notifications do not duplicate verification', { concurrency: false }, async () => {
   const f = fixture('off');
-  const sessionID = 'v2-rule-of-three';
+  const sessionID = 'v2-duplicate-completion';
   const checkLog = path.join(f.dir, 'check-runs.txt');
   writeVerificationPackage(f, `const fs=require('node:fs');fs.appendFileSync(${JSON.stringify(checkLog)},'x\\n');console.error('AssertionError [ERR_ASSERTION]: stable fixture failure');process.exit(1)`);
   let dispose;
@@ -1139,12 +1139,11 @@ test('V2 consumers α3: duplicate completion notifications do not advance Rule-o
       assert.equal(await waitUntil(() => fs.existsSync(editStateArtifact(f.workspace, sessionID))
         && readJson(editStateArtifact(f.workspace, sessionID)).followUpPending === true), true,
       `revision ${i + 1} recorded one completed failing check`);
-      const breaker = readJson(path.join(stateDir(f.workspace, sessionID), 'circuit-breaker.json'));
-      const count = Object.values(breaker.failures)[0]?.count;
-      assert.equal(count, i + 1, `duplicate completion for revision ${i + 1} does not add a failure`);
-      assert.equal(breaker.reflectionPending, i === 2, 'reflection is forced only on the third separate failed revision');
       assert.equal(fs.readFileSync(checkLog, 'utf8').trim().split(/\r?\n/).length, i + 1, 'one check ran per edit revision');
-      assert.equal(readJson(path.join(stateDir(f.workspace, sessionID), 'compliance.json')).circuitBreakerTrips, i === 2 ? 1 : 0);
+      assert.equal(fs.existsSync(path.join(stateDir(f.workspace, sessionID), 'circuit-breaker.json')), false,
+        'verification failure does not create recurrence state');
+      assert.equal(readJson(path.join(stateDir(f.workspace, sessionID), 'compliance.json')).totalEdits, i + 1,
+        'each new edit is recorded once');
     }
   } finally {
     if (dispose) await dispose();

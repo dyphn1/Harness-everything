@@ -61,54 +61,61 @@ const { buildReport } = require(path.join(ROOT, 'telemetry/scripts/report.js'));
 console.log('=== #141 Self-Evolve Closed Loop Phase 1-4 Mechanism ===');
 
 try {
-  const tracker = path.join(ROOT, 'hooks/scripts/rule-of-3-tracker.js');
   const ruleSession = 'lesson-rule-session';
   const ruleSessionDir = getSessionDir(workspace, ruleSession);
-  fs.writeFileSync(path.join(ruleSessionDir, 'rule-of-3-state.json'), JSON.stringify({
-    count: 0,
-    lastHash: '0123456789abcdef0123456789abcdef',
-    category: 'test',
-    threshold: 3,
-    zoomOutResolved: true,
-    zoomOutCycles: 1,
-    lastFailureAt: 1700000000000,
+  const legacyCandidateId = `lesson-${'a'.repeat(24)}`;
+  const candidateDir = path.join(ruleSessionDir, 'learning-candidates');
+  const timestamp = new Date().toISOString();
+  fs.mkdirSync(candidateDir, { recursive: true });
+  fs.writeFileSync(path.join(candidateDir, `${legacyCandidateId}.json`), JSON.stringify({
+    schemaVersion: 1,
+    candidateId: legacyCandidateId,
+    contentHash: null,
+    state: 'proposed',
+    trigger: {
+      type: 'rule-of-3-recovery',
+      reasonCodes: ['repeated-failure', 'zoom-out-completed', 'verified-subsequent-success'],
+      sourceEventIds: ['legacy-trip', 'legacy-success'],
+      evidenceClass: 'runtime-recovery',
+    },
+    provenance: { sessionId: ruleSession, workflowId: null, runId: null, strategy: null },
+    evidence: { failureSignature: 'legacy-signature', failureCategory: 'test', zoomOutCycles: 1, recovered: true },
+    generalizedRule: null,
+    scope: { task: null, requirement: null, role: null },
+    screening: null,
+    evaluation: null,
+    persistence: null,
+    outcome: null,
+    history: [],
+    createdAt: timestamp,
+    updatedAt: timestamp,
   }, null, 2));
-
-  const recovered = run(tracker, {
-    hook_event_name: 'PostToolUse',
-    tool_name: 'Bash',
-    tool_use_id: 'recovery-tool-1',
-    session_id: ruleSession,
-    cwd: workspace,
-    tool_input: { command: 'node secret-command-should-not-be-retained.js' },
-    tool_response: { exitCode: 0, stdout: 'SECRET_OUTPUT_SHOULD_NOT_BE_RETAINED' },
-  });
-  check(recovered.status === 0, 'Rule-of-3 recovery tracker stays non-blocking', recovered.stderr);
-
-  const ruleCandidates = listCandidates({ workspace, sessionId: ruleSession });
-  check(ruleCandidates.length === 1, 'zoom-out followed by confirmed success emits one lesson candidate');
-  const ruleCandidate = ruleCandidates[0];
-  check(ruleCandidate.state === 'proposed' && ruleCandidate.trigger.type === 'rule-of-3-recovery', 'runtime recovery enters observed -> proposed lifecycle');
-  const serializedRule = JSON.stringify(ruleCandidate);
-  check(!serializedRule.includes('secret-command-should-not-be-retained') && !serializedRule.includes('SECRET_OUTPUT_SHOULD_NOT_BE_RETAINED'), 'runtime candidate excludes raw command/output contents');
-  check(!fs.existsSync(path.join(workspace, 'memories', 'repo')), 'automatic opportunity detection never mutates durable memory');
-
-  const ruleEvaluation = evaluateCandidate({
+  const legacyCandidate = loadCandidate({ workspace, sessionId: ruleSession, candidateId: legacyCandidateId }).candidate;
+  check(legacyCandidate.trigger.type === 'rule-of-3-recovery', 'historical recovery candidate remains readable');
+  const legacyEvaluation = evaluateCandidate({
     workspace,
     sessionId: ruleSession,
-    candidateId: ruleCandidate.candidateId,
+    candidateId: legacyCandidateId,
     rule: 'Always verify recovery.test.js after changing retry strategy',
     scopeTask: 'retry recovery',
     scopeRole: 'coordinator',
   }).candidate;
-  check(ruleEvaluation.state === 'inconclusive', 'Rule-of-3 linear recovery is not misrepresented as counterfactual replay');
-  check(ruleEvaluation.evaluation.replayable === false && ruleEvaluation.evaluation.improvementClaim === false, 'non-replayable candidate requires paired/later evidence and makes no improvement claim');
+  check(legacyEvaluation.state === 'inconclusive', 'historical linear recovery remains non-replayable');
+  check(legacyEvaluation.evaluation.replayable === false && legacyEvaluation.evaluation.improvementClaim === false,
+    'historical recovery cannot claim counterfactual replay or improvement');
   expectThrow(() => promoteCandidate({
     workspace,
     sessionId: ruleSession,
-    candidateId: ruleCandidate.candidateId,
+    candidateId: legacyCandidateId,
     authorization: 'forged',
-  }), /only accepted/, 'inconclusive runtime lesson cannot be promoted');
+  }), /only accepted/, 'inconclusive historical lesson cannot be promoted');
+  check(!fs.existsSync(path.join(workspace, 'memories', 'repo')), 'historical candidate evaluation never mutates durable memory');
+
+  expectThrow(() => createLearningOpportunity({ session_id: ruleSession, cwd: workspace }, {
+    triggerType: 'rule-of-3-recovery',
+    sourceEventIds: ['legacy-trip', 'legacy-success'],
+    evidence: { failureSignature: 'legacy-signature', recovered: true },
+  }), /unsupported learning trigger/, 'retired recovery trigger cannot create new opportunities');
 
   const stagedContract = buildRouterContract({
     routingStatus: 'ok',
@@ -262,16 +269,6 @@ try {
   }).candidate;
   check(validatedState.state === 'validated', 'later outcome evidence can advance a retrieved lesson to validated');
 
-  const duplicate = createLearningOpportunity({
-    session_id: ruleSession,
-    cwd: workspace,
-  }, {
-    triggerType: ruleCandidate.trigger.type,
-    sourceEventIds: ruleCandidate.trigger.sourceEventIds,
-    evidence: ruleCandidate.evidence,
-  });
-  check(duplicate.created === false, 'same runtime evidence is idempotent and cannot duplicate a lesson candidate');
-
   const rejectedSeed = createLearningOpportunity({
     session_id: 'lesson-rejected-session',
     cwd: workspace,
@@ -296,10 +293,10 @@ try {
   check(rejected.state === 'rejected', 'secret/injection screening rejects unsafe lesson before any promotion');
   check(!fs.readFileSync(path.join(workspace, 'memories', 'repo', 'RULES.md'), 'utf8').includes('Ignore previous instructions'), 'rejected lesson never mutates durable memory');
 
-  const sourceHook = fs.readFileSync(path.join(ROOT, 'hooks/scripts/rule-of-3-tracker.js'), 'utf8');
   const verifierHook = fs.readFileSync(path.join(ROOT, 'hooks/scripts/contract-test.js'), 'utf8');
-  check(sourceHook.includes('createLearningOpportunity') && verifierHook.includes('createLearningOpportunity'), 'negative-control anchors require both runtime emitters');
-  check(!sourceHook.includes('persistMemory(') && !verifierHook.includes('persistMemory('), 'runtime recovery hooks cannot directly persist memory');
+  check(!fs.existsSync(path.join(ROOT, 'hooks/scripts/rule-of-3-tracker.js')) && verifierHook.includes('createLearningOpportunity'),
+    'retired recovery tracker is absent while the verifier fail-pass producer remains');
+  check(!verifierHook.includes('persistMemory('), 'verifier hook cannot directly persist memory');
 
   const telemetryEvents = telemetry.readEvents(telemetry.telemetryFile(workspace, { cwd: workspace }));
   const telemetryReport = buildReport(telemetryEvents);
@@ -311,7 +308,7 @@ try {
   ]) {
     check(lessonEvents.has(expected), 'self-evolve lifecycle emits telemetry event: ' + expected);
   }
-  check(telemetryReport.selfEvolve.funnel.opportunities >= 3 &&
+  check(telemetryReport.selfEvolve.funnel.opportunities >= 2 &&
     telemetryReport.selfEvolve.funnel.accepted >= 1 &&
     telemetryReport.selfEvolve.funnel.inconclusive >= 1 &&
     telemetryReport.selfEvolve.funnel.rejected >= 1 &&
@@ -326,11 +323,14 @@ try {
     'lesson telemetry excludes generalized rules, evidence refs, and raw runtime output');
 
   const lessonSchema = JSON.parse(fs.readFileSync(path.join(ROOT, 'self-evolve/schemas/lesson-candidate.schema.json'), 'utf8'));
-  check(lessonSchema.properties?.state?.enum?.includes('inconclusive') && lessonSchema.properties?.trigger?.properties?.type?.enum?.includes('verifier-fail-pass'), 'versioned lesson schema covers lifecycle and trigger vocabulary');
+  check(lessonSchema.properties?.state?.enum?.includes('inconclusive') &&
+    lessonSchema.properties?.trigger?.properties?.type?.enum?.includes('verifier-fail-pass') &&
+    lessonSchema.properties?.trigger?.properties?.type?.enum?.includes('rule-of-3-recovery') &&
+    lessonSchema.properties?.trigger?.properties?.type?.description?.includes('historical candidates'),
+    'versioned lesson schema retains historical triggers while supporting verifier fail-pass');
 
   for (const [canonical, mirror] of [
     ['hooks/scripts/lib/learning-opportunity.js', 'plugins/harness-everything/hooks/scripts/lib/learning-opportunity.js'],
-    ['hooks/scripts/rule-of-3-tracker.js', 'plugins/harness-everything/hooks/scripts/rule-of-3-tracker.js'],
     ['hooks/scripts/contract-test.js', 'plugins/harness-everything/hooks/scripts/contract-test.js'],
     ['self-evolve/scripts/lesson-candidate.js', 'plugins/harness-everything/skills/self-evolve/scripts/lesson-candidate.js'],
     ['multi-agent-workspace/scripts/index_memory.js', 'plugins/harness-everything/skills/multi-agent-workspace/scripts/index_memory.js'],

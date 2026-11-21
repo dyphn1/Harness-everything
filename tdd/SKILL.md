@@ -35,4 +35,4 @@ Load `<this-skill-dir>/references/core-discipline.md` and the quality model, the
 
 Deep dive: <this-skill-dir>/references/core-discipline.md
 
-After three failed GREEN attempts, invoke `zoom-out` before another edit.
+When a GREEN attempt reveals a wrong assumption, an unclear impact boundary, or no useful next check, the agent may invoke `zoom-out` to reassess. Continue when each iteration adds evidence and justifies the next step; no failure count requires a pause.

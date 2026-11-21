@@ -23,10 +23,11 @@ flowchart TD
     CheckTest -- No Tests --> WriteCharTest[Write Characterization Tests First] --> Execute
     CheckTest -- Tests Pass --> Execute[5. Execute Refactoring via TDD]
 
-    Execute --> ErrorsCheck{6. Cascading Errors > 3?}
+    Execute --> ErrorsCheck{Did results change the diagnosis?}
 
-    ErrorsCheck -- Yes --> Rollback[Rollback Changes & Trigger zoom-out]
+    ErrorsCheck -- Yes --> Reassess[Choose whether to reassess, revise, or roll back]
     ErrorsCheck -- No --> Complete[Refactoring Complete & Record Lessons in self-evolve]
+    Reassess --> Execute
 ```
 
 ## 1. Architectural Exploration & Discovery `[Discover]`
@@ -47,8 +48,8 @@ Use consistent domain terminology (Module, Interface, Implementation, Depth, Sea
 - **Iron Rule of Refactoring**: MUST be done under the safety net of test coverage. If there are no tests, the first step MUST be to "write Characterization Tests for the legacy code" before modifying the architecture.
 - **Extract Safely**: Extract objects/functions incrementally, verifying test suite execution after each atomic change.
 
-## 4. Circuit Breaker & Evolution `[Summarize]` & `[Self-Evolve]`
-- If refactoring triggers more than 3 cascading compilation errors that cannot be fixed immediately, trigger the `zoom-out` circuit breaker and Rollback.
+## 4. Reassessment & Evolution `[Summarize]` & `[Self-Evolve]`
+- When results contradict an assumption or leave the next check unclear, an agent may choose `zoom-out` to review evidence and update the diagnosis. Continue when iterations narrow the cause and justify the next action; roll back when checks show a regression.
 - Write the discovered coupling traps into `self-evolve` memory, ensuring future newly generated code does not repeat the same mistakes.
 
 ## Reference Guides

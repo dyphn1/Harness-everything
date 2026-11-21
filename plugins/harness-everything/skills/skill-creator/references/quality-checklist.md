@@ -11,7 +11,7 @@ A skill isn't done until every line here is true. This is deliberately a flat ch
 - [ ] **Every `MUST`/`MUST NOT`/`PROHIBITED` has a real gate behind it**, or is rewritten as a positive statement of the target behavior. A prohibition with no gate and no "why" sentence next to it is a smell, not a strength.
 - [ ] **No no-op lines** — for each imperative sentence, ask whether it changes behavior versus what the model already does by default. ("Be thorough" reads as a no-op; a concrete completion criterion or a stronger leading word doesn't.)
 - [ ] **Body fits the information hierarchy** — steps for ordered action, flat reference for rules, detail past what every branch needs pushed to `guides/`/`references/` with a "when to open this" pointer.
-- [ ] **Reuses existing leading words** (`Tier 1/2/3`, `circuit breaker`/`zoom out`, `Rule of 3`, `Red/Green/Refactor`, `Discover > Think > Try > Summarize > Record`) instead of naming a new concept for something this repo already has a word for.
+- [ ] **Reuses existing leading words** (`Tier 1/2/3`, `zoom out`, `Red/Green/Refactor`, `Discover > Think > Try > Summarize > Record`) instead of naming a new concept for something this repo already has a word for.
 - [ ] **Completion criteria are checkable** — tied to an exit code, a file's existence, a grep result, or explicit human confirmation, not "when it feels done."
 - [ ] **Description reads as a human-facing sentence**, not just a trigger-phrase list — `scripts/installer.js`'s interactive picker prints it next to a checkbox for a person deciding whether to install this skill; that's its real first reader in this architecture (audit report §2.1).
 

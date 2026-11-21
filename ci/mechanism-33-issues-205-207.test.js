@@ -24,7 +24,7 @@ check(/STATE_DIR=\$\(node -e[\s\S]*getSessionDir\(null, 'default'\)/.test(docker
   '#205 docker verifier resolves one canonical session state directory');
 check(!dockerVerify.includes(legacyStatePath),
   '#205 docker verifier does not seed or read the legacy repo-relative state directory');
-check((dockerVerify.match(/\$STATE_DIR\//g) || []).length >= 10,
+check((dockerVerify.match(/\$STATE_DIR\//g) || []).length >= 8,
   '#205 docker verifier routes all state checks through STATE_DIR');
 
 const architecture = fs.readFileSync(path.join(ROOT, 'docs/architecture.md'), 'utf8');

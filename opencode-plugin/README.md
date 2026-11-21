@@ -1,17 +1,15 @@
-# Harness Guidance + Rule-of-3 Plugin for opencode
+# Harness Guidance and Verification Plugin for OpenCode
 
-Adds lifecycle guidance, verification reminders, and the Rule-of-3 zoom-out boundary in opencode, addressing the
-limitation that skills are otherwise advisory-only on that platform.
+Adds edit tracking, verification reminders, prompt routing, and observation hooks for OpenCode.
 
-> **Evidence boundary:** the plugin is implemented against opencode's real plugin API and covered by deterministic mechanism tests. Live plugin loading remains unverified beyond one scoped surface: retained evidence supports project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS) — [live-host evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md). The retained snapshot predates #190 and is historical evidence only: its final snapshot was post-reset; the old hard-lock was only an interactive observation, with no retained blocked-tool trace. Current behavior has no permanent post-reflection hard lock; only the third matching verification failure pauses edits for reflection. Reflection was operator-seeded, then agent-rewritten, so no behavioral-effectiveness claim is made. Global scope, npm-package installation, and other host versions remain unverified. See [`../docs/platform-capabilities.md`](../docs/platform-capabilities.md).
+> **Evidence boundary:** the plugin is covered by deterministic mechanism tests. Live plugin loading remains unverified beyond one scoped surface: retained evidence supports project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS) — [live-host evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md). That retained snapshot is historical: its final state was post-reset; the hard-lock was only an interactive observation with no retained blocked-tool trace. Reflection was operator-seeded, then agent-rewritten, so no behavioral-effectiveness claim is made. The current plugin does not force reflection or block edits based on verification history. Global scope, npm-package installation, and other host versions remain unverified. See [`../docs/platform-capabilities.md`](../docs/platform-capabilities.md).
 
 ## Problem
 
-Harness now keeps workflow/productivity rules advisory on both Claude Code and opencode. Explicit permission boundaries and the third-failure Rule-of-3 reflection are the intentional blocking exceptions. In opencode, skills
+Harness keeps workflow and productivity guidance advisory on both Claude Code and OpenCode. Explicit permission boundaries remain independent contracts. In OpenCode, skills
 only SUGGEST rules (soft guidance). This means:
 - Under pressure, agents can bypass skills
 - Verification can be skipped
-- Circuit breaker patterns don't trigger
 
 ## The plugin
 
@@ -24,7 +22,7 @@ see issue #37 for how that was found and fixed. **Naming caveat (issue
 #127):** opencode's discovery glob only matches `*.js`/`*.ts`, so the file
 must be copied to a `.js` name when installed - see Installation below.
 
-It implements three lifecycle mechanisms across opencode's real hooks:
+It implements edit tracking and verification reminders across OpenCode's hooks:
 
 The V1 factory follows opencode's plugin contract directly: the named
 `HarnessEnforcement` export is an async factory receiving the opencode context
@@ -61,13 +59,11 @@ by `HARNESS_VERIFY_TIMEOUT_MS`. It reports progress every 15 seconds in the
 plugin log. No later script starts after the budget expires. Each run is
 classified as `pass` (exit 0), `test_failure` (a real nonzero exit), `timeout`
 (the sequence deadline expired), or `execution_error` (spawn failure, external
-signal, or cancellation). Only `test_failure` advances the Rule-of-3 counter.
+signal, or cancellation). The follow-up describes the verification outcome.
 
 | Resource | Bound / behavior |
 |---|---|
 | Retained output | First and last 2,000 characters per stream; the final diagnostic shares a 2,000-character budget across streams, plus labels/elision markers |
-| Failure identity | Incremental whitespace-normalized digest of both complete streams; first recognized test marker and suite context tracked separately |
-| Marker parsing | First 4,096 characters of each line; an overlong marker/context selects the complete-stream digest; ordinary long banners preserve later complete markers |
 | Timeout/cancel | Terminate the shell/npm/script process group, then force-kill after 150 ms on POSIX; Windows uses `taskkill /T /F` |
 | Concurrent lifecycle | Duplicate idle events share the active run; a code edit or session reset aborts it; an idle arriving during cancellation waits for cleanup before verifying the newer edits; the V2 event stream continues consuming cancellation events; disposal awaits active child cleanup; stale results cannot clear newer edits or recreate deleted state |
 
@@ -77,31 +73,10 @@ budget, child cleanup and concurrent hooks; these are deterministic mechanism
 evidence, not a new live-host verification claim. Processes deliberately
 escaping the process group are outside this cleanup boundary.
 
-### 3. Rule-of-3 zoom-out boundary (`tool.execute.before` + the verification observer above)
-
-Enforces Rule of 3 on repeated verification failures (same failing command +
-normalized failure evidence: the first test-level failing marker - TAP
-`not ok`, node:test/jest symbols, Jest test blocks, assertion lines - over the
-streamed stdout **and** stderr, with a preceding suite header such as
-Jest's `FAIL <file>` carried as context so different tests in one file stay
-distinct; without a test-level marker the signature falls back to a digest of
-those complete streams, never to a suite header alone; the diagnostic retention bound does not limit the stream digest; not
-arbitrary tool failures, since
-`tool.execute.after` has no normalized success/failure field to key a
-signature on for tools in general):
-- 3rd failure on the same signature forces a reflection message instead of a
-  retry nudge
-- the follow-up asks for a tokenized `zoom-out-report.md` artifact with the
-  required reflection sections; the artifact is accepted through the real
-  edit hook and records `lastReflection`
-- after a valid reflection, the signature count resets; another three matching failures trigger another zoom-out
-- `npm run harness:reset` remains an optional manual state clear; a repeated cycle does not create a permanent second-stage lock
-
 Idle handling is bounded: after a failed verification, the plugin records that
 the follow-up is pending and ignores repeated `session.idle` events until a new
 code edit arrives. If prompt delivery fails, the exact follow-up text is saved
-and retried on the next idle event without re-running verification or adding a
-new breaker failure. A reflection artifact itself does not count as a code edit.
+and retried on the next idle event without re-running verification.
 
 ## Installation
 
@@ -192,21 +167,15 @@ recovery. Session IDs such as `.` or `..` are hashed
 into safe child names, and reset only removes a path proven to remain under the
 session root.
 
-The reflection report is `zoom-out-report.md` in the session state directory.
-It must contain `## Goal`, `## Failed Attempts`, `## Verified Facts`,
-`## Diagnosis`, `## Decision`, with the first non-empty line under `## Decision`
-starting with `RESUME:` or `ESCALATE:`, and the token supplied in the
-forced-reflection prompt. `apply_patch` reflection writes are accepted when
-their patch target names the report file.
-
 ## Testing
 
 `ci/mechanism-2n-opencode-plugin.test.js` imports `index.mjs` and drives its
 exported hooks directly with a mock `client`/`event` context - the same shape
-opencode's plugin loader passes in - covering the edit → idle → follow-up →
-reflection-artifact → retry → fresh three-failure cycle, repeated-idle idempotency,
-session isolation, reset behavior, legacy-state migration, corrupt-state
-fail-closed behavior, and patch-based reflection writes.
+OpenCode's plugin loader passes in - covering edit → idle → reminder, repeated
+failures, legacy pending state remaining inert, prompt-delivery retry,
+repeated-idle idempotency, session isolation, reset behavior, and legacy-state
+migration. `ci/mechanism-2p-opencode-v2-entrypoint.test.js` exercises the same
+edit and legacy-state paths through the default V2 export.
 
 It does not launch a real opencode process; the test remains a deterministic
 hook-sequence check against the documented and source-verified hook signatures.
