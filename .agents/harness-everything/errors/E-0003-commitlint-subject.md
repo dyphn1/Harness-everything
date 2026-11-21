@@ -10,6 +10,20 @@ violates: "commitlint.config.js: \"'subject-case': [2, 'always', 'lower-case']\"
 scope: in
 status: lesson
 mechanism_ref: .husky/commit-msg
+match:
+  actions:
+    - tool: shell
+      executable: git
+      subcommand: commit
+  failures:
+    - tool: shell
+      executable: git
+      subcommand: commit
+      diagnostics:
+        - subject-case
+        - header-max-length
+        - type-empty
+        - subject-empty
 episodes:
   - episode: 325-3b-process-friction
     feature: "#325 Phase 3b process friction (retro row 3.9)"
