@@ -125,6 +125,19 @@ episodes:
         change: "Re-run as `chore(merge): ...` (`28e60098`)"
         review: commitlint
         result: "accepted"
+  - episode: 394-commit-body-line-length
+    feature: "#394 integration commits (PR #501)"
+    date: 2026-11-21
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "commitlint"
+        result: "coordinator commit body line over 100 characters (body-max-line-length) rejected; the very class #394 now injects at git commit."
+      - round: 1
+        change: "re-committed with wrapped lines"
+        review: "commitlint"
+        result: "accepted"
 ---
 
 ## Cue
@@ -170,3 +183,4 @@ The coordinator wrote `docs(errors): record the PR #476 CI fix episodes`; commit
 
 A coordinator `git merge --no-ff -m` message had no conventional type and was rejected by commitlint; the merge was completed with a `chore(errors): merge …` message. Lesson added: local merge commits into an integration branch need a conventional message too.
 - PR #494 (2026-11-20): merge message without type rejected; re-run as `chore(merge)` in `28e60098`.
+- PR #501 (2026-11-21): body-max-line-length on a coordinator commit.

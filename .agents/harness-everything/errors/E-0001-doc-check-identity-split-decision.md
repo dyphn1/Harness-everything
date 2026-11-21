@@ -132,6 +132,19 @@ episodes:
         change: "Commit a0f8204a: publication fixed across all await sites"
         review: "RD1 independent review"
         result: "RD1 found disposal still awaits an unresolved host session.context() read. Episode open; owner decision pending."
+  - episode: 501-ledger-rule-two-parsers
+    feature: "#394 lesson injection (PR #501)"
+    date: 2026-11-21
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "independent review RV on PR #501 (executed)"
+        result: "errors-sync parsed match rules from YAML while the runtime matcher read the same frontmatter with its own line parser; a valid quoted scalar passed sync and silently missed at runtime."
+      - round: 1
+        change: "da046171: runtime reads rules only from the generated index row, checked by a generated frontmatter binding; the runtime YAML parser is removed"
+        review: "closing re-review RV2 (executed)"
+        result: "quoted rules select in both phases; episode closed"
 ---
 
 ## Cue
@@ -172,3 +185,4 @@ The owner's round-2 review of PR #448 found two P1s: the V2 lifecycle event and 
 ## Episode 6 (PR #448, disposal liveness)
 
 R3 found late publication after plugin disposal — the second blocker on PR #448 after the repair budget. D1 (`a0f8204a`) fixed publication across all await sites; the independent review RD1 then found that disposal still awaits an unresolved host `session.context()` read. Episode open; owner decision pending.
+- PR #501: review finding 1, fix `da046171`. Same session: three separate harness-label parsers (dispatch readiness, dispatch status read, report writer) were each patched in PR #499; unifying them is open.

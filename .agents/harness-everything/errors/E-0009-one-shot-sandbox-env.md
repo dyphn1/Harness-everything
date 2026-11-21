@@ -129,6 +129,19 @@ episodes:
         change: null
         review: "coordinator pre-dispatch ping"
         result: "The default free runners `opencode/glm-5.3-flash-free` (deprecated) and `nvidia/deepseek-ai/deepseek-v4.1-flash` (end of life 2026-11-16) stopped working; a ping before dispatch caught it, so no dispatch was lost."
+  - episode: 394-packets-ask-sandbox-for-ledger-and-gates
+    feature: "#394 packets S, HC, HO (PR #501)"
+    date: 2026-11-21
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "worker reports"
+        result: "packet S put .agents/** in a codex workspace-write write-set (sandbox EPERM, a recorded gotcha) → BLOCKED; packets HC/HO asked sandboxed workers to run verify:all --fast (loopback EPERM, >15 min) → both hit the 45-minute dispatch RUN_TIMEOUT."
+      - round: 1
+        change: "coordinator applied the .agents edits and regenerates the index; continuation packets forbid verify:all for sandboxed workers"
+        review: "HC2/HO2/FX reports + coordinator verify:all"
+        result: "all completed within budget; coordinator verify:all 13 PASS / 0 FAIL"
 ---
 
 ## Cue
@@ -166,3 +179,4 @@ After the known permission failure, do not rerun the same fixture commands in th
 ## Episode 11 (2026-11-18, tooling)
 
 The default free runners `opencode/glm-5.3-flash-free` (deprecated) and `nvidia/deepseek-ai/deepseek-v4.1-flash` (end of life 2026-11-16) stopped working. A ping before dispatch caught it, so no run was lost. Different shape from sandbox EPERM: the runner itself was retired; the existing "ping the model first" lesson covers it. E-0020 covers concurrency on a shared key, not provider retirement.
+- PR #501 (2026-11-21): S BLOCKED report and HC/HO RUN_TIMEOUT; continuation packets HC2/HO2.
