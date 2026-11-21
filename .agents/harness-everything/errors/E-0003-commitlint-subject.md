@@ -126,6 +126,19 @@ episodes:
         change: null
         review: "commitlint (husky commit-msg)"
         result: "`git merge --no-ff -m \"merge p1 errors-sync --root into …\"` was rejected (`type-empty`, `subject-empty`); the merge stayed uncommitted until re-committed as `chore(errors): merge p1 …`. Merge commits on integration branches go through the same hook."
+  - episode: 394-merge-message-without-type
+    feature: "#394 rule-of-3 retirement integration merges (PR #494)"
+    date: 2026-11-20
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: commitlint
+        result: "`git merge origin/main -m \"merge ...\"` rejected (subject/type empty); same as episode 479-merge-commit-without-type."
+      - round: 1
+        change: "Re-run as `chore(merge): ...` (`28e60098`)"
+        review: commitlint
+        result: "accepted"
 ---
 
 ## Cue
@@ -170,3 +183,4 @@ The coordinator wrote `docs(errors): record the PR #476 CI fix episodes`; commit
 ## Episode (2026-11-19, #479 integration merge)
 
 A coordinator `git merge --no-ff -m` message had no conventional type and was rejected by commitlint; the merge was completed with a `chore(errors): merge …` message. Lesson added: local merge commits into an integration branch need a conventional message too.
+- PR #494 (2026-11-20): merge message without type rejected; re-run as `chore(merge)` in `28e60098`.

@@ -38,6 +38,19 @@ episodes:
         change: "C3 in PR #471 (42b0a45f): every routing child gets the mode from one env builder, plus an inherited-live regression and an explicit live control"
         review: "executed evidence: live, unset, off and unknown value; mutant 7 FAIL"
         result: "Closed on executed evidence 2026-11-18: the inherited-live case is a regression, the explicit live control passes and mutant 7 is detected."
+  - episode: 493-alias-h-canonical-map
+    feature: "#468 C8 map alias H (PR #493)"
+    date: 2026-11-20
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "Adding the C8 alias H to `docs/error-handling/nodes.yaml` failed the error-handling-map mechanism test, which hard-coded H as the unused alias: the oracle assumed the canonical map state of the day."
+      - round: 1
+        change: "The test fixture moved its new alias to `I` (PR #493); it still hard-codes the next free alias, so the next Action added to the map hits the same coupling"
+        review: "mechanism test + verify:all --fast"
+        result: "Green again; episode left open because the fixture still assumes the map state"
 ---
 
 ## Cue
@@ -63,3 +76,4 @@ Every test that touches a store, an environment variable or a home-directory pat
 ## Episode 2 closure (2026-11-18, #449 / PR #462 / PR #471)
 
 The shell-inherited `HARNESS_SYSTEM_ONE_MODE=live` also failed local `verify:all` row 8 on the PR #462 head and on main, while hosted CI stayed green. C3 in PR #471 (`42b0a45f`) made every routing child take the mode from one env builder and added an inherited-live regression plus an explicit live control. Episode closed on executed evidence: live, unset, off and unknown value, with mutant 7 detected.
+- PR #493 (2026-11-20): map test hard-coded the unused alias H.
