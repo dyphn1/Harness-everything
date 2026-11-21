@@ -1,0 +1,10 @@
+{
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_use_id": "toolu_hc_action",
+  "session_id": "hc-session",
+  "prompt_id": "hc-prompt",
+  "tool_input_command": "git commit -m \"docs: record task progress\"",
+  "cwd": ".",
+  "transcript_path": "/tmp/hc-session.jsonl"
+}
