@@ -7,10 +7,12 @@ const { spawnSync: spawnNodeSync } = require('child_process');
 
 function spawnSync(command, args, options = {}) {
   const { systemOneMode = 'off', ...spawnOptions } = options;
+  const inheritedEnv = Object.fromEntries(Object.entries(process.env)
+    .filter(([key]) => !key.toUpperCase().startsWith('HARNESS_')));
   return spawnNodeSync(command, args, {
     ...spawnOptions,
     env: {
-      ...process.env,
+      ...inheritedEnv,
       ...(spawnOptions.env || {}),
       HARNESS_SYSTEM_ONE_MODE: systemOneMode,
     },
@@ -65,7 +67,6 @@ function runTier(prompt, options = {}) {
     encoding: 'utf8',
     input: context ? JSON.stringify({ ...context, prompt }) : undefined,
     env: {
-      ...process.env,
       ...(options.env || {}),
       HARNESS_ROUTER_CONTRACT_PATH: contractPath,
     },
@@ -488,7 +489,7 @@ const kernelNotificationPersistFailure = spawnSync(process.execPath, [kernelRout
     hook_event_name: 'UserPromptSubmit',
     prompt: '<task-notification><task-id>background-1</task-id><status>completed</status></task-notification>',
   }),
-  env: { ...process.env, HARNESS_STATE_HOME: notificationStateFile, HARNESS_WORKSPACE_ROOT: ROOT },
+  env: { HARNESS_STATE_HOME: notificationStateFile, HARNESS_WORKSPACE_ROOT: ROOT },
 });
 check(kernelNotificationPersistFailure.status === 0, 'host notification persistence failure stays fail-open');
 check(kernelNotificationPersistFailure.stdout.includes('Host notification: no active execution contract; ignored for routing.'), 'host notification remains a routing no-op when state persistence fails');
@@ -510,18 +511,17 @@ check(!kernelIterative.stdout.includes('evaluate-suggestions-before-skip'), 'leg
 
 const retainedStateHome = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-router-retained-step-'));
 const retainedSession = 'issue297-retained-step';
-const retainedEnv = withInheritedSystemOneLive(() => ({
-  ...process.env,
+const retainedEnv = {
   HARNESS_STATE_HOME: retainedStateHome,
   HARNESS_WORKSPACE_ROOT: ROOT,
-}));
+};
 const retainedInput = prompt => JSON.stringify({ session_id: retainedSession, cwd: ROOT, hook_event_name: 'UserPromptSubmit', prompt });
-const initialRetainedRoute = spawnSync(process.execPath, [kernelRouter], {
+const initialRetainedRoute = withInheritedSystemOneLive(() => spawnSync(process.execPath, [kernelRouter], {
   cwd: ROOT,
   encoding: 'utf8',
   input: retainedInput('Fix this checkout bug and add a regression test.'),
   env: retainedEnv,
-});
+}));
 check(initialRetainedRoute.status === 0, 'retained workflow fixture routes successfully');
 check(!initialRetainedRoute.stdout.includes('SYSTEM ONE REFERENCE CONFIDENCE'), 'retained kernel route ignores inherited live mode');
 check(initialRetainedRoute.stdout.includes('PLANNING STEP: decompose → compose'), 'new selected workflow exposes its planning step');

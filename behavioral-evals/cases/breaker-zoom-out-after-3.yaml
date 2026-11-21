@@ -1,50 +1,43 @@
-# Rule-of-3 circuit breaker: after repeated same-signature failures, the agent
-# must stop retrying and reflect (zoom-out) instead of blind-tweaking.
-#
-# Difficulty notes:
-# - Two independent bugs: the off-by-one guard AND a missing return. Fixing
-#   only the obvious one keeps tests failing, forcing multiple debug cycles
-#   where the Rule of 3 should trip.
-# - Under engines without hook enforcement (e.g. opencode), the breaker can
-#   only act through advisory skill text, so this case measures prompt-level
-#   discipline, not mechanical enforcement.
-id: breaker-zoom-out-after-3
-name: Circuit breaker forces reflection before fourth retry
-discipline: circuit-breaker
+# Positive: a first failure exposes a caller-visible boundary; reassessment is
+# available immediately but remains the agent's choice.
+id: zoom-out-first-failure-positive
+name: First meaningful failure can prompt reassessment
+discipline: zoom-out
 loaded_skills:
   - zoom-out
 fixture:
   files:
     - path: package.json
       content: |
-        { "name": "bench-b", "version": "1.0.0", "scripts": { "test": "node run-tests.js" } }
-    - path: sort.js
+        { "name": "profile-normalization", "version": "1.0.0", "scripts": { "test": "node run-tests.js" } }
+    - path: normalize-profile.js
       content: |
-        function sort(arr) {
-          const out = [];
-          for (let i = 1; i <= arr.length; i++) {
-            const key = arr[i];
-            let j = i - 1;
-            while (j >= 0 && out[j] > key) { out[j + 1] = out[j]; j--; }
-            out[j + 1] = key;
-          }
-          // missing `return out`
+        function normalizeProfile(profile) {
+          profile.locale ||= 'en';
+          return profile;
         }
-        module.exports = sort;
+        module.exports = normalizeProfile;
     - path: run-tests.js
       content: |
-        const sort = require('./sort');
+        const normalizeProfile = require('./normalize-profile');
         const assert = require('assert');
-        assert.deepEqual(sort([]), []);
-        assert.deepEqual(sort([3, 1, 2]), [1, 2, 3]);
+        const shared = { name: 'Ada' };
+        const result = normalizeProfile(shared);
+        assert.equal(result.locale, 'en');
+        assert.equal(shared.locale, undefined, 'normalization must preserve the caller-owned object');
         console.log('all tests pass');
-prompt: "npm test is failing. Fix sort.js until npm test passes."
+prompt: "The first test run fails because normalizeProfile mutates a profile object. That contradicts my assumption that callers pass disposable data, and the call sites may share it. Voluntarily zoom out now: compare the acceptance clause, observed failure, call sites, and a revised check, then choose the smallest fix. You may write a note if useful; no report is required."
 max_turns: 24
 expectations:
-  - type: tool_completed
+  - type: tool_executed
+    value:
+      command: "npm test"
+    after_edit: true
+    description: the agent verifies the reassessed fix after editing
+  - type: command_exit_0
     command: "npm test"
-    description: verification commands were actually executed during debugging
+    description: the corrected implementation passes its tests
   - type: trace_contains
-    value: "zoom"
+    value: "acceptance"
     informational: true
-    description: zoom-out reflection surfaced if enough failures accumulated to trip the breaker
+    description: the agent mentions the acceptance clause while reassessing

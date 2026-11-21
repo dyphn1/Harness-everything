@@ -9,8 +9,6 @@ metadata:
 
 # Execution Guardrails
 
-**USE FOR**: Raising warnings or flagging problems, search-and-replace/regex file edits, batching minor caveats, reporting capability limits.
-
 | Component | Spec |
 | :--- | :--- |
 | **Trigger / Input** | Turn raising a warning or performing search-and-replace edits. |
@@ -35,7 +33,7 @@ metadata:
 2. **Warning batching.** Collect minor concerns and list them together in the next natural report or handoff; their count alone MUST NOT stop, pause, or return the worker/stage. An independently material, confirmed concern may stop the current stage and be surfaced immediately.
 3. **Find-and-replace safety** — Prefer structured edit tools over shell `sed`; anchor with unique context or `\bword\b` boundaries; verify file integrity post-edit. Never replace-all blindly.
 
-Repeated matching execution failures remain governed by Rule-of-3 / `zoom-out`; warning batching never substitutes for that recovery path.
+When evidence changes the diagnosis, an agent may choose `zoom-out`; warning batching does not create a stop rule.
 
 This nested file is reference-only, not an always-on carrier; rules apply only when an active carrier injects them.
 

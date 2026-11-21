@@ -80,11 +80,12 @@ flowchart TD
 Minor-concern batching is **not** a stage transition. Workers keep producing and
 verifying the assigned artifact and include accumulated minor concerns in the next
 natural report/handoff; the number of minor concerns alone never stops or returns a
-worker. A material confirmed blocker may stop the current stage immediately. Repeated
-matching execution failures use the separate Rule-of-3 path: zoom out, reflect, then
-`RESUME` on a new approach or `ESCALATE` when a real decision is required.
+worker. A material confirmed blocker may stop the current stage immediately. An
+agent may choose Zoom-out when evidence contradicts an assumption or exposes an
+unknown impact boundary, including on the first meaningful signal. Productive
+attempts may continue when they add evidence or narrow the cause.
 
-Replan counts (`maxReplans`) are advisory and never halt execution on their own; unresolved blockers are escalated rather than hidden behind endless restructuring, and three same-signature failures still trigger the mandatory Rule-of-3 `zoom-out`.
+Replan counts (`maxReplans`) are advisory and never halt execution on their own; unresolved blockers are escalated rather than hidden behind endless restructuring. The former Rule-of-3 counter and forced-reflection path are retired under [#394](https://github.com/dyphn1/Harness-everything/issues/394).
 
 ## 5. Completion Boundary
 

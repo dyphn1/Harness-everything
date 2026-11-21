@@ -3,6 +3,7 @@
 const assert = require('assert');
 const crypto = require('crypto');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
@@ -41,6 +42,33 @@ function assertTreesEqual(source, packaged, name) {
       `${name}/${relative}: packaged content drifted from canonical source`
     );
   }
+}
+
+const sessionFixture = fs.mkdtempSync(path.join(process.env.TMPDIR || os.tmpdir(), 'harness-openai-session-start-'));
+try {
+  const session = spawnSync(process.execPath, [path.join(ROOT, 'hooks', 'scripts', 'openai-session-start.js')], {
+    cwd: sessionFixture,
+    input: JSON.stringify({
+      hook_event_name: 'SessionStart',
+      session_id: 'openai-package-session-start',
+      cwd: sessionFixture,
+      source: 'startup'
+    }),
+    encoding: 'utf8',
+    env: { ...process.env, HARNESS_STATE_HOME: path.join(sessionFixture, 'state-home') }
+  });
+  assert.strictEqual(session.status, 0, session.stderr);
+  const sessionOutput = JSON.parse(session.stdout);
+  const sessionContext = sessionOutput.hookSpecificOutput.additionalContext;
+  assert.strictEqual(sessionOutput.hookSpecificOutput.hookEventName, 'SessionStart');
+  assert.match(sessionContext, /Cognitive OS policy is active/);
+  assert.match(sessionContext, /Route before execution/);
+  assert.match(sessionContext, /Verify before claim/);
+  assert.match(sessionContext, /first meaningful signal/i);
+  assert.match(sessionContext, /productive iteration may continue/i);
+  assert.doesNotMatch(sessionContext, /after 3 same-signature failures|third matching failure|Rule[- ]of[- ]3|forced reflection|compulsory report|reset|unlock/i);
+} finally {
+  fs.rmSync(sessionFixture, { recursive: true, force: true });
 }
 
 assert.strictEqual(PLUGIN_MANIFEST.name, 'harness-everything');
@@ -164,13 +192,8 @@ assert.match(hookText, /PLUGIN_ROOT/, 'plugin hooks must resolve from PLUGIN_ROO
 assert.match(hookText, /commandWindows/, 'plugin hooks need a Windows command override');
 assert.match(hookText, /workflow-gate\.js/, 'plugin hooks must package workflow contract observation');
 assert.match(hookText, /workflow-stop-gate\.js/, 'plugin hooks must package workflow completion reminders');
-
-const session = spawnSync(process.execPath, [path.join(PLUGIN, 'hooks', 'session-start.js')], { encoding: 'utf8' });
-assert.strictEqual(session.status, 0, session.stderr);
-assert.match(session.stdout, /Cognitive OS policy is active/);
-assert.match(session.stdout, /Route before execution/);
-assert.match(session.stdout, /Verify before claim/);
-assert.match(session.stdout, /3 same-signature failures/);
+assert.doesNotMatch(hookText, /rule-of-3(?:-tracker)?\.js|reset-circuit-breaker\.js/,
+  'OpenAI package must not register retired breaker entry points');
 
 const kernel = path.join(PLUGIN, 'skills', 'harness-everything', 'scripts', 'kernel-router.js');
 function route(prompt) {

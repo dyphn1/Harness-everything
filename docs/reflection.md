@@ -21,7 +21,7 @@ On a surface that packages those mechanisms:
 * **Handoff checkpoint:** a session checkpoint can record pending/failed state for later recovery.
 * **Session-start recovery:** a compatible session-start hook can surface that checkpoint back to the agent.
 
-This is a runtime integration feature, not a property of every Harness skill installation. The **Codex / local OpenAI plugin** packages the session/prompt hooks plus the supported-tool `state-persist.js` / circuit-breaker / `PostToolUse` runtime and stop/subagent adapters. That is mechanism-tested package coverage, not proof that a live host loaded every hook. The public OpenAI **Skills-only** artifact has no local `.codex-plugin` lifecycle hooks at all.
+This is a runtime integration feature, not a property of every Harness skill installation. The **Codex / local OpenAI plugin** packages the session/prompt hooks plus the supported-tool `state-persist.js` / `PostToolUse` runtime and stop/subagent adapters. The former Rule-of-3 tracker, forced reflection, and reset path are retired under [#394](https://github.com/dyphn1/Harness-everything/issues/394). Package-level mechanism coverage does not prove that a live host loaded every hook. The public OpenAI **Skills-only** artifact has no local `.codex-plugin` lifecycle hooks at all.
 
 ---
 

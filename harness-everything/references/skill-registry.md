@@ -31,8 +31,8 @@ Every skill in this repository is reachable from this router. If a task matches 
 | `grill-with-docs` | Tier 3 | Documenting decisions (ADR / CONTEXT) before large designs. |
 | `to-spec` | Tier 2/3 (advisory, never a gate) | Synthesizing the (already-settled) conversation into whichever doc shape fits — feature spec, CLI/API reference, schema doc, or dev doc — published to this repo's issue tracker. Explicit-invoke only — never auto-executed. |
 | `to-tickets` | Tier 2/3 (advisory, never a gate) | Breaking a `to-spec` feature spec (or an already-settled plan/conversation) into tracer-bullet tickets with declared blocking edges. Reuses `to-spec`'s own `check-project-docs.js` gate — never a second setup interview. Explicit-invoke only — never auto-executed. |
-| `zoom-out` | Circuit breaker | Rule of 3 trips (§3). |
-| `self-evolve` | Evolution | Post-breaker resolution or major breakthrough (§4). |
+| `zoom-out` | Diagnosis | Agent-initiated reassessment when evidence undermines an assumption, exposes an unknown impact boundary, or the user asks for it. |
+| `self-evolve` | Evolution | Capture verified reusable lessons or major breakthroughs (§4). |
 | `error-ledger-bootstrap` | Error ledger | Inventory local lessons for an existing repository and promote only owner-approved entries. |
 | `find-skills` | Meta | No static/generated/already-installed skill covers the user's need (checked live via `npx skills list`, not manifest-cached) — searches skills.sh/`npx skills` and, only with explicit approval, applies it ephemerally via a self-expiring OS-temp cache (`scripts/use-skill.js`, the default — zero persistent footprint) or, only if the user wants to keep it, installs via `npx skills add` (the rare exception). Deliberately not manifest-tracked or router-auto-surfaced like `self-evolve`'s `generated[]` — third-party content isn't lifecycle-owned by Harness the way self-authored skills are. |
 | `skill-style` | Meta | Authoring or modifying any SKILL.md in this repository — the terse Skill Contract format spec. |

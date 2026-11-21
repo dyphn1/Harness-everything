@@ -17,7 +17,7 @@ const POLICY = [
   'Cross-cutting invariants:',
   '- Route before execution: establish task scope before mutating work.',
   '- Verify before claim: require objective evidence appropriate to the change.',
-  '- Re-plan on repetition: after 3 same-signature failures, zoom out instead of repeating the same attempt.',
+  '- Reassess when evidence warrants it: an agent may choose zoom-out at the first meaningful signal or later; productive iteration may continue when attempts add evidence, narrow the cause, and justify the next check.',
   'Domain skills are advisory. Do not enforce a universal workflow order; choose the smallest useful skill/tool set.'
 ].join('\n');
 
@@ -35,7 +35,7 @@ function removeIfPresent(file) {
   try {
     if (fs.existsSync(file)) fs.unlinkSync(file);
   } catch (err) {
-    // Session reset is best effort; a stale breaker must never block startup.
+    // Session cleanup is best effort.
   }
 }
 
@@ -61,8 +61,6 @@ function main() {
       pruneStaleSessions(root);
       writeCurrentSession(root, sessionId);
       const sessionDir = getSessionDir(root, sessionId);
-      removeIfPresent(path.join(sessionDir, 'rule-of-3-state.json'));
-      removeIfPresent(path.join(sessionDir, 'zoom-out-report.md'));
       removeIfPresent(path.join(sessionDir, 'subagent-scope-state.json'));
       additionalContext += handoffContext(sessionDir);
     } catch (err) {

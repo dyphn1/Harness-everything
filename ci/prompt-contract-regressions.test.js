@@ -11,7 +11,6 @@ function read(rel) {
 }
 
 // #273: Fable replan counts are advisory, never execution hard-stops.
-// Only repeated same-signature failures invoke mandatory Rule-of-3 reflection.
 for (const [canonical, packaged] of [
   ['fable-mode/SKILL.md', 'plugins/harness-everything/skills/fable-mode/SKILL.md'],
   ['fable-mode/fable-opus/SKILL.md', 'plugins/harness-everything/skills/fable-mode/fable-opus/SKILL.md'],
@@ -23,7 +22,6 @@ for (const [canonical, packaged] of [
     ? read('fable-mode/references/execution-phases.md') : '';
   const contract = body + '\n' + phases;
   assert.ok(/advisory replan|replans are advisory/i.test(contract), canonical + ' must describe replans as advisory');
-  assert.ok(/Rule-of-3/i.test(contract), canonical + ' must preserve same-signature failure reflection');
   assert.ok(!/at most two (?:full )?replans/i.test(body), canonical + ' must not imply a two-replan hard cap');
 }
 for (const rel of [
@@ -38,12 +36,11 @@ assert.ok(/maxReplans[\s\S]{0,60}is advisory/i.test(orchestratorContract), 'orch
 assert.ok(/do not block execution/i.test(orchestratorContract), 'orchestrator does not block on replan count');
 
 // #275: build divergence is a diagnostic signal, not a second hard-stop.
-// Mandatory blocking/reflection remains limited to Rule-of-3 or permission boundaries.
+// Divergent build state remains diagnostic guidance, not a hard stop.
 const fableDiscipline = read('fable-discipline/SKILL.md');
 assert.strictEqual(read('plugins/harness-everything/skills/fable-discipline/SKILL.md'), fableDiscipline, 'fable-discipline packaged contract matches canonical');
 assert.ok(/divergence is a warning signal/i.test(fableDiscipline), 'fable-discipline must classify divergence as warning guidance');
 assert.ok(/does not hard-stop execution/i.test(fableDiscipline), 'divergence must not create an independent hard stop');
-assert.ok(/Rule-of-3 owns mandatory reflection/i.test(fableDiscipline), 'Rule-of-3 remains the mandatory reflection owner');
 assert.ok(!/HALTS execution immediately/i.test(fableDiscipline), 'fable-discipline must not retain the divergent-build hard halt');
 assert.ok(!/If build errors diverge, HALT/i.test(fableDiscipline), 'fable-discipline must not issue an immediate divergence halt');
 
@@ -107,7 +104,6 @@ assert.ok(!/Trigger: Commit Request \/ Task Complete/i.test(gitCommitFlow), 'tas
 
 // #275 reference surface must agree with the non-blocking divergence contract.
 assert.ok(/divergence alone is not a hard stop/i.test(fableDisciplineRules), 'fable reference keeps divergence advisory');
-assert.ok(/Mandatory reflection remains owned by Rule-of-3/i.test(fableDisciplineRules), 'fable reference keeps Rule-of-3 as reflection owner');
 assert.ok(!/HALT EXECUTION IMMEDIATELY/i.test(fableDisciplineRules), 'fable reference must not retain the old divergence hard halt');
 const fableWorkflow = read('docs/workflows/fable-discipline.md');
 const gitWorkflow = read('docs/workflows/git-commit.md');

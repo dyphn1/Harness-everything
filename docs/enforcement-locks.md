@@ -16,20 +16,22 @@ Harness deliberately separates **semantic obligation strength** from **mechanica
 | Subagent declared scope / unexpected writes | **MUST** respect and reconcile | Report ambiguous/out-of-scope changes | No |
 | Commit scope | Staged diff review **MUST**; split unrelated concerns **SHOULD** | Atomic-commit reminder | No |
 | Fable stage/check/synthesis/verifier | **MUST** when selected | Record pass/fail/ambiguity/dependency evidence and remind | No |
-| Rule of 3 | Third matching failure **MUST** trigger zoom-out | Pause mutation until reflection | **Yes — intentional cognitive boundary** |
+| Zoom-out reassessment | **MAY** reassess at the first meaningful signal or later; productive iteration may continue when attempts add evidence or narrow the cause | Agent-directed guidance | No |
 | Action/permission gate | Approval **MUST** precede governed side effects | Host/user authorization | **Yes — trust boundary** |
 
-## Rule of 3
+## Voluntary reassessment
 
-```text
-same signature #1 -> record
-same signature #2 -> record
-same signature #3 -> pause mutation and require zoom-out
-reflection accepted -> count resets
-later #1/#2/#3 -> another zoom-out
+```mermaid
+flowchart TD
+  Signal["First meaningful signal or later"] --> Decide{"Would reassessment improve the next step?"}
+  Decide -->|Yes| Review["Revisit goal, assumptions, and evidence"]
+  Decide -->|No| Continue["Continue with a justified next check"]
+  Review --> Continue
 ```
 
-There are no category-specific 2/4 thresholds and no second-stage permanent hard lock.
+An agent may reassess at the first meaningful signal or later. A run may
+continue when attempts add evidence, narrow the cause, and justify the next
+check. Neither a failure count nor review history forces a pause.
 
 ## Workflow reminders
 
@@ -50,6 +52,6 @@ The design test is simple:
 When a Harness message appears:
 
 1. If it is a **Reminder**, use the evidence to improve the next action, but there is no Harness reset needed.
-2. If it is the **Rule of 3** third-failure boundary, complete the requested zoom-out report.
+2. If evidence suggests a fresh diagnosis would improve the next step, an agent may choose zoom-out; productive iteration may continue when attempts add evidence or narrow the cause.
 3. If it is an **action/permission** decision, follow the host/user approval flow.
 4. Do not edit Harness state files merely to recover from a numeric workflow limit; those limits are no longer enforced.

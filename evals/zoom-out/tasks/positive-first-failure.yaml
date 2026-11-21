@@ -1,0 +1,15 @@
+id: positive-first-failure-001
+name: First meaningful failure can prompt reassessment
+description: "Agent-initiated reassessment when evidence contradicts assumptions, exposes an unknown boundary, or a path stops producing useful information. Use for voluntary diagnosis of stalled or changing work. DO NOT USE FOR: routine debugging when the next check is clear, or greenfield planning."
+tags:
+  - positive-trigger
+inputs:
+  prompt: "I feel stuck after this first test failure: normalizeProfile mutates a profile that callers may share. This contradicts my assumption that callers pass disposable objects. I want to rethink my assumptions and voluntarily zoom out now: compare the acceptance clause, observed evidence, call sites, and a revised check before choosing the smallest fix. A written report is not required."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "reassess"

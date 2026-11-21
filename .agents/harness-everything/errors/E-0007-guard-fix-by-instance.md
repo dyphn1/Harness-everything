@@ -12,8 +12,8 @@ sites:
   - scripts/system-one-curves.js
 violates: "Advisor answer 18 section 1: \"an explicit task/requirement input intersecting it blocks the exclusion\" (only genuine inputs, not identity metadata, may block); and \"Broad/unknown selectors that may intersect are not evidence of disjointness.\" The record covers both false positives and false negatives in this input class."
 scope: in
-status: lesson
-mechanism_ref: null
+status: mechanism
+mechanism_ref: "code-review/templates/finding.template.md @ blob 72f0068729554f3b7d3bf65b93e131f49ed0e100"
 episodes:
   - episode: 341-dependency-scope-task-input-overlap
     feature: "#341 stage 2 dependency-artifact inventory scope"

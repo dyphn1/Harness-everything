@@ -940,9 +940,8 @@ function grade(c, ws, transcriptPath, engine = 'auto') {
     results.push({ ...e, pass, status, reason });
   }
   // Informational expectations are reported but never gate the outcome:
-  // they capture context-dependent behavior (e.g. zoom-out only becomes
-  // obligatory once the breaker actually trips) that would otherwise
-  // produce meaningless failures.
+  // they capture context-dependent behavior that would otherwise produce
+  // meaningless failures.
   const gating = results.filter((r) => !r.informational);
   const inconclusive = gating.some(result => result.status === 'inconclusive');
   const passed = gating.length > 0 && !inconclusive && gating.every((g) => g.pass);

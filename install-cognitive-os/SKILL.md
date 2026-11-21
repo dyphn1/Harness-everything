@@ -27,14 +27,14 @@ The Cognitive OS is policy, not a required peer-skill selection. Supported runti
 | **Input** | Explicit cognitive-loop use, or a host without automatic Harness kernel context. |
 | **Output** | Evidence-grounded work without a fixed domain-skill sequence. |
 | **State** | None directly. |
-| **Gate** | Completion claims need evidence; repeated same-signature failures require re-planning. |
+| **Gate** | Completion claims need evidence; agents may reassess when evidence changes the diagnosis. |
 
 ## Core Loop
 
 1. `[Discover]` Verify relevant workspace state.
 2. `[Think]` Establish intent, scope, and failure modes.
 3. `[Try]` Make the smallest useful change and gather evidence.
-4. `[Summarize]` Ground conclusions in tool output; after 3 same-signature failures use `zoom-out`.
+4. `[Summarize]` Ground conclusions in tool output; use `zoom-out` when evidence warrants a fresh diagnosis.
 5. `[Record]` Record milestones only when evidence supports them.
 
 Domain skills may define their own tactics and phases. They do not need to invoke this skill first as long as the Harness invariants remain satisfied.

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Shared path resolution for Harness runtime state (hook JSON, circuit-breaker
-// counters, handoff/verification timestamps, etc).
+// Shared path resolution for Harness runtime state (hook JSON,
+// handoff/verification timestamps, etc).
 //
 // Lives under a single user-global root - `getWorkspaceStateDir()` from
 // scripts/lib/workspace.js, i.e. `~/.agents/harness-everything/workspaces/
@@ -17,8 +17,8 @@
 // workspace, once, the first time that workspace is seen again.
 //
 // Session state keys under `sessions/<id>/` so two sessions open on the same
-// workspace never share (and stomp) each other's edit/verify timestamps or
-// breaker counts. Invocations with no session_id (manual terminal runs,
+// workspace never share (and stomp) each other's edit/verify timestamps.
+// Invocations with no session_id (manual terminal runs,
 // VERIFICATION.md recipes) fall into a fixed `sessions/default/` bucket
 // rather than a random one, so manual testing stays predictable.
 const fs = require('fs');
@@ -229,8 +229,7 @@ function writeCurrentSession(root, sessionId) {
     fs.mkdirSync(stateRoot, { recursive: true });
     fs.writeFileSync(path.join(stateRoot, CURRENT_SESSION_FILE), sessionId, 'utf8');
   } catch (err) {
-    // Best-effort - only the manual reset-circuit-breaker.js escape hatch
-    // depends on this, and it fails open too.
+    // Session binding is best effort; state pointer failure must not break startup.
   }
 }
 

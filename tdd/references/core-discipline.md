@@ -14,7 +14,7 @@ flowchart TD
 
     Green --> CheckPass{Re-run Test Runner}
     CheckPass -- Tests Pass --> Refactor[3. REFACTOR: Clean Code & Verify Alignments]
-    CheckPass -- Tests Fail (> 3 Retries) --> ZoomOut[Trigger zoom-out Circuit Breaker]
+    CheckPass -- New evidence changes diagnosis --> ZoomOut[Optionally reassess with zoom-out]
 
     Refactor --> VerifyFinal[Re-run Tests & Mark Todo Complete]
     VerifyFinal --> Done[TDD Cycle Complete]
@@ -45,7 +45,5 @@ In the REFACTOR phase, you MUST verify that the implemented code actually aligns
 - Checks: Is the naming clear? Is there duplicated code? Can performance be improved? Does it comply with the project's Clean Code standards?
 - **Validation**: After every modification, re-run the tests to ensure refactoring hasn't broken the original functionality.
 
-## Circuit Breaker Defense
-If during a TDD cycle you get stuck in the **GREEN phase**, and 3 consecutive implementation attempts fail to pass the test:
-- **Trigger Condition Met**: You might have hit the reasoning ceiling, or the initial test logic (RED) was written incorrectly.
-- **Mandatory Action**: Stop guessing blindly. Immediately abort the TDD process and call the `zoom-out` skill: fact-check the assumption behind each failing attempt — including whether the RED test itself encodes the wrong expectation — and resume on a fresh diagnosis. Bring the human in only if the reflection surfaces a genuine decision (e.g., the test contradicts the requirement).
+## Voluntary Reassessment
+During any TDD phase, an agent may choose `zoom-out` when a result contradicts an assumption, exposes an unknown boundary, or leaves the next check unclear. Review the test, evidence, and attempted changes before selecting a next step. Continue when each iteration yields useful evidence and the next action remains justified; no count or report is required.

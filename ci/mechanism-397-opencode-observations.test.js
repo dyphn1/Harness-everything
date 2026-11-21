@@ -148,8 +148,8 @@ function fixture(observationMode = 'on') {
   };
 }
 
-async function install(f) {
-  const mod = await import(pathToFileURL(PLUGIN).href);
+async function install(f, plugin = PLUGIN) {
+  const mod = await import(pathToFileURL(plugin).href);
   return mod.default.setup(f.ctx);
 }
 
@@ -286,6 +286,8 @@ test('inject: the documented OpenCode hooks deliver the kernel router output and
 test('runtime: a non-Node host binary still runs the router on Node and injects its output', { concurrency: false }, async () => {
   const f = fixture();
   let dispose;
+  const warnings = [];
+  const originalWarn = console.warn;
   const originalExecPath = process.execPath;
   const hadBun = Object.hasOwn(process.versions, 'bun');
   const originalBun = process.versions.bun;
@@ -299,22 +301,76 @@ test('runtime: a non-Node host binary still runs the router on Node and injects 
     fs.writeFileSync(stubRuntime, process.platform === 'win32' ? '@exit /b 1\r\n' : '#!/bin/sh\nexit 1\n', { mode: 0o755 });
     Object.defineProperty(process, 'execPath', { value: stubRuntime, configurable: true, writable: true });
     Object.defineProperty(process.versions, 'bun', { value: '1.2.0', configurable: true });
+    console.warn = message => warnings.push(String(message));
 
     dispose = await install(f);
+    assert.deepEqual(warnings, [], 'setup without traffic produces no warnings');
     const prompt = { sessionID: 'runtime-session', messageID: 'runtime-turn', prompt: { text: 'add a small behavior change' } };
     await f.sessionHooks.get('prompt')(prompt);
     const context = { sessionID: 'runtime-session', kind: 'primary', system: [], messages: [] };
     await f.sessionHooks.get('context')(context);
     const injected = context.system.map(part => part.text || '').join('\n');
     assert.match(injected, /=> ROUTER WORKFLOW PLAN/, 'the router ran on Node despite a non-Node host binary');
+    assert.deepEqual(warnings, []);
   } finally {
     if (dispose) await dispose();
+    console.warn = originalWarn;
     Object.defineProperty(process, 'execPath', { value: originalExecPath, configurable: true, writable: true });
     if (hadBun) Object.defineProperty(process.versions, 'bun', { value: originalBun, configurable: true });
     else delete process.versions.bun;
     f.restore();
   }
 });
+
+for (const reason of ['spawn-failed', 'runtime-failed', 'runtime-missing']) {
+  test(`runtime: ${reason} warns without prompt content and admits the prompt`, async () => {
+    const f = fixture('off');
+    const originalExecPath = process.execPath;
+    const originalWarn = console.warn;
+    const warnings = [];
+    let dispose;
+    try {
+      let plugin = PLUGIN;
+      if (reason === 'spawn-failed') {
+        // Exercise the same ENOENT as a missing Node on PATH, including on
+        // Windows where executable lookup can also use the host directory.
+        Object.defineProperty(process, 'execPath', {
+          value: path.join(f.dir, 'missing-node'), configurable: true, writable: true,
+        });
+      } else {
+        plugin = path.join(f.dir, 'opencode-plugin', 'index.mjs');
+        fs.mkdirSync(path.dirname(plugin));
+        fs.copyFileSync(PLUGIN, plugin);
+        if (reason === 'runtime-failed') {
+          const router = path.join(f.dir, 'harness-everything/scripts/kernel-router.js');
+          const observationsFile = path.join(f.dir, 'hooks/scripts/lib/observations.js');
+          fs.mkdirSync(path.dirname(router), { recursive: true });
+          fs.mkdirSync(path.dirname(observationsFile), { recursive: true });
+          fs.writeFileSync(router, "console.log('PRIVATE-ROUTER-OUTPUT'); require('./missing-router-runtime');\n");
+          fs.writeFileSync(observationsFile, 'module.exports = { enabled: () => false };\n');
+        }
+      }
+      console.warn = message => warnings.push(String(message));
+      dispose = await install(f, plugin);
+      assert.deepEqual(warnings, []);
+      for (const count of [1, 2]) {
+        const sessionID = 'private-router-failure-session';
+        const prompt = { sessionID, messageID: `private-turn-${count}`, prompt: { text: 'private prompt text' } };
+        await assert.doesNotReject(() => f.sessionHooks.get('prompt')(prompt));
+        const context = { sessionID, kind: 'primary', system: [], messages: [] };
+        await f.sessionHooks.get('context')(context);
+        assert.deepEqual(context.system, [], 'failed output is never injected');
+        assert.equal(warnings.length, count);
+        assert.equal(warnings.at(-1), `[Harness] OpenCode router-unavailable (${reason}; count=${count})`);
+      }
+    } finally {
+      if (dispose) await dispose();
+      console.warn = originalWarn;
+      Object.defineProperty(process, 'execPath', { value: originalExecPath, configurable: true, writable: true });
+      f.restore();
+    }
+  });
+}
 
 test('record: OpenCode prompt, tool and idle events append one host-tagged record to the shared store', { concurrency: false }, async () => {
   const f = fixture();
@@ -1056,9 +1112,9 @@ test('V2 consumers α3: both completion orders and a post-completion counterpart
   }
 });
 
-test('V2 consumers α3: duplicate completion notifications do not advance Rule-of-3', { concurrency: false }, async () => {
+test('V2 consumers α3: duplicate completion notifications do not duplicate verification', { concurrency: false }, async () => {
   const f = fixture('off');
-  const sessionID = 'v2-rule-of-three';
+  const sessionID = 'v2-duplicate-completion';
   const checkLog = path.join(f.dir, 'check-runs.txt');
   writeVerificationPackage(f, `const fs=require('node:fs');fs.appendFileSync(${JSON.stringify(checkLog)},'x\\n');console.error('AssertionError [ERR_ASSERTION]: stable fixture failure');process.exit(1)`);
   let dispose;
@@ -1083,12 +1139,11 @@ test('V2 consumers α3: duplicate completion notifications do not advance Rule-o
       assert.equal(await waitUntil(() => fs.existsSync(editStateArtifact(f.workspace, sessionID))
         && readJson(editStateArtifact(f.workspace, sessionID)).followUpPending === true), true,
       `revision ${i + 1} recorded one completed failing check`);
-      const breaker = readJson(path.join(stateDir(f.workspace, sessionID), 'circuit-breaker.json'));
-      const count = Object.values(breaker.failures)[0]?.count;
-      assert.equal(count, i + 1, `duplicate completion for revision ${i + 1} does not add a failure`);
-      assert.equal(breaker.reflectionPending, i === 2, 'reflection is forced only on the third separate failed revision');
       assert.equal(fs.readFileSync(checkLog, 'utf8').trim().split(/\r?\n/).length, i + 1, 'one check ran per edit revision');
-      assert.equal(readJson(path.join(stateDir(f.workspace, sessionID), 'compliance.json')).circuitBreakerTrips, i === 2 ? 1 : 0);
+      assert.equal(fs.existsSync(path.join(stateDir(f.workspace, sessionID), 'circuit-breaker.json')), false,
+        'verification failure does not create recurrence state');
+      assert.equal(readJson(path.join(stateDir(f.workspace, sessionID), 'compliance.json')).totalEdits, i + 1,
+        'each new edit is recorded once');
     }
   } finally {
     if (dispose) await dispose();

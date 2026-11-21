@@ -44,7 +44,7 @@ The workflow plan controller rejects present non-array required/optional binding
 
 The repository routing contract uses **step-scoped workflow selection**. Normalized keyword/domain signals help compose ordered requirements but never select or load document paths. Each step/stage declares its required and optional skill/reference bindings; only active bindings are disclosed, and required bindings resolve before the step/stage passes. Unknown or unavailable required bindings stay visible and unresolved; missing evidence produces reminders rather than a persistent workflow lock.
 
-This is a **repository/agent contract**, not an automatic upgrade to any platform row below. A hook can prove that the contract was injected and record an agent's binding disposition; neither proves that a live host actually loaded or followed the referenced content. Instruction-only surfaces can carry the same rule without mechanically enforcing it. Promoting behavior to live-host compliance requires retained host/session evidence under the #82 compatibility program. Claude and local OpenAI packages carry workflow entry/completion **reminders** plus separate Rule-of-3/permission boundaries, but this package/mechanism change does not upgrade `platform-compatibility.json` live-host status values. See [workflow runtime](workflow-runtime.md) for scope, worktree isolation, and failure behavior. OpenCode and instruction-only/public Skills-only surfaces do not acquire equivalent runtime gating. Shell inspection is not a filesystem sandbox; absent hooks, agent-writable state, and indirect script effects remain limits.
+This is a **repository/agent contract**, not an automatic upgrade to any platform row below. A hook can prove that the contract was injected and record an agent's binding disposition; neither proves that a live host actually loaded or followed the referenced content. Instruction-only surfaces can carry the same rule without mechanically enforcing it. Promoting behavior to live-host compliance requires retained host/session evidence under the #82 compatibility program. Claude and local OpenAI packages carry workflow entry/completion **reminders** plus independent permission boundaries, but this package/mechanism change does not upgrade `platform-compatibility.json` live-host status values. See [workflow runtime](workflow-runtime.md) for scope, worktree isolation, and failure behavior. OpenCode and instruction-only/public Skills-only surfaces do not acquire equivalent runtime gating. Shell inspection is not a filesystem sandbox; absent hooks, agent-writable state, and indirect script effects remain limits.
 
 ### Action-gate mechanism vs. host semantic boundary
 
@@ -201,13 +201,14 @@ sessions whose directories matched setup; it establishes field availability,
 not mismatch handling or V2 hook behavior ([trace notes](../benchmarks/results/live-host/opencode-2026-11-15-workspace/README.md)). The adapter itself has deterministic mechanism
 coverage (`ci/mechanism-2n-opencode-plugin.test.js`, V1 shapes;
 `ci/mechanism-2p-opencode-v2-entrypoint.test.js`, V2 lifecycle shapes;
-`ci/mechanism-397-opencode-observations.test.js`, router injection, turn capture,
+`ci/mechanism-397-opencode-observations.test.js`, router injection, fail-open
+router diagnostics on launch or runtime failure, turn capture,
 malformed-label export counts and opt-out). The injection/capture path has
 mechanism evidence only; no live-host hook-fire or mismatch-handling artifact
 exists. Retained
 evidence supports project-scope `.js` loading and edit/verification state on
 OpenCode 1.18.31 (macOS): [live-host evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md). The
-retained snapshot predates #190 and remains historical evidence only. Current OpenCode removes the permanent post-reflection hard lock; only the third-failure reflection boundary pauses edits. Reflection was operator-seeded, then agent-rewritten, so do not promote this into a behavioral-effectiveness claim. `.mjs` auto-discovery is broken on this host version (issue #127). npm-package installation and behavioral V2-hook fire remain unverified.
+retained snapshot predates #190 and remains historical evidence only. The forced Rule-of-3 reflection gate has since been retired; current package and mechanism checks cover that retirement, but no post-retirement live-host run is preserved. The old reflection was operator-seeded, then agent-rewritten, so it proves no behavioral effect. `.mjs` auto-discovery is broken on this host version (issue #127). npm-package installation and behavioral V2-hook fire remain unverified.
 
 The plugin verification runner uses asynchronous child processes with a shared
 sequence budget and bounded streamed diagnostics. Deterministic mechanism

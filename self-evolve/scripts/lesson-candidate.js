@@ -104,6 +104,7 @@ function replayability(candidate) {
       method: 'deterministic-transition-check',
     };
   }
+  // Keep pre-retirement candidates readable; the runtime no longer produces this trigger.
   if (candidate.trigger?.type === 'rule-of-3-recovery') {
     return {
       replayable: false,

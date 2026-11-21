@@ -25,123 +25,7 @@ npm test
 # 3. Mechanism Checks (from VERIFICATION.md Section 2)
 echo -e "\n[Step 3] Running Mechanism Checks..."
 
-# 3a. Rule of 3 Circuit Breaker actually blocks
-# Runtime state is resolved once through the same workspace-keyed helper used by
-# the hooks. Invocations with no session_id use the fixed default session.
 STATE_DIR=$(node -e "process.stdout.write(require('./hooks/scripts/lib/harness-state').getSessionDir(null, 'default'))")
-echo -e "\n---> Running 3a: Rule of 3 Circuit Breaker"
-rm -f "$STATE_DIR/zoom-out-report.md"
-echo '{"count":3,"lastHash":"verify-test","zoomOutResolved":false}' > "$STATE_DIR/rule-of-3-state.json"
-
-# We expect this to exit with 2 and print CRITICAL trigger message
-set +e
-node hooks/scripts/rule-of-3.js 2>rule-of-3-err.log
-EXIT_CODE=$?
-set -e
-
-echo "Exit code: $EXIT_CODE"
-if [ "$EXIT_CODE" -ne 2 ]; then
-  echo "❌ FAIL: Rule of 3 did not exit with code 2 (got $EXIT_CODE)"
-  exit 1
-fi
-
-if ! grep -q "RULE OF 3 CIRCUIT BREAKER TRIGGERED" rule-of-3-err.log; then
-  echo "❌ FAIL: Rule of 3 error output did not contain trigger message"
-  cat rule-of-3-err.log
-  exit 1
-fi
-echo "✅ PASS: Rule of 3 blocked successfully with exit code 2 and correct message."
-
-# Reset Rule of 3
-echo "Resetting circuit breaker..."
-npm run harness:reset
-set +e
-node hooks/scripts/rule-of-3.js
-EXIT_CODE=$?
-set -e
-if [ "$EXIT_CODE" -ne 0 ]; then
-  echo "❌ FAIL: Rule of 3 reset check failed (expected 0, got $EXIT_CODE)"
-  exit 1
-fi
-echo "✅ PASS: Rule of 3 reset check passed."
-
-# 3a-bis. Zoom-out reflection report releases the breaker (self-recovery path)
-echo -e "\n---> Running 3a-bis: Zoom-out report releases the breaker"
-echo '{"count":3,"lastHash":"verify-test","zoomOutResolved":false,"lastFailureAt":0,"zoomOutCycles":0}' > "$STATE_DIR/rule-of-3-state.json"
-printf '## Goal\nx\n## Failed Attempts\nx\n## Verified Facts\nx\n## Diagnosis\nx\n## Decision\nRESUME: new approach\n' > "$STATE_DIR/zoom-out-report.md"
-
-set +e
-node hooks/scripts/rule-of-3.js
-EXIT_CODE=$?
-set -e
-if [ "$EXIT_CODE" -ne 0 ]; then
-  echo "❌ FAIL: Valid reflection report did not release the breaker (expected 0, got $EXIT_CODE)"
-  exit 1
-fi
-if ! node -e "const s=require(process.argv[1]); process.exit(s.count===0 && s.zoomOutResolved===true && s.zoomOutCycles===1 ? 0 : 1)" "$STATE_DIR/rule-of-3-state.json"; then
-  echo "❌ FAIL: Breaker state not updated after report release"
-  cat "$STATE_DIR/rule-of-3-state.json"
-  exit 1
-fi
-echo "✅ PASS: Valid reflection report released the breaker (self-recovery)."
-
-# 3a-ter. Re-trip: three more failures on the same signature after a released
-# cycle ask for ANOTHER zoom-out. #190 retired the second-stage escalation, so
-# the contract is exit 2 plus the reflection-required message the hook actually
-# prints - never a permanent lock (ci/mechanism-2a-rule-of-3.test.js:58-64).
-echo -e "\n---> Running 3a-ter: Re-trip requests another zoom-out"
-# Seed through the hooks' own resolver in the already resolved workspace-keyed
-# state root.
-RETRIP_AT=$(node -e "process.stdout.write(String(Date.now()))")
-node -e "require('fs').writeFileSync(process.argv[1], JSON.stringify({count:3,lastHash:'verify-test',zoomOutResolved:false,lastFailureAt:Number(process.argv[2]),zoomOutCycles:1}))" "$STATE_DIR/rule-of-3-state.json" "$RETRIP_AT"
-set +e
-node hooks/scripts/rule-of-3.js 2>rule-of-3-err.log
-EXIT_CODE=$?
-set -e
-if [ "$EXIT_CODE" -ne 2 ]; then
-  echo "❌ FAIL: Re-trip did not request another zoom-out (expected 2, got $EXIT_CODE)"
-  cat rule-of-3-err.log
-  exit 1
-fi
-if ! grep -q "RULE OF 3 CIRCUIT BREAKER TRIGGERED" rule-of-3-err.log; then
-  echo "❌ FAIL: Re-trip output did not contain the circuit-breaker trigger message"
-  cat rule-of-3-err.log
-  exit 1
-fi
-if ! grep -q "ACTION REQUIRED (reflect first)" rule-of-3-err.log; then
-  echo "❌ FAIL: Re-trip output did not demand reflection"
-  cat rule-of-3-err.log
-  exit 1
-fi
-# Negative guard: the retired escalation wording must never come back (#190).
-if grep -qi "hard lock" rule-of-3-err.log; then # this must never match
-  echo "❌ FAIL: Re-trip printed the retired hard-lock escalation, which no longer exists"
-  cat rule-of-3-err.log
-  exit 1
-fi
-echo "✅ PASS: Re-trip asked for another zoom-out, with no retired escalation wording."
-
-# A fresh report, written after the re-trip failure, releases the breaker again.
-printf '## Goal\nx\n## Failed Attempts\nx\n## Verified Facts\nx\n## Diagnosis\nx\n## Decision\nRESUME: second untried approach\n' > "$STATE_DIR/zoom-out-report.md"
-set +e
-node hooks/scripts/rule-of-3.js
-EXIT_CODE=$?
-set -e
-if [ "$EXIT_CODE" -ne 0 ]; then
-  echo "❌ FAIL: Fresh reflection report did not release the re-tripped breaker (expected 0, got $EXIT_CODE)"
-  exit 1
-fi
-if ! node -e "const s=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); process.exit(s.count===0 && s.zoomOutResolved===true && s.zoomOutCycles===2 ? 0 : 1)" "$STATE_DIR/rule-of-3-state.json"; then
-  echo "❌ FAIL: Breaker state not updated after the second report release"
-  cat "$STATE_DIR/rule-of-3-state.json"
-  exit 1
-fi
-echo "✅ PASS: A fresh report released the re-tripped breaker (advisory re-trip, not an escalation)."
-
-# harness:reset stays an optional manual clear, not a required escalation step.
-npm run harness:reset
-
-
 # 3b. Boundary Guard blocks oversized read
 echo -e "\n---> Running 3b: Boundary Guard Oversized Read"
 node -e "require('fs').writeFileSync('.verify-big.tmp','x'.repeat(600*1024))"
@@ -294,7 +178,7 @@ rm -f .verify-dirty.tmp "$STATE_DIR/handoff-state.json" "$STATE_DIR/stop-gate-st
 echo "✅ PASS: Stop gate bounced once, then respected the batch and loop guards."
 
 # Clean up temporary test output logs
-rm -f rule-of-3-err.log boundary-guard-err.log scope-guard-err.log stop-gate-err.log
+rm -f boundary-guard-err.log scope-guard-err.log stop-gate-err.log
 
 echo -e "\n================================================="
 echo " 🎉 ALL HARNESS MECHANISM CHECKS PASSED SUCCESSFULLY!"

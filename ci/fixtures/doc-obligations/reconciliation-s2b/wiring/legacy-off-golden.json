@@ -14,7 +14,6 @@
         "scope-lock",
         "environment-alignment",
         "verify-before-claim",
-        "replan-after-repeated-failure",
         "visible-status-updates",
         "loop-awareness",
         "objective-verification",
@@ -45,7 +44,6 @@
           "scope-lock",
           "environment-alignment",
           "verify-before-claim",
-          "replan-after-repeated-failure",
           "visible-status-updates",
           "loop-awareness",
           "objective-verification",
@@ -181,7 +179,6 @@
         "mode": "semantic-contract",
         "reasoningPolicy": "model-controls-how",
         "hardBoundaries": [
-          "rule-of-3-reflection",
           "user-host-permission"
         ]
       },
@@ -350,7 +347,6 @@
         "scope-lock",
         "environment-alignment",
         "verify-before-claim",
-        "replan-after-repeated-failure",
         "visible-status-updates",
         "loop-awareness",
         "objective-verification",
@@ -381,7 +377,6 @@
           "scope-lock",
           "environment-alignment",
           "verify-before-claim",
-          "replan-after-repeated-failure",
           "visible-status-updates",
           "loop-awareness",
           "objective-verification",
@@ -517,7 +512,6 @@
         "mode": "semantic-contract",
         "reasoningPolicy": "model-controls-how",
         "hardBoundaries": [
-          "rule-of-3-reflection",
           "user-host-permission"
         ]
       },

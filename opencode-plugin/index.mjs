@@ -18,22 +18,11 @@
  *                       message via client.session.prompt() to force the agent
  *                       to keep going instead of truly stopping.)
  *   verify.js        -> inlined into the session.idle handler
- *   circuit-breaker.js -> tool.execute.before (throws to pause edit tools for the zoom-out boundary
- *                       once locked) + failure tracking inside session.idle
  *   compliance.js    -> folded into the same state writes, no separate stage
  *
- * The circuit breaker trips on repeated *verification* failures of the same
- * underlying check (same command + normalized failure evidence: the first
- * test-level failing marker with its suite header as context, or a digest of
- * the complete streamed stdout+stderr when no test-level marker exists), not on
- * arbitrary tool failures: tool.execute.after
- * gives back `{title, output, metadata}` for every tool with no normalized
- * success/failure field, so there is no reliable cross-tool failure signal to
- * key a signature on. Verification failures are self-produced and already
- * normalized, so that is the honest signal to use. Uncompleted verifications
- * (timeout, execution error such as ENOBUFS/ENOENT) are reported as failures
- * but never counted toward the same-check threshold, because no failing check
- * was actually confirmed.
+ * The verification runner classifies test failures, timeouts, and execution
+ * errors so its follow-up can describe the actual outcome. It does not track
+ * failures across edits or gate later tools.
  */
 
 import { homedir } from "node:os"
@@ -89,11 +78,15 @@ function harnessRuntime() {
   return process.versions.bun ? "node" : process.execPath
 }
 
-function runKernelRouter(payload, signal) {
-  if (!ROUTER_FILE || signal?.aborted) return Promise.resolve(null)
+function runKernelRouter(payload, signal, unavailable) {
+  if (signal?.aborted) return Promise.resolve(null)
+  if (!ROUTER_FILE) {
+    unavailable("runtime-missing")
+    return Promise.resolve(null)
+  }
   return new Promise(resolveOutput => {
     let stdout = ""
-    let child, timeout, termination, spawnError = false, timedOut = false, cancelled = false, settled = false
+    let child, timeout, termination, failureReason, timedOut = false, settled = false
     const terminate = () => {
       if (!termination && child) termination = terminateVerificationChild(child)
     }
@@ -101,11 +94,19 @@ function runKernelRouter(payload, signal) {
       if (settled) return
       settled = true
       clearTimeout(timeout)
-      signal?.removeEventListener("abort", abort)
+      signal?.removeEventListener("abort", terminate)
       if (termination) await termination
-      resolveOutput(!spawnError && !timedOut && !cancelled && code === 0 ? stdout.trim() : null)
+      if (signal?.aborted || timedOut) {
+        resolveOutput(null)
+        return
+      }
+      if (failureReason || code !== 0) {
+        unavailable(failureReason || "runtime-failed")
+        resolveOutput(null)
+        return
+      }
+      resolveOutput(stdout.trim())
     }
-    const abort = () => { cancelled = true; terminate() }
     try {
       child = spawn(harnessRuntime(), [ROUTER_FILE], {
         cwd: payload.cwd || HARNESS_ROOT,
@@ -115,21 +116,22 @@ function runKernelRouter(payload, signal) {
         windowsHide: true,
       })
     } catch {
+      unavailable("spawn-failed")
       resolveOutput(null)
       return
     }
     child.stdout.on("data", chunk => { stdout += chunk })
-    child.stdin.on("error", () => { spawnError = true; terminate() })
+    child.stdin.on("error", () => { failureReason ||= "runtime-failed"; terminate() })
     child.once("error", () => {
-      spawnError = true
+      failureReason = child.pid ? "runtime-failed" : "spawn-failed"
       if (!child.pid) void finish(null)
       else terminate()
     })
     child.once("close", code => { void finish(code) })
-    signal?.addEventListener("abort", abort, { once: true })
-    if (signal?.aborted) abort()
+    signal?.addEventListener("abort", terminate, { once: true })
+    if (signal?.aborted) terminate()
     timeout = setTimeout(() => { timedOut = true; terminate() }, 5000)
-    try { child.stdin.end(JSON.stringify(payload)) } catch { spawnError = true; terminate() }
+    try { child.stdin.end(JSON.stringify(payload)) } catch { failureReason ||= "runtime-failed"; terminate() }
   })
 }
 
@@ -261,9 +263,8 @@ function getStateHome() {
 
 // Keys state per real workspace (`directory`, which opencode itself resolves
 // - never a cwd walk) instead of one flat dir shared by every project on the
-// machine. The pre-fix `~/.harness-state` had no such key at all: a circuit
-// breaker trip in one opencode project affected every other one too
-// (issue #42 item #4).
+// machine. The pre-fix `~/.harness-state` had no such key at all, so plugin
+// state from one OpenCode project could affect another (issue #42 item #4).
 function getWorkspaceKey(directory) {
   let real = resolve(directory)
   try { real = realpathSync(real) } catch { /* directory may not exist yet */ }
@@ -328,12 +329,6 @@ function isWithin(parent, candidate) {
   )
 }
 
-function samePath(left, right) {
-  const a = resolve(left)
-  const b = resolve(right)
-  return process.platform === "win32" ? a.toLowerCase() === b.toLowerCase() : a === b
-}
-
 function getSessionDir(directory, sessionID) {
   const sessionsRoot = resolve(join(getStateRoot(directory), "sessions"))
   const candidate = resolve(sessionsRoot, getSessionKey(sessionID))
@@ -372,104 +367,12 @@ function defaultEditState() {
   }
 }
 
-function defaultBreakerState() {
-  return {
-    failures: {},
-    lastReflection: null,
-    lastReflectionSignature: null,
-    reflectionPending: false,
-    reflectionRequestedAt: null,
-    reflectionToken: null,
-    reflectionSignature: null,
-  }
-}
-
 function normalizeEditState(state) {
   return { ...defaultEditState(), ...(state || {}) }
 }
 
-function normalizeBreakerState(state) {
-  const { hardLock: _retiredHardLock, ...rest } = state || {}
-  return { ...defaultBreakerState(), ...rest, failures: (state && state.failures) || {} }
-}
-
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value)
-}
-
-function loadBreakerState(file) {
-  if (!existsSync(file)) return defaultBreakerState()
-  try {
-    const state = JSON.parse(readFileSync(file, "utf8"))
-    const finiteOrNull = (value) => value === undefined || value === null || Number.isFinite(value)
-    const stringOrNull = (value) => value === undefined || value === null || typeof value === "string"
-    if (
-      !isRecord(state) ||
-      (state.failures !== undefined && !isRecord(state.failures)) ||
-      (state.reflectionPending !== undefined && typeof state.reflectionPending !== "boolean") ||
-      !finiteOrNull(state.lastReflection) ||
-      !finiteOrNull(state.reflectionRequestedAt) ||
-      !stringOrNull(state.lastReflectionSignature) ||
-      !stringOrNull(state.reflectionToken) ||
-      !stringOrNull(state.reflectionSignature) ||
-      Object.values(state.failures || {}).some((entry) =>
-        !isRecord(entry) ||
-        (entry.count !== undefined && (!Number.isInteger(entry.count) || entry.count < 0)) ||
-        !finiteOrNull(entry.firstSeen) ||
-        !finiteOrNull(entry.lastSeen)
-      )
-    ) throw new Error("invalid breaker state shape")
-    return normalizeBreakerState(state)
-  } catch {
-    console.warn(`Harness: ignoring corrupt circuit-breaker state at "${file}" and starting fresh.`)
-    return defaultBreakerState()
-  }
-}
-
-const REFLECTION_FILE = "zoom-out-report.md"
-const REFLECTION_SECTIONS = ["## Goal", "## Failed Attempts", "## Verified Facts", "## Diagnosis", "## Decision"]
-
-function reflectionReportPath(stateDir) {
-  return join(stateDir, REFLECTION_FILE)
-}
-
-function isValidReflection(reportFile, breaker) {
-  if (!breaker.reflectionPending || !breaker.reflectionToken || !existsSync(reportFile)) return false
-  try {
-    const report = readFileSync(reportFile, "utf8")
-    const lines = report.split(/\r?\n/)
-    const sectionIndexes = new Map(
-      lines.map((line, index) => [line.trim(), index]).filter(([line]) => REFLECTION_SECTIONS.includes(line)),
-    )
-    if (!REFLECTION_SECTIONS.every((section) => sectionIndexes.has(section))) return false
-    const decisionStart = sectionIndexes.get("## Decision") + 1
-    const nextHeading = lines.findIndex((line, index) => index >= decisionStart && /^##\s+/.test(line.trim()))
-    const decisionLines = lines.slice(decisionStart, nextHeading === -1 ? lines.length : nextHeading)
-    const firstDecisionLine = decisionLines.find((line) => line.trim().length > 0)
-    return !!firstDecisionLine && /^(?:RESUME|ESCALATE)\s*:/i.test(firstDecisionLine.trim()) &&
-      report.includes(`Reflection token: ${breaker.reflectionToken}`)
-  } catch {
-    return false
-  }
-}
-
-function completeReflection(breakerFile, reportFile) {
-  const breaker = loadBreakerState(breakerFile)
-  if (!isValidReflection(reportFile, breaker)) return false
-  const completedAt = Math.max(Date.now(), (breaker.reflectionRequestedAt || 0) + 1)
-  breaker.lastReflection = completedAt
-  breaker.lastReflectionSignature = breaker.reflectionSignature
-  if (breaker.reflectionSignature && breaker.failures[breaker.reflectionSignature]) {
-    breaker.failures[breaker.reflectionSignature].count = 0
-    breaker.failures[breaker.reflectionSignature].firstSeen = completedAt
-    breaker.failures[breaker.reflectionSignature].lastSeen = completedAt
-  }
-  breaker.reflectionPending = false
-  breaker.reflectionRequestedAt = null
-  breaker.reflectionToken = null
-  breaker.reflectionSignature = null
-  saveJSON(breakerFile, breaker)
-  return true
 }
 
 function defaultCompliance() {
@@ -477,89 +380,7 @@ function defaultCompliance() {
     sessionStart: Date.now(),
     totalEdits: 0,
     verifiedEdits: 0,
-    circuitBreakerTrips: 0,
-    reflectionsForced: 0,
   }
-}
-
-// Test-level evidence of an actual failing check, in line order: TAP, Node
-// test-runner symbols, Jest test blocks, indented Mocha numbering, and
-// assertion/error lines (which may also be indented). `✖ failing tests:`
-// (the node:test summary header) is skipped in favor of the specific test
-// line that follows it, and Jest's `● Console` section is not failure
-// evidence: neither the heading nor its indented payload (logged output,
-// including deeper-indented lines beginning with "●") becomes a marker.
-const FAILURE_MARKER_PATTERNS = [/^not ok\b.*$/m, /^\s*[✖✕]\s*(?!\s*failing\b).+$/m, /^\s*●\s+(?!Console\b|Test suite failed to run\b|Validation Error\b).+$/m, /^[ \t]*\d+\)[ \t]+.+$/m, /^[ \t]*[A-Za-z]*Error\b.*$/m];
-
-// Suite/file-level context, never an identity on its own: Jest prints
-// `FAIL <file>` (or `● Test suite failed to run`) above the failing test
-// blocks, so different tests in one file would otherwise share a signature.
-// A context line is carried into the signature only when a test-level marker
-// follows it; without one, the full-evidence digest decides.
-const CONTEXT_MARKER_PATTERNS = [/^FAIL\b.*$/m, /^\s*●\s+(?:Test suite failed to run|Validation Error)\b.*$/m];
-
-function normalizeFailureLine(line) {
-  let text = String(line || "").replace(/\s+/g, " ").trim();
-  text = text.replace(/\s*\(\d+(?:\.\d+)?\s*m?s\)\s*$/, ""); // runner timing suffixes
-  text = text.replace(/^not ok \d+\b/, "not ok"); // TAP plan numbering
-  return text.slice(0, 160);
-}
-
-function firstFailureMarker(text) {
-  const lines = String(text || "").replace(/\u001b\[[0-9;]*m/g, "").split(/\r?\n/);
-  let context = null;
-  let consoleIndent = null;
-  for (const line of lines) {
-    const bullet = /^([ \t]*)●[ \t]+/.exec(line);
-    if (consoleIndent !== null) {
-      // Jest's Console block contains indented log payloads, which may
-      // themselves begin with "●". Only a peer/parent section bullet or a
-      // non-indented line may end the block; deeper bullets remain data.
-      if (bullet) {
-        if (bullet[1].length > consoleIndent) continue;
-        consoleIndent = null;
-      } else if (line.trim() === "" || /^[ \t]/.test(line)) {
-        continue;
-      } else {
-        consoleIndent = null;
-      }
-    }
-    if (bullet && /^Console\b/.test(line.slice(bullet[0].length))) {
-      consoleIndent = bullet[1].length;
-      continue;
-    }
-    if (FAILURE_MARKER_PATTERNS.some((pattern) => pattern.test(line))) {
-      const normalized = normalizeFailureLine(line);
-      if (normalized) return context ? `${context}: ${normalized}` : normalized;
-    }
-    if (CONTEXT_MARKER_PATTERNS.some((pattern) => pattern.test(line))) {
-      const normalized = normalizeFailureLine(line);
-      if (normalized) context = normalized;
-    }
-  }
-  return null;
-}
-
-// A stable, normalized signature: command + outcome + exit condition + the
-// first test-level failing marker (with a suite/file context line when the
-// runner printed one). Without a test-level marker the signature falls back
-// to a digest of the complete streams (stdout and stderr both), so
-// suite-header-only or banner-only prefixes from *different* failures can
-// never collide (identical byte-for-byte evidence still matches, which is
-// the honest reading: the same observation repeated). The user-visible
-// `error` is a bounded diagnostic and is only the legacy fallback when no incremental
-// identity was supplied.
-function buildFailureSignature(result) {
-  const evidence = String((result && (result.evidence || result.error)) || "");
-  const marker = result && Object.hasOwn(result, "failureMarker") ? result.failureMarker : firstFailureMarker(evidence);
-  const exit =
-    result && Number.isInteger(result.exitCode) ? `exit=${result.exitCode}`
-      : result && result.signal ? `signal=${result.signal}`
-        : "exit=unknown";
-  const base = `${(result && result.command) || "verification"} [${(result && result.outcome) || "unknown"}] ${exit}`;
-  if (marker) return `${base}: ${marker}`;
-  const digest = result && result.evidenceDigest || createHash("sha256").update(evidence.replace(/\s+/g, " ").trim()).digest("hex").slice(0, 16);
-  return `${base}: unrecognized-output ${digest}`;
 }
 
 function getAvailableScripts(cwd) {
@@ -574,15 +395,12 @@ function getAvailableScripts(cwd) {
 
 // Verification budget for the npm scripts run on session.idle. The Harness
 // self-regression suite needs ~2 minutes on a laptop, so the original 60s cap
-// killed healthy runs and reported them as failures (same truncated stdout as
-// the failure signature, three times in a row -> forced reflection).
-// One wall-clock budget covers the sequence. Output is consumed as it arrives;
-// only bounded excerpts/line prefixes remain in memory, while all bytes feed
-// incremental failure evidence. The manual verification CLI remains separate.
+// killed healthy runs and reported them as failures. One wall-clock budget
+// covers the sequence. Output is consumed as it arrives and only bounded
+// excerpts remain in memory. The manual verification CLI remains separate.
 const VERIFY_TIMEOUT_ENV = "HARNESS_VERIFY_TIMEOUT_MS"
 const DEFAULT_VERIFY_TIMEOUT_MS = 600000
 const VERIFY_OUTPUT_LIMIT = 2000
-const VERIFY_LINE_LIMIT = 4096
 const VERIFY_KILL_GRACE_MS = 150
 
 function verifyTimeoutMs() {
@@ -590,74 +408,23 @@ function verifyTimeoutMs() {
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_VERIFY_TIMEOUT_MS
 }
 
-// Consume every chunk without retaining an unbounded transcript. Marker
-// state is per stream, so asynchronous stdout/stderr interleaving does not
-// change identity. An overlong line keeps its prefix for marker recognition;
-// its complete contents still contribute to the digest.
+// Keep bounded diagnostic excerpts while consuming the complete streams.
 function createVerificationCapture() {
-  const hash = createHash("sha256")
-  let head = "", tail = "", length = 0, bytes = 0, line = "", context = null, consoleIndent = null
-  let marker = null, markerContext = null, pendingSpace = false, hashedText = false, lineTruncated = false, unsafeIdentity = false
-  function consumeLine(value, truncated) {
-    if (marker) return
-    const clean = value.replace(/\u001b\[[0-9;]*m/g, "")
-    const bullet = /^([ \t]*)●[ \t]+/.exec(clean)
-    if (consoleIndent !== null) {
-      if (bullet) {
-        if (bullet[1].length > consoleIndent) return
-        consoleIndent = null
-      } else if (clean.trim() === "" || /^[ \t]/.test(clean)) return
-      else consoleIndent = null
-    }
-    if (bullet && /^Console\b/.test(clean.slice(bullet[0].length))) {
-      consoleIndent = bullet[1].length
-      return
-    }
-    // A clipped marker or suite name cannot identify a check safely. A long
-    // ordinary progress/banner line need not discard a later complete marker.
-    if (truncated && (clean.trim() === "" || /^\u001b\[[0-9;]*$/.test(clean)
-      || [...FAILURE_MARKER_PATTERNS, ...CONTEXT_MARKER_PATTERNS].some(pattern => pattern.test(clean)))) {
-      unsafeIdentity = true
-      return
-    }
-    if (FAILURE_MARKER_PATTERNS.some(pattern => pattern.test(clean))) {
-      marker = normalizeFailureLine(clean)
-      markerContext = context
-    } else if (CONTEXT_MARKER_PATTERNS.some(pattern => pattern.test(clean))) context = normalizeFailureLine(clean)
-  }
+  let head = "", tail = "", length = 0, bytes = 0
   return {
     write(chunk) {
       const text = String(chunk)
       bytes += Buffer.byteLength(text)
       length += text.length
-      if (head.length < VERIFY_OUTPUT_LIMIT) head += text.slice(0, VERIFY_OUTPUT_LIMIT-head.length)
+      if (head.length < VERIFY_OUTPUT_LIMIT) head += text.slice(0, VERIFY_OUTPUT_LIMIT - head.length)
       tail = (tail + text).slice(-VERIFY_OUTPUT_LIMIT)
-      for (const part of text.split(/(\s+)/)) {
-        if (!part) continue
-        if (/^\s+$/.test(part)) pendingSpace = hashedText
-        else {
-          if (pendingSpace) hash.update(" ")
-          hash.update(part)
-          pendingSpace = false
-          hashedText = true
-        }
-      }
-      for (const [index, part] of text.split("\n").entries()) {
-        if (index > 0) { consumeLine(line, lineTruncated); line = ""; lineTruncated = false }
-        if (line.length + part.length > VERIFY_LINE_LIMIT) lineTruncated = true
-        if (line.length < VERIFY_LINE_LIMIT) line += part.slice(0, VERIFY_LINE_LIMIT-line.length)
-      }
     },
     excerpt(limit) {
       if (length <= limit) return head.slice(0, length)
-      const half = Math.floor(limit/2)
-      return `${head.slice(0, half)}\n... [${length-half*2} chars omitted] ...\n${tail.slice(-half)}`
+      const half = Math.floor(limit / 2)
+      return `${head.slice(0, half)}\n... [${length - half * 2} chars omitted] ...\n${tail.slice(-half)}`
     },
     get bytes() { return bytes },
-    finish() {
-      consumeLine(line, lineTruncated)
-      return { digest: hash.digest("hex"), marker, markerContext, context, unsafeIdentity }
-    },
   }
 }
 
@@ -698,7 +465,6 @@ function runVerificationCommand(cwd, command, remainingMs, signal, onProgress) {
       clearInterval(progressTimer)
       signal?.removeEventListener("abort", abort)
       if (termination) await termination
-      const out = stdout.finish(), err = stderr.finish()
       const both = stdout.bytes > 0 && stderr.bytes > 0
       const errorOutput = both
         ? `stdout:\n${stdout.excerpt(VERIFY_OUTPUT_LIMIT/2)}\nstderr:\n${stderr.excerpt(VERIFY_OUTPUT_LIMIT/2)}`
@@ -711,12 +477,6 @@ function runVerificationCommand(cwd, command, remainingMs, signal, onProgress) {
         if (timedOut) result.error = `timed out after the total verification budget (set ${VERIFY_TIMEOUT_ENV} to raise it); last output: ${errorOutput}`
         else if (outcome === "execution_error") result.error = `could not run to completion (execution error: ${cancelled ? "cancelled" : spawnError?.code || (childSignal ? `signal ${childSignal}` : "no exit status")}); output: ${errorOutput || spawnError?.message || "(none)"}`
         else result.error = errorOutput || `command exited ${exitCode}`
-      }
-      if (outcome === "test_failure") {
-        result.failureMarker = out.unsafeIdentity || err.unsafeIdentity ? null : out.marker
-          ? (out.markerContext ? `${out.markerContext}: ${out.marker}` : out.marker)
-          : err.marker ? `${err.markerContext || out.context ? `${err.markerContext || out.context}: ` : ""}${err.marker}` : null
-        result.evidenceDigest = createHash("sha256").update(`stdout:${out.digest}\nstderr:${err.digest}`).digest("hex").slice(0, 16)
       }
       resolveCommand(result)
     }
@@ -773,36 +533,6 @@ async function runVerification(cwd, { signal, onProgress } = {}) {
     if (result.outcome === "timeout") break
   }
   return { allPassed: !signal?.aborted && results.every(result => result.success), skipped: false, results }
-}
-
-/**
- * Records a verification failure against the circuit breaker and returns the
- * action to take: allow (with retries remaining) or force_reflection on the
- * third matching failure. Completing reflection resets that signature's count.
- */
-function tripBreaker(breakerFile, signature) {
-  const breaker = loadBreakerState(breakerFile)
-
-  if (!breaker.failures[signature]) {
-    breaker.failures[signature] = { count: 0, firstSeen: Date.now() }
-  }
-  const entry = breaker.failures[signature]
-  entry.count++
-  entry.lastSeen = Date.now()
-
-  if (entry.count >= 3) {
-    if (!breaker.reflectionPending) {
-      breaker.reflectionPending = true
-      breaker.reflectionRequestedAt = Date.now()
-      breaker.reflectionToken = randomUUID().replace(/-/g, "")
-      breaker.reflectionSignature = signature
-    }
-    saveJSON(breakerFile, breaker)
-    return { action: "force_reflection", count: entry.count, reflectionToken: breaker.reflectionToken }
-  }
-
-  saveJSON(breakerFile, breaker)
-  return { action: "allow", count: entry.count, remaining: 3 - entry.count }
 }
 
 function recordCompliance(complianceFile, mutate) {
@@ -1035,9 +765,7 @@ export const HarnessEnforcement = async ({ client, directory, signal }) => {
     return {
       stateDir,
       editStateFile: join(stateDir, "edit-state.json"),
-      breakerFile: join(stateDir, "circuit-breaker.json"),
       complianceFile: join(stateDir, "compliance.json"),
-      reflectionFile: reflectionReportPath(stateDir),
     }
   }
 
@@ -1099,55 +827,16 @@ export const HarnessEnforcement = async ({ client, directory, signal }) => {
     try { rmSync(stateDir, { recursive: true, force: true }) } catch { /* fail open */ }
   }
 
-  function toolTarget(input, output) {
-    const args = { ...((output && output.args) || {}), ...((input && input.args) || {}) }
-    return args.filePath || args.file_path || args.path || args.filename || args.file || null
-  }
-
-  function patchTargets(input, output) {
-    const args = { ...((output && output.args) || {}), ...((input && input.args) || {}) }
-    if (typeof args.patchText !== "string") return []
-    return [...args.patchText.matchAll(/^\*\*\*\s+(?:(?:Add|Update|Delete) File|Move to):[ \t]*([^\r\n]+)$/gm)]
-      .map((match) => match[1].trim())
-  }
-
-  function isReflectionWrite(input, output, reportFile) {
-    if (!EDIT_TOOLS.has(input.tool)) return false
-    if (input.tool === "apply_patch") {
-      const targets = patchTargets(input, output)
-      return targets.length > 0 && targets.every((patchTarget) => samePath(resolve(workspace, patchTarget), reportFile))
-    }
-    const target = toolTarget(input, output)
-    return Boolean(target && samePath(resolve(workspace, target), reportFile))
-  }
-
   return {
-    "tool.execute.before": async (input, output) => {
+    "tool.execute.before": async input => {
       telemetryBefore(input)
-      if (!EDIT_TOOLS.has(input.tool)) return
-      const { breakerFile, reflectionFile } = pathsFor(input.sessionID)
-      const breaker = loadBreakerState(breakerFile)
-      if (breaker.reflectionPending && !isReflectionWrite(input, output, reflectionFile)) {
-        throw new Error(
-          `Harness reflection is required before another code edit. ` +
-            `Write a valid reflection report to "${reflectionFile}" first.`,
-        )
-      }
     },
 
     "tool.execute.after": async (input, output) => {
       telemetryAfter(input)
       recordHostCapture(input, output)
       if (!EDIT_TOOLS.has(input.tool)) return
-      const { editStateFile, breakerFile, complianceFile, reflectionFile } = pathsFor(input.sessionID)
-
-      // The reflection artifact is a protocol write, not a code edit. It is
-      // accepted only when it contains the current token and all required
-      // sections; this is the only path that records lastReflection.
-      if (isReflectionWrite(input, output, reflectionFile)) {
-        completeReflection(breakerFile, reflectionFile)
-        return
-      }
+      const { editStateFile, complianceFile } = pathsFor(input.sessionID)
 
       const state = normalizeEditState(loadJSON(editStateFile, defaultEditState()))
       activeVerifications.get(input.sessionID || "default")?.abort()
@@ -1193,10 +882,7 @@ export const HarnessEnforcement = async ({ client, directory, signal }) => {
       controller.finished = new Promise(resolveFinished => { finishVerification = resolveFinished })
       activeVerifications.set(activeSession, controller)
       try {
-        const { editStateFile, breakerFile, complianceFile, reflectionFile } = pathsFor(activeSession)
-        // This fallback makes the lifecycle complete even if the host omits
-        // tool input args on the artifact's after hook.
-        completeReflection(breakerFile, reflectionFile)
+        const { editStateFile, complianceFile } = pathsFor(activeSession)
 
         const state = normalizeEditState(loadJSON(editStateFile, defaultEditState()))
         if (state.followUpPending) return
@@ -1251,38 +937,19 @@ export const HarnessEnforcement = async ({ client, directory, signal }) => {
 
         let text
         if (!confirmed) {
-          // Timeout or execution error: no check produced a verdict, so this
-          // must not advance the same-check Rule-of-3 counter. Report it as an
-          // uncompleted verification and stay honest about what is unknown.
+          // Timeout or execution error: no check produced a verdict.
           const detail =
             primary.outcome === "timeout"
               ? `timed out (budget ${Math.round(verifyTimeoutMs() / 1000)}s; set ${VERIFY_TIMEOUT_ENV} to raise it)`
               : "could not run to completion (execution error, not a confirmed test failure)"
           text =
             `Harness: verification did not complete - "${primary.command}" ${detail}. ` +
-            `No failing check was confirmed, so this does NOT count toward the repeated-failure reflection. ` +
             `Diagnostics: ${primary.error || "(no output captured)"}. ` +
             `Fix the cause (or raise the budget) and verify again; a new edit re-runs verification.`
         } else {
-          const signature = buildFailureSignature(confirmed)
-          const trip = tripBreaker(breakerFile, signature)
-          if (trip.action === "force_reflection") {
-            const { stateDir } = pathsFor(activeSession)
-            text =
-              `Harness: "${confirmed.command}" has now failed 3 times with the same error. Stop and reflect ` +
-              `before retrying. Write a report to "${reflectionReportPath(stateDir)}" with sections ` +
-              `## Goal, ## Failed Attempts, ## Verified Facts, ## Diagnosis, and ## Decision. ` +
-              `The Decision must begin with RESUME: or ESCALATE:. Include reflection token: ${trip.reflectionToken}. ` +
-              `After the report is recorded, resume with a different approach. Failure: ${confirmed.error || "(no output captured)"}`
-            recordCompliance(complianceFile, (c) => {
-              c.circuitBreakerTrips++
-              c.reflectionsForced++
-            })
-          } else {
-            text =
-              `Harness: verification failed (${trip.remaining} retries before a forced reflection). ` +
-              `"${confirmed.command}" - ${confirmed.error || "(no output captured)"}. Fix it and this will re-run automatically.`
-          }
+          text =
+            `Harness: verification failed - "${confirmed.command}" - ${confirmed.error || "(no output captured)"}. ` +
+            `Review the result, address the cause, and verify again.`
         }
 
         try {
@@ -1290,8 +957,7 @@ export const HarnessEnforcement = async ({ client, directory, signal }) => {
         } catch (error) {
           if (controller.signal.aborted) return
           // A failed delivery is retryable on the next idle event, but the
-          // saved message means retrying does not run verification again or
-          // increment the circuit-breaker count.
+          // saved message means retrying does not run verification again.
           const failedState = normalizeEditState(loadJSON(editStateFile, defaultEditState()))
           failedState.followUpPending = false
           failedState.followUpDeliveryPending = true
@@ -1344,7 +1010,13 @@ export default {
       return pending
     }
     let unresolvedIdentityCount = 0
+    const routerUnavailableCounts = new Map()
 
+    const routerUnavailable = reason => {
+      const count = (routerUnavailableCounts.get(reason) || 0) + 1
+      routerUnavailableCounts.set(reason, count)
+      try { console.warn(`[Harness] OpenCode router-unavailable (${reason}; count=${count})`) } catch {}
+    }
     const unresolvedIdentity = reason => {
       unresolvedIdentityCount++
       try { console.warn(`[Harness] OpenCode session workspace unresolved (${reason}; count=${unresolvedIdentityCount}); workspace-dependent handling skipped.`) } catch {}
@@ -1483,7 +1155,7 @@ export default {
               if (events.signal.aborted) return
               const routerPayload = { host: "opencode", session_id: event.sessionID,
                 ...(prompt.messageID ? { turn_id: prompt.messageID } : {}), cwd: prompt.workspace, prompt: event.prompt.text }
-              const routerOutput = await runKernelRouter(routerPayload, events.signal)
+              const routerOutput = await runKernelRouter(routerPayload, events.signal, routerUnavailable)
               if (!events.signal.aborted && promptRoutes.get(event.sessionID) === prompt) prompt.routerOutput = routerOutput
             })
           await prompt.routerPromise
