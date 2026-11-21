@@ -150,6 +150,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Error-ledger lesson injection (#394): ledger records gain optional `match` rules; a shared matcher carries matched Cue/Lesson text into Claude Code, Codex and OpenCode V2 context at a `git commit` action and its commitlint failure (mechanism evidence; OpenCode V1 delivery unchecked). ROUTE-001 is superseded.
+
 - Retired the Rule-of-3 failure-count breaker on Claude Code, Codex and OpenCode (#394). Hooks no longer count same-signature failures, block tools, demand a reflection report or offer `harness:reset`; legacy breaker state is ignored. Zoom-out is agent-initiated: an agent may reassess on a first meaningful failure and may keep iterating while attempts produce new evidence. Error-ledger lesson injection remains planned under #394.
 
 ### Features

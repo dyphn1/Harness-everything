@@ -64,6 +64,10 @@ The registered `doc-check check --conflict-assessment` mode runs document lifecy
 
 Source and packaged plugin self-evolve entrypoints use installation-relative canonical workspace helpers and the same workspace/session state path. Missing helpers, unresolved identities, and unusable state paths fail explicitly; only absent candidate directories yield an empty list. The [resolver contract](../self-evolve/references/memory-resolution.md#workspace-helper-and-diagnostics) and source/package subprocess regressions establish deterministic mechanism coverage, not a live-host upgrade. Existing memory authorization remains required.
 
+### Error-ledger lesson injection (mechanism only, #394)
+
+A shared matcher (`hooks/scripts/lib/ledger-match.js`) selects workspace ledger lessons whose `match` rules fit a direct `git commit` action or its commitlint failure, and the host carriers add the record's Cue and Lesson as model context: Claude Code `PreToolUse` and `PostToolUseFailure` (`hooks/scripts/ledger-lesson.js`), Codex `PreToolUse` and `PostToolUse` with outcome classification (`hooks/scripts/codex-ledger-lesson.js`, packaged and user-hook compatibility paths), and OpenCode V2 tool `execute.before/after` selection delivered through the next `context` hook, i.e. after the action. OpenCode V1 has no model-context transform; its delivery is `UNCHECKED`. Delivery is bounded, deduplicated per session and phase, fail-open, and never changes a tool result or permission. Deterministic mechanism tests only; live model-visible receipt on each host is not yet retained.
+
 ## Current capability summary
 
 | Platform surface | Standalone skills | Plugin support | Hooks/lifecycle | Project scope | Global scope | Current evidence boundary |
