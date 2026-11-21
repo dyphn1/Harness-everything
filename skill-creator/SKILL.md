@@ -4,7 +4,7 @@ description: Author, audit, and refactor SKILL.md files against one quality bar 
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.30.4
+  version: 0.55.4
 ---
 
 # Skill Creator

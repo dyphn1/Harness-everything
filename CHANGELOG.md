@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.55.4](https://github.com/dyphn1/Harness-everything/compare/v0.55.3...v0.55.4) (2026-11-21)
+
+### Bug Fixes
+
+* **hooks:** finish rule-of-3 retirement across packaged hooks, tests and platform docs ([535c7ba](https://github.com/dyphn1/Harness-everything/commit/535c7ba67e327779baba84edb87fe621801b4628)), closes [#394](https://github.com/dyphn1/Harness-everything/issues/394)
+* **hooks:** replace residual count-based zoom-out wording with voluntary reassessment ([62d7c11](https://github.com/dyphn1/Harness-everything/commit/62d7c119e7f75ba8e7dda57da6a095b5a6434aff)), closes [#394](https://github.com/dyphn1/Harness-everything/issues/394)
+* **hooks:** retire the rule-of-3 breaker on claude code and codex ([416a6ca](https://github.com/dyphn1/Harness-everything/commit/416a6ca1586448602f3a711d130c875109140b18)), closes [#394](https://github.com/dyphn1/Harness-everything/issues/394)
+* **opencode:** retire the failure-count reflection gate ([a0be9e4](https://github.com/dyphn1/Harness-everything/commit/a0be9e4647e58c62073670552accfef78a146003)), closes [#394](https://github.com/dyphn1/Harness-everything/issues/394)
+* **skills:** replace count-triggered zoom-out wording in tdd and shell rules ([b28c0c2](https://github.com/dyphn1/Harness-everything/commit/b28c0c2433ba4daecad48b8c9c08d16a8f113cd1)), closes [#494](https://github.com/dyphn1/Harness-everything/issues/494) [#394](https://github.com/dyphn1/Harness-everything/issues/394)
+* **skills:** trim environment-detection under the 500-token cap ([1a10829](https://github.com/dyphn1/Harness-everything/commit/1a10829401b9c74f5033c43706ab4aa416b3fc2d)), closes [#394](https://github.com/dyphn1/Harness-everything/issues/394)
+
 ## [0.55.3](https://github.com/dyphn1/Harness-everything/compare/v0.55.2...v0.55.3) (2026-11-20)
 
 ### Bug Fixes

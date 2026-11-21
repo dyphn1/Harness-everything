@@ -4,7 +4,7 @@ description: "Route software/project work through Harness: classify tier/topolog
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.55.2
+  version: 0.55.4
 ---
 
 # Harness Everything

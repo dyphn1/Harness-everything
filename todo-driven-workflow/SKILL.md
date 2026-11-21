@@ -4,7 +4,7 @@ description: "Enforce a deliberate step-by-step execution loop for complex multi
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.4.0
+  version: 0.55.4
 ---
 
 # Todo-Driven Workflow

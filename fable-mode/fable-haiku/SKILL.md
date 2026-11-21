@@ -4,7 +4,7 @@ description: "Reference mechanical behavior profile (legacy alias haiku) for bul
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.54.1
+  version: 0.55.4
 ---
 
 # Fable Mode — Haiku

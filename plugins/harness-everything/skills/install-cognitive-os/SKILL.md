@@ -4,7 +4,7 @@ description: "Explain or explicitly apply the Harness cognitive policy: Discover
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.19.1
+  version: 0.55.4
 ---
 
 # Agent Cognitive OS

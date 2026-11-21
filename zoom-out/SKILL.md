@@ -4,7 +4,7 @@ description: "Agent-initiated reassessment when evidence contradicts assumptions
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.47.5
+  version: 0.55.4
 ---
 
 # Zoom Out
