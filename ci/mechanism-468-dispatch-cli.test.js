@@ -162,7 +162,7 @@ function assertEvent(event, testCase, runner, phase, model = runner === 'codex' 
   assert.equal(event.stdinIsCharacterDevice, true);
   assert.equal(event.args[event.args.indexOf('-m') + 1], model);
   assert.equal(event.args.at(-1), phase === 'readiness'
-    ? 'Reply exactly with READY.'
+    ? 'Reply with the single word READY'
     : `Execute the packet at ${packet} and ${runner === 'codex' ? 'return the complete report body.' : `write the complete report to ${testCase.report}.`}`);
 }
 
@@ -184,7 +184,9 @@ function assertNoExecutionAfterReadinessFailure(testCase, runner, response, mode
   assert.equal(response.phase, 'readiness');
   assert.equal(response.runner, runner);
   assert.equal(response.model, model);
-  assert.deepEqual(Object.keys(response).sort(), ['code', 'evidence', 'message', 'model', 'ok', 'phase', 'runner'].sort());
+  const expectedKeys = ['code', 'evidence', 'message', 'model', 'ok', 'phase', 'runner'];
+  if (response.effort) expectedKeys.push('effort');
+  assert.deepEqual(Object.keys(response).sort(), expectedKeys.sort());
   const actualEvents = events(testCase);
   assert.equal(actualEvents.length, 1, 'refusal must make one readiness call and no execution or fallback call');
   assertEvent(actualEvents[0], testCase, runner, 'readiness', model);
@@ -202,7 +204,24 @@ function assertReadinessRefusal(testCase, runner, response, model = runner === '
   assertNoExecutionAfterReadinessFailure(testCase, runner, response, model);
 }
 
-function runSuccessAndArgvMatch(runner, requestedModel = runner === 'codex' ? 'fixture/codex-model' : 'fixture/opencode-model') {
+function assertReadinessAnswer(runner, response, answer) {
+  const output = runner === 'codex' ? response.evidence.readinessOutput : response.evidence.readinessLog;
+  const raw = fs.readFileSync(output, 'utf8');
+  assert.equal(runner === 'codex' ? raw : raw.split('\n[stderr]\n')[0], answer);
+}
+
+function assertEffortArgs(args, effort) {
+  const setting = args.indexOf('-c');
+  if (effort) {
+    assert.ok(setting >= 0);
+    assert.equal(args[setting + 1], `model_reasoning_effort="${effort}"`);
+  } else {
+    assert.equal(setting, -1);
+    assert.equal(args.some(arg => arg.startsWith('model_reasoning_effort=')), false);
+  }
+}
+
+function runSuccessAndArgvMatch(runner, requestedModel = runner === 'codex' ? 'fixture/codex-model' : 'fixture/opencode-model', config = {}) {
   const testCase = makeCase(`${runner} success`);
   const model = requestedModel.trim();
   const args = argsFor(testCase, runner, requestedModel);
@@ -214,7 +233,7 @@ function runSuccessAndArgvMatch(runner, requestedModel = runner === 'codex' ? 'f
   assertNoRunner(testCase);
   assertNoScratchOrReport(testCase);
 
-  const result = jsonResponse(cli([...args, '--json'], testCase), 0, 'DONE');
+  const result = jsonResponse(cli([...args, '--json'], testCase, config), 0, 'DONE');
   assert.equal(result.runner, runner);
   assert.equal(result.model, model);
   assert.equal(fs.existsSync(testCase.scratch), true);
@@ -388,6 +407,57 @@ try {
       runSuccessAndArgvMatch(runner, ` ${runner === 'codex' ? 'fixture/codex-model' : 'fixture/opencode-model'} `);
     });
 
+    for (const { scenario, answer } of [
+      { scenario: 'ready-period', answer: 'READY.\n' },
+      { scenario: 'ready-padded-period', answer: ' \tREADY. \n' },
+    ]) {
+      check(`${runner} accepts trimmed ${scenario} through the real entry and validates a fresh report`, () => {
+        const testCase = makeCase(`${runner} ${scenario}`);
+        const response = jsonResponse(cli([...argsFor(testCase, runner), '--json'], testCase, { readiness: scenario }), 0, 'DONE');
+        assertReadinessAnswer(runner, response, answer);
+        assert.equal(fs.readFileSync(response.evidence.report, 'utf8'), 'Fixture completed the packet.\nSTATUS: DONE\n');
+        const actualEvents = events(testCase);
+        assert.equal(actualEvents.length, 2, 'one readiness and one execution; no retry or fallback');
+        assertEvent(actualEvents[0], testCase, runner, 'readiness');
+        assertEvent(actualEvents[1], testCase, runner, 'execution');
+      });
+    }
+
+    for (const scenario of ['ready-now', 'not-ready', 'ready-two-dots', 'ready-lowercase', 'ready-commentary']) {
+      check(`${runner} rejects readiness answer ${scenario}`, () => {
+        const testCase = makeCase(`${runner} ${scenario}`);
+        const response = jsonResponse(cli([...argsFor(testCase, runner), '--json'], testCase, { readiness: scenario }), 12, 'NOT_READY');
+        assertReadinessRefusal(testCase, runner, response);
+      });
+    }
+
+    check(`${runner} nonzero readiness refuses even when stdout or raw output says READY.`, () => {
+      const testCase = makeCase(`${runner} READY period nonzero`);
+      const response = jsonResponse(cli([...argsFor(testCase, runner), '--json'], testCase, { readiness: 'ready-period-failed' }), 12, 'NOT_READY');
+      assertReadinessAnswer(runner, response, 'READY.\n');
+      assertReadinessRefusal(testCase, runner, response);
+    });
+
+    check(`${runner} readiness timeout refuses after emitting READY.`, () => {
+      const testCase = makeCase(`${runner} READY period timeout`);
+      const response = jsonResponse(cli([...argsFor(testCase, runner), '--json'], testCase, {
+        readiness: 'ready-period-timeout', testTimeoutMs: 300, outerTimeoutMs: 5000,
+      }), 12, 'NOT_READY');
+      assertReadinessAnswer(runner, response, 'READY.\n');
+      assertReadinessRefusal(testCase, runner, response);
+      assertProcessExited(events(testCase)[0].pid);
+    });
+
+    if (process.platform !== 'win32') {
+      check(`${runner} signaled readiness refuses even when it emits READY.`, () => {
+        const testCase = makeCase(`${runner} READY period signal`);
+        const response = jsonResponse(cli([...argsFor(testCase, runner), '--json'], testCase, { readiness: 'ready-period-signal' }), 12, 'NOT_READY');
+        assertReadinessAnswer(runner, response, 'READY.\n');
+        assertReadinessRefusal(testCase, runner, response);
+        assertProcessExited(events(testCase)[0].pid);
+      });
+    }
+
     check(`${runner} supported provider text on successful READY does not refuse`, () => {
       const testCase = makeCase(`${runner} provider text on success`);
       const response = jsonResponse(cli([...argsFor(testCase, runner), '--json'], testCase, {
@@ -495,6 +565,65 @@ try {
     });
   }
 
+  for (const { label, runner, values } of [
+    { label: 'invalid value', values: ['--effort', 'ultra'] },
+    { label: 'missing value', values: ['--effort'] },
+    { label: 'duplicate value', values: ['--effort', 'low', '--effort', 'high'] },
+    { label: 'OpenCode runner', runner: 'opencode', values: ['--effort', 'low'] },
+  ]) {
+    check(`INVALID_INPUT effort ${label} refuses before spawn or writes`, () => {
+      const testCase = makeCase(`invalid effort ${label}`);
+      const argsForCase = [...argsFor(testCase, runner || 'codex'), ...values];
+      const response = jsonResponse(cli([...argsForCase, '--json'], testCase), 10, 'INVALID_INPUT');
+      assert.equal(response.phase, 'input');
+      assertNoRunner(testCase);
+      assertNoScratchOrReport(testCase);
+    });
+  }
+
+  for (const effort of ['low', 'medium', 'high', 'xhigh']) {
+    check(`Codex --effort ${effort} appears in dry-run JSON and both spawned argv arrays`, () => {
+      const testCase = makeCase(`Codex effort ${effort}`);
+      const args = [...argsFor(testCase), '--effort', effort];
+      const dryRun = jsonResponse(cli([...args, '--dry-run', '--json'], testCase), 0, 'DRY_RUN_OK');
+      assert.equal(dryRun.effort, effort);
+      assertEffortArgs(dryRun.argv.slice(1), effort);
+      assertNoRunner(testCase);
+      assertNoScratchOrReport(testCase);
+
+      const response = jsonResponse(cli([...args, '--json'], testCase), 0, 'DONE');
+      assert.equal(response.effort, effort);
+      const actualEvents = events(testCase);
+      assert.equal(actualEvents.length, 2);
+      for (const event of actualEvents) assertEffortArgs(event.args, effort);
+      const executionArgv = [actualEvents[1].runner, ...actualEvents[1].args];
+      const outputIndex = executionArgv.indexOf('-o') + 1;
+      executionArgv[outputIndex] = dryRun.argv[outputIndex];
+      assert.deepEqual(dryRun.argv, executionArgv);
+      assert.equal(fs.readFileSync(response.evidence.report, 'utf8'), 'Fixture completed the packet.\nSTATUS: DONE\n');
+    });
+  }
+
+  check('Codex omitted --effort leaves the default unoverridden and omits JSON effort', () => {
+    const testCase = makeCase('Codex default effort');
+    const args = argsFor(testCase);
+    const dryRun = jsonResponse(cli([...args, '--dry-run', '--json'], testCase), 0, 'DRY_RUN_OK');
+    assert.equal(dryRun.effort, undefined);
+    assertEffortArgs(dryRun.argv.slice(1), undefined);
+    const response = jsonResponse(cli([...args, '--json'], testCase), 0, 'DONE');
+    assert.equal(response.effort, undefined);
+    for (const event of events(testCase)) assertEffortArgs(event.args, undefined);
+  });
+
+  check('Codex validated effort remains in JSON when readiness refuses', () => {
+    const testCase = makeCase('Codex effort readiness refusal');
+    const response = jsonResponse(cli([...argsFor(testCase), '--effort', 'high', '--json'], testCase, { readiness: 'ready-failed' }), 12, 'NOT_READY');
+    assert.equal(response.effort, 'high');
+    assertReadinessAnswer('codex', response, 'READY\n');
+    assertReadinessRefusal(testCase, 'codex', response);
+    assertEffortArgs(events(testCase)[0].args, 'high');
+  });
+
   check('missing selected Codex executable -> NOT_READY without OpenCode fallback', () => {
     const testCase = makeCase('missing codex executable');
     const response = jsonResponse(cli([...argsFor(testCase, 'codex'), '--json'], testCase, { path: openCodeOnlyBin }), 12, 'NOT_READY');
@@ -528,7 +657,7 @@ try {
   check('entry usage mentions every option used by the CLI contract', () => {
     const testCase = makeCase('usage options');
     const response = jsonResponse(cli(['--help', '--json'], testCase), 0, 'HELP');
-    for (const option of ['--runner', '--model', '--packet', '--worktree', '--scratch', '--report', '--dry-run', '--json', '--help']) {
+    for (const option of ['--runner', '--model', '--packet', '--worktree', '--scratch', '--report', '--effort', '--dry-run', '--json', '--help']) {
       assert.ok(response.message.includes(option), `usage is missing ${option}`);
     }
   });

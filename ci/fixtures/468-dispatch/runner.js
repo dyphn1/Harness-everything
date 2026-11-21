@@ -9,7 +9,7 @@ const args = [scriptName, ...process.argv.slice(2)];
 const outputFlag = args.indexOf('-o');
 const outputPath = outputFlag >= 0 ? args[outputFlag + 1] : null;
 const prompt = args.at(-1) || '';
-const phase = prompt === 'Reply exactly with READY.' ? 'readiness' : 'execution';
+const phase = prompt === 'Reply with the single word READY' ? 'readiness' : 'execution';
 const scenario = process.env[`DISPATCH_FIXTURE_${phase.toUpperCase()}`] || 'ready';
 const input = fs.readFileSync(0, 'utf8');
 const providerRateLimit = 'Provider request failed with HTTP 429: {"status":429,"title":"Too Many Requests"}';
@@ -34,9 +34,21 @@ function hang() {
 
 function readyOutput() {
   if (['no-ready', 'rate-limited', 'quota-exhausted', 'rate-limit-and-quota', 'quota-and-rate-limit', 'stdout-provider-rate', 'wrong-envelope', 'quoted-provider-rate', 'local-http-429', 'invalid-quota', 'bare-429', 'provider-rate-with-extra-text', 'provider-timeout', 'timeout', 'signal-provider-rate'].includes(scenario)) return;
+  const answer = {
+    'ready-period': 'READY.\n',
+    'ready-padded-period': ' \tREADY. \n',
+    'ready-now': 'READY now\n',
+    'not-ready': 'NOT READY\n',
+    'ready-two-dots': 'READY ..\n',
+    'ready-lowercase': 'ready\n',
+    'ready-commentary': 'READY\nAdditional commentary.\n',
+    'ready-period-failed': 'READY.\n',
+    'ready-period-timeout': 'READY.\n',
+    'ready-period-signal': 'READY.\n',
+  }[scenario] || 'READY\n';
   if (runner === 'codex') {
-    if (outputPath) fs.writeFileSync(outputPath, 'READY\n');
-  } else process.stdout.write('READY\n');
+    if (outputPath) fs.writeFileSync(outputPath, answer);
+  } else process.stdout.write(answer);
 }
 
 function diagnosticLine(message) {
@@ -76,7 +88,7 @@ function executionOutput() {
 }
 
 if (phase === 'readiness') {
-  if (scenario === 'timeout') {
+  if (scenario === 'timeout' || scenario === 'ready-period-timeout') {
     process.stderr.write(diagnosticLine(providerRateLimit));
     hang();
   }
@@ -123,6 +135,11 @@ if (phase === 'readiness') {
     process.stderr.write(diagnosticLine(providerRateLimit));
   } else if (scenario === 'ready-failed') {
     process.exitCode = 7;
+  } else if (scenario === 'ready-period-failed') {
+    process.exitCode = 7;
+  } else if (scenario === 'ready-period-signal') {
+    process.stderr.write(diagnosticLine(providerRateLimit));
+    process.kill(process.pid, 'SIGTERM');
   } else if (scenario === 'ready-with-quota-prose') {
     process.stderr.write(runner === 'codex'
       ? 'Quoted policy: ERROR: HTTP 429 quota is not a readiness failure on exit zero.\n'

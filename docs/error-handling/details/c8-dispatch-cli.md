@@ -7,7 +7,7 @@ This detail implements the C8 action map for one coordinator-selected runner att
 ```sh
 npm run --silent dispatch -- --runner <codex|opencode> --model <id> \
   --packet <path> --worktree <git-root> --scratch <absolute-external-path> \
-  --report <path> [--dry-run] [--json]
+  --report <path> [--effort <low|medium|high|xhigh>] [--dry-run] [--json]
 ```
 
 `node scripts/dispatch.js` accepts the same options. `--help` prints this short synopsis. The coordinator supplies every value; packet and report paths may be relative to the worktree or absolute. The worktree must be an existing Git root. Scratch must be absolute and outside every Git repository/worktree. A pre-existing report path is rejected as invalid input.
@@ -20,11 +20,12 @@ npm run --silent dispatch -- --runner <codex|opencode> --model <id> \
 | `--worktree` | Required existing Git repository or worktree root; child cwd. |
 | `--scratch` | Required absolute path outside all Git repository/worktree roots; child `TMPDIR`. |
 | `--report` | Required fresh report path, resolved from the worktree when relative. |
+| `--effort` | Optional Codex reasoning effort: `low`, `medium`, `high`, or `xhigh`. It passes a Codex `-c model_reasoning_effort="…"` override; omission leaves Codex configuration unchanged. Rejected for OpenCode. |
 | `--dry-run` | Validate inputs and return planned argv/cwd; no child or filesystem writes. |
 | `--json` | Return one JSON object on stdout, including refusals. |
 | `--help` | Return the short usage synopsis with exit 0. |
 
-In JSON mode the common shape is `{ok, code, phase, message}` with resolved `runner`, `model`, and existing `evidence` paths when available. Dry run also returns `argv` and `cwd`; Codex's generated raw-output argument uses a `<run-id>` placeholder. Human-mode refusals go to stderr. Child logs and raw output stay in evidence files, not in the JSON result.
+In JSON mode the common shape is `{ok, code, phase, message}` with resolved `runner`, `model`, and existing `evidence` paths when available. A validated requested Codex `--effort` is also returned as `effort`; it records the request and does not claim the provider applied it. Dry run also returns `argv` and `cwd`; Codex's generated raw-output argument uses a `<run-id>` placeholder. Human-mode refusals go to stderr. Child logs and raw output stay in evidence files, not in the JSON result.
 
 ## Exit and JSON codes
 
@@ -32,7 +33,7 @@ In JSON mode the common shape is `{ok, code, phase, message}` with resolved `run
 | --- | --- | --- |
 | `0` | `HELP`, `DRY_RUN_OK`, `DONE` | Help, validated dry run, or a fresh validated DONE report. |
 | `1` | `INTERNAL_ERROR` | Unexpected application failure outside a named phase result. |
-| `10` | `INVALID_INPUT` | Bad/missing option, runner/model, packet/worktree, or a report path that already exists. |
+| `10` | `INVALID_INPUT` | Bad/missing/duplicate option, unsupported or runner-incompatible effort, runner/model, packet/worktree, or a report path that already exists. |
 | `11` | `UNSAFE_SCRATCH` | Scratch is relative, an existing scratch path is not a directory, or it is inside a Git repository/worktree. |
 | `12` | `NOT_READY` | Selected executable is missing or readiness failed, timed out, or omitted `READY`. No run starts. |
 | `13` | `RUNNER_RATE_LIMITED` | The selected runner's failed readiness stderr has a recognized provider throttling diagnostic. No run starts. |
@@ -48,6 +49,8 @@ In JSON mode the common shape is `{ok, code, phase, message}` with resolved `run
 | `NOT_READY` | Readiness failed. Keep the available child evidence. |
 
 ## Readiness classification and evidence
+
+The readiness prompt is `Reply with the single word READY`. After trimming outer whitespace, only `READY` and `READY.` are accepted. Any other reply returns `12 NOT_READY`. A nonzero, signaled, or timed-out child is refused even if it produced an accepted reply.
 
 Classification requires a full runner-specific diagnostic line on the failed readiness child's stderr after ANSI stripping. Only a normal nonzero exit is eligible; zero exits, signals, timeouts, stdout, quoted text, a different envelope, and partial or bare `429` text do not receive provider credit. Everything else, including local/cache errors, invalid `--quota`, header timeout, or a missing/ambiguous diagnostic, returns `12 NOT_READY`. The JSON `code` distinguishes throttling from usage/quota exhaustion.
 
