@@ -9,7 +9,7 @@ const args = [scriptName, ...process.argv.slice(2)];
 const outputFlag = args.indexOf('-o');
 const outputPath = outputFlag >= 0 ? args[outputFlag + 1] : null;
 const prompt = args.at(-1) || '';
-const phase = prompt === 'Reply exactly with READY.' ? 'readiness' : 'execution';
+const phase = prompt === 'Reply with the single word READY' ? 'readiness' : 'execution';
 const scenario = process.env[`DISPATCH_FIXTURE_${phase.toUpperCase()}`] || 'ready';
 const input = fs.readFileSync(0, 'utf8');
 const providerRateLimit = 'Provider request failed with HTTP 429: {"status":429,"title":"Too Many Requests"}';
@@ -34,9 +34,26 @@ function hang() {
 
 function readyOutput() {
   if (['no-ready', 'rate-limited', 'quota-exhausted', 'rate-limit-and-quota', 'quota-and-rate-limit', 'stdout-provider-rate', 'wrong-envelope', 'quoted-provider-rate', 'local-http-429', 'invalid-quota', 'bare-429', 'provider-rate-with-extra-text', 'provider-timeout', 'timeout', 'signal-provider-rate'].includes(scenario)) return;
+  const answer = {
+    'ready-period': 'READY.\n',
+    'ready-padded-period': ' \tREADY. \n',
+    'ready-now': 'READY now\n',
+    'not-ready': 'NOT READY\n',
+    'ready-two-dots': 'READY ..\n',
+    'ready-lowercase': 'ready\n',
+    'ready-commentary': 'READY\nAdditional commentary.\n',
+    'ready-period-failed': 'READY.\n',
+    'ready-period-timeout': 'READY.\n',
+    'ready-period-signal': 'READY.\n',
+    // Live OpenCode reply 2026-11-21: the Harness turn-label rule appends a label line.
+    'ready-host-label': 'READY\n<!-- harness-label {"v":1,"validity":"actionable","tier":"tier1","intents":[],"workflow":"deferred","skills":[]} -->\n',
+    'ready-bad-label': 'READY\n<!-- harness-label not json -->\n',
+    'ready-bad-schema-label': 'READY\n<!-- harness-label {"bad":true} -->\n',
+    'ready-label-then-text': 'READY\n<!-- harness-label {"v":1,"validity":"actionable","tier":"tier1","intents":[],"workflow":"deferred","skills":[]} -->\nmore\n',
+  }[scenario] || 'READY\n';
   if (runner === 'codex') {
-    if (outputPath) fs.writeFileSync(outputPath, 'READY\n');
-  } else process.stdout.write('READY\n');
+    if (outputPath) fs.writeFileSync(outputPath, answer);
+  } else process.stdout.write(answer);
 }
 
 function diagnosticLine(message) {
@@ -50,6 +67,10 @@ function codexOutput() {
   if (scenario === 'multiple-status') return 'Fixture output.\nSTATUS: DONE\nSTATUS: BLOCKED: missing evidence\n';
   if (scenario === 'bad-label') return 'Fixture completed the packet.\nSTATUS: DONE\n<!-- harness-label {"bad":true} -->\n';
   if (scenario === 'blocked') return 'Fixture could not verify the packet.\nSTATUS: BLOCKED: missing evidence\n';
+  if (scenario === 'raw-label-blank') {
+    // Live codex -o shape 2026-11-21: one blank line between STATUS and the label.
+    return 'Fixture completed the packet.\nSTATUS: DONE\n\n<!-- harness-label {"v":1,"validity":"actionable","tier":"tier1","intents":["edit"],"workflow":null,"skills":[]} -->';
+  }
   if (scenario === 'raw-label') {
     return 'Fixture completed the packet.\nSTATUS: DONE\n<!-- harness-label {"v":1,"validity":"actionable","tier":"tier2","intents":["test"],"workflow":"iterative-single","skills":["test-driven-development"]} -->\n';
   }
@@ -76,7 +97,7 @@ function executionOutput() {
 }
 
 if (phase === 'readiness') {
-  if (scenario === 'timeout') {
+  if (scenario === 'timeout' || scenario === 'ready-period-timeout') {
     process.stderr.write(diagnosticLine(providerRateLimit));
     hang();
   }
@@ -123,6 +144,11 @@ if (phase === 'readiness') {
     process.stderr.write(diagnosticLine(providerRateLimit));
   } else if (scenario === 'ready-failed') {
     process.exitCode = 7;
+  } else if (scenario === 'ready-period-failed') {
+    process.exitCode = 7;
+  } else if (scenario === 'ready-period-signal') {
+    process.stderr.write(diagnosticLine(providerRateLimit));
+    process.kill(process.pid, 'SIGTERM');
   } else if (scenario === 'ready-with-quota-prose') {
     process.stderr.write(runner === 'codex'
       ? 'Quoted policy: ERROR: HTTP 429 quota is not a readiness failure on exit zero.\n'

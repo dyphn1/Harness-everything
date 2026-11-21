@@ -6,8 +6,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const REPORT_WRITER = path.join(__dirname, 'report-writer.js');
-const USAGE = 'Usage: dispatch --runner <codex|opencode> --model <id> --packet <path> --worktree <path> --scratch <absolute-path> --report <path> [--dry-run] [--json] [--help]';
-const VALUE_OPTIONS = new Set(['--runner', '--model', '--packet', '--worktree', '--scratch', '--report']);
+const USAGE = 'Usage: dispatch --runner <codex|opencode> --model <id> --packet <path> --worktree <path> --scratch <absolute-path> --report <path> [--effort <low|medium|high|xhigh>] [--dry-run] [--json] [--help]';
+const VALUE_OPTIONS = new Set(['--runner', '--model', '--packet', '--worktree', '--scratch', '--report', '--effort']);
+const CODEX_EFFORTS = new Set(['low', 'medium', 'high', 'xhigh']);
 let evidencePaths = {};
 
 class DispatchFailure extends Error {
@@ -116,6 +117,9 @@ function validateInput(options) {
   const model = options['--model'];
   if (!['codex', 'opencode'].includes(runner)) fail(10, 'INVALID_INPUT', 'input', '--runner must be codex or opencode');
   if (!model || !model.trim()) fail(10, 'INVALID_INPUT', 'input', '--model must be a nonempty id');
+  const effort = options['--effort'];
+  if (effort !== undefined && runner !== 'codex') fail(10, 'INVALID_INPUT', 'input', '--effort is only supported for codex');
+  if (effort !== undefined && !CODEX_EFFORTS.has(effort)) fail(10, 'INVALID_INPUT', 'input', '--effort must be low, medium, high, or xhigh');
   for (const flag of ['--packet', '--worktree', '--scratch', '--report']) {
     if (!options[flag]) fail(10, 'INVALID_INPUT', 'input', `missing required option: ${flag}`);
   }
@@ -133,7 +137,7 @@ function validateInput(options) {
   }
   if (fs.existsSync(report)) fail(10, 'INVALID_INPUT', 'input', '--report already exists; choose a fresh report path');
   const scratch = validateScratch(options['--scratch']);
-  return { runner, model: model.trim(), packet, worktree, scratch, report };
+  return { runner, model: model.trim(), effort, packet, worktree, scratch, report };
 }
 
 function response(options, outcome, evidence = evidencePaths, input) {
@@ -148,6 +152,7 @@ function response(options, outcome, evidence = evidencePaths, input) {
   const model = input?.model ?? options['--model'];
   if (runner === 'codex' || runner === 'opencode') result.runner = runner;
   if (model) result.model = model;
+  if (input?.effort) result.effort = input.effort;
   if (outcome.argv) result.argv = outcome.argv;
   if (outcome.cwd) result.cwd = outcome.cwd;
   const paths = Object.fromEntries(Object.entries(evidence).filter(([, value]) => value && fs.existsSync(value)));
@@ -185,7 +190,7 @@ function runChild(command, args, worktree, scratch, logPath, timeout, appendLog 
 
 function runnerArgs(input, prompt, outputPath) {
   if (input.runner === 'codex') {
-    return ['exec', '-m', input.model, '-s', 'workspace-write', '-C', input.worktree, '-o', outputPath, prompt];
+    return ['exec', '-m', input.model, ...(input.effort ? ['-c', `model_reasoning_effort="${input.effort}"`] : []), '-s', 'workspace-write', '-C', input.worktree, '-o', outputPath, prompt];
   }
   return ['run', '--auto', '-m', input.model, prompt];
 }
@@ -201,6 +206,21 @@ const READINESS_DIAGNOSTICS = {
   ],
 };
 
+// A Harness host appends one hidden turn-label line to every final message (docs/routing.md).
+function withoutHostLabel(text) {
+  const lines = text.split(/\r?\n/);
+  const last = lines[lines.length - 1];
+  const match = /^<!-- harness-label (\{.*\}) -->$/.exec(last);
+  if (!match || lines.length < 2) return text;
+  try {
+    const value = JSON.parse(match[1]);
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return text;
+  } catch {
+    return text;
+  }
+  return lines.slice(0, -1).join('\n').trim();
+}
+
 function readinessDiagnostic(runner, stderr) {
   const output = stderr.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '');
   const lines = output.split(/\r?\n/);
@@ -210,7 +230,7 @@ function readinessDiagnostic(runner, stderr) {
 
 function readiness(input, paths) {
   const outputPath = input.runner === 'codex' ? paths.readinessOutput : null;
-  const prompt = 'Reply exactly with READY.';
+  const prompt = 'Reply with the single word READY';
   const result = runChild(input.runner, runnerArgs(input, prompt, outputPath), input.worktree, input.scratch, paths.readinessLog, 120000);
   if (result.status !== 0) {
     const diagnostic = Number.isInteger(result.status) && result.status !== 0 && !result.signal && !result.error
@@ -222,13 +242,17 @@ function readiness(input, paths) {
   const answer = input.runner === 'codex'
     ? (fs.existsSync(outputPath) ? fs.readFileSync(outputPath, 'utf8').trim() : '')
     : result.stdout.trim();
-  if (answer !== 'READY') fail(12, 'NOT_READY', 'readiness', 'Readiness failed. Keep the available child evidence.');
+  const reply = withoutHostLabel(answer);
+  if (reply !== 'READY' && reply !== 'READY.') fail(12, 'NOT_READY', 'readiness', 'Readiness failed. Keep the available child evidence.');
 }
 
 function reportedStatus(raw) {
   const lines = raw.split(/\r?\n/);
   if (lines.at(-1) === '') lines.pop();
-  if (lines.at(-1)?.startsWith('<!-- harness-label ')) lines.pop();
+  if (lines.at(-1)?.startsWith('<!-- harness-label ')) {
+    lines.pop();
+    while (lines.length && lines.at(-1).trim() === '') lines.pop(); // live codex -o: blank line before the label
+  }
   const line = lines.at(-1) || '';
   if (line === 'STATUS: DONE') return { status: 'DONE' };
   const blocked = /^STATUS: BLOCKED: (.+)$/.exec(line);
