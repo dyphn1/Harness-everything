@@ -47,6 +47,19 @@ episodes:
         change: "Coordinator measured nine wordings in scratch; W5 (haiku) applied the 500-token one"
         review: worker gates
         result: "`ci/prompt-contract-regressions.test.js:21-22` require `advisory replan` and `Rule-of-3` in fable-mode/SKILL.md; the approved compression had moved both into the reference. Keeping them measures 516. Third pin collision in the same class; parked for the owner (PR #476 comment 7014361656)."
+  - episode: 394-r3b-fable-discipline-pin
+    feature: "#394 R3b fable-discipline wording (PR #494)"
+    date: 2026-11-20
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "ci/prompt-contract-regressions.test.js:42"
+        result: "R3b rewrote fable-discipline/SKILL.md and dropped the test-pinned phrase \"divergence is a warning signal\" although the packet said to enumerate pins first."
+      - round: 1
+        change: "Pinned phrase restored before the R3b merge into the integration branch"
+        review: "prompt-contract-regressions + verify:all --fast"
+        result: "episode closed; second episode of the class, so a pinned-line report check is now the mechanism candidate"
 ---
 
 ## Cue
@@ -68,3 +81,4 @@ Two trims on PR #476 each removed one token from text that a different test pins
 
 - PR #476: hosted CI run 44495035847 (round 0), fix commit `7935939f` (round 2).
 - Episode 2: PR #476 comments 7013241296 (owner approval) and 7014361656 (parked); packets `.worktrees/packets/pr476/W4*`, `W5*` (local).
+- PR #494 (2026-11-20): R3b dropped a pinned fable-discipline phrase.

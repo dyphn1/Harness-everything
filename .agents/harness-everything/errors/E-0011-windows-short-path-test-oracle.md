@@ -42,6 +42,19 @@ episodes:
         change: "Commit `8e597549`: fixture root via `canonical()`"
         review: "hosted Windows self-regression green at `2514056f`"
         result: "episode closed"
+  - episode: 493-dispatch-cwd-short-path
+    feature: "#468 dispatch CLI (PR #493)"
+    date: 2026-11-20
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "hosted Windows self-regression"
+        result: "The dispatch test compared cwd strings and saw `RUNNER~1` vs `runneradmin`. The packet named E-0011, but the P2 fixture still compared raw strings."
+      - round: 1
+        change: "`3fbff51f` canonicalized Windows paths in the tests"
+        review: "hosted Windows self-regression green"
+        result: "episode closed"
 ---
 
 ## Cue
@@ -62,3 +75,4 @@ The shared `makeRepo` in `ci/fixtures/doc-obligations/reconciliation-s2a/harness
 
 - `341-outline-windows-short-path` (2026-10-28): fix `c508e431`.
 - #396: fix `8e597549`; hosted Windows self-regression green at `2514056f`.
+- PR #493 (2026-11-20): raw cwd comparison despite the packet naming E-0011; fixed in `3fbff51f`.
