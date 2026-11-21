@@ -118,6 +118,7 @@ test('check rejects dropped, extra and reversed links with actionable diagnostic
 });
 
 test('new then set-status then check preserves identities and detects later drift', () => {
+  const alias = 'I';
   const dir = fs.mkdtempSync(path.join(TEMP, 'walk-'));
   const mapPath = path.join(dir, 'nodes.yaml');
   const diagramPath = path.join(dir, 'README.md');
@@ -126,36 +127,37 @@ test('new then set-status then check preserves identities and detects later drif
   fs.copyFileSync(CANONICAL_DIAGRAM, diagramPath);
   const before = yaml.load(originalMap);
 
-  const created = invoke({ mapPath, diagramPath }, 'new', '--alias', 'H', '--name', 'New "Action"', '--date', '20261118');
+  const created = invoke({ mapPath, diagramPath }, 'new', '--alias', alias, '--name', 'New "Action"', '--date', '20261118');
   assert.equal(created.status, 0, output(created));
   const id = created.stdout.trim();
   assert.match(id, /^ERR-20261118-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
   const afterNewText = fs.readFileSync(mapPath, 'utf8');
-  const actionBlock = new RegExp('  H:\\r?\\n    identifier: ' + id + '\\r?\\n    name: .*\\r?\\n    status: proposed\\r?\\n');
+  const actionBlock = new RegExp(`  ${alias}:\\r?\\n    identifier: ${id}\\r?\\n    name: .*\\r?\\n    status: proposed\\r?\\n`);
   assert.equal(afterNewText.replace(actionBlock, ''), originalMap);
   const afterNew = yaml.load(afterNewText);
-  assert.equal(afterNew.actions.H.identifier, id);
-  assert.equal(afterNew.actions.H.name, 'New "Action"');
-  assert.equal(afterNew.actions.H.status, 'proposed');
+  assert.equal(afterNew.actions[alias].identifier, id);
+  assert.equal(afterNew.actions[alias].name, 'New "Action"');
+  assert.equal(afterNew.actions[alias].status, 'proposed');
   assert.ok(!Object.values(before.actions).some(action => action.identifier === id));
-  for (const alias of Object.keys(before.actions)) assert.equal(afterNew.actions[alias].identifier, before.actions[alias].identifier);
+  for (const existingAlias of Object.keys(before.actions)) assert.equal(afterNew.actions[existingAlias].identifier, before.actions[existingAlias].identifier);
   assert.match(fs.readFileSync(mapPath, 'utf8'), /# A-G are drawing-local aliases, NOT identity or ordered numbering\./);
-  fs.writeFileSync(diagramPath, fs.readFileSync(diagramPath, 'utf8').replace('    OPEN --> Z((End))', '    OPEN --> Z((End))\n    H["New Action"]'));
+  fs.writeFileSync(diagramPath, fs.readFileSync(diagramPath, 'utf8').replace('    OPEN --> Z((End))', `    OPEN --> Z((End))\n    ${alias}["New Action"]`));
 
   const statusBefore = fs.readFileSync(mapPath, 'utf8');
   const changed = invoke({ mapPath, diagramPath }, 'set-status', '--id', id, '--status', 'accepted');
   assert.equal(changed.status, 0, output(changed));
   const statusAfter = fs.readFileSync(mapPath, 'utf8');
-  assert.equal((statusAfter.match(/status: accepted/g) || []).length, 1);
-  assert.equal(statusAfter.replace('    status: accepted', '    status: proposed'), statusBefore);
-  assert.equal(yaml.load(statusAfter).actions.H.status, 'accepted');
+  const selectedStatus = new RegExp(`(^  ${alias}:\\r?\\n(?:^    [^\\r\\n]*\\r?\\n)*?^    status: )proposed(\\r?$)`, 'm');
+  assert.match(statusBefore, selectedStatus);
+  assert.equal(statusAfter, statusBefore.replace(selectedStatus, '$1accepted$2'));
+  assert.equal(yaml.load(statusAfter).actions[alias].status, 'accepted');
 
   const valid = invoke({ mapPath, diagramPath }, 'check');
   assert.equal(valid.status, 0, output(valid));
-  fs.writeFileSync(mapPath, statusAfter.replace('{ from: A, to: B }', '{ from: A, to: H }'));
+  fs.writeFileSync(mapPath, statusAfter.replace('{ from: A, to: B }', `{ from: A, to: ${alias} }`));
   const drift = invoke({ mapPath, diagramPath }, 'check');
   assert.notEqual(drift.status, 0, output(drift));
-  assert.match(output(drift), /missing.*A.*B|extra.*A.*H/i);
+  assert.match(output(drift), new RegExp(`missing.*A.*B|extra.*A.*${alias}`, 'i'));
 });
 
 test('new rejects a duplicate alias without changing any input bytes', () => {
