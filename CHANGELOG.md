@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.57.0](https://github.com/dyphn1/Harness-everything/compare/v0.56.1...v0.57.0) (2026-11-21)
+
+### Features
+
+* **errors:** validate and index ledger match rules ([69ec4b3](https://github.com/dyphn1/Harness-everything/commit/69ec4b3ceae209bcab14e50f75ce4cf08d1ebdfe)), closes [#394](https://github.com/dyphn1/Harness-everything/issues/394) [#394](https://github.com/dyphn1/Harness-everything/issues/394)
+* **hooks:** add the shared ledger lesson matcher ([8c87fd5](https://github.com/dyphn1/Harness-everything/commit/8c87fd56da3be9a86043168b1b031f9d0339502a)), closes [#394](https://github.com/dyphn1/Harness-everything/issues/394) [#394](https://github.com/dyphn1/Harness-everything/issues/394)
+* **hooks:** carry matched ledger lessons into claude code bash context ([c844215](https://github.com/dyphn1/Harness-everything/commit/c844215506831bbad133a1dfbaa4b9c04b4c52a5)), closes [#394](https://github.com/dyphn1/Harness-everything/issues/394) [#394](https://github.com/dyphn1/Harness-everything/issues/394)
+* **hooks:** carry matched ledger lessons into codex bash context ([463b1a2](https://github.com/dyphn1/Harness-everything/commit/463b1a2cf654433260824525779c0460d9d600ef)), closes [#394](https://github.com/dyphn1/Harness-everything/issues/394) [#394](https://github.com/dyphn1/Harness-everything/issues/394)
+* **hooks:** carry matched ledger lessons into opencode v2 model context ([9f9118b](https://github.com/dyphn1/Harness-everything/commit/9f9118b681dbb283183f75d9d80c0c0eaa9dacff)), closes [#394](https://github.com/dyphn1/Harness-everything/issues/394) [#394](https://github.com/dyphn1/Harness-everything/issues/394)
+
+### Bug Fixes
+
+* **hooks:** select ledger rules from the generated index and accept git global options ([da04617](https://github.com/dyphn1/Harness-everything/commit/da046171759c505c0ea2dbfcd4b0a57d8bbe62d9)), closes [#501](https://github.com/dyphn1/Harness-everything/issues/501) [#394](https://github.com/dyphn1/Harness-everything/issues/394)
+
 ## [0.56.1](https://github.com/dyphn1/Harness-everything/compare/v0.56.0...v0.56.1) (2026-11-21)
 
 ### Bug Fixes
