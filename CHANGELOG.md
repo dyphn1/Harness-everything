@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.56.1](https://github.com/dyphn1/Harness-everything/compare/v0.56.0...v0.56.1) (2026-11-21)
+
+### Bug Fixes
+
+* **dispatch:** accept a readiness reply of ready with a period and add codex effort ([6e3bcc2](https://github.com/dyphn1/Harness-everything/commit/6e3bcc2f5ffd8256642569453a0ccf6343010fec)), closes [#497](https://github.com/dyphn1/Harness-everything/issues/497)
+* **dispatch:** accept the live host label shapes in readiness and codex output ([b41a966](https://github.com/dyphn1/Harness-everything/commit/b41a96622b18e780d843a4fa3af7639bf8e47f27)), closes [#497](https://github.com/dyphn1/Harness-everything/issues/497)
+
 ## [0.56.0](https://github.com/dyphn1/Harness-everything/compare/v0.55.4...v0.56.0) (2026-11-21)
 
 ### Features
