@@ -130,10 +130,12 @@ function extractCodexBody(raw, expectedStatus) {
   if (controls.length > 1) error(`raw output must contain exactly one STATUS line; found ${controls.length}`);
   if (controls.length === 1) {
     const statusIndex = lines.indexOf(controls[0]);
-    const terminalIndex = lines.length - (strippedLabel ? 2 : 1);
+    let terminalIndex = lines.length - (strippedLabel ? 2 : 1);
+    // Live codex -o output (2026-11-21) puts one blank line between STATUS and the host label.
+    while (strippedLabel && terminalIndex > 0 && lines[terminalIndex].value.trim() === '') terminalIndex -= 1;
     if (statusIndex !== terminalIndex) error('raw STATUS must be terminal or immediately before the host label');
     if (controls[0].value !== expectedStatus) error('raw terminal STATUS does not match the requested status');
-    if (strippedLabel && !controls[0].eol) error('host label must be on the line immediately after STATUS');
+    if (strippedLabel && !controls[0].eol) error('host label must be on a line after STATUS');
     bodyEnd = controls[0].start;
   }
 

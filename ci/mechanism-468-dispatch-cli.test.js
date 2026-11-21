@@ -410,6 +410,7 @@ try {
     for (const { scenario, answer } of [
       { scenario: 'ready-period', answer: 'READY.\n' },
       { scenario: 'ready-padded-period', answer: ' \tREADY. \n' },
+      { scenario: 'ready-host-label', answer: 'READY\n<!-- harness-label {"v":1,"validity":"actionable","tier":"tier1","intents":[],"workflow":"deferred","skills":[]} -->\n' },
     ]) {
       check(`${runner} accepts trimmed ${scenario} through the real entry and validates a fresh report`, () => {
         const testCase = makeCase(`${runner} ${scenario}`);
@@ -423,7 +424,7 @@ try {
       });
     }
 
-    for (const scenario of ['ready-now', 'not-ready', 'ready-two-dots', 'ready-lowercase', 'ready-commentary']) {
+    for (const scenario of ['ready-now', 'not-ready', 'ready-two-dots', 'ready-lowercase', 'ready-commentary', 'ready-bad-label', 'ready-label-then-text']) {
       check(`${runner} rejects readiness answer ${scenario}`, () => {
         const testCase = makeCase(`${runner} ${scenario}`);
         const response = jsonResponse(cli([...argsFor(testCase, runner), '--json'], testCase, { readiness: scenario }), 12, 'NOT_READY');
@@ -637,6 +638,12 @@ try {
     const response = jsonResponse(cli([...argsFor(testCase), '--json'], testCase, { execution: 'raw-label' }), 0, 'DONE');
     assert.equal(fs.readFileSync(testCase.report, 'utf8'), 'Fixture completed the packet.\nSTATUS: DONE\n');
     assert.match(fs.readFileSync(response.evidence.reportWriterLog, 'utf8'), /stripped the terminal host label/);
+  });
+
+  check('497 Codex raw output with a blank line before the host label is accepted', () => {
+    const testCase = makeCase('Codex host label after blank');
+    jsonResponse(cli([...argsFor(testCase), '--json'], testCase, { execution: 'raw-label-blank' }), 0, 'DONE');
+    assert.equal(fs.readFileSync(testCase.report, 'utf8'), 'Fixture completed the packet.\nSTATUS: DONE\n');
   });
 
   for (const scenario of ['missing-raw', 'no-status', 'multiple-status', 'bad-label']) {

@@ -45,6 +45,10 @@ function readyOutput() {
     'ready-period-failed': 'READY.\n',
     'ready-period-timeout': 'READY.\n',
     'ready-period-signal': 'READY.\n',
+    // Live OpenCode reply 2026-11-21: the Harness turn-label rule appends a label line.
+    'ready-host-label': 'READY\n<!-- harness-label {"v":1,"validity":"actionable","tier":"tier1","intents":[],"workflow":"deferred","skills":[]} -->\n',
+    'ready-bad-label': 'READY\n<!-- harness-label not json -->\n',
+    'ready-label-then-text': 'READY\n<!-- harness-label {"v":1,"validity":"actionable","tier":"tier1","intents":[],"workflow":"deferred","skills":[]} -->\nmore\n',
   }[scenario] || 'READY\n';
   if (runner === 'codex') {
     if (outputPath) fs.writeFileSync(outputPath, answer);
@@ -62,6 +66,10 @@ function codexOutput() {
   if (scenario === 'multiple-status') return 'Fixture output.\nSTATUS: DONE\nSTATUS: BLOCKED: missing evidence\n';
   if (scenario === 'bad-label') return 'Fixture completed the packet.\nSTATUS: DONE\n<!-- harness-label {"bad":true} -->\n';
   if (scenario === 'blocked') return 'Fixture could not verify the packet.\nSTATUS: BLOCKED: missing evidence\n';
+  if (scenario === 'raw-label-blank') {
+    // Live codex -o shape 2026-11-21: one blank line between STATUS and the label.
+    return 'Fixture completed the packet.\nSTATUS: DONE\n\n<!-- harness-label {"v":1,"validity":"actionable","tier":"tier1","intents":["edit"],"workflow":null,"skills":[]} -->';
+  }
   if (scenario === 'raw-label') {
     return 'Fixture completed the packet.\nSTATUS: DONE\n<!-- harness-label {"v":1,"validity":"actionable","tier":"tier2","intents":["test"],"workflow":"iterative-single","skills":["test-driven-development"]} -->\n';
   }

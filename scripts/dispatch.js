@@ -206,6 +206,21 @@ const READINESS_DIAGNOSTICS = {
   ],
 };
 
+// A Harness host appends one hidden turn-label line to every final message (docs/routing.md).
+function withoutHostLabel(text) {
+  const lines = text.split(/\r?\n/);
+  const last = lines[lines.length - 1];
+  const match = /^<!-- harness-label (\{.*\}) -->$/.exec(last);
+  if (!match || lines.length < 2) return text;
+  try {
+    const value = JSON.parse(match[1]);
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return text;
+  } catch {
+    return text;
+  }
+  return lines.slice(0, -1).join('\n').trim();
+}
+
 function readinessDiagnostic(runner, stderr) {
   const output = stderr.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '');
   const lines = output.split(/\r?\n/);
@@ -227,13 +242,17 @@ function readiness(input, paths) {
   const answer = input.runner === 'codex'
     ? (fs.existsSync(outputPath) ? fs.readFileSync(outputPath, 'utf8').trim() : '')
     : result.stdout.trim();
-  if (answer !== 'READY' && answer !== 'READY.') fail(12, 'NOT_READY', 'readiness', 'Readiness failed. Keep the available child evidence.');
+  const reply = withoutHostLabel(answer);
+  if (reply !== 'READY' && reply !== 'READY.') fail(12, 'NOT_READY', 'readiness', 'Readiness failed. Keep the available child evidence.');
 }
 
 function reportedStatus(raw) {
   const lines = raw.split(/\r?\n/);
   if (lines.at(-1) === '') lines.pop();
-  if (lines.at(-1)?.startsWith('<!-- harness-label ')) lines.pop();
+  if (lines.at(-1)?.startsWith('<!-- harness-label ')) {
+    lines.pop();
+    while (lines.length && lines.at(-1).trim() === '') lines.pop(); // live codex -o: blank line before the label
+  }
   const line = lines.at(-1) || '';
   if (line === 'STATUS: DONE') return { status: 'DONE' };
   const blocked = /^STATUS: BLOCKED: (.+)$/.exec(line);

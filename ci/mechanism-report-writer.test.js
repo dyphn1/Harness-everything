@@ -169,6 +169,19 @@ test('assembles BLOCKED from a raw body, blank line, and one EOF host label', t 
   assertOk(run(['check', '--file', output]));
 });
 
+test('497 accepts the live codex -o shape: STATUS, one blank line, then the EOF host label', t => {
+  const dir = tempDir(t);
+  const raw = path.join(dir, 'raw.txt');
+  const output = path.join(dir, 'report.md');
+  fs.writeFileSync(raw, `probe ok\nSTATUS: DONE\n\n${VALID_LABEL}`);
+
+  const result = run(writeArgs(output, 'DONE', ['--from-codex-output', raw]));
+
+  assertOk(result);
+  assert.equal(fs.readFileSync(output, 'utf8'), 'probe ok\nSTATUS: DONE\n');
+  assertOk(run(['check', '--file', output]));
+});
+
 test('rejects embedded STATUS in body without changing an existing target', t => {
   const dir = tempDir(t);
   const output = path.join(dir, 'report.md');
@@ -257,7 +270,6 @@ test('rejects mismatched, malformed, duplicate, or trailing Codex controls and p
     ['Summary\nSTATUS: DONE\nSTATUS: DONE\n', 'DONE'],
     ['Summary\nSTATUS: DONE\n\n', 'DONE'],
     ['Summary\nSTATUS: DONE\ntext after status\n', 'DONE'],
-    [`Summary\nSTATUS: DONE\n\n${VALID_LABEL}`, 'DONE'],
     [`Summary\nSTATUS: DONE\ntext\n${VALID_LABEL}`, 'DONE'],
     [`Summary\nSTATUS: DONE\n${VALID_LABEL}\n${VALID_LABEL}\n`, 'DONE'],
     [`Summary\nSTATUS: DONE\n${VALID_LABEL}\ntrailing text`, 'DONE'],
