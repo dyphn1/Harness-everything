@@ -12,6 +12,9 @@ const prompt = args.at(-1) || '';
 const phase = prompt === 'Reply exactly with READY.' ? 'readiness' : 'execution';
 const scenario = process.env[`DISPATCH_FIXTURE_${phase.toUpperCase()}`] || 'ready';
 const input = fs.readFileSync(0, 'utf8');
+const providerRateLimit = 'Provider request failed with HTTP 429: {"status":429,"title":"Too Many Requests"}';
+const providerQuota = 'Free usage limit reached. Free models work in OpenCode (https://opencode.ai); subscribe to OpenCode Go to keep going: https://opencode.ai/go';
+const providerTimeout = 'Timed out waiting for response headers';
 
 fs.appendFileSync(process.env.DISPATCH_FIXTURE_LOG, `${JSON.stringify({
   runner,
@@ -30,10 +33,15 @@ function hang() {
 }
 
 function readyOutput() {
-  if (scenario === 'no-ready' || scenario === 'quota' || scenario === 'stdout-quota' || scenario === 'quoted-quota' || scenario === 'bare-429' || scenario === 'timeout') return;
+  if (['no-ready', 'rate-limited', 'quota-exhausted', 'stdout-provider-rate', 'wrong-envelope', 'quoted-provider-rate', 'local-http-429', 'invalid-quota', 'bare-429', 'provider-rate-with-extra-text', 'provider-timeout', 'timeout', 'signal-provider-rate'].includes(scenario)) return;
   if (runner === 'codex') {
     if (outputPath) fs.writeFileSync(outputPath, 'READY\n');
   } else process.stdout.write('READY\n');
+}
+
+function diagnosticLine(message) {
+  const prefix = runner === 'codex' ? 'ERROR: ' : 'Error: ';
+  return `\u001b[91m\u001b[1m${prefix}\u001b[0m${message}\n`;
 }
 
 function codexOutput() {
@@ -68,31 +76,46 @@ function executionOutput() {
 }
 
 if (phase === 'readiness') {
-  if (scenario === 'timeout') hang();
+  if (scenario === 'timeout') {
+    process.stderr.write(diagnosticLine(providerRateLimit));
+    hang();
+  }
   readyOutput();
-  if (scenario === 'quota') {
-    process.stderr.write(runner === 'codex'
-      ? '\u001b[31mERROR: provider returned HTTP 429 quota exhausted\u001b[0m\n'
-      : '\u001b[31mError: provider returned HTTP 429 usage limit reached\u001b[0m\n');
+  if (scenario === 'rate-limited') {
+    process.stderr.write(diagnosticLine(providerRateLimit));
     process.exitCode = 7;
-  } else if (scenario === 'stdout-quota') {
-    process.stdout.write(runner === 'codex' ? 'ERROR: HTTP 429 quota exhausted\n' : 'Error: HTTP 429 quota exhausted\n');
+  } else if (scenario === 'quota-exhausted') {
+    process.stderr.write(diagnosticLine(providerQuota));
     process.exitCode = 7;
-  } else if (scenario === 'unrelated-quota') {
-    process.stderr.write(runner === 'codex'
-      ? 'ERROR: invalid --quota value; expected a positive integer\n'
-      : 'Error: invalid --quota value; expected a positive integer\n');
+  } else if (scenario === 'stdout-provider-rate') {
+    process.stdout.write(diagnosticLine(providerRateLimit));
+    process.exitCode = 7;
+  } else if (scenario === 'wrong-envelope') {
+    process.stderr.write(`Warning: ${diagnosticLine(providerRateLimit)}`);
+    process.exitCode = 7;
+  } else if (scenario === 'quoted-provider-rate') {
+    process.stderr.write(`Quoted text: ${diagnosticLine(providerRateLimit)}`);
+    process.exitCode = 7;
+  } else if (scenario === 'local-http-429') {
+    process.stderr.write(diagnosticLine('local cache lookup failed with HTTP 429'));
+    process.exitCode = 7;
+  } else if (scenario === 'invalid-quota') {
+    process.stderr.write(diagnosticLine('invalid --quota value; expected a positive integer'));
     process.exitCode = 7;
   } else if (scenario === 'bare-429') {
-    process.stderr.write(runner === 'codex'
-      ? 'ERROR: unrelated operation failed with code 429\n'
-      : 'Error: unrelated operation failed with code 429\n');
+    process.stderr.write('429 Too Many Requests\n');
     process.exitCode = 7;
-  } else if (scenario === 'quoted-quota') {
-    process.stderr.write(runner === 'codex'
-      ? 'Quoted text: "ERROR: provider returned HTTP 429 quota exhausted"\n'
-      : 'Quoted text: "Error: provider returned HTTP 429 quota exhausted"\n');
+  } else if (scenario === 'provider-rate-with-extra-text') {
+    process.stderr.write(diagnosticLine(`${providerRateLimit} retry later`));
     process.exitCode = 7;
+  } else if (scenario === 'provider-timeout') {
+    process.stderr.write(diagnosticLine(providerTimeout));
+    process.exitCode = 7;
+  } else if (scenario === 'signal-provider-rate') {
+    process.stderr.write(diagnosticLine(providerRateLimit));
+    process.kill(process.pid, 'SIGTERM');
+  } else if (scenario === 'ready-with-provider-rate') {
+    process.stderr.write(diagnosticLine(providerRateLimit));
   } else if (scenario === 'ready-failed') {
     process.exitCode = 7;
   } else if (scenario === 'ready-with-quota-prose') {

@@ -190,11 +190,21 @@ function runnerArgs(input, prompt, outputPath) {
   return ['run', '--auto', '-m', input.model, prompt];
 }
 
-function hasQuotaDiagnostic(runner, stderr) {
-  const prefix = runner === 'codex' ? /^\s*ERROR:/i : /^\s*Error:/i;
-  const signature = /\bHTTP\s*429\b|\b429\s+Too Many Requests\b|\bprovider\b.*\bstatus(?:\s+code)?\s*429\b/i;
+const READINESS_DIAGNOSTICS = {
+  codex: [
+    { line: 'ERROR: Provider request failed with HTTP 429: {"status":429,"title":"Too Many Requests"}', code: 'RUNNER_RATE_LIMITED', message: 'Reduce concurrency on the affected key or retry later.' },
+    { line: 'ERROR: Free usage limit reached. Free models work in OpenCode (https://opencode.ai); subscribe to OpenCode Go to keep going: https://opencode.ai/go', code: 'RUNNER_QUOTA', message: 'Select an authorized runner or model with available quota.' },
+  ],
+  opencode: [
+    { line: 'Error: Provider request failed with HTTP 429: {"status":429,"title":"Too Many Requests"}', code: 'RUNNER_RATE_LIMITED', message: 'Reduce concurrency on the affected key or retry later.' },
+    { line: 'Error: Free usage limit reached. Free models work in OpenCode (https://opencode.ai); subscribe to OpenCode Go to keep going: https://opencode.ai/go', code: 'RUNNER_QUOTA', message: 'Select an authorized runner or model with available quota.' },
+  ],
+};
+
+function readinessDiagnostic(runner, stderr) {
   const output = stderr.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '');
-  return output.split(/\r?\n/).some(line => prefix.test(line) && signature.test(line));
+  const lines = output.split(/\r?\n/);
+  return READINESS_DIAGNOSTICS[runner].find(diagnostic => lines.includes(diagnostic.line)) || null;
 }
 
 function readiness(input, paths) {
@@ -202,13 +212,16 @@ function readiness(input, paths) {
   const prompt = 'Reply exactly with READY.';
   const result = runChild(input.runner, runnerArgs(input, prompt, outputPath), input.worktree, input.scratch, paths.readinessLog, 120000);
   if (result.status !== 0) {
-    if (hasQuotaDiagnostic(input.runner, result.stderr)) fail(13, 'RUNNER_QUOTA', 'readiness', `selected runner ${input.runner} reported a provider quota failure`);
-    fail(12, 'NOT_READY', 'readiness', result.error?.code === 'ENOENT' ? `runner executable not found: ${input.runner}` : 'runner readiness failed');
+    const diagnostic = Number.isInteger(result.status) && result.status !== 0 && !result.signal && !result.error
+      ? readinessDiagnostic(input.runner, result.stderr)
+      : null;
+    if (diagnostic) fail(13, diagnostic.code, 'readiness', diagnostic.message);
+    fail(12, 'NOT_READY', 'readiness', 'Readiness failed. Keep the available child evidence.');
   }
   const answer = input.runner === 'codex'
     ? (fs.existsSync(outputPath) ? fs.readFileSync(outputPath, 'utf8').trim() : '')
     : result.stdout.trim();
-  if (answer !== 'READY') fail(12, 'NOT_READY', 'readiness', 'runner did not return READY on its designated response surface');
+  if (answer !== 'READY') fail(12, 'NOT_READY', 'readiness', 'Readiness failed. Keep the available child evidence.');
 }
 
 function reportedStatus(raw) {

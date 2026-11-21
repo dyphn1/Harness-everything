@@ -35,12 +35,30 @@ In JSON mode the common shape is `{ok, code, phase, message}` with resolved `run
 | `10` | `INVALID_INPUT` | Bad/missing option, runner/model, packet/worktree, or a report path that already exists. |
 | `11` | `UNSAFE_SCRATCH` | Scratch is relative, an existing scratch path is not a directory, or it is inside a Git repository/worktree. |
 | `12` | `NOT_READY` | Selected executable is missing or readiness failed, timed out, or omitted `READY`. No run starts. |
-| `13` | `RUNNER_QUOTA` | The selected runner's readiness stderr has a recognized quota diagnostic. No run starts. |
+| `13` | `RUNNER_RATE_LIMITED` | The selected runner's failed readiness stderr has a recognized provider throttling diagnostic. No run starts. |
+| `13` | `RUNNER_QUOTA` | The selected runner's failed readiness stderr has an explicit usage/quota exhaustion diagnostic. No run starts. |
 | `15` | `RUN_FAILED`, `RUN_TIMEOUT` | Execution could not start, returned nonzero, timed out, or failed during execution. |
 | `16` | `REPORT_INVALID` | Fresh raw/report input is missing, stale delivery appeared before execution, the writer rejected input, or final validation failed. |
 | `17` | `WORKER_BLOCKED` | A fresh report passed validation with terminal `STATUS: BLOCKED: <reason>`. The reason is retained. |
 
-Quota classification requires a runner-shaped error line in stderr (`ERROR:` for Codex, `Error:` for OpenCode) plus a recognized quota marker. Quoted policy text, stdout, or successful-run output does not classify quota. Each invocation runs only the selected runner once: there is no retry or fallback.
+| Readiness code | Coordinator message |
+| --- | --- |
+| `RUNNER_RATE_LIMITED` | Reduce concurrency on the affected key or retry later. |
+| `RUNNER_QUOTA` | Select an authorized runner or model with available quota. |
+| `NOT_READY` | Readiness failed. Keep the available child evidence. |
+
+## Readiness classification and evidence
+
+Classification requires a full runner-specific diagnostic line on the failed readiness child's stderr after ANSI stripping. Only a normal nonzero exit is eligible; zero exits, signals, timeouts, stdout, quoted text, a different envelope, and partial or bare `429` text do not receive provider credit. Everything else, including local/cache errors, invalid `--quota`, header timeout, or a missing/ambiguous diagnostic, returns `12 NOT_READY`. The JSON `code` distinguishes throttling from usage/quota exhaustion.
+
+| Runner / outcome | Recognized stderr line | Evidence |
+| --- | --- | --- |
+| OpenCode provider rate limit | `Error: Provider request failed with HTTP 429: {"status":429,"title":"Too Many Requests"}` | The ANSI `Error:` stderr envelope and exit 1 are live-traced. The 429 body is from the retained OpenCode log; a live 429 reproduction remains unchecked. |
+| OpenCode usage/quota exhaustion | `Error: Free usage limit reached. Free models work in OpenCode (https://opencode.ai); subscribe to OpenCode Go to keep going: https://opencode.ai/go` | The stderr envelope is live-traced; the cause is from the retained OpenCode log. |
+| Codex provider rate limit | `ERROR: Provider request failed with HTTP 429: {"status":429,"title":"Too Many Requests"}` | Fixture-only; no retained live Codex 429 trace. |
+| Codex usage/quota exhaustion | `ERROR: Free usage limit reached. Free models work in OpenCode (https://opencode.ai); subscribe to OpenCode Go to keep going: https://opencode.ai/go` | Fixture-only; no retained live Codex usage-limit trace. |
+
+Each invocation uses one selected runner and one readiness attempt. A `12` or `13` refusal starts no execution, report writer, fallback, or retry; available child evidence remains available to the coordinator.
 
 Codex writes raw output with `codex exec -o`; it must contain an explicit terminal DONE or BLOCKED status. `report-writer --from-codex-output` strips an optional valid terminal host label, writes the final report, and `report-writer check` validates it. OpenCode is asked to write the report path directly; the path must remain absent through readiness and the resulting file must pass `report-writer check`. A valid BLOCKED report returns 17. Failed execution returns 15 and preserves its logs/raw output; it may have changed the worktree.
 

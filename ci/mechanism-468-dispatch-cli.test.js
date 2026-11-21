@@ -14,6 +14,15 @@ const rootReal = fs.realpathSync.native(root);
 const tempRelative = path.relative(rootReal, fs.realpathSync.native(path.resolve(tempParent)));
 assert.ok(tempRelative === '..' || tempRelative.startsWith(`..${path.sep}`) || path.isAbsolute(tempRelative), 'test TMPDIR must be outside the repository');
 
+function canonicalPath(file) {
+  const resolved = fs.realpathSync.native(file);
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
+function assertSameCanonicalPath(actual, expected, message) {
+  assert.equal(canonicalPath(actual), canonicalPath(expected), message);
+}
+
 const fixtureRoot = fs.mkdtempSync(path.join(tempParent, '468-dispatch-p2-'));
 const repositoryParent = path.join(fixtureRoot, 'repository parent');
 const worktree = path.join(repositoryParent, 'worktree with spaces');
@@ -147,7 +156,7 @@ function assertNoScratchOrReport(testCase) {
 function assertEvent(event, testCase, runner, phase, model = runner === 'codex' ? 'fixture/codex-model' : 'fixture/opencode-model') {
   assert.equal(event.runner, runner);
   assert.equal(event.phase, phase);
-  assert.equal(event.cwd, fs.realpathSync(worktree));
+  assertSameCanonicalPath(event.cwd, worktree, 'child cwd must resolve to the requested worktree');
   assert.equal(event.tmpdir, testCase.scratch);
   assert.equal(event.stdin, '');
   assert.equal(event.stdinIsCharacterDevice, true);
@@ -169,11 +178,28 @@ function removeOption(args, option) {
   return args;
 }
 
-function assertReadinessRefusal(testCase, runner, model = runner === 'codex' ? 'fixture/codex-model' : 'fixture/opencode-model') {
+function assertNoExecutionAfterReadinessFailure(testCase, runner, response, model = runner === 'codex' ? 'fixture/codex-model' : 'fixture/opencode-model') {
+  assert.equal(typeof response.code, 'string');
+  assert.equal(typeof response.ok, 'boolean');
+  assert.equal(response.phase, 'readiness');
+  assert.equal(response.runner, runner);
+  assert.equal(response.model, model);
+  assert.deepEqual(Object.keys(response).sort(), ['code', 'evidence', 'message', 'model', 'ok', 'phase', 'runner'].sort());
   const actualEvents = events(testCase);
   assert.equal(actualEvents.length, 1, 'refusal must make one readiness call and no execution or fallback call');
   assertEvent(actualEvents[0], testCase, runner, 'readiness', model);
   assert.equal(fs.existsSync(testCase.report), false);
+  assert.ok(response.evidence?.readinessLog, 'refusal should retain readiness evidence');
+  for (const key of ['runLog', 'rawOutput', 'reportWriterLog']) {
+    assert.equal(response.evidence[key], undefined, `${key} must not be created before a successful readiness check`);
+  }
+  const files = fs.readdirSync(testCase.scratch);
+  assert.equal(files.some(file => /(?:raw\.txt|run\.log|report-writer\.log)$/.test(file)), false);
+}
+
+function assertReadinessRefusal(testCase, runner, response, model = runner === 'codex' ? 'fixture/codex-model' : 'fixture/opencode-model') {
+  assert.equal(response.message, 'Readiness failed. Keep the available child evidence.');
+  assertNoExecutionAfterReadinessFailure(testCase, runner, response, model);
 }
 
 function runSuccessAndArgvMatch(runner, requestedModel = runner === 'codex' ? 'fixture/codex-model' : 'fixture/opencode-model') {
@@ -183,7 +209,7 @@ function runSuccessAndArgvMatch(runner, requestedModel = runner === 'codex' ? 'f
   const dryRun = jsonResponse(cli([...args, '--dry-run', '--json'], testCase), 0, 'DRY_RUN_OK');
   assert.equal(dryRun.model, model);
   assert.equal(dryRun.argv[dryRun.argv.indexOf('-m') + 1], model);
-  assert.equal(dryRun.cwd, fs.realpathSync(worktree));
+  assertSameCanonicalPath(dryRun.cwd, worktree, 'dry-run cwd must resolve to the requested worktree');
   assert.equal(dryRun.argv[0], runner);
   assertNoRunner(testCase);
   assertNoScratchOrReport(testCase);
@@ -205,7 +231,7 @@ function runSuccessAndArgvMatch(runner, requestedModel = runner === 'codex' ? 'f
     assert.match(dryRun.argv[outputIndex], /<run-id>/);
   }
   assert.deepEqual(dryRun.argv, observedArgv);
-  assert.equal(dryRun.cwd, actualEvents[1].cwd);
+  assertSameCanonicalPath(dryRun.cwd, actualEvents[1].cwd, 'dry-run and child cwd must identify the same directory');
   if (runner === 'codex') {
     const writerLog = fs.readFileSync(result.evidence.reportWriterLog, 'utf8');
     assert.ok(writerLog.includes(`Wrote ${testCase.report}`));
@@ -319,7 +345,7 @@ try {
     const siblingScratch = path.join(fixtureRoot, `${path.basename(worktree)}-sibling`, 'scratch');
     args[args.indexOf('--scratch') + 1] = siblingScratch;
     const response = jsonResponse(cli([...args, '--dry-run', '--json'], testCase), 0, 'DRY_RUN_OK');
-    assert.equal(response.cwd, fs.realpathSync(worktree));
+    assertSameCanonicalPath(response.cwd, worktree);
     assertNoRunner(testCase);
     assert.equal(fs.existsSync(siblingScratch), false);
     assert.equal(fs.existsSync(testCase.report), false);
@@ -330,7 +356,7 @@ try {
     assert.equal(path.win32.isAbsolute(relative), true);
     assert.equal(path.win32.resolve('C:\\repo', relative), 'D:\\scratch\\dispatch');
     const testCase = makeCase('cross-drive scratch');
-    const worktreeRoot = path.win32.parse(fs.realpathSync(worktree)).root;
+    const worktreeRoot = path.win32.parse(canonicalPath(worktree)).root;
     const currentDrive = /^([A-Za-z]:)/.exec(worktreeRoot)?.[1].toUpperCase() || 'C:';
     const otherDrive = currentDrive === 'C:' ? 'D:' : 'C:';
     const crossDriveScratch = `${otherDrive}\\468-dispatch-p2\\scratch`;
@@ -338,9 +364,21 @@ try {
     args[args.indexOf('--scratch') + 1] = crossDriveScratch;
     const expected = process.platform === 'win32' ? ['0', 'DRY_RUN_OK'] : ['11', 'UNSAFE_SCRATCH'];
     const response = jsonResponse(cli([...args, '--dry-run', '--json'], testCase), Number(expected[0]), expected[1]);
-    if (process.platform === 'win32') assert.equal(response.cwd, fs.realpathSync(worktree));
+    if (process.platform === 'win32') assertSameCanonicalPath(response.cwd, worktree);
     assertNoRunner(testCase);
     assert.equal(fs.existsSync(crossDriveScratch), false);
+    assertNoScratchOrReport(testCase);
+  });
+
+  check('cwd oracle accepts the selected linked worktree and rejects a different directory', () => {
+    const testCase = makeCase('different cwd control');
+    const args = argsFor(testCase);
+    args[args.indexOf('--packet') + 1] = 'packet with spaces.md';
+    args[args.indexOf('--worktree') + 1] = linkedWorktree;
+    const response = jsonResponse(cli([...args, '--dry-run', '--json'], testCase), 0, 'DRY_RUN_OK');
+    assertSameCanonicalPath(response.cwd, linkedWorktree);
+    assert.notEqual(canonicalPath(response.cwd), canonicalPath(worktree));
+    assertNoRunner(testCase);
     assertNoScratchOrReport(testCase);
   });
 
@@ -350,23 +388,23 @@ try {
       runSuccessAndArgvMatch(runner, ` ${runner === 'codex' ? 'fixture/codex-model' : 'fixture/opencode-model'} `);
     });
 
-    check(`${runner} READY with successful exit accepts quoted quota text`, () => {
-      const testCase = makeCase(`${runner} quota prose`);
+    check(`${runner} supported provider text on successful READY does not refuse`, () => {
+      const testCase = makeCase(`${runner} provider text on success`);
       const response = jsonResponse(cli([...argsFor(testCase, runner), '--json'], testCase, {
-        readiness: 'ready-with-quota-prose', execution: 'done-with-quota-prose',
+        readiness: 'ready-with-provider-rate', execution: 'done-with-quota-prose',
       }), 0, 'DONE');
-      assert.match(fs.readFileSync(response.evidence.readinessLog, 'utf8'), /429.*quota/);
+      assert.match(fs.readFileSync(response.evidence.readinessLog, 'utf8'), /Provider request failed with HTTP 429/);
       const actualEvents = events(testCase);
       assert.equal(actualEvents.length, 2);
       assertEvent(actualEvents[0], testCase, runner, 'readiness');
       assertEvent(actualEvents[1], testCase, runner, 'execution');
     });
 
-    for (const scenario of ['no-ready', 'ready-failed', 'stdout-quota', 'unrelated-quota', 'bare-429', 'quoted-quota']) {
+    for (const scenario of ['no-ready', 'ready-failed', 'stdout-provider-rate', 'wrong-envelope', 'quoted-provider-rate', 'local-http-429', 'invalid-quota', 'bare-429', 'provider-rate-with-extra-text', 'provider-timeout', 'signal-provider-rate']) {
       check(`${runner} readiness ${scenario} -> NOT_READY`, () => {
         const testCase = makeCase(`${runner} ${scenario}`);
-        jsonResponse(cli([...argsFor(testCase, runner), '--json'], testCase, { readiness: scenario }), 12, 'NOT_READY');
-        assertReadinessRefusal(testCase, runner);
+        const response = jsonResponse(cli([...argsFor(testCase, runner), '--json'], testCase, { readiness: scenario }), 12, 'NOT_READY');
+        assertReadinessRefusal(testCase, runner, response);
       });
     }
 
@@ -374,27 +412,36 @@ try {
       const testCase = makeCase(`${runner} padded model refusal`);
       const model = runner === 'codex' ? 'fixture/codex-model' : 'fixture/opencode-model';
       const response = jsonResponse(cli([...argsFor(testCase, runner, ` ${model} `), '--json'], testCase, {
-        readiness: 'unrelated-quota',
+        readiness: 'invalid-quota',
       }), 12, 'NOT_READY');
       assert.equal(response.model, model);
-      assertReadinessRefusal(testCase, runner, model);
+      assertReadinessRefusal(testCase, runner, response, model);
     });
 
     check(`${runner} readiness timeout -> NOT_READY and child exited`, () => {
       const testCase = makeCase(`${runner} readiness timeout`);
-      jsonResponse(cli([...argsFor(testCase, runner), '--json'], testCase, {
+      const response = jsonResponse(cli([...argsFor(testCase, runner), '--json'], testCase, {
         readiness: 'timeout', testTimeoutMs: 300, outerTimeoutMs: 5000,
       }), 12, 'NOT_READY');
       const actualEvents = events(testCase);
-      assertReadinessRefusal(testCase, runner);
+      assertReadinessRefusal(testCase, runner, response);
       assertProcessExited(actualEvents[0].pid);
     });
 
-    check(`${runner} recognized readiness quota -> RUNNER_QUOTA without fallback`, () => {
-      const testCase = makeCase(`${runner} quota`);
-      jsonResponse(cli([...argsFor(testCase, runner), '--json'], testCase, { readiness: 'quota' }), 13, 'RUNNER_QUOTA');
-      assertReadinessRefusal(testCase, runner);
-    });
+    for (const { scenario, code, message, cause } of [
+      { scenario: 'rate-limited', code: 'RUNNER_RATE_LIMITED', message: 'Reduce concurrency on the affected key or retry later.', cause: 'Provider request failed with HTTP 429: {"status":429,"title":"Too Many Requests"}' },
+      { scenario: 'quota-exhausted', code: 'RUNNER_QUOTA', message: 'Select an authorized runner or model with available quota.', cause: 'Free usage limit reached. Free models work in OpenCode (https://opencode.ai); subscribe to OpenCode Go to keep going: https://opencode.ai/go' },
+    ]) {
+      const evidence = runner === 'codex' ? ' (fixture-only)' : ' (OpenCode envelope live-traced)';
+      check(`${runner}${evidence} ${scenario} -> ${code} without fallback`, () => {
+        const testCase = makeCase(`${runner} ${scenario}`);
+        const response = jsonResponse(cli([...argsFor(testCase, runner), '--json'], testCase, { readiness: scenario }), 13, code);
+        assert.equal(response.message, message);
+        assert.match(fs.readFileSync(response.evidence.readinessLog, 'utf8'), /\u001b\[91m\u001b\[1m/);
+        assert.ok(fs.readFileSync(response.evidence.readinessLog, 'utf8').includes(cause));
+        assertNoExecutionAfterReadinessFailure(testCase, runner, response);
+      });
+    }
 
     check(`${runner} execution failure -> RUN_FAILED with no retry/fallback`, () => {
       const testCase = makeCase(`${runner} run failed`);
@@ -437,7 +484,8 @@ try {
 
   check('missing selected Codex executable -> NOT_READY without OpenCode fallback', () => {
     const testCase = makeCase('missing codex executable');
-    jsonResponse(cli([...argsFor(testCase, 'codex'), '--json'], testCase, { path: openCodeOnlyBin }), 12, 'NOT_READY');
+    const response = jsonResponse(cli([...argsFor(testCase, 'codex'), '--json'], testCase, { path: openCodeOnlyBin }), 12, 'NOT_READY');
+    assert.equal(response.message, 'Readiness failed. Keep the available child evidence.');
     assertNoRunner(testCase);
     assert.equal(fs.existsSync(testCase.report), false);
   });
