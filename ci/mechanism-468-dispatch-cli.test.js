@@ -400,7 +400,9 @@ try {
       assertEvent(actualEvents[1], testCase, runner, 'execution');
     });
 
-    for (const scenario of ['no-ready', 'ready-failed', 'stdout-provider-rate', 'wrong-envelope', 'quoted-provider-rate', 'local-http-429', 'invalid-quota', 'bare-429', 'provider-rate-with-extra-text', 'provider-timeout', 'signal-provider-rate']) {
+    for (const scenario of ['no-ready', 'ready-failed', 'stdout-provider-rate', 'wrong-envelope', 'quoted-provider-rate', 'local-http-429', 'invalid-quota', 'bare-429', 'provider-rate-with-extra-text', 'provider-timeout',
+      // Windows has no POSIX signals: a self-SIGTERM reports exit 1 with signal null, so the signal row only exists off win32.
+      ...(process.platform === 'win32' ? [] : ['signal-provider-rate'])]) {
       check(`${runner} readiness ${scenario} -> NOT_READY`, () => {
         const testCase = makeCase(`${runner} ${scenario}`);
         const response = jsonResponse(cli([...argsFor(testCase, runner), '--json'], testCase, { readiness: scenario }), 12, 'NOT_READY');
