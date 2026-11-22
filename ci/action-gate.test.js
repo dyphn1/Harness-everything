@@ -474,6 +474,7 @@ try {
     ['comment null arguments', issueCommentTools[0], null],
     ['comment missing repo selector', issueCommentTools[0], { pr_number: 502, comment: 'comment' }],
     ['comment empty repo selector', issueCommentTools[0], { ...issueCommentInput, repo_full_name: ' ' }],
+    ['comment ownerless repo selector', issueCommentTools[0], { ...issueCommentInput, repo_full_name: 'repo-only' }],
     ['comment wrong repo selector type', issueCommentTools[0], { ...issueCommentInput, repo_full_name: 502 }],
     ['comment invalid issue selector', issueCommentTools[0], { ...issueCommentInput, pr_number: 0 }],
     ['comment fractional issue selector', issueCommentTools[0], { ...issueCommentInput, pr_number: 1.5 }],
@@ -485,6 +486,7 @@ try {
     ['close missing repo selector', issueCompletedCloseTools[0], { issue_number: 502, state: 'closed', state_reason: 'completed' }],
     ['close missing issue selector', issueCompletedCloseTools[0], { ...issueCloseInput, issue_number: null }],
     ['close empty repo selector', issueCompletedCloseTools[0], { ...issueCloseInput, repository_full_name: '' }],
+    ['close ownerless repo selector', issueCompletedCloseTools[0], { ...issueCloseInput, repository_full_name: 'repo-only' }],
     ['close wrong repo selector type', issueCompletedCloseTools[0], { ...issueCloseInput, repository_full_name: 502 }],
     ['close string issue selector', issueCompletedCloseTools[0], { ...issueCloseInput, issue_number: '502' }],
     ['close wrong state', issueCompletedCloseTools[0], { ...issueCloseInput, state: 'open' }],
@@ -501,7 +503,8 @@ try {
     const result = actionGate.evaluatePreToolUse(issuePayload(tool, input, 'issue-invalid-' + name.replace(/[^a-z0-9]+/gi, '-')), {
       host: 'codex', sessionDir, ruleTable: table,
     });
-    check(result.kind === 'block' && result.exitCode === 2 && result.record.disposition === 'rejected', name + ' remains gated');
+    check(result.kind === 'block' && result.exitCode === 2 && result.record.disposition === 'rejected'
+      && result.rule && result.rule.id === 'structured-mutate', name + ' remains gated');
   }
   for (const key of ['title', 'body', 'labels', 'assignees', 'milestone']) {
     const input = { ...issueCloseInput, [key]: null };

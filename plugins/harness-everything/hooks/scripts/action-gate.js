@@ -157,6 +157,9 @@ const ISSUE_COMPLETED_CLOSE_TOOLS = new Set([
   'mcp__codex_apps__github__update_issue',
   'mcp__codex_apps__github_update_issue',
 ]);
+// Both Issue exceptions require an owner/name repository selector; an ownerless
+// name is uncertain and must keep the original gate.
+const OWNER_REPO_SELECTOR = /^[^/\s]+\/[^/\s]+$/;
 
 function isRoutineIssueTool(name) {
   return ISSUE_COMMENT_TOOLS.has(name) || ISSUE_COMPLETED_CLOSE_TOOLS.has(name);
@@ -173,6 +176,7 @@ function isRoutineIssueComment(payload) {
     && input && typeof input === 'object' && !Array.isArray(input)
     && hasExactKeys(input, ['repo_full_name', 'pr_number', 'comment'])
     && typeof input.repo_full_name === 'string' && input.repo_full_name.trim() !== ''
+    && OWNER_REPO_SELECTOR.test(input.repo_full_name)
     && Number.isSafeInteger(input.pr_number) && input.pr_number > 0
     && typeof input.comment === 'string' && input.comment.trim() !== '';
 }
@@ -183,6 +187,7 @@ function isRoutineIssueCompletedClose(payload) {
     && input && typeof input === 'object' && !Array.isArray(input)
     && hasExactKeys(input, ['repository_full_name', 'issue_number', 'state', 'state_reason'])
     && typeof input.repository_full_name === 'string' && input.repository_full_name.trim() !== ''
+    && OWNER_REPO_SELECTOR.test(input.repository_full_name)
     && Number.isSafeInteger(input.issue_number) && input.issue_number > 0
     && input.state === 'closed' && input.state_reason === 'completed';
 }
