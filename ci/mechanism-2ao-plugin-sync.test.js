@@ -456,6 +456,108 @@ for (const sourceType of ['git', 'npm', 'remote', 'unknown']) {
   fs.rmSync(agyTemp, { recursive: true, force: true });
 }
 
+// AGY sync acceptance: --host all with only Codex .agents skips AGY without installing files
+{
+  const projectTemp = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-codex-only-'));
+  fs.mkdirSync(path.join(projectTemp, '.agents', 'skills'), { recursive: true });
+
+  const result = sync({ host: 'all', cwd: projectTemp }, {
+    commandAvailable: cmd => cmd === 'codex',
+    log: () => {},
+    warn: () => {},
+    codexHooksInstall: () => ({ status: 'installed' })
+  });
+
+  const agyRes = result.results.find(r => r.host === 'agy');
+  assert.ok(agyRes, 'agy result should be present');
+  assert.strictEqual(agyRes.status, 'skipped', 'agy must be skipped when only Codex .agents exists');
+  assert.strictEqual(agyRes.reasonCode, 'cli-not-found');
+
+  // Assert no AGY files were created in .agents/plugins/harness-everything
+  assert.ok(
+    !fs.existsSync(path.join(projectTemp, '.agents', 'plugins', 'harness-everything')),
+    'No AGY files should be installed in Codex project'
+  );
+
+  fs.rmSync(projectTemp, { recursive: true, force: true });
+}
+
+// AGY sync acceptance: atomic refresh removes obsolete files
+{
+  const agyTemp = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-agy-update-'));
+  const target = path.join(agyTemp, 'plugins', 'harness-everything');
+
+  // Initial install
+  sync({ host: 'agy', agyTarget: target }, {
+    commandAvailable: () => true,
+    log: () => {},
+    warn: () => {}
+  });
+  assert.ok(fs.existsSync(path.join(target, 'plugin.json')));
+
+  // Add an obsolete file
+  const obsoleteFile = path.join(target, 'obsolete-leftover.txt');
+  fs.writeFileSync(obsoleteFile, 'legacy content', 'utf8');
+  assert.ok(fs.existsSync(obsoleteFile));
+
+  // Run update
+  const updateResult = sync({ host: 'agy', agyTarget: target }, {
+    commandAvailable: () => true,
+    log: () => {},
+    warn: () => {}
+  });
+  assert.strictEqual(updateResult.failed, 0);
+  assert.strictEqual(updateResult.results[0].action, 'update');
+  assert.ok(!fs.existsSync(obsoleteFile), 'Obsolete file must be removed on atomic refresh update');
+
+  fs.rmSync(agyTemp, { recursive: true, force: true });
+}
+
+// AGY sync acceptance: simulated copy failure leaves previous valid install intact
+{
+  const agyTemp = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-agy-rollback-'));
+  const target = path.join(agyTemp, 'plugins', 'harness-everything');
+
+  // Initial valid install
+  sync({ host: 'agy', agyTarget: target }, {
+    commandAvailable: () => true,
+    log: () => {},
+    warn: () => {}
+  });
+  assert.ok(fs.existsSync(path.join(target, 'plugin.json')));
+  const markerFile = path.join(target, 'valid-install.txt');
+  fs.writeFileSync(markerFile, 'pre-existing valid state', 'utf8');
+
+  // Simulate copy failure
+  const originalCpSync = fs.cpSync;
+  let simulatedFailureTriggered = false;
+  fs.cpSync = (src, dest, opts) => {
+    if (typeof dest === 'string' && dest.includes(target) && dest.includes('.tmp')) {
+      simulatedFailureTriggered = true;
+      throw new Error('Simulated disk full or copy interruption');
+    }
+    return originalCpSync(src, dest, opts);
+  };
+
+  try {
+    const failResult = sync({ host: 'agy', agyTarget: target }, {
+      commandAvailable: () => true,
+      log: () => {},
+      warn: () => {}
+    });
+    assert.strictEqual(failResult.failed, 1);
+    assert.strictEqual(failResult.results[0].status, 'failed');
+  } finally {
+    fs.cpSync = originalCpSync;
+  }
+
+  assert.ok(simulatedFailureTriggered, 'Simulated failure must have triggered');
+  assert.ok(fs.existsSync(markerFile), 'Previous valid install must remain intact after copy failure');
+  assert.strictEqual(fs.readFileSync(markerFile, 'utf8'), 'pre-existing valid state');
+
+  fs.rmSync(agyTemp, { recursive: true, force: true });
+}
+
 // resolveOnPath() is pure filesystem logic (platform choice happens only at
 // the defaultRunner call site), so its directory-order-first contract runs
 // on every CI OS, not only Windows.

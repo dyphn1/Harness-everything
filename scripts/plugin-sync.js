@@ -606,15 +606,22 @@ function syncAgy(context) {
   const projectAgentsDir = context.agyProjectRoot || (projectRoot ? path.join(projectRoot, '.agents') : null);
   const globalGeminiDir = context.agyGlobalRoot || (context.agyHome ? path.join(context.agyHome, '.gemini') : null);
 
-  const agyTarget = context.agyTarget || (
-    (projectAgentsDir && fs.existsSync(projectAgentsDir))
-      ? path.join(projectAgentsDir, 'plugins', context.plugin)
-      : (globalGeminiDir && fs.existsSync(globalGeminiDir))
-        ? path.join(globalGeminiDir, 'config', 'plugins', context.plugin)
-        : null
-  );
+  const isExplicitAgy = context.host === 'agy';
+  const hasExplicitTarget = Boolean(context.agyTarget);
 
-  if (!hasAgyCli && !agyTarget) {
+  const existingProjectTarget = projectAgentsDir && (
+    fs.existsSync(path.join(projectAgentsDir, 'plugins', context.plugin, '.antigravity-plugin', 'plugin.json')) ||
+    fs.existsSync(path.join(projectAgentsDir, 'plugins', context.plugin, 'plugin.json'))
+  ) ? path.join(projectAgentsDir, 'plugins', context.plugin) : null;
+
+  const existingGlobalTarget = globalGeminiDir && (
+    fs.existsSync(path.join(globalGeminiDir, 'config', 'plugins', context.plugin, '.antigravity-plugin', 'plugin.json')) ||
+    fs.existsSync(path.join(globalGeminiDir, 'config', 'plugins', context.plugin, 'plugin.json'))
+  ) ? path.join(globalGeminiDir, 'config', 'plugins', context.plugin) : null;
+
+  // Under default --host all, do not select AGY just because an unrelated .agents directory exists.
+  // Require AGY CLI (agy), existing AGY config/target, or explicit --host agy.
+  if (!isExplicitAgy && !hasAgyCli && !hasExplicitTarget && !existingProjectTarget && !existingGlobalTarget) {
     return {
       host: 'agy',
       status: 'skipped',
@@ -623,11 +630,14 @@ function syncAgy(context) {
     };
   }
 
-  const effectiveTarget = agyTarget || (
-    context.agyHome
-      ? path.join(context.agyHome, '.gemini', 'config', 'plugins', context.plugin)
-      : path.join(os.homedir(), '.gemini', 'config', 'plugins', context.plugin)
-  );
+  const effectiveTarget = context.agyTarget ||
+    existingProjectTarget ||
+    existingGlobalTarget ||
+    ((projectAgentsDir && fs.existsSync(projectAgentsDir) && (hasAgyCli || isExplicitAgy))
+      ? path.join(projectAgentsDir, 'plugins', context.plugin)
+      : (context.agyHome
+          ? path.join(context.agyHome, '.gemini', 'config', 'plugins', context.plugin)
+          : path.join(os.homedir(), '.gemini', 'config', 'plugins', context.plugin)));
 
   const isInstalled = fs.existsSync(path.join(effectiveTarget, 'plugin.json')) ||
                       fs.existsSync(path.join(effectiveTarget, '.antigravity-plugin', 'plugin.json'));
@@ -639,12 +649,36 @@ function syncAgy(context) {
     return { host: 'agy', status: 'synchronized', action, target: effectiveTarget };
   }
 
+  const sourcePackage = path.resolve(__dirname, '..', 'plugins', context.plugin);
+  const targetParent = path.dirname(effectiveTarget);
+  fs.mkdirSync(targetParent, { recursive: true });
+
+  const stagingDir = `${effectiveTarget}.${process.pid}.${Date.now()}.tmp`;
+  const backupDir = `${effectiveTarget}.${process.pid}.${Date.now()}.bak`;
+
   try {
-    const sourcePackage = path.resolve(__dirname, '..', 'plugins', context.plugin);
-    fs.mkdirSync(path.dirname(effectiveTarget), { recursive: true });
-    fs.cpSync(sourcePackage, effectiveTarget, { recursive: true });
+    fs.cpSync(sourcePackage, stagingDir, { recursive: true });
+
+    if (isInstalled) {
+      fs.renameSync(effectiveTarget, backupDir);
+      try {
+        fs.renameSync(stagingDir, effectiveTarget);
+        fs.rmSync(backupDir, { recursive: true, force: true });
+      } catch (swapErr) {
+        if (fs.existsSync(backupDir) && !fs.existsSync(effectiveTarget)) {
+          fs.renameSync(backupDir, effectiveTarget);
+        }
+        throw swapErr;
+      }
+    } else {
+      fs.renameSync(stagingDir, effectiveTarget);
+    }
+
     return { host: 'agy', status: 'synchronized', action, target: effectiveTarget };
   } catch (err) {
+    if (fs.existsSync(stagingDir)) {
+      try { fs.rmSync(stagingDir, { recursive: true, force: true }); } catch (_) {}
+    }
     return { host: 'agy', status: 'failed', action, error: `AGY plugin ${action} failed: ${err.message}` };
   }
 }

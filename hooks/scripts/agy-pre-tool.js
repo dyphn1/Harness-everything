@@ -4,16 +4,25 @@
 /**
  * Antigravity (AGY) PreToolUse Hook Adapter
  *
- * Intercepts tool execution (run_command, write_file, edit_file) to enforce:
- * - Worktree and filesystem boundary containment.
- * - Action gate policies (destructive operations, forced pushes).
+ * Intercepts tool execution to enforce:
+ * - Worktree and filesystem boundary containment for file writes.
+ * - Canonical Action Gate policies (destructive operations, forced pushes, publish, reset).
  *
  * Returns protojson: {"decision": "allow" | "deny" | "ask", "reason": "..."}
  */
 
 const { readJsonStdin, isOutOfBoundsPath } = require('./lib/agy-adapter-core');
+const { evaluatePreToolUse } = require('./action-gate');
 
-function evaluateToolCall(toolCall, cwd) {
+const FILE_MUTATION_TOOLS = new Set([
+  'write_file',
+  'edit_file',
+  'write_to_file',
+  'replace_file_content',
+  'multi_replace_file_content'
+]);
+
+function evaluateToolCall(toolCall, cwd, context = {}) {
   if (!toolCall || !toolCall.name) {
     return { decision: 'allow' };
   }
@@ -22,43 +31,51 @@ function evaluateToolCall(toolCall, cwd) {
   const args = toolCall.args || {};
 
   // 1. Filesystem boundary containment for file mutations
-  if (name === 'write_file' || name === 'edit_file') {
-    const filePath = args.Path || args.path;
+  if (FILE_MUTATION_TOOLS.has(name)) {
+    const filePath = args.TargetFile || args.Path || args.path || args.targetFile || args.filePath;
     if (filePath && isOutOfBoundsPath(filePath, cwd)) {
       return {
         decision: 'deny',
         reason: `Harness boundary guard: modification outside workspace root is forbidden (${filePath}).`
       };
     }
+    return { decision: 'allow' };
   }
 
-  // 2. Command safety and action gate evaluation
+  // 2. Command safety via canonical Action Gate
   if (name === 'run_command') {
     const command = String(args.CommandLine || args.command || '').trim();
-
-    // Dangerous destructive commands
-    if (/\brm\s+-(?:r[fF]|[fF]r)\s+(?:\/|~|\$HOME)(?:\s|$|;|\*)/.test(command)) {
-      return {
-        decision: 'deny',
-        reason: 'Harness action gate: destructive filesystem command rejected.'
-      };
+    if (!command) {
+      return { decision: 'allow' };
     }
 
-    // Direct force-push to protected branches
-    if (/\bgit\s+push\s+.*--force.*\b(main|master)(?:\s|$|;)/.test(command)) {
-      return {
-        decision: 'deny',
-        reason: 'Harness action gate: force-push to main branch is strictly forbidden.'
-      };
+    const sessionId = context.sessionId || (context.payload && (context.payload.conversationId || context.payload.session_id || context.payload.sessionId));
+    const actionPayload = {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Bash',
+      tool_input: { command },
+      cwd,
+      session_id: sessionId,
+      sessionId: sessionId,
+    };
+
+    const gateResult = evaluatePreToolUse(actionPayload, { host: 'agy' });
+
+    if (gateResult.kind === 'block') {
+      const reason = gateResult.rule
+        ? `[Harness actionGate:${gateResult.rule.id}] ${gateResult.rule.reason}`
+        : (gateResult.stderr || 'Harness action gate: command rejected.');
+      return { decision: 'deny', reason };
     }
 
-    // Git hard reset without isolation check
-    if (/\bgit\s+reset\s+--hard\b/.test(command) && process.env.HARNESS_STRICT_ISOLATION === '1') {
-      return {
-        decision: 'ask',
-        reason: 'Harness action gate: hard git reset requires confirmation.'
-      };
+    if (gateResult.kind === 'ask') {
+      const reason = gateResult.rule
+        ? `[Harness actionGate:${gateResult.rule.id}] ${gateResult.rule.reason}`
+        : 'Harness action gate: confirmation required.';
+      return { decision: 'ask', reason };
     }
+
+    return { decision: 'allow' };
   }
 
   return { decision: 'allow' };
@@ -68,8 +85,9 @@ async function main() {
   const payload = await readJsonStdin();
   const cwd = payload.cwd || (Array.isArray(payload.workspacePaths) && payload.workspacePaths[0]) || process.cwd();
   const toolCall = payload.toolCall || {};
+  const sessionId = payload.conversationId || payload.session_id || payload.sessionId;
 
-  const result = evaluateToolCall(toolCall, cwd);
+  const result = evaluateToolCall(toolCall, cwd, { sessionId, payload });
   process.stdout.write(JSON.stringify(result) + '\n');
 }
 
