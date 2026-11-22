@@ -211,7 +211,7 @@ function observeOpenCodeTool(event, workspace) {
     const observations = systemOneObservations()
     if (!observations || !observations.enabled() || !event?.sessionID) return
     const args = isRecord(event.input) ? event.input : {}
-    const names = { edit: "Edit", write: "Write", apply_patch: "apply_patch", bash: "shell", skill: "Skill", read: "Read", task: "Task" }
+    const names = { edit: "Edit", write: "Write", apply_patch: "apply_patch", bash: "shell", shell: "shell", skill: "Skill", read: "Read", task: "Task" }
     const toolInput = {
       ...args,
       file_path: args.filePath || args.file_path || args.path,
@@ -1259,7 +1259,7 @@ export default {
         const binding = await bindingForSession(event?.sessionID)
         if (events.signal.aborted || !binding?.workspace) return
         retryLedgerReleases()
-        if (event.tool === "bash" && typeof event.input?.command === "string") {
+        if ((event.tool === "bash" || event.tool === "shell") && typeof event.input?.command === "string") {
           queueLedgerLesson(pendingLedgerLessons, binding.workspace, event.sessionID, {
             phase: "action", tool: "shell", command: event.input.command, outcome: { failed: "unknown" },
           })
@@ -1283,9 +1283,10 @@ export default {
         const resultExit = event.status === "completed" && Number.isFinite(event.result?.metadata?.exit)
           ? event.result.metadata.exit : null
         const resultFailed = resultExit !== null && resultExit !== 0
-        const resultOutput = typeof event.result?.output === "string" ? event.result.output : undefined
+        const resultOutput = typeof event.result?.output === "string" ? event.result.output
+          : typeof event.result?.output?.output === "string" ? event.result.output.output : undefined
         const failureOutput = errorOutput ?? resultOutput
-        if (event.tool === "bash" && failureOutput !== undefined && typeof event.input?.command === "string") {
+        if ((event.tool === "bash" || event.tool === "shell") && failureOutput !== undefined && typeof event.input?.command === "string") {
           queueLedgerLesson(pendingLedgerLessons, binding.workspace, event.sessionID, {
             phase: "failure", tool: "shell", command: event.input.command,
             outcome: { failed: event.status === "error" || resultFailed ? true : resultExit === null ? "unknown" : false,
