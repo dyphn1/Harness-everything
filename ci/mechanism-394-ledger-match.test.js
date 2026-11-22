@@ -14,6 +14,7 @@ try {
 } catch (error) {
   if (error.code !== 'MODULE_NOT_FOUND') throw error;
 }
+const packagedMatcher = require('../plugins/harness-everything/hooks/scripts/lib/ledger-match.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const ERRORS_SYNC = path.join(ROOT, 'scripts', 'errors-sync.js');
@@ -130,6 +131,7 @@ test('exports the conservative git commit executable/subcommand normalizer', () 
   for (const command of [
     'git -C x commit',
     'git -c user.name=Harness commit',
+    'git -c core.pager= commit',
     'git --git-dir=/repo/.git commit',
     'git --work-tree=/repo commit',
     'git --no-pager commit',
@@ -143,6 +145,8 @@ test('exports the conservative git commit executable/subcommand normalizer', () 
     'git -C x',
     'git -c',
     'git -c user.name commit',
+    'git -c =x commit',
+    'git -c = commit',
     'git -c =Harness commit',
     'git --git-dir= commit',
     'git --work-tree= commit',
@@ -150,6 +154,16 @@ test('exports the conservative git commit executable/subcommand normalizer', () 
     'git --other=option commit',
     'git -C x status'
   ]) assert.equal(matcher.normalizeGitCommitCommand(command), null, command);
+});
+
+test('source and packaged matchers accept an empty Git config value', () => {
+  const expected = { tool: 'shell', executable: 'git', subcommand: 'commit' };
+  for (const implementation of [matcher, packagedMatcher]) {
+    assert.deepEqual(implementation.normalizeGitCommitCommand('git -c core.pager= commit'), expected);
+    assert.equal(implementation.normalizeGitCommitCommand('git -c =x commit'), null);
+    assert.equal(implementation.normalizeGitCommitCommand('git -c = commit'), null);
+    assert.equal(implementation.normalizeGitCommitCommand('git -c user.name commit'), null);
+  }
 });
 
 test('a direct git commit selects the real E-0003 record at action', () => {
