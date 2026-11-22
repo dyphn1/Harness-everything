@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.57.2](https://github.com/dyphn1/Harness-everything/compare/v0.57.1...v0.57.2) (2026-11-22)
+
+### Bug Fixes
+
+* **ledger:** match bounded compound commit commands ([3d513ec](https://github.com/dyphn1/Harness-everything/commit/3d513ec32ae1b31068bb208d79535277bc494b03))
+* **ledger:** require a known command outcome ([572b065](https://github.com/dyphn1/Harness-everything/commit/572b065bd5977d97d385b19714af85307cf5f63f))
+
 ## [0.57.1](https://github.com/dyphn1/Harness-everything/compare/v0.57.0...v0.57.1) (2026-11-22)
 
 ### Bug Fixes
