@@ -101,8 +101,8 @@ function createV2Context(sessionWorkspaces, pluginFile = PLUGIN) {
   }));
 }
 
-async function toolCall(harness, sessionID, id, status = 'completed', output = 'ok', exit = 0) {
-  const command = 'git commit -m "docs(errors): Bad Case"';
+async function toolCall(harness, sessionID, id, status = 'completed', output = 'ok', exit = 0,
+  command = 'git commit -m "docs(errors): Bad Case"') {
   const before = { tool: 'bash', sessionID, agent: 'build', messageID: `message-${id}`, id, input: { command } };
   const beforeSnapshot = structuredClone(before);
   assert.equal(await harness.toolHooks.get('execute.before')(before), undefined);
@@ -157,6 +157,7 @@ test('OpenCode V2 carries real ledger matches through the source and packaged co
     other: workspace,
     separateWorkspace: otherWorkspace,
     noLedger: emptyWorkspace,
+    masked: workspace,
     disposal: workspace,
     sessionCleanup: workspace,
   };
@@ -193,7 +194,12 @@ test('OpenCode V2 carries real ledger matches through the source and packaged co
 
     await toolCall(harness, 'other', 'other-action', 'completed', COMMITLINT, 0);
     assert.equal((await context(harness, 'other')).match(/Cue:\n/g)?.length, 1,
-      'diagnostic text with a zero exit remains action-only in a second session');
+      'a direct command with diagnostic-looking output and zero exit remains action-only');
+
+    await toolCall(harness, 'masked', 'masked-action', 'completed', COMMITLINT, 0,
+      'git commit -m "Bad Subject"; echo "$?"');
+    assert.equal((await context(harness, 'masked')).match(/Cue:\n/g)?.length, 2,
+      'a precise commitlint diagnostic recovers a commit failure masked by a compound shell exit');
 
     await toolCall(harness, 'separateWorkspace', 'workspace-action', 'completed', COMMITLINT, 1);
     assert.equal((await context(harness, 'separateWorkspace')).match(/Cue:\n/g)?.length, 2,

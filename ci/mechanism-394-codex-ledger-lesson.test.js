@@ -171,6 +171,11 @@ function carrierRoundTrip(run, name) {
   success.tool_response.stderr = COMMITLINT_OUTPUT;
   assert.equal(run('PostToolUse', success), '', 'successful exit stays silent even with diagnostic-looking output');
 
+  const masked = payload('post-tool-use-success.json', root, `${name}-masked-session`);
+  masked.tool_input.command = 'git commit -m "Bad Subject"; echo "$?"';
+  masked.tool_response.stdout = COMMITLINT_OUTPUT;
+  context(run('PostToolUse', masked), 'PostToolUse');
+
   const unknown = payload('post-tool-use-unknown.json', root, `${name}-unknown-session`);
   unknown.tool_response.stderr = COMMITLINT_OUTPUT;
   assert.equal(run('PostToolUse', unknown), '', 'unknown exit stays silent despite commitlint-looking output');
