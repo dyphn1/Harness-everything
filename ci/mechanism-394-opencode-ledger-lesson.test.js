@@ -156,6 +156,8 @@ test('OpenCode V2 carries real ledger matches through the source and packaged co
     same: workspace,
     other: workspace,
     separateWorkspace: otherWorkspace,
+    shellAction: workspace,
+    shellFailure: workspace,
     noLedger: emptyWorkspace,
     masked: workspace,
     unknownExit: workspace,
@@ -210,6 +212,38 @@ test('OpenCode V2 carries real ledger matches through the source and packaged co
     await toolCall(harness, 'separateWorkspace', 'workspace-action', 'completed', COMMITLINT, 1);
     assert.equal((await context(harness, 'separateWorkspace')).match(/Cue:\n/g)?.length, 2,
       'a completed tool result with nonzero metadata.exit and captured diagnostics selects failure too');
+
+    // Live OpenCode 2.1.4 shape (E-0006/E-0008): tool "shell", input carries workdir,
+    // after-result carries metadata.exit and commitlint output.
+    const shellCommand = 'git -C x commit -m "docs(errors): Bad Case"';
+    const shellBase = { tool: 'shell', agent: 'build', messageID: 'message-shell', input: { command: shellCommand, workdir: workspace } };
+
+    const shellActionEvent = { ...shellBase, sessionID: 'shellAction', id: 'shell-action' };
+    const shellActionSnapshot = structuredClone(shellActionEvent);
+    assert.equal(await harness.toolHooks.get('execute.before')(shellActionEvent), undefined);
+    assert.deepEqual(shellActionEvent, shellActionSnapshot, 'execute.before does not change a live shell tool request');
+    assert.equal((await context(harness, 'shellAction')).match(/Cue:\n/g)?.length, 1,
+      'a live shell action event delivers the action lesson');
+
+    const shellFailureBefore = { ...shellBase, sessionID: 'shellFailure', id: 'shell-failure-before' };
+    assert.equal(await harness.toolHooks.get('execute.before')(shellFailureBefore), undefined);
+    const shellFailureAfter = {
+      ...shellFailureBefore,
+      id: 'shell-failure-after',
+      status: 'completed',
+      result: {
+        output: { exit: 1, truncated: false, output: COMMITLINT, status: 'completed' },
+        content: [{ type: 'text', text: COMMITLINT }],
+        metadata: { status: 'completed', truncated: false, exit: 1 },
+      },
+    };
+    const shellFailureSnapshot = structuredClone(shellFailureAfter);
+    assert.equal(await harness.toolHooks.get('execute.after')(shellFailureAfter), undefined);
+    assert.deepEqual(shellFailureAfter, shellFailureSnapshot, 'execute.after does not change a live shell tool result');
+    const shellDelivered = await context(harness, 'shellFailure');
+    assert.equal((shellDelivered.match(/Cue:\n/g) || []).length, 2,
+      'live shell action and failure events deliver both lessons');
+    assert.match(shellDelivered, /subject-case/, 'the failure lesson carries the commitlint diagnostic');
 
     await toolCall(harness, 'noLedger', 'no-ledger-action');
     assert.equal(await context(harness, 'noLedger'), 'base system', 'an unrelated workspace without a ledger is silent');
