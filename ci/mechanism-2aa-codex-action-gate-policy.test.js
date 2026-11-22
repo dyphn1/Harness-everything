@@ -163,6 +163,43 @@ try {
       assert.notStrictEqual(denied.record.commandHash, hash);
     }
   }
+  for (const [gateName, gate] of [
+    ['canonical', actionGate],
+    ['packaged', require(path.join(pluginRoot, 'hooks', 'scripts', 'action-gate.js'))],
+  ]) {
+    for (const [tool, input, expectedRule, outcome] of [
+      ['mcp__codex_apps__github__add_comment_to_issue', {
+        repo_full_name: 'dyphn1/Harness-everything', pr_number: 502, comment: 'private issue comment fixture',
+      }, 'routine-issue-comment', 'success'],
+      ['mcp__codex_apps__github_update_issue', {
+        repository_full_name: 'dyphn1/Harness-everything', issue_number: 502, state: 'closed', state_reason: 'completed',
+      }, 'routine-issue-completed-close', 'failure'],
+    ]) {
+      const candidate = {
+        ...payload('', { toolUseId: `${gateName}-${expectedRule}`, turnId: 'issue-turn' }),
+        tool_name: tool,
+        tool_input: input,
+      };
+      const pre = gate.evaluatePreToolUse(candidate, { host: 'codex', sessionDir, ruleTable: table });
+      assert.strictEqual(pre.kind, 'allow', `${gateName} ${expectedRule} defers to host`);
+      assert.strictEqual(pre.stdout, null);
+      assert.strictEqual(Object.prototype.hasOwnProperty.call(pre, 'permissionDecision'), false);
+      assert.strictEqual(pre.record.disposition, 'deferred-to-host');
+      assert.strictEqual(pre.record.matchedRule, expectedRule);
+      assert.strictEqual(pre.record.host, 'codex');
+      assert.strictEqual(pre.record.toolUseId, candidate.tool_use_id);
+      assert.strictEqual(pre.record.actionDescriptor.action, 'mutate');
+      assert.strictEqual(pre.record.actionDescriptor.classification, 'gated');
+      const hash = gate.hashExact(gate.exactPayloadText(candidate));
+      assert.strictEqual(pre.record.commandHash, hash);
+      assert.strictEqual(pre.record.actionDescriptor.payloadHash, hash);
+      assert.ok(!JSON.stringify(pre.record).includes('private issue comment fixture'));
+      const post = gate.finalizeExecution(candidate, outcome, { sessionDir });
+      assert.strictEqual(post.record.disposition, 'executed');
+      assert.strictEqual(post.record.executionOutcome, outcome);
+      assert.strictEqual(post.record.commandHash, hash);
+    }
+  }
   const metadataEntry = preAdapter.processPayload({
     ...payload('', { toolUseId: 'metadata-entry' }),
     tool_name: 'mcp__codex_apps__github_update_pull_request',

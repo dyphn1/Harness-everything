@@ -168,6 +168,8 @@ The Codex-only metadata exception checks the actual tool input, with all of thes
 
 Any additional key, including `state`, `base_branch`, `base`, `maintainer_can_modify`, `draft`, or an unknown key, prevents the exception, even when its value is null. Mixed metadata/high-risk inputs and similar operation names retain the existing Gate. Claude, OpenCode and unknown hosts retain their prior mutation rules. PR creation behavior is unchanged.
 
+Codex also defers only the exact Issue comment tools when their arguments are exactly `{ repo_full_name, pr_number, comment }` with a non-empty string comment, and the exact Issue update tools when their arguments are exactly `{ repository_full_name, issue_number, state: "closed", state_reason: "completed" }`. The comment connector uses `pr_number` for the Issue number. These remain `mutate`/`gated` actions and are audited as `routine-issue-comment` or `routine-issue-completed-close`; extra keys (including null), other states, required action gates, and other hosts stay gated.
+
 ```mermaid
 flowchart LR
   A["Exact PR update + actual arguments"] --> B{"Codex + title/body only<br/>+ no required Gate?"}
