@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.57.3](https://github.com/dyphn1/Harness-everything/compare/v0.57.2...v0.57.3) (2026-11-22)
+
+### Bug Fixes
+
+* **opencode:** deliver ledger lessons for the live v2 shell tool ([d74ca22](https://github.com/dyphn1/Harness-everything/commit/d74ca22021ccb41b6877d6eaa6673f6af61cfe65)), closes [#509](https://github.com/dyphn1/Harness-everything/issues/509)
+
 ## [0.57.2](https://github.com/dyphn1/Harness-everything/compare/v0.57.1...v0.57.2) (2026-11-22)
 
 ### Bug Fixes
