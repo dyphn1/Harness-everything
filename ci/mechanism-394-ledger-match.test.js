@@ -135,6 +135,7 @@ test('exports the conservative git commit executable/subcommand normalizer', () 
   for (const command of [
     'git -C x commit',
     'git -c user.name=Harness commit',
+    'git -c core.pager= commit',
     'git --git-dir=/repo/.git commit',
     'git --work-tree=/repo commit',
     'git --no-pager commit',
@@ -148,6 +149,8 @@ test('exports the conservative git commit executable/subcommand normalizer', () 
     'git -C x',
     'git -c',
     'git -c user.name commit',
+    'git -c =x commit',
+    'git -c = commit',
     'git -c =Harness commit',
     'git --git-dir= commit',
     'git --work-tree= commit',
@@ -180,6 +183,16 @@ test('source and packaged matchers bound simple command sequences and reject uns
   for (const implementation of [matcher, packagedMatcher]) {
     for (const command of supported) assert.deepEqual(implementation.normalizeGitCommitCommand(command), expected, command);
     for (const command of unsupported) assert.equal(implementation.normalizeGitCommitCommand(command), null, command);
+  }
+});
+
+test('source and packaged matchers accept an empty Git config value', () => {
+  const expected = { tool: 'shell', executable: 'git', subcommand: 'commit' };
+  for (const implementation of [matcher, packagedMatcher]) {
+    assert.deepEqual(implementation.normalizeGitCommitCommand('git -c core.pager= commit'), expected);
+    assert.equal(implementation.normalizeGitCommitCommand('git -c =x commit'), null);
+    assert.equal(implementation.normalizeGitCommitCommand('git -c = commit'), null);
+    assert.equal(implementation.normalizeGitCommitCommand('git -c user.name commit'), null);
   }
 });
 

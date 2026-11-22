@@ -242,7 +242,7 @@ function normalizeShellCommand(command) {
         } else if (option === '-c') {
           const setting = tokens[index++];
           const equals = setting?.indexOf('=');
-          if (!setting || equals < 1 || equals === setting.length - 1) return null;
+          if (!setting || equals < 1) return null;
         } else if (option === '--no-pager' || option === '-P') {
           continue;
         } else if (option.startsWith('--git-dir=')) {
