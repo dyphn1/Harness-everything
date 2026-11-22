@@ -1280,14 +1280,16 @@ export default {
           ? typeof event.error === "string" ? event.error
             : typeof event.error?.message === "string" ? event.error.message : undefined
           : undefined
-        const resultFailed = event.status === "completed"
-          && Number.isFinite(event.result?.metadata?.exit) && event.result.metadata.exit !== 0
-        const resultOutput = resultFailed && typeof event.result?.output === "string" ? event.result.output : undefined
+        const resultExit = event.status === "completed" && Number.isFinite(event.result?.metadata?.exit)
+          ? event.result.metadata.exit : null
+        const resultFailed = resultExit !== null && resultExit !== 0
+        const resultOutput = typeof event.result?.output === "string" ? event.result.output : undefined
         const failureOutput = errorOutput ?? resultOutput
         if (event.tool === "bash" && failureOutput !== undefined && typeof event.input?.command === "string") {
           queueLedgerLesson(pendingLedgerLessons, binding.workspace, event.sessionID, {
             phase: "failure", tool: "shell", command: event.input.command,
-            outcome: { failed: true, output: failureOutput },
+            outcome: { failed: event.status === "error" || resultFailed ? true : resultExit === null ? "unknown" : false,
+              output: failureOutput },
           })
         }
         if (prompt?.status === "resolved" && prompt.workspace) observeOpenCodeTool(event, prompt.workspace)

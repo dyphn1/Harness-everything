@@ -19,7 +19,9 @@ function eventFor(payload) {
   const result = readCodexToolOutcome(payload);
   const failed = result.outcome === 'failure' ? true : result.outcome === 'success' ? false : 'unknown';
   const outcome = { failed };
-  if (failed === true) outcome.output = [result.stderr, result.stdout].filter(Boolean).join('\n');
+  // Exact ledger diagnostics can identify a masked failure only when the host
+  // provides a structured exit outcome. Opaque text-only responses stay unknown.
+  if (result.outcome !== 'unknown') outcome.output = [result.stderr, result.stdout].filter(Boolean).join('\n');
   return { phase: 'failure', tool: 'shell', command, outcome };
 }
 

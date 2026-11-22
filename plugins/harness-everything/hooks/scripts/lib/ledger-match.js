@@ -12,6 +12,7 @@ const LIMITS = Object.freeze({
   sourceBytes: 64 * 1024,
   candidateText: 4096,
   command: 8192,
+  commandSegments: 16,
   output: 32 * 1024,
   reminders: 2,
   reminderChars: 1500
@@ -189,6 +190,43 @@ function words(command) {
   return tokens;
 }
 
+// Recognize only a bounded top-level sequence. Wrappers, pipelines, redirects,
+// subshells, and heredocs stay unsupported; quoted separators remain arguments.
+function splitSimpleCommandSegments(command) {
+  if (typeof command !== 'string' || command.length > LIMITS.command || /[\r\n\0]/.test(command)) return null;
+  const segments = [];
+  let quote = null;
+  let start = 0;
+  for (let index = 0; index < command.length; index += 1) {
+    const char = command[index];
+    if (quote) {
+      if (char === quote) quote = null;
+      else if (char === '\\' && quote === '"' && index + 1 < command.length) index += 1;
+      continue;
+    }
+    if (char === '"' || char === "'") { quote = char; continue; }
+    if (char === '\\' && index + 1 < command.length) { index += 1; continue; }
+    if ('<>()`'.includes(char)) return null;
+    let separatorLength = 0;
+    if (char === ';') separatorLength = 1;
+    else if (char === '&' || char === '|') {
+      if (command[index + 1] !== char || command[index + 2] === char) return null;
+      separatorLength = 2;
+    }
+    if (!separatorLength) continue;
+    const segment = command.slice(start, index).trim();
+    if (!segment || segments.length >= LIMITS.commandSegments - 1) return null;
+    segments.push(segment);
+    index += separatorLength - 1;
+    start = index + 1;
+  }
+  if (quote) return null;
+  const finalSegment = command.slice(start).trim();
+  if (!finalSegment || segments.length >= LIMITS.commandSegments) return null;
+  segments.push(finalSegment);
+  return segments;
+}
+
 function normalizeShellCommand(command) {
   try {
     const tokens = words(command);
@@ -224,8 +262,13 @@ function normalizeShellCommand(command) {
 }
 
 function normalizeGitCommitCommand(command) {
-  const invocation = normalizeShellCommand(command);
-  return invocation?.executable === 'git' && invocation.subcommand === 'commit' ? invocation : null;
+  const segments = splitSimpleCommandSegments(command);
+  if (!segments) return null;
+  for (const segment of segments) {
+    const invocation = normalizeShellCommand(segment);
+    if (invocation?.executable === 'git' && invocation.subcommand === 'commit') return invocation;
+  }
+  return null;
 }
 
 function normalizeEvent(event) {
@@ -233,8 +276,13 @@ function normalizeEvent(event) {
       !isObject(event.outcome) || ![true, false, 'unknown'].includes(event.outcome.failed) ||
       (event.outcome.output !== undefined && typeof event.outcome.output !== 'string') ||
       (event.phase === 'failure' && event.outcome.output && event.outcome.output.length > LIMITS.output)) return null;
-  const invocation = normalizeShellCommand(event.command);
-  return invocation ? { phase: event.phase, tool: 'shell', command: event.command, outcome: event.outcome, invocation } : null;
+  const segments = splitSimpleCommandSegments(event.command);
+  if (!segments) return null;
+  const invocations = segments.map(normalizeShellCommand).filter(Boolean);
+  return invocations.length
+    ? { phase: event.phase, tool: 'shell', command: event.command, outcome: event.outcome,
+      invocations, compound: segments.length > 1 }
+    : null;
 }
 
 function ruleMatches(rule, invocation) {
@@ -251,11 +299,12 @@ function hasDiagnostic(output, diagnostics) {
 
 function eventMatches(match, event) {
   if (!match) return false;
-  if (event.phase === 'action') return Boolean(match.actions?.some(rule => ruleMatches(rule, event.invocation)));
-  return event.outcome.failed === true && typeof event.outcome.output === 'string' &&
-    Boolean(match.failures?.some(rule => rule.tool === event.invocation.tool &&
-      rule.executable === event.invocation.executable && rule.subcommand === event.invocation.subcommand &&
-      hasDiagnostic(event.outcome.output, rule.diagnostics)));
+  const matchesInvocation = rule => event.invocations.some(invocation => ruleMatches(rule, invocation));
+  if (event.phase === 'action') return Boolean(match.actions?.some(matchesInvocation));
+  if (typeof event.outcome.output !== 'string') return false;
+  return Boolean(match.failures?.some(rule => matchesInvocation(rule) &&
+    hasDiagnostic(event.outcome.output, rule.diagnostics) &&
+    (event.outcome.failed === true || (event.outcome.failed === false && event.compound))));
 }
 
 function validProvisionalCandidate(candidate) {

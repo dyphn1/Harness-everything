@@ -122,12 +122,16 @@ test('exports the conservative git commit executable/subcommand normalizer', () 
     'git status',
     'git merge origin/main',
     'sudo git commit',
-    'git commit && echo done',
     '"git commit"'
   ]) assert.equal(matcher.normalizeGitCommitCommand(command), null, command);
-  assert.deepEqual(matcher.normalizeGitCommitCommand("git commit -m 'message; with separator'"), {
+  for (const command of [
+    'git commit && echo done',
+    'echo before; git -C x commit --amend',
+    'git -c user.name=Harness commit || echo rejected',
+    "git commit -m 'message; with separator'"
+  ]) assert.deepEqual(matcher.normalizeGitCommitCommand(command), {
     tool: 'shell', executable: 'git', subcommand: 'commit'
-  });
+  }, command);
   for (const command of [
     'git -C x commit',
     'git -c user.name=Harness commit',
@@ -156,6 +160,32 @@ test('exports the conservative git commit executable/subcommand normalizer', () 
   ]) assert.equal(matcher.normalizeGitCommitCommand(command), null, command);
 });
 
+test('source and packaged matchers bound simple command sequences and reject unsupported syntax', () => {
+  const expected = { tool: 'shell', executable: 'git', subcommand: 'commit' };
+  const supported = [
+    'git commit; echo "$?"',
+    'echo before && git -C x commit --amend',
+    'git commit || echo failed',
+    "git commit -m 'message; with separator'"
+  ];
+  const unsupported = [
+    "echo 'git commit; echo done'",
+    'git commit | cat',
+    'cat | git commit',
+    '(git commit)',
+    'git commit <<EOF\nmessage\nEOF',
+    'git commit;',
+    '; git commit',
+    'git commit;; echo done',
+    Array.from({ length: 17 }, (_, index) => index === 8 ? 'git commit' : 'echo x').join(';'),
+    `${'echo x; '.repeat(1400)}git commit`
+  ];
+  for (const implementation of [matcher, packagedMatcher]) {
+    for (const command of supported) assert.deepEqual(implementation.normalizeGitCommitCommand(command), expected, command);
+    for (const command of unsupported) assert.equal(implementation.normalizeGitCommitCommand(command), null, command);
+  }
+});
+
 test('source and packaged matchers accept an empty Git config value', () => {
   const expected = { tool: 'shell', executable: 'git', subcommand: 'commit' };
   for (const implementation of [matcher, packagedMatcher]) {
@@ -182,6 +212,30 @@ test('a direct git commit selects the real E-0003 record at action', () => {
   assert.deepEqual(withArgs.ids, ['E-0003']);
 });
 
+test('simple command segments select commit lessons without matching quoted text or wrappers', () => {
+  for (const command of [
+    'git commit -m "docs: probe"; echo "$?"',
+    'echo before && git -C x commit --amend',
+    'git status || git commit'
+  ]) {
+    const result = select(input({
+      event: { phase: 'action', tool: 'shell', command, outcome: { failed: 'unknown' } }
+    }));
+    assert.deepEqual(result?.ids, ['E-0003'], command);
+  }
+  for (const command of [
+    "echo 'git commit; echo done'",
+    'git commit | cat',
+    '(git commit)',
+    'git commit <<EOF\nmessage\nEOF',
+    'env git commit'
+  ]) {
+    assert.equal(select(input({
+      event: { phase: 'action', tool: 'shell', command, outcome: { failed: 'unknown' } }
+    })), null, command);
+  }
+});
+
 test('a failed commit with captured commitlint output selects again at failure', () => {
   const base = input();
   const action = select(base);
@@ -195,6 +249,27 @@ test('a failed commit with captured commitlint output selects again at failure',
     event: { phase: 'failure', tool: 'shell', command: 'git commit', outcome: { failed: true, output: COMMITLINT_EMPTY_SUBJECT_OUTPUT } }
   }));
   assert.deepEqual(emptySubject.ids, ['E-0003']);
+});
+
+test('failure lessons require a known outcome and an exact diagnostic', () => {
+  const direct = 'git commit -m "Bad Subject"';
+  const compound = `${direct}; echo "$?"`;
+  const cases = [
+    { command: compound, failed: false, output: COMMITLINT_OUTPUT, expected: ['E-0003'] },
+    { command: compound, failed: true, output: COMMITLINT_OUTPUT, expected: ['E-0003'] },
+    { command: compound, failed: 'unknown', output: COMMITLINT_OUTPUT, expected: null },
+    { command: direct, failed: false, output: COMMITLINT_OUTPUT, expected: null },
+    { command: compound, failed: false, output: 'fatal: unrelated output', expected: null },
+    { command: compound, failed: true, output: 'fatal: unrelated output', expected: null },
+  ];
+  for (const implementation of [matcher, packagedMatcher]) {
+    for (const { command, failed, output, expected } of cases) {
+      const result = implementation.matchLedgerLessons(input({
+        event: { phase: 'failure', tool: 'shell', command, outcome: { failed, output } }
+      }));
+      assert.deepEqual(result?.ids ?? null, expected, JSON.stringify({ command, failed, output }));
+    }
+  }
 });
 
 test('the real generator and runtime accept quoted identity and match scalars', () => {
