@@ -304,7 +304,7 @@ function eventMatches(match, event) {
   if (typeof event.outcome.output !== 'string') return false;
   return Boolean(match.failures?.some(rule => matchesInvocation(rule) &&
     hasDiagnostic(event.outcome.output, rule.diagnostics) &&
-    (event.outcome.failed === true || event.compound)));
+    (event.outcome.failed === true || (event.outcome.failed === false && event.compound))));
 }
 
 function validProvisionalCandidate(candidate) {

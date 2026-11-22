@@ -251,30 +251,25 @@ test('a failed commit with captured commitlint output selects again at failure',
   assert.deepEqual(emptySubject.ids, ['E-0003']);
 });
 
-test('a precise commitlint diagnostic identifies a masked compound failure only', () => {
-  const masked = select(input({
-    event: {
-      phase: 'failure', tool: 'shell', command: 'git commit -m "Bad Subject"; echo "$?"',
-      outcome: { failed: false, output: COMMITLINT_OUTPUT }
+test('failure lessons require a known outcome and an exact diagnostic', () => {
+  const direct = 'git commit -m "Bad Subject"';
+  const compound = `${direct}; echo "$?"`;
+  const cases = [
+    { command: compound, failed: false, output: COMMITLINT_OUTPUT, expected: ['E-0003'] },
+    { command: compound, failed: true, output: COMMITLINT_OUTPUT, expected: ['E-0003'] },
+    { command: compound, failed: 'unknown', output: COMMITLINT_OUTPUT, expected: null },
+    { command: direct, failed: false, output: COMMITLINT_OUTPUT, expected: null },
+    { command: compound, failed: false, output: 'fatal: unrelated output', expected: null },
+    { command: compound, failed: true, output: 'fatal: unrelated output', expected: null },
+  ];
+  for (const implementation of [matcher, packagedMatcher]) {
+    for (const { command, failed, output, expected } of cases) {
+      const result = implementation.matchLedgerLessons(input({
+        event: { phase: 'failure', tool: 'shell', command, outcome: { failed, output } }
+      }));
+      assert.deepEqual(result?.ids ?? null, expected, JSON.stringify({ command, failed, output }));
     }
-  }));
-  assert.deepEqual(masked?.ids, ['E-0003']);
-
-  const directSuccess = select(input({
-    event: {
-      phase: 'failure', tool: 'shell', command: 'git commit -m "Good Subject"',
-      outcome: { failed: false, output: COMMITLINT_OUTPUT }
-    }
-  }));
-  assert.equal(directSuccess, null, 'a direct successful commit is not reclassified by output alone');
-
-  const unrelated = select(input({
-    event: {
-      phase: 'failure', tool: 'shell', command: 'git commit -m "Bad Subject"; echo "$?"',
-      outcome: { failed: false, output: 'fatal: unrelated output' }
-    }
-  }));
-  assert.equal(unrelated, null, 'a masked sequence needs a known commitlint diagnostic');
+  }
 });
 
 test('the real generator and runtime accept quoted identity and match scalars', () => {

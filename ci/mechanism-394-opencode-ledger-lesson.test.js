@@ -113,7 +113,7 @@ async function toolCall(harness, sessionID, id, status = 'completed', output = '
     status,
     ...(status === 'error'
       ? { error: { name: 'ToolError', message: output } }
-      : { result: { output, metadata: { exit } } }),
+      : { result: { output, metadata: exit === null ? {} : { exit } } }),
   };
   const afterSnapshot = structuredClone(after);
   assert.equal(await harness.toolHooks.get('execute.after')(after), undefined);
@@ -158,6 +158,7 @@ test('OpenCode V2 carries real ledger matches through the source and packaged co
     separateWorkspace: otherWorkspace,
     noLedger: emptyWorkspace,
     masked: workspace,
+    unknownExit: workspace,
     disposal: workspace,
     sessionCleanup: workspace,
   };
@@ -200,6 +201,11 @@ test('OpenCode V2 carries real ledger matches through the source and packaged co
       'git commit -m "Bad Subject"; echo "$?"');
     assert.equal((await context(harness, 'masked')).match(/Cue:\n/g)?.length, 2,
       'a precise commitlint diagnostic recovers a commit failure masked by a compound shell exit');
+
+    await toolCall(harness, 'unknownExit', 'unknown-exit-action', 'completed', COMMITLINT, null,
+      'git commit -m "Bad Subject"; echo "$?"');
+    assert.equal((await context(harness, 'unknownExit')).match(/Cue:\n/g)?.length, 1,
+      'a completed compound command without metadata.exit remains action-only');
 
     await toolCall(harness, 'separateWorkspace', 'workspace-action', 'completed', COMMITLINT, 1);
     assert.equal((await context(harness, 'separateWorkspace')).match(/Cue:\n/g)?.length, 2,
