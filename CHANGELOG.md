@@ -190,6 +190,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Codex defers exact Issue comments and completed closes to native host permissions (#508).
+
 - OpenCode V2: accept the live `shell` tool name alongside `bash` for ledger lesson injection and turn observations, with live-shape mechanism rows (#509).
 
 - Error-ledger lesson injection (#394): ledger records gain optional `match` rules; a shared matcher carries matched Cue/Lesson text into Claude Code, Codex and OpenCode V2 context at a `git commit` action and its commitlint failure (mechanism evidence; OpenCode V1 delivery unchecked). ROUTE-001 is superseded.
