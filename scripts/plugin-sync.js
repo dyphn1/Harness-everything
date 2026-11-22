@@ -12,6 +12,7 @@
 
 const { spawnSync } = require('child_process');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const DEFAULTS = Object.freeze({
@@ -599,6 +600,55 @@ function syncCodex(context) {
   return { host: 'codex', status: 'synchronized', action, compatHooks: compatHooks.result };
 }
 
+function syncAgy(context) {
+  const hasAgyCli = context.commandAvailable('agy');
+  const projectRoot = context.cwd || (context.commandAvailable === defaultRunner ? process.cwd() : null);
+  const projectAgentsDir = context.agyProjectRoot || (projectRoot ? path.join(projectRoot, '.agents') : null);
+  const globalGeminiDir = context.agyGlobalRoot || (context.agyHome ? path.join(context.agyHome, '.gemini') : null);
+
+  const agyTarget = context.agyTarget || (
+    (projectAgentsDir && fs.existsSync(projectAgentsDir))
+      ? path.join(projectAgentsDir, 'plugins', context.plugin)
+      : (globalGeminiDir && fs.existsSync(globalGeminiDir))
+        ? path.join(globalGeminiDir, 'config', 'plugins', context.plugin)
+        : null
+  );
+
+  if (!hasAgyCli && !agyTarget) {
+    return {
+      host: 'agy',
+      status: 'skipped',
+      reasonCode: 'cli-not-found',
+      reason: 'agy CLI or Antigravity target directory not found'
+    };
+  }
+
+  const effectiveTarget = agyTarget || (
+    context.agyHome
+      ? path.join(context.agyHome, '.gemini', 'config', 'plugins', context.plugin)
+      : path.join(os.homedir(), '.gemini', 'config', 'plugins', context.plugin)
+  );
+
+  const isInstalled = fs.existsSync(path.join(effectiveTarget, 'plugin.json')) ||
+                      fs.existsSync(path.join(effectiveTarget, '.antigravity-plugin', 'plugin.json'));
+
+  const action = isInstalled ? 'update' : 'install';
+
+  if (context.dryRun) {
+    context.log(`[dry-run] agy plugin ${action} -> ${effectiveTarget}`);
+    return { host: 'agy', status: 'synchronized', action, target: effectiveTarget };
+  }
+
+  try {
+    const sourcePackage = path.resolve(__dirname, '..', 'plugins', context.plugin);
+    fs.mkdirSync(path.dirname(effectiveTarget), { recursive: true });
+    fs.cpSync(sourcePackage, effectiveTarget, { recursive: true });
+    return { host: 'agy', status: 'synchronized', action, target: effectiveTarget };
+  } catch (err) {
+    return { host: 'agy', status: 'failed', action, error: `AGY plugin ${action} failed: ${err.message}` };
+  }
+}
+
 function parseArgs(argv) {
   const options = { host: 'all', dryRun: false, json: false };
   for (let index = 0; index < argv.length; index++) {
@@ -608,7 +658,7 @@ function parseArgs(argv) {
     else if (arg === '--json') options.json = true;
     else if (arg === '--host') {
       options.host = argv[++index];
-      if (!options.host) throw new Error('--host requires all, claude, or codex');
+      if (!options.host) throw new Error('--host requires all, claude, codex, or agy');
     } else if (arg === '--repository') {
       options.repository = argv[++index];
       if (!options.repository) throw new Error('--repository requires a repository or URL');
@@ -620,7 +670,7 @@ function parseArgs(argv) {
     }
   }
   options.host = String(options.host).toLowerCase();
-  if (!['all', 'claude', 'codex'].includes(options.host)) throw new Error(`Unsupported host: ${options.host}`);
+  if (!['all', 'claude', 'codex', 'agy'].includes(options.host)) throw new Error(`Unsupported host: ${options.host}`);
   return options;
 }
 
@@ -634,18 +684,18 @@ local compatibility-hook runtime and user hook entries; Codex trust remains a
 separate host review.
 
 Options:
-  --host <all|claude|codex>  Limit synchronization to one host (default: all)
-  --repository <repo|url>   Marketplace source (default: dyphn1/Harness-everything)
-  --ref <git-ref>           Codex marketplace ref (default: main)
-  --dry-run                 Detect state and print mutating commands
-  --json                    Print a machine-readable summary
-  -h, --help                Show this help
+  --host <all|claude|codex|agy>  Limit synchronization to one host (default: all)
+  --repository <repo|url>       Marketplace source (default: dyphn1/Harness-everything)
+  --ref <git-ref>               Codex marketplace ref (default: main)
+  --dry-run                     Detect state and print mutating commands
+  --json                        Print a machine-readable summary
+  -h, --help                    Show this help
 `;
 }
 
 function sync(options, dependencies = {}) {
   const context = createContext({ ...options, ...dependencies });
-  const hosts = context.host === 'all' ? ['claude', 'codex'] : [context.host];
+  const hosts = context.host === 'all' ? ['claude', 'codex', 'agy'] : [context.host];
   // Each host sync is fully synchronous and the marketplace update/refresh
   // step does real network I/O (observed ~10s+ for Claude alone), so without
   // this the terminal stays completely silent until every host finishes —
@@ -653,7 +703,10 @@ function sync(options, dependencies = {}) {
   // stdout, so `--json` consumers' stdout stays pure JSON.
   const results = hosts.map(host => {
     context.warn(`[...] ${host}: syncing`);
-    return host === 'claude' ? syncClaude(context) : syncCodex(context);
+    if (host === 'claude') return syncClaude(context);
+    if (host === 'codex') return syncCodex(context);
+    if (host === 'agy') return syncAgy(context);
+    return { host, status: 'failed', error: `Unknown host ${host}` };
   });
   const summary = {
     repository: context.repository,
@@ -692,7 +745,7 @@ function main(argv = process.argv.slice(2)) {
     }
     if (summary.synchronized === 0 && summary.failed === 0) {
       console.error(summary.results.every(result => result.reasonCode === 'cli-not-found')
-        ? 'No supported host CLI was found. Install Claude Code and/or Codex, then retry.'
+        ? 'No supported host CLI was found. Install Claude Code, Codex, and/or Antigravity (AGY), then retry.'
         : 'No host plugin was synchronized. Review the skip reasons above.');
     }
   }

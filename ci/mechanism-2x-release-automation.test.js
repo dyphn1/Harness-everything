@@ -44,6 +44,7 @@ assert.ok(gitPlugin, 'release commit plugin missing');
 assert.match(gitPlugin[1].message, /\[skip ci\]/);
 assert.ok(gitPlugin[1].assets.includes('package-lock.json'));
 assert.ok(gitPlugin[1].assets.includes('opencode-plugin/plugin.json'));
+assert.ok(gitPlugin[1].assets.includes('plugins/harness-everything/.antigravity-plugin/plugin.json'));
 assert.ok(gitPlugin[1].assets.includes('*/SKILL.md'));
 assert.ok(gitPlugin[1].assets.includes('*/**/SKILL.md'));
 
@@ -92,13 +93,14 @@ function fixture() {
   json(path.join(root, '.claude-plugin/marketplace.json'), { plugins: [{ name: 'harness-everything', version: '0.3.8-beta' }] });
   json(path.join(root, 'plugins/harness-everything/plugin.json'), { name: 'harness-everything', version: '0.3.8-beta' });
   json(path.join(root, 'plugins/harness-everything/.codex-plugin/plugin.json'), { name: 'harness-everything', version: '0.3.8-beta' });
+  json(path.join(root, 'plugins/harness-everything/.antigravity-plugin/plugin.json'), { name: 'harness-everything', version: '0.3.8-beta' });
   json(path.join(root, 'opencode-plugin/plugin.json'), { name: 'harness-enforcement', version: '0.3.6' });
   return root;
 }
 
 const root = fixture();
 const files = syncReleaseVersion(root, '1.2.3');
-assert.strictEqual(files.length, 7);
+assert.strictEqual(files.length, 8);
 syncReleaseVersion(root, '1.2.3', { checkOnly: true });
 
 const first = new Map(files.map(file => [file, fs.readFileSync(path.join(root, file), 'utf8')]));

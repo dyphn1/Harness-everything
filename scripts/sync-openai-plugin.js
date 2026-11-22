@@ -111,4 +111,19 @@ fs.writeFileSync(
   'utf8'
 );
 
-console.log(`OpenAI plugin skills and runtime synchronized: ${expected.size} skills`);
+// Antigravity (AGY) plugin synchronization: rules and manifest lockstep
+const packageRulesRoot = path.join(pluginRoot, 'rules');
+fs.mkdirSync(packageRulesRoot, { recursive: true });
+syncTree(path.join(ROOT, 'AGENTS.md'), path.join(packageRulesRoot, 'AGENTS.md'));
+
+const agyManifestPath = path.join(pluginRoot, '.antigravity-plugin', 'plugin.json');
+if (fs.existsSync(agyManifestPath)) {
+  const agyManifest = JSON.parse(fs.readFileSync(agyManifestPath, 'utf8'));
+  const rootPkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  if (agyManifest.version !== rootPkg.version) {
+    agyManifest.version = rootPkg.version;
+    fs.writeFileSync(agyManifestPath, JSON.stringify(agyManifest, null, 2) + '\n', 'utf8');
+  }
+}
+
+console.log(`OpenAI and AGY plugin skills and runtime synchronized: ${expected.size} skills`);

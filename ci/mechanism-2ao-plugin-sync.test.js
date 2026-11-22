@@ -387,7 +387,7 @@ for (const sourceType of ['git', 'npm', 'remote', 'unknown']) {
 
 {
   const result = sync({ host: 'all' }, { commandAvailable: () => false, log: () => {}, warn: () => {} });
-  assert.strictEqual(result.skipped, 2);
+  assert.strictEqual(result.skipped, 3);
   assert.strictEqual(result.failed, 0);
   assert.ok(result.results.every(entry => entry.reasonCode === 'cli-not-found'), 'an absent CLI must stay distinguishable from a capability boundary');
 }
@@ -415,8 +415,45 @@ for (const sourceType of ['git', 'npm', 'remote', 'unknown']) {
   assert.strictEqual(fake.codexHookInstalls.length, 1, 'progress test must mock hook installation as well as host commands');
   assert.ok(events.includes('warn:[...] claude: syncing'), 'a claude progress notice must be emitted');
   assert.ok(events.includes('warn:[...] codex: syncing'), 'a codex progress notice must be emitted');
+  assert.ok(events.includes('warn:[...] agy: syncing'), 'an agy progress notice must be emitted');
   assert.ok(events.indexOf('warn:[...] claude: syncing') < events.indexOf('call:claude'), 'the claude notice must be emitted before its first host command, not buffered until the run finishes');
   assert.ok(events.indexOf('warn:[...] codex: syncing') < events.indexOf('call:codex'), 'the codex notice must be emitted before its first host command');
+}
+
+{
+  const agyTemp = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-agy-sync-'));
+  const target = path.join(agyTemp, 'plugins', 'harness-everything');
+
+  // Test absent -> install
+  const installResult = sync({ host: 'agy', agyTarget: target }, {
+    commandAvailable: () => true,
+    log: () => {},
+    warn: () => {}
+  });
+  assert.strictEqual(installResult.failed, 0);
+  assert.strictEqual(installResult.results[0].action, 'install');
+  assert.ok(fs.existsSync(path.join(target, 'plugin.json')), 'plugin.json must be installed');
+
+  // Test present -> update
+  const updateResult = sync({ host: 'agy', agyTarget: target }, {
+    commandAvailable: () => true,
+    log: () => {},
+    warn: () => {}
+  });
+  assert.strictEqual(updateResult.failed, 0);
+  assert.strictEqual(updateResult.results[0].action, 'update');
+
+  // Test dry-run
+  const dryLogs = [];
+  const dryResult = sync({ host: 'agy', agyTarget: target, dryRun: true }, {
+    commandAvailable: () => true,
+    log: msg => dryLogs.push(msg),
+    warn: () => {}
+  });
+  assert.strictEqual(dryResult.results[0].status, 'synchronized');
+  assert.ok(dryLogs.some(log => log.includes('[dry-run] agy plugin update')), 'dry-run log must be emitted');
+
+  fs.rmSync(agyTemp, { recursive: true, force: true });
 }
 
 // resolveOnPath() is pure filesystem logic (platform choice happens only at
