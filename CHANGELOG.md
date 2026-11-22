@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.57.4](https://github.com/dyphn1/Harness-everything/compare/v0.57.3...v0.57.4) (2026-11-22)
+
+### Bug Fixes
+
+* **action-gate:** defer routine codex issue comments and completed closes ([6cdbb10](https://github.com/dyphn1/Harness-everything/commit/6cdbb108aa5c5d565abe04f9d4bf2dfd1b264448)), closes [#508](https://github.com/dyphn1/Harness-everything/issues/508)
+* **action-gate:** keep ownerless issue repository selectors gated ([a82d2a8](https://github.com/dyphn1/Harness-everything/commit/a82d2a81787600bb96c19bdb606f6af482ee6421))
+
 ## [0.57.3](https://github.com/dyphn1/Harness-everything/compare/v0.57.2...v0.57.3) (2026-11-22)
 
 ### Bug Fixes
