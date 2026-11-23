@@ -6,6 +6,7 @@ const { cwdOf, classifyShell, isVerificationShell, directMutationInWorkspace } =
 const { observeTool } = require('./lib/telemetry');
 const { readCodexToolOutcome } = require('./lib/codex-tool-outcome');
 const codex = process.argv.includes('--codex');
+const agy = process.argv.includes('--agy');
 
 function isSuccessfulMetadataStep(command, cwd) {
   // A line break starts a second shell command, so it can never be metadata-only.
@@ -83,14 +84,19 @@ function processState(payload) {
     const stdout = codexResult?.stdout ?? toolResponse.stdout ?? payload.stdout ?? '';
     const stderr = codexResult?.stderr ?? toolResponse.stderr ?? payload.stderr ?? payload.error ?? '';
     const rawExitCode = toolResponse.exitCode ?? toolResponse.exit_code ?? payload.exitCode;
-    const exitCode = codex ? codexResult.exitCode : typeof rawExitCode === 'number' ? rawExitCode : undefined;
+    const exitCode = codex ? codexResult.exitCode
+      : agy ? (Number.isInteger(rawExitCode) ? rawExitCode : undefined)
+      : typeof rawExitCode === 'number' ? rawExitCode : undefined;
     const stderrSignal = typeof stderr === 'string' && stderr.trim().length > 0;
     const hookEvent = captureEventName;
     const isSuccessEvent = hookEvent === 'PostToolUse';
+    const agyErrorSignal = agy && typeof payload.error === 'string' && payload.error.trim().length > 0;
     const isFailed = codex ? codexResult.outcome === 'failure' :
-      hookEvent === 'PostToolUseFailure' || (exitCode !== undefined && exitCode !== 0) ||
+      hookEvent === 'PostToolUseFailure' || agyErrorSignal || (exitCode !== undefined && exitCode !== 0) ||
       (!isSuccessEvent && exitCode === undefined && stderrSignal);
-    const verifiedSuccess = codex ? codexResult.outcome === 'success' : !isFailed && (isSuccessEvent || exitCode === 0);
+    const verifiedSuccess = codex ? codexResult.outcome === 'success'
+      : agy ? (!isFailed && exitCode === 0)
+      : !isFailed && (isSuccessEvent || exitCode === 0);
     const toolName = payload.tool_name || payload.tool || 'command';
     let editAfterCapture = false;
     let stateOnlyCandidate = false;
@@ -98,7 +104,7 @@ function processState(payload) {
       let output = (stderrSignal ? stderr : stdout) || (typeof payload.output === 'string' ? payload.output : '');
       if (output.length > 500) output = '...' + output.slice(-500);
       state.status = 'failed'; state.timestamp = new Date().toISOString(); state.tool = toolName; state.exitCode = exitCode; state.errorSummary = output.trim();
-    } else if ((!codex || verifiedSuccess) && state.status === 'failed') {
+    } else if (((!codex && !agy) || verifiedSuccess) && state.status === 'failed') {
       state.lastResolved = { tool: state.tool, timestamp: state.timestamp }; state.status = 'idle'; state.timestamp = new Date().toISOString(); delete state.exitCode; delete state.errorSummary;
     }
     const isDirectTool = toolName === 'Edit' || toolName === 'Write' || toolName === 'apply_patch';

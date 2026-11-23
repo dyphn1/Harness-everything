@@ -453,62 +453,140 @@ try {
     assert.deepStrictEqual(editRes, {}, 'PostToolUse must output empty object');
 
     // Step 2: Stop on convA with workspacePaths-only (NO cwd!) -> MUST continue (unverified edit)
-    const stopUnverified = runHook('agy-stop.js', {
-      conversationId: convA,
-      workspacePaths: [e2eWs],
-      continuationActive: false,
-      terminationReason: 'NO_TOOL_CALL'
-    });
-    assert.strictEqual(stopUnverified.decision, 'continue', 'Stop must continue when unverified edits exist (workspacePaths-only)');
-    assert.ok(stopUnverified.reason.includes('Verify-Before-Claim'), 'Reason must mention Verify-Before-Claim');
+    for (const normalCase of [
+      { terminationReason: 'NO_TOOL_CALL', fullyIdle: true, executionNum: 0 },
+      { terminationReason: 'model_stop', fullyIdle: false, executionNum: 1 },
+      { terminationReason: 'MODEL_STOP', fullyIdle: true, executionNum: 2 },
+      { terminationReason: '' },
+      {},
+      { terminationReason: 'normal_completion' }
+    ]) {
+      const stopUnverified = runHook('agy-stop.js', {
+        conversationId: convA,
+        workspacePaths: [e2eWs],
+        continuationActive: false,
+        ...normalCase
+      });
+      assert.strictEqual(
+        stopUnverified.decision,
+        'continue',
+        `Stop must continue when unverified edits exist (${JSON.stringify(normalCase)})`
+      );
+      assert.ok(stopUnverified.reason.includes('Verify-Before-Claim'), 'Reason must mention Verify-Before-Claim');
+    }
 
-    // Session isolation: convB on the same workspace has no edits -> Stop allows ({})
+    // Session isolation: convB on the same workspace has no edits -> Stop allows ({"decision": "allow"})
     const stopConvB = runHook('agy-stop.js', {
       conversationId: convB,
       workspacePaths: [e2eWs],
       continuationActive: false,
+      fullyIdle: true,
+      executionNum: 0,
       terminationReason: 'NO_TOOL_CALL'
     });
-    assert.deepStrictEqual(stopConvB, {}, 'Independent conversationId must not inherit convA unverified state');
+    assert.deepStrictEqual(stopConvB, { decision: 'allow' }, 'Independent conversationId must not inherit convA unverified state');
 
-    // Step 3: Non-NO_TOOL_CALL terminationReason allows stop even with unverified edits
-    for (const reason of ['USER_CANCELED', 'ERROR', 'MAX_INVOCATIONS', 'MAX_TOKEN_BUDGET_EXCEEDED', 'TERMINAL_CUSTOM_HOOK']) {
+    // Step 3: Explicit abnormal terminationReason values allow stop even with unverified edits (case-insensitive / trimmed)
+    for (const reason of [
+      'USER_CANCELED',
+      'CANCELED',
+      'CANCELLED',
+      'ERROR',
+      'MAX_INVOCATIONS',
+      'MAX_STEPS_EXCEEDED',
+      'MAX_TOKEN_BUDGET_EXCEEDED',
+      'TERMINAL_CUSTOM_HOOK',
+      'INTERRUPTED',
+      'ABORTED',
+      ' error ',
+      'max_steps_exceeded'
+    ]) {
       const stopTerminated = runHook('agy-stop.js', {
         conversationId: convA,
         workspacePaths: [e2eWs],
         continuationActive: false,
         terminationReason: reason
       });
-      assert.deepStrictEqual(stopTerminated, {}, `Stop must allow stop on terminationReason=${reason}`);
+      assert.deepStrictEqual(stopTerminated, { decision: 'allow' }, `Stop must allow stop on abnormal terminationReason=${reason}`);
     }
 
-    // Step 4: continuationActive / stop_hook_active allows stop to prevent loops
+    // Step 4: Compatibility recursion guards (continuationActive / stop_hook_active) allow stop to prevent loops
     assert.deepStrictEqual(
       runHook('agy-stop.js', { conversationId: convA, workspacePaths: [e2eWs], continuationActive: true }),
-      {},
+      { decision: 'allow' },
       'Must allow stop when continuationActive is true'
     );
     assert.deepStrictEqual(
       runHook('agy-stop.js', { conversationId: convA, workspacePaths: [e2eWs], stop_hook_active: true }),
-      {},
+      { decision: 'allow' },
       'Must allow stop when stop_hook_active is true'
     );
 
-    // Step 5: PostToolUse observes failing run_command via AGY protojson `error` string (no exitCode)
+    // Step 5: P1-B Unknown outcome (missing error and exitCode) after unverified edit grants NO verification credit
+    const unknownVerifyRes = runHook('agy-post-tool.js', {
+      conversationId: convA,
+      workspacePaths: [e2eWs],
+      toolCall: { name: 'run_command', args: { CommandLine: 'npm test', Cwd: e2eWs } },
+      error: '',
+      stepIdx: 3
+    });
+    assert.deepStrictEqual(unknownVerifyRes, {}, 'PostToolUse must output empty object on unknown shell outcome');
+
+    const handoffFile = path.join(getSessionDir(e2eWs, convA), 'handoff-state.json');
+    assert.ok(fs.existsSync(handoffFile), 'handoff-state.json must be written in e2eWs session dir');
+    const unknownHandoff = JSON.parse(fs.readFileSync(handoffFile, 'utf8'));
+    assert.ok(unknownHandoff.lastEditAt > 0, 'lastEditAt must remain recorded');
+    assert.ok(!unknownHandoff.lastVerifyAt, 'Unknown shell outcome (missing exitCode/error) must NOT grant lastVerifyAt');
+
+    const stopAfterUnknownVerify = runHook('agy-stop.js', {
+      conversationId: convA,
+      workspacePaths: [e2eWs],
+      continuationActive: false,
+      fullyIdle: true,
+      executionNum: 0,
+      terminationReason: 'NO_TOOL_CALL'
+    });
+    assert.strictEqual(stopAfterUnknownVerify.decision, 'continue', 'Stop must continue after unverified edit + unknown shell outcome');
+
+    // Step 6: PostToolUse observes failing run_command via AGY protojson `error` string (no exitCode) and explicit exitCode
     const failRes = runHook('agy-post-tool.js', {
       conversationId: convA,
       workspacePaths: [e2eWs],
       toolCall: { name: 'run_command', args: { CommandLine: 'npm test', Cwd: e2eWs } },
       error: 'exit status 1',
-      stepIdx: 3
+      stepIdx: 4
     });
     assert.deepStrictEqual(failRes, {}, 'PostToolUse must output empty object on failure');
 
-    const handoffFile = path.join(getSessionDir(e2eWs, convA), 'handoff-state.json');
-    assert.ok(fs.existsSync(handoffFile), 'handoff-state.json must be written in e2eWs session dir');
     const failHandoff = JSON.parse(fs.readFileSync(handoffFile, 'utf8'));
     assert.strictEqual(failHandoff.status, 'failed', 'Status must be failed when AGY error string is present');
     assert.ok(failHandoff.errorSummary.includes('exit status 1'), 'Error summary must capture AGY error string');
+
+    // File write with omitted outcome metadata preserves edit observation AND does NOT clear failed state
+    const prevEditAt = failHandoff.lastEditAt || 0;
+    const writeWhileFailed = runHook('agy-post-tool.js', {
+      conversationId: convA,
+      workspacePaths: [e2eWs],
+      toolCall: { name: 'write_file', args: { Path: path.join(e2eWs, 'fix.js'), Content: 'module.exports = 1;' } },
+      stepIdx: 5
+    });
+    assert.deepStrictEqual(writeWhileFailed, {}, 'PostToolUse must output empty object on write_file');
+    const handoffAfterWrite = JSON.parse(fs.readFileSync(handoffFile, 'utf8'));
+    assert.strictEqual(handoffAfterWrite.status, 'failed', 'File write without exitCode: 0 must preserve existing failed state');
+    assert.ok(handoffAfterWrite.lastEditAt >= prevEditAt, 'File write must preserve/advance lastEditAt even when outcome metadata is omitted');
+
+    // Unknown-outcome shell command (missing error/exitCode) MUST preserve existing failed state
+    const unknownWhileFailed = runHook('agy-post-tool.js', {
+      conversationId: convA,
+      workspacePaths: [e2eWs],
+      toolCall: { name: 'run_command', args: { CommandLine: 'npm test', Cwd: e2eWs } },
+      error: '',
+      stepIdx: 6
+    });
+    assert.deepStrictEqual(unknownWhileFailed, {}, 'PostToolUse must output empty object on unknown outcome while failed');
+    const handoffStillFailed = JSON.parse(fs.readFileSync(handoffFile, 'utf8'));
+    assert.strictEqual(handoffStillFailed.status, 'failed', 'Unknown shell outcome must preserve existing failed state');
+    assert.ok(!handoffStillFailed.lastVerifyAt, 'Unknown shell outcome while failed must not set lastVerifyAt');
 
     const stopFailed = runHook('agy-stop.js', {
       conversationId: convA,
@@ -519,27 +597,47 @@ try {
     assert.strictEqual(stopFailed.decision, 'continue', 'Stop must continue when tool failure is unresolved');
     assert.ok(stopFailed.reason.includes('pending tool failure'), 'Reason must mention pending tool failure');
 
-    // Step 6: PostToolUse observes passing verification run_command -> Stop now allows ({})
+    // Explicit non-zero exitCode (without error string) also records failed
+    const exitCodeFailRes = runHook('agy-post-tool.js', {
+      conversationId: convA,
+      workspacePaths: [e2eWs],
+      toolCall: { name: 'run_command', args: { CommandLine: 'npm test', Cwd: e2eWs } },
+      toolResponse: { exit_code: 2 },
+      stepIdx: 7
+    });
+    assert.deepStrictEqual(exitCodeFailRes, {}, 'PostToolUse must output empty object on explicit exit_code failure');
+    const exitCodeFailHandoff = JSON.parse(fs.readFileSync(handoffFile, 'utf8'));
+    assert.strictEqual(exitCodeFailHandoff.status, 'failed', 'Explicit non-zero exit_code must record failed');
+    assert.strictEqual(exitCodeFailHandoff.exitCode, 2, 'Explicit exit_code must be persisted');
+
+    // Step 7: PostToolUse observes proven verification success (explicit exitCode: 0) -> Stop now allows ({"decision": "allow"})
     const passRes = runHook('agy-post-tool.js', {
       conversationId: convA,
       workspacePaths: [e2eWs],
       toolCall: { name: 'run_command', args: { CommandLine: 'npm test', Cwd: e2eWs } },
-      stepIdx: 4
+      exitCode: 0,
+      stepIdx: 8
     });
     assert.deepStrictEqual(passRes, {}, 'PostToolUse must output empty object on success');
 
     const resolvedHandoff = JSON.parse(fs.readFileSync(handoffFile, 'utf8'));
-    assert.strictEqual(resolvedHandoff.status, 'idle', 'Status must recover to idle after successful verification');
+    assert.strictEqual(resolvedHandoff.status, 'idle', 'Status must recover to idle after explicit exitCode: 0 verification');
     assert.ok(resolvedHandoff.lastResolved, 'lastResolved record must be retained');
     assert.ok(resolvedHandoff.lastVerifyAt >= resolvedHandoff.lastEditAt, 'lastVerifyAt must be >= lastEditAt');
+    assert.strictEqual(resolvedHandoff.lastVerifyExitCode, 0, 'lastVerifyExitCode must be 0 on proven verification');
 
-    const stopVerified = runHook('agy-stop.js', {
-      conversationId: convA,
-      workspacePaths: [e2eWs],
-      continuationActive: false,
-      terminationReason: 'NO_TOOL_CALL'
-    });
-    assert.deepStrictEqual(stopVerified, {}, 'Stop must allow completion after verification passes');
+    for (const verifiedStopPayload of [
+      { terminationReason: 'NO_TOOL_CALL', fullyIdle: true, executionNum: 1 },
+      { terminationReason: 'model_stop', fullyIdle: false, executionNum: 1 }
+    ]) {
+      const stopVerified = runHook('agy-stop.js', {
+        conversationId: convA,
+        workspacePaths: [e2eWs],
+        continuationActive: false,
+        ...verifiedStopPayload
+      });
+      assert.deepStrictEqual(stopVerified, { decision: 'allow' }, 'Stop must allow completion after proven exitCode: 0 verification');
+    }
 
     const stopStrictVerified = runHook('agy-stop.js', {
       conversationId: convA,
@@ -547,7 +645,7 @@ try {
       continuationActive: false,
       terminationReason: 'NO_TOOL_CALL'
     }, { HARNESS_REQUIRE_VERIFICATION: '1' });
-    assert.deepStrictEqual(stopStrictVerified, {}, 'Strict verification must allow verified work');
+    assert.deepStrictEqual(stopStrictVerified, { decision: 'allow' }, 'Strict verification must allow verified work');
   }
 
   console.log('Antigravity (AGY) lifecycle hook adapters verified: SessionStart, PreInvocation, PreToolUse, PostToolUse, and Stop all conform to protocol.');

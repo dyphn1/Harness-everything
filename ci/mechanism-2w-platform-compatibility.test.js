@@ -33,7 +33,8 @@ const OFFICIAL_HOSTS = {
   'github-copilot': new Set(['docs.github.com']),
   cursor: new Set(['cursor.com', 'prod.cursor.com']),
   continue: new Set(['docs.continue.dev']),
-  hermes: new Set(['hermes-agent.nousresearch.com'])
+  hermes: new Set(['hermes-agent.nousresearch.com']),
+  agy: new Set(['antigravity.google'])
 };
 
 function filesUnder(root, base = root, out = []) {
@@ -52,7 +53,7 @@ function sha256(file) {
 assert.strictEqual(matrix.format, 'harness-platform-compatibility-v1');
 assert.deepStrictEqual(Object.keys(matrix.status_vocabulary).sort(), [...STATUSES].sort());
 assert.deepStrictEqual(matrix.dimensions, DIMENSIONS);
-assert.strictEqual(matrix.platforms.length, 8, 'compatibility matrix must cover every issue #82 platform');
+assert.strictEqual(matrix.platforms.length, 9, 'compatibility matrix must cover every supported platform');
 assert.deepStrictEqual(
   matrix.platforms.map(platform => platform.id).sort(),
   Object.keys(OFFICIAL_HOSTS).sort()
@@ -98,6 +99,13 @@ for (const platform of matrix.platforms) {
     assert.strictEqual(evidence.format, 'harness-codex-live-observation-evidence-v1');
     assert.strictEqual(evidence.turns.length, 2, 'Codex artifact must preserve both consecutive turns');
     assert.ok(evidence.turns.every(turn => turn.host === 'codex' && turn.selfReportReason === null));
+  } else if (platform.id === 'agy') {
+    const capability = platform.capabilities.liveHostVerification;
+    assert.strictEqual(capability.status, 'Partial');
+    assert.strictEqual(capability.evidence, 'benchmarks/results/live-host/agy-2026-11-23/README.md');
+    const artifactRoot = path.dirname(path.join(ROOT, capability.evidence));
+    assert.ok(fs.statSync(path.join(artifactRoot, 'README.md')).size > 0, 'Missing AGY live-host evidence');
+    assert.ok(fs.statSync(path.join(ROOT, 'benchmarks', 'results', 'live-host', 'agy-2026-11-22', 'README.md')).size > 0, 'Missing AGY mechanism evidence');
   } else {
     assert.strictEqual(platform.capabilities.liveHostVerification.status, 'Unknown', `${platform.id}: no preserved live evidence`);
   }
@@ -112,6 +120,9 @@ const installerTargetSpecs = {
   hermes: { platform: 'hermes', project: '.agents/skills', global: '~/.hermes/skills' }
 };
 assert.deepStrictEqual(Object.keys(matrix.installer_targets).sort(), Object.keys(OFFICIAL_HOSTS).sort());
+assert.strictEqual(matrix.installer_targets.agy.project, '.agents/plugins/harness-everything');
+assert.strictEqual(matrix.installer_targets.agy.global, '~/.gemini/config/plugins/harness-everything');
+assert.ok(STATUSES.has(matrix.installer_targets.agy.host_discovery_status), 'agy: installer target status is invalid');
 for (const [id, spec] of Object.entries(installerTargetSpecs)) {
   const targetSpec = matrix.installer_targets[id];
   assert.strictEqual(targetSpec.project, spec.project, `${id}: project installer target drifted`);

@@ -62,11 +62,15 @@ function mapAgyPayloadToStatePersist(payload) {
   const stdout = toolResponse.stdout || (typeof safePayload.output === 'string' ? safePayload.output : '') || '';
   const stderr = toolResponse.stderr || (typeof error === 'string' ? error : '') || '';
 
-  let exitCode = safePayload.exitCode;
-  if (exitCode === undefined && toolResponse.exitCode !== undefined) exitCode = toolResponse.exitCode;
-  if (exitCode === undefined && toolResponse.exit_code !== undefined) exitCode = toolResponse.exit_code;
+  const rawExitCodes = [
+    safePayload.exitCode,
+    safePayload.exit_code,
+    toolResponse.exitCode,
+    toolResponse.exit_code
+  ].filter(Number.isInteger);
+  const exitCode = rawExitCodes.find(code => code !== 0) ?? rawExitCodes[0];
 
-  const isFailed = Boolean(error && error.trim()) || (typeof exitCode === 'number' && exitCode !== 0);
+  const isFailed = Boolean(error && error.trim()) || (exitCode !== undefined && exitCode !== 0);
 
   return {
     hook_event_name: isFailed ? 'PostToolUseFailure' : 'PostToolUse',
@@ -96,7 +100,7 @@ async function main() {
   try {
     const mapped = mapAgyPayloadToStatePersist(payload);
     const statePersistScript = path.join(__dirname, 'state-persist.js');
-    spawnSync(process.execPath, [statePersistScript], {
+    spawnSync(process.execPath, [statePersistScript, '--agy'], {
       input: JSON.stringify(mapped),
       encoding: 'utf8',
       env: process.env,

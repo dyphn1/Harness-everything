@@ -8,9 +8,11 @@
  * - Inspects real session verification state (handoff-state.json in sessionDir).
  * - If unverified edits exist or an unresolved tool failure exists, returns
  *   {"decision": "continue", "reason": "..."} to keep the agent in the loop.
- * - If verified (or no unverified edits), returns {}.
- * - Respects continuationActive / stop_hook_active to prevent infinite continuation loops,
- *   and allows stop on non-NO_TOOL_CALL terminationReason (USER_CANCELED, ERROR, limits, etc.).
+ * - If verified (or no unverified edits), returns {"decision": "allow"}.
+ * - Respects compatibility recursion guards (continuationActive / stop_hook_active)
+ *   to prevent infinite continuation loops, and allows stop on explicit abnormal
+ *   terminationReason values (USER_CANCELED, ERROR, limits, etc.) while evaluating
+ *   NO_TOOL_CALL, model_stop, and empty/normal reasons.
  */
 
 const fs = require('fs');
@@ -22,20 +24,35 @@ const {
 } = require('./lib/agy-adapter-core');
 const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
 
-function evaluateStop(payload) {
-  if (!payload || typeof payload !== 'object') return {};
+const ABNORMAL_TERMINATION_REASONS = new Set([
+  'USER_CANCELED',
+  'CANCELED',
+  'CANCELLED',
+  'ERROR',
+  'MAX_INVOCATIONS',
+  'MAX_STEPS_EXCEEDED',
+  'MAX_TOKEN_BUDGET_EXCEEDED',
+  'TERMINAL_CUSTOM_HOOK',
+  'INTERRUPTED',
+  'ABORTED'
+]);
 
-  // 1. If a previous Stop hook already continued work during this turn, allow stop to prevent loops
+function evaluateStop(payload) {
+  if (!payload || typeof payload !== 'object') return { decision: 'allow' };
+
+  // 1. Compatibility recursion guards (not official documented Stop input fields):
+  // if a previous Stop hook already continued work during this turn, allow stop to prevent loops.
   if (payload.continuationActive || payload.stop_hook_active) {
-    return {};
+    return { decision: 'allow' };
   }
 
-  // 2. Allow stop on non-normal termination reasons (USER_CANCELED, ERROR, MAX_INVOCATIONS, etc.)
+  // 2. Allow stop only on explicit abnormal termination reasons; normal reasons
+  // (NO_TOOL_CALL, model_stop, empty/unknown) must still evaluate handoff-state.json.
   const terminationReason = typeof payload.terminationReason === 'string'
-    ? payload.terminationReason.trim()
+    ? payload.terminationReason.trim().toUpperCase()
     : '';
-  if (terminationReason && terminationReason !== 'NO_TOOL_CALL') {
-    return {};
+  if (terminationReason && ABNORMAL_TERMINATION_REASONS.has(terminationReason)) {
+    return { decision: 'allow' };
   }
 
   // 3. Locate session state using normalized AGY workspace/session context
@@ -78,7 +95,7 @@ function evaluateStop(payload) {
     };
   }
 
-  return {};
+  return { decision: 'allow' };
 }
 
 async function main() {
@@ -89,7 +106,7 @@ async function main() {
 
 if (require.main === module) {
   main().catch(() => {
-    process.stdout.write('{}\n');
+    process.stdout.write('{"decision":"allow"}\n');
   });
 }
 

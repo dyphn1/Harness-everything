@@ -44,6 +44,7 @@ const agyHookFiles = [
   'agy-pre-tool.js',
   'agy-post-tool.js',
   'agy-stop.js',
+  'state-persist.js',
   path.join('lib', 'agy-adapter-core.js')
 ];
 for (const rel of agyHookFiles) {
