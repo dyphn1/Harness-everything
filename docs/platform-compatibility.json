@@ -1,6 +1,6 @@
 {
   "format": "harness-platform-compatibility-v1",
-  "last_reviewed": "2026-10-13",
+  "last_reviewed": "2026-11-23",
   "status_vocabulary": {
     "Supported": "An official or native mechanism exists and the Harness behavior is verified.",
     "Mechanism verified": "Harness package, adapter, or installer checks pass, but a real host run is not confirmed.",
@@ -61,6 +61,11 @@
       "project": ".agents/skills",
       "global": "~/.hermes/skills",
       "host_discovery_status": "Supported"
+    },
+    "agy": {
+      "project": ".agents/plugins/harness-everything",
+      "global": "~/.gemini/config/plugins/harness-everything",
+      "host_discovery_status": "Partial"
     }
   },
   "action_gate": {
@@ -86,6 +91,12 @@
         "permission_mode_matrix": "Unknown",
         "fallback": "exit-2-block",
         "notes": "Public skills-only distribution does not include local lifecycle hooks; local plugin hook semantics remain a separate host capability."
+      },
+      "agy": {
+        "ask_decision": "Unknown",
+        "permission_mode_matrix": "Unknown",
+        "fallback": "hook-deny",
+        "notes": "agy-pre-tool.js returns {\"decision\":\"deny\",\"reason\":\"...\"} for canonical Action Gate blocks (verified live for run_command force-push on Antigravity 2.0 Desktop App 2.34.0 macOS) and filesystem boundary violations."
       },
       "other": {
         "ask_decision": "Unknown",
@@ -264,6 +275,28 @@
         "assetsReferences": {"status": "Mechanism verified", "notes": "Skill-local references and scripts are retained in the installed tree and checked."},
         "updateSync": {"status": "Unknown", "notes": "Hermes bundled-skill update behavior is documented, but Harness source refresh is not live verified."},
         "liveHostVerification": {"status": "Unknown", "notes": "No Hermes session artifact is committed."}
+      }
+    },
+    {
+      "id": "agy",
+      "name": "Antigravity (AGY)",
+      "official_sources": [
+        "https://antigravity.google/docs/skills",
+        "https://antigravity.google/docs/plugins",
+        "https://antigravity.google/docs/hooks",
+        "https://antigravity.google/docs/rules"
+      ],
+      "capabilities": {
+        "standaloneSkills": {"status": "Supported", "notes": "Harness bundles all 28 canonical skills in plugins/harness-everything/skills/ and syncs rules/AGENTS.md; standalone AGY skill-only targets are not separately registered in installer.js."},
+        "pluginSupport": {"status": "Partial", "paths": {"manifest": [".antigravity-plugin/plugin.json"], "project": [".agents/plugins/harness-everything"], "global": ["~/.gemini/config/plugins/harness-everything"]}, "notes": "Package parity is mechanism-verified; global Desktop App 2.34.0 (macOS) GetAllPlugins load and agy CLI 1.5.15 validate/list --json are live-verified (validate exits 0 with 2 multi-host warnings; --strict exits 1). Project-scope .agents/plugins/ hook discovery was observed on agy CLI 1.5.15 via a temporary probe plugin; full project-scope harness-everything isolation and Desktop App project scope remain unverified."},
+        "bundledSkills": {"status": "Mechanism verified", "paths": {"skills": ["plugins/harness-everything/skills/<name>/SKILL.md"]}, "notes": "Package checks verify all 28 canonical skills, and agy plugin validate --json (1.5.15) counted skills: 28; live invocation across all 28 skills remains unverified."},
+        "hooksLifecycle": {"status": "Partial", "notes": "Deterministic mechanism tests cover SessionStart, PreInvocation, PreToolUse, PostToolUse, and Stop. Desktop App 2.34.0 and CLI 1.5.15 (macOS) live-verified SessionStart, PreInvocation, PreToolUse (write_file/run_command), PostToolUse edit timestamps, and Stop (NO_TOOL_CALL). Host limits: PostToolUse omits exitCode and error on shell non-zero exit (1) on both Desktop 2.34.0 and CLI 1.5.15, so unknown shell outcomes grant no verification credit and preserve failed state (explicit exitCode === 0 required); IDE write tools (write_to_file, replace_file_content, multi_replace_file_content) and live Stop model_stop remain unverified."},
+        "projectScope": {"status": "Partial", "paths": {"plugins": [".agents/plugins/harness-everything"], "rules": [".agents/rules/AGENTS.md"]}, "notes": "agy CLI 1.5.15 plugin list --json only lists global plugins, while agy --print discovered and executed project-scope .agents/plugins/ hooks from a temporary probe plugin. Full project-scope harness-everything isolation without global install and Desktop App project-scope loading remain unverified."},
+        "globalScope": {"status": "Partial", "paths": {"plugins": ["~/.gemini/config/plugins/harness-everything"]}, "notes": "Global load and hook execution are live-verified on Antigravity 2.0 Desktop App 2.34.0 (macOS) and agy CLI 1.5.15 (agy plugin list --json); Windows, Linux, and other AGY versions remain unverified."},
+        "installUninstallSymmetry": {"status": "Mechanism verified", "notes": "scripts/plugin-sync.js --host agy install/update/dry-run and staged rollback are covered by mechanism tests and synced live to global scope; plugin-sync.js does not provide uninstall symmetry."},
+        "assetsReferences": {"status": "Mechanism verified", "notes": "Packaged skills, rules/AGENTS.md byte-for-byte parity, and packaged agy-*.js hook scripts are verified by ci/mechanism-agy-plugin-package.test.js."},
+        "updateSync": {"status": "Partial", "notes": "scripts/plugin-sync.js --host agy --json is mechanism-tested and was observed live updating ~/.gemini/config/plugins/harness-everything on macOS; other OSes and project-scope sync live behavior remain unverified."},
+        "liveHostVerification": {"status": "Partial", "evidence": "benchmarks/results/live-host/agy-2026-11-23/README.md", "notes": "Partial live-host evidence covers global Antigravity 2.0 Desktop App 2.34.0 (macOS) and agy CLI 1.5.15 (macOS): plugin validate/list, SessionStart, PreInvocation, PreToolUse (write_file/run_command), PostToolUse edit timestamps, Stop (NO_TOOL_CALL), and temporary project-scope hook discovery. IDE write tools, live shell exitCode: 0 verification credit, live Stop model_stop, full project-scope isolation, and non-macOS hosts remain unverified."}
       }
     }
   ]

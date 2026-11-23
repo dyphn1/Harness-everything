@@ -34,6 +34,7 @@ const VERSION_TARGETS = [
   },
   { file: 'plugins/harness-everything/plugin.json', get: data => data.version, set: (data, v) => { data.version = v; } },
   { file: 'plugins/harness-everything/.codex-plugin/plugin.json', get: data => data.version, set: (data, v) => { data.version = v; } },
+  { file: 'plugins/harness-everything/.antigravity-plugin/plugin.json', get: data => data.version, set: (data, v) => { data.version = v; } },
   { file: 'opencode-plugin/plugin.json', get: data => data.version, set: (data, v) => { data.version = v; } }
 ];
 

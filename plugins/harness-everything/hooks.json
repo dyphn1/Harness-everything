@@ -1,0 +1,44 @@
+{
+  "harness-everything": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "node ./hooks/scripts/agy-session-start.js"
+      }
+    ],
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "node ./hooks/scripts/agy-pre-invocation.js"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "run_command|write_file|edit_file|write_to_file|replace_file_content|multi_replace_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./hooks/scripts/agy-pre-tool.js"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "run_command|write_file|edit_file|write_to_file|replace_file_content|multi_replace_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./hooks/scripts/agy-post-tool.js"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node ./hooks/scripts/agy-stop.js"
+      }
+    ]
+  }
+}

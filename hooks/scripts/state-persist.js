@@ -2,10 +2,40 @@
 const fs = require('fs');
 const path = require('path');
 const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
-const { cwdOf, classifyShell, isVerificationShell, directMutationInWorkspace } = require('./lib/workflow-isolation');
+const { cwdOf, classifyShell, isVerificationShell, directMutationInWorkspace, mutationPaths } = require('./lib/workflow-isolation');
+const { getAgyWorkspacePaths, isOutOfBoundsPath } = require('./lib/agy-adapter-core');
 const { observeTool } = require('./lib/telemetry');
 const { readCodexToolOutcome } = require('./lib/codex-tool-outcome');
 const codex = process.argv.includes('--codex');
+const agy = process.argv.includes('--agy');
+
+function agyMutationTargets(payload, toolName) {
+  if (toolName === 'apply_patch') {
+    return mutationPaths(payload).map(v => String(v || '').trim()).filter(Boolean);
+  }
+  const input = (payload && (payload.tool_input ?? payload.toolInput ?? payload.input)) || {};
+  const candidates = [
+    input.file_path,
+    input.filePath,
+    input.path,
+    input.TargetFile,
+    input.Path,
+    input.targetFile
+  ];
+  const target = candidates.find(value => typeof value === 'string' && value.trim());
+  return target ? [target.trim()] : [];
+}
+
+function agyDirectMutationInWorkspace(payload, mutationCwd, root, toolName) {
+  const targets = agyMutationTargets(payload, toolName);
+  if (targets.length === 0) return false;
+  const agyRoots = getAgyWorkspacePaths(payload);
+  if (typeof root === 'string' && root.trim() && !agyRoots.includes(root.trim())) {
+    agyRoots.push(root.trim());
+  }
+  if (agyRoots.length === 0) return false;
+  return targets.some(target => !isOutOfBoundsPath(target, agyRoots, mutationCwd));
+}
 
 function isSuccessfulMetadataStep(command, cwd) {
   // A line break starts a second shell command, so it can never be metadata-only.
@@ -83,14 +113,19 @@ function processState(payload) {
     const stdout = codexResult?.stdout ?? toolResponse.stdout ?? payload.stdout ?? '';
     const stderr = codexResult?.stderr ?? toolResponse.stderr ?? payload.stderr ?? payload.error ?? '';
     const rawExitCode = toolResponse.exitCode ?? toolResponse.exit_code ?? payload.exitCode;
-    const exitCode = codex ? codexResult.exitCode : typeof rawExitCode === 'number' ? rawExitCode : undefined;
+    const exitCode = codex ? codexResult.exitCode
+      : agy ? (Number.isInteger(rawExitCode) ? rawExitCode : undefined)
+      : typeof rawExitCode === 'number' ? rawExitCode : undefined;
     const stderrSignal = typeof stderr === 'string' && stderr.trim().length > 0;
     const hookEvent = captureEventName;
     const isSuccessEvent = hookEvent === 'PostToolUse';
+    const agyErrorSignal = agy && typeof payload.error === 'string' && payload.error.trim().length > 0;
     const isFailed = codex ? codexResult.outcome === 'failure' :
-      hookEvent === 'PostToolUseFailure' || (exitCode !== undefined && exitCode !== 0) ||
+      hookEvent === 'PostToolUseFailure' || agyErrorSignal || (exitCode !== undefined && exitCode !== 0) ||
       (!isSuccessEvent && exitCode === undefined && stderrSignal);
-    const verifiedSuccess = codex ? codexResult.outcome === 'success' : !isFailed && (isSuccessEvent || exitCode === 0);
+    const verifiedSuccess = codex ? codexResult.outcome === 'success'
+      : agy ? (!isFailed && exitCode === 0)
+      : !isFailed && (isSuccessEvent || exitCode === 0);
     const toolName = payload.tool_name || payload.tool || 'command';
     let editAfterCapture = false;
     let stateOnlyCandidate = false;
@@ -98,11 +133,13 @@ function processState(payload) {
       let output = (stderrSignal ? stderr : stdout) || (typeof payload.output === 'string' ? payload.output : '');
       if (output.length > 500) output = '...' + output.slice(-500);
       state.status = 'failed'; state.timestamp = new Date().toISOString(); state.tool = toolName; state.exitCode = exitCode; state.errorSummary = output.trim();
-    } else if ((!codex || verifiedSuccess) && state.status === 'failed') {
+    } else if (((!codex && !agy) || verifiedSuccess) && state.status === 'failed') {
       state.lastResolved = { tool: state.tool, timestamp: state.timestamp }; state.status = 'idle'; state.timestamp = new Date().toISOString(); delete state.exitCode; delete state.errorSummary;
     }
     const isDirectTool = toolName === 'Edit' || toolName === 'Write' || toolName === 'apply_patch';
-    if (isDirectTool && directMutationInWorkspace(payload, cwdOf(payload, root), root)) state.lastEditAt = Date.now();
+    if (isDirectTool && (agy
+      ? agyDirectMutationInWorkspace(payload, cwdOf(payload, root), root, toolName)
+      : directMutationInWorkspace(payload, cwdOf(payload, root), root))) state.lastEditAt = Date.now();
     const isShell = toolName === 'Bash' || toolName === 'PowerShell' || toolName === 'exec_command';
     const command = (payload.tool_input && payload.tool_input.command) || '';
     if (isShell) {
@@ -114,10 +151,6 @@ function processState(payload) {
         { toolName, sessionId, agentId: payload.agent_id }));
       const metadataStep = !stateOnlyCandidate && verifiedSuccess
         && isSuccessfulMetadataStep(command, cwdOf(payload, root));
-      if (!metadataStep && commandClass !== 'read-only' && commandClass !== 'worktree-setup') {
-        if (stateOnlyCandidate) editAfterCapture = true;
-        else state.lastEditAt = Date.now();
-      }
       // The host-specific outcome must confirm success before verification advances.
       // Pilot ON only: a registered, argv-validated doc-check that resolves to this install's own runtime is the document
       // verification evidence, and only at the shipped pin (R3-02). Any other path earns no verification evidence. OFF stays legacy.
@@ -129,6 +162,13 @@ function processState(payload) {
       const verifies = stateOnlyCandidate ? false : docCheckCandidate
         ? Boolean(pinCheckable) && docCheck.fileDigest(installedCheck.installed) === docCheck.SHIPPED_DOC_CHECK_DIGEST
         : !(pilotEnabled && docCheck.trustRisk(command)) && isVerificationShell(command, { cwd: cwdOf(payload, root), root });
+      // On AGY hosts that omit shell error/exitCode, an unconfirmed verification-only command must not advance lastEditAt
+      // and defeat agy-stop.js's bounded continuation fingerprint.
+      const agyUnknownOutcomeVerify = agy && !verifiedSuccess && !isFailed && verifies;
+      if (!metadataStep && !agyUnknownOutcomeVerify && commandClass !== 'read-only' && commandClass !== 'worktree-setup') {
+        if (stateOnlyCandidate) editAfterCapture = true;
+        else state.lastEditAt = Date.now();
+      }
       if (verifiedSuccess && verifies) {
         const verifiedAt = Date.now();
         const verifiedExitCode = exitCode ?? null;

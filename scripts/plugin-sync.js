@@ -12,6 +12,7 @@
 
 const { spawnSync } = require('child_process');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const DEFAULTS = Object.freeze({
@@ -234,7 +235,7 @@ function resultError(result) {
 
 function createContext(options = {}) {
   const runner = options.runner || defaultRunner;
-  const log = options.log || (message => console.log(message));
+  const log = options.log || (message => (options.json ? console.warn(message) : console.log(message)));
   const warn = options.warn || (message => console.warn(message));
   const context = {
     ...DEFAULTS,
@@ -243,6 +244,7 @@ function createContext(options = {}) {
     log,
     warn,
     dryRun: Boolean(options.dryRun),
+    hasCustomProbe: Boolean(options.commandAvailable || options.runner),
     commandAvailable: options.commandAvailable || (command => {
       const result = runner(command, ['--version'], { probe: true });
       return result && result.status === 0 && !result.error;
@@ -599,6 +601,89 @@ function syncCodex(context) {
   return { host: 'codex', status: 'synchronized', action, compatHooks: compatHooks.result };
 }
 
+function syncAgy(context) {
+  const hasAgyCli = context.commandAvailable('agy');
+  const projectRoot = context.cwd || (!context.hasCustomProbe ? process.cwd() : null);
+  const projectAgentsDir = context.agyProjectRoot || (projectRoot ? path.join(projectRoot, '.agents') : null);
+  const globalGeminiDir = context.agyGlobalRoot ||
+    (context.agyHome
+      ? path.join(context.agyHome, '.gemini')
+      : (!context.hasCustomProbe ? path.join(os.homedir(), '.gemini') : null));
+
+  const isExplicitAgy = context.host === 'agy';
+  const hasExplicitTarget = Boolean(context.agyTarget);
+
+  const existingProjectTarget = projectAgentsDir &&
+    fs.existsSync(path.join(projectAgentsDir, 'plugins', context.plugin, '.antigravity-plugin', 'plugin.json'))
+    ? path.join(projectAgentsDir, 'plugins', context.plugin)
+    : null;
+
+  const existingGlobalTarget = globalGeminiDir && (
+    fs.existsSync(path.join(globalGeminiDir, 'config', 'plugins', context.plugin, '.antigravity-plugin', 'plugin.json')) ||
+    fs.existsSync(path.join(globalGeminiDir, 'config', 'plugins', context.plugin, 'plugin.json'))
+  ) ? path.join(globalGeminiDir, 'config', 'plugins', context.plugin) : null;
+
+  // Under default --host all, do not select AGY just because an unrelated .agents directory exists.
+  // Require AGY CLI (agy), existing AGY config/target, or explicit --host agy.
+  if (!isExplicitAgy && !hasAgyCli && !hasExplicitTarget && !existingProjectTarget && !existingGlobalTarget) {
+    return {
+      host: 'agy',
+      status: 'skipped',
+      reasonCode: 'cli-not-found',
+      reason: 'agy CLI or Antigravity target directory not found'
+    };
+  }
+
+  const effectiveTarget = context.agyTarget ||
+    existingProjectTarget ||
+    existingGlobalTarget ||
+    (context.agyProjectRoot
+      ? path.join(context.agyProjectRoot, 'plugins', context.plugin)
+      : path.join(context.agyHome || os.homedir(), '.gemini', 'config', 'plugins', context.plugin));
+
+  const isInstalled = fs.existsSync(path.join(effectiveTarget, 'plugin.json')) ||
+                      fs.existsSync(path.join(effectiveTarget, '.antigravity-plugin', 'plugin.json'));
+
+  const action = isInstalled ? 'update' : 'install';
+
+  if (context.dryRun) {
+    context.log(`[dry-run] agy plugin ${action} -> ${effectiveTarget}`);
+    return { host: 'agy', status: 'dry-run', action, target: effectiveTarget };
+  }
+
+  const sourcePackage = path.resolve(__dirname, '..', 'plugins', context.plugin);
+  const targetParent = path.dirname(effectiveTarget);
+  const stagingDir = `${effectiveTarget}.${process.pid}.${Date.now()}.tmp`;
+  const backupDir = `${effectiveTarget}.${process.pid}.${Date.now()}.bak`;
+
+  try {
+    fs.mkdirSync(targetParent, { recursive: true });
+    fs.cpSync(sourcePackage, stagingDir, { recursive: true });
+
+    if (fs.existsSync(effectiveTarget)) {
+      fs.renameSync(effectiveTarget, backupDir);
+      try {
+        fs.renameSync(stagingDir, effectiveTarget);
+        fs.rmSync(backupDir, { recursive: true, force: true });
+      } catch (swapErr) {
+        if (fs.existsSync(backupDir) && !fs.existsSync(effectiveTarget)) {
+          fs.renameSync(backupDir, effectiveTarget);
+        }
+        throw swapErr;
+      }
+    } else {
+      fs.renameSync(stagingDir, effectiveTarget);
+    }
+
+    return { host: 'agy', status: 'synchronized', action, target: effectiveTarget };
+  } catch (err) {
+    if (fs.existsSync(stagingDir)) {
+      try { fs.rmSync(stagingDir, { recursive: true, force: true }); } catch (_) {}
+    }
+    return { host: 'agy', status: 'failed', action, error: `AGY plugin ${action} failed: ${err.message}` };
+  }
+}
+
 function parseArgs(argv) {
   const options = { host: 'all', dryRun: false, json: false };
   for (let index = 0; index < argv.length; index++) {
@@ -608,7 +693,7 @@ function parseArgs(argv) {
     else if (arg === '--json') options.json = true;
     else if (arg === '--host') {
       options.host = argv[++index];
-      if (!options.host) throw new Error('--host requires all, claude, or codex');
+      if (!options.host) throw new Error('--host requires all, claude, codex, or agy');
     } else if (arg === '--repository') {
       options.repository = argv[++index];
       if (!options.repository) throw new Error('--repository requires a repository or URL');
@@ -620,7 +705,7 @@ function parseArgs(argv) {
     }
   }
   options.host = String(options.host).toLowerCase();
-  if (!['all', 'claude', 'codex'].includes(options.host)) throw new Error(`Unsupported host: ${options.host}`);
+  if (!['all', 'claude', 'codex', 'agy'].includes(options.host)) throw new Error(`Unsupported host: ${options.host}`);
   return options;
 }
 
@@ -634,18 +719,18 @@ local compatibility-hook runtime and user hook entries; Codex trust remains a
 separate host review.
 
 Options:
-  --host <all|claude|codex>  Limit synchronization to one host (default: all)
-  --repository <repo|url>   Marketplace source (default: dyphn1/Harness-everything)
-  --ref <git-ref>           Codex marketplace ref (default: main)
-  --dry-run                 Detect state and print mutating commands
-  --json                    Print a machine-readable summary
-  -h, --help                Show this help
+  --host <all|claude|codex|agy>  Limit synchronization to one host (default: all)
+  --repository <repo|url>       Marketplace source (default: dyphn1/Harness-everything)
+  --ref <git-ref>               Codex marketplace ref (default: main)
+  --dry-run                     Detect state and print mutating commands
+  --json                        Print a machine-readable summary
+  -h, --help                    Show this help
 `;
 }
 
 function sync(options, dependencies = {}) {
   const context = createContext({ ...options, ...dependencies });
-  const hosts = context.host === 'all' ? ['claude', 'codex'] : [context.host];
+  const hosts = context.host === 'all' ? ['claude', 'codex', 'agy'] : [context.host];
   // Each host sync is fully synchronous and the marketplace update/refresh
   // step does real network I/O (observed ~10s+ for Claude alone), so without
   // this the terminal stays completely silent until every host finishes —
@@ -653,7 +738,10 @@ function sync(options, dependencies = {}) {
   // stdout, so `--json` consumers' stdout stays pure JSON.
   const results = hosts.map(host => {
     context.warn(`[...] ${host}: syncing`);
-    return host === 'claude' ? syncClaude(context) : syncCodex(context);
+    if (host === 'claude') return syncClaude(context);
+    if (host === 'codex') return syncCodex(context);
+    if (host === 'agy') return syncAgy(context);
+    return { host, status: 'failed', error: `Unknown host ${host}` };
   });
   const summary = {
     repository: context.repository,
@@ -662,6 +750,7 @@ function sync(options, dependencies = {}) {
     dryRun: context.dryRun,
     results,
     synchronized: results.filter(result => result.status === 'synchronized').length,
+    planned: results.filter(result => result.status === 'dry-run').length,
     skipped: results.filter(result => result.status === 'skipped').length,
     failed: results.filter(result => result.status === 'failed').length
   };
@@ -687,16 +776,18 @@ function main(argv = process.argv.slice(2)) {
   else {
     for (const result of summary.results) {
       if (result.status === 'synchronized') console.log('[ok] ' + result.host + ': ' + result.action + (result.compatHooks ? '; Codex hooks ' + result.compatHooks.status : ''));
+      else if (result.status === 'dry-run') console.log(`[dry-run] ${result.host}: ${result.action}${result.target ? ' -> ' + result.target : ''}`);
       else if (result.status === 'skipped') console.log(`[skip] ${result.host}: ${result.reason}`);
       else console.error(`[fail] ${result.host}: ${result.error}`);
     }
-    if (summary.synchronized === 0 && summary.failed === 0) {
+    const completed = summary.synchronized + summary.planned;
+    if (completed === 0 && summary.failed === 0) {
       console.error(summary.results.every(result => result.reasonCode === 'cli-not-found')
-        ? 'No supported host CLI was found. Install Claude Code and/or Codex, then retry.'
+        ? 'No supported host CLI was found. Install Claude Code, Codex, and/or Antigravity (AGY), then retry.'
         : 'No host plugin was synchronized. Review the skip reasons above.');
     }
   }
-  return summary.failed > 0 || summary.synchronized === 0 ? 1 : 0;
+  return summary.failed > 0 || (summary.synchronized + summary.planned) === 0 ? 1 : 0;
 }
 
 if (require.main === module) process.exitCode = main();
