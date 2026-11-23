@@ -993,6 +993,101 @@ try {
     assert.strictEqual(stopAfterRelB.decision, 'continue', 'Stop must continue after unverified relative-path edit in B');
   }
 
+  // 7. Unknown-outcome verification shell retries must not advance lastEditAt or defeat bounded Stop
+  {
+    const retryWs = path.join(tempRoot, 'verify-retry-ws');
+    fs.mkdirSync(retryWs, { recursive: true });
+    const convRetry = 'test-conv-verify-retry-' + Date.now();
+    const retryHandoffFile = path.join(getSessionDir(retryWs, convRetry), 'handoff-state.json');
+
+    // 1. File edit -> lastEditAt = T1
+    runHook('agy-post-tool.js', {
+      conversationId: convRetry,
+      workspacePaths: [retryWs],
+      cwd: retryWs,
+      toolCall: { id: 'toolu_retry_edit_1', name: 'write_file', args: { Path: path.join(retryWs, 'app.js'), Content: 'const a = 1;' } }
+    });
+    const state1 = JSON.parse(fs.readFileSync(retryHandoffFile, 'utf8'));
+    const t1 = state1.lastEditAt;
+    assert.ok(t1 > 0, 'Initial file edit must set lastEditAt = T1');
+
+    // 2. Stop attempt 0 -> continue
+    const stop0 = runHook('agy-stop.js', {
+      conversationId: convRetry,
+      workspacePaths: [retryWs],
+      cwd: retryWs,
+      continuationActive: false,
+      executionNum: 0,
+      terminationReason: 'model_stop'
+    });
+    assert.strictEqual(stop0.decision, 'continue', 'Stop attempt 0 must continue on unverified edit');
+
+    // 3. Agent runs npm test with unknown outcome (error: "", no exitCode) -> lastEditAt === T1, lastVerifyAt unset
+    runHook('agy-post-tool.js', {
+      conversationId: convRetry,
+      workspacePaths: [retryWs],
+      cwd: retryWs,
+      toolCall: { id: 'toolu_retry_test_1', name: 'run_command', args: { CommandLine: 'npm test', Cwd: retryWs } },
+      error: ''
+    });
+    const state2 = JSON.parse(fs.readFileSync(retryHandoffFile, 'utf8'));
+    assert.strictEqual(state2.lastEditAt, t1, 'Unknown-outcome npm test must NOT advance lastEditAt');
+    assert.ok(!state2.lastVerifyAt, 'Unknown-outcome npm test must leave lastVerifyAt unset (P1-B)');
+
+    // 4. Stop attempt 1 -> allow (bounded retry)
+    const stop1 = runHook('agy-stop.js', {
+      conversationId: convRetry,
+      workspacePaths: [retryWs],
+      cwd: retryWs,
+      continuationActive: false,
+      executionNum: 1,
+      terminationReason: 'model_stop'
+    });
+    assert.deepStrictEqual(stop1, { decision: 'allow' }, 'Stop attempt 1 after unknown-outcome npm test must allow');
+
+    // 5. Agent retries npm test again (unknown outcome) -> lastEditAt === T1 -> Stop attempt 2 -> allow
+    runHook('agy-post-tool.js', {
+      conversationId: convRetry,
+      workspacePaths: [retryWs],
+      cwd: retryWs,
+      toolCall: { id: 'toolu_retry_test_2', name: 'run_command', args: { CommandLine: 'npm test', Cwd: retryWs } },
+      error: ''
+    });
+    const state3 = JSON.parse(fs.readFileSync(retryHandoffFile, 'utf8'));
+    assert.strictEqual(state3.lastEditAt, t1, 'Repeated unknown-outcome npm test must still NOT advance lastEditAt');
+    assert.ok(!state3.lastVerifyAt, 'Repeated unknown-outcome npm test must still leave lastVerifyAt unset');
+
+    const stop2 = runHook('agy-stop.js', {
+      conversationId: convRetry,
+      workspacePaths: [retryWs],
+      cwd: retryWs,
+      continuationActive: false,
+      executionNum: 2,
+      terminationReason: 'NO_TOOL_CALL'
+    });
+    assert.deepStrictEqual(stop2, { decision: 'allow' }, 'Stop attempt 2 after repeated unknown-outcome npm test must allow');
+
+    // 6. Real new file edit -> lastEditAt > T1 -> Stop returns continue once again
+    runHook('agy-post-tool.js', {
+      conversationId: convRetry,
+      workspacePaths: [retryWs],
+      cwd: retryWs,
+      toolCall: { id: 'toolu_retry_edit_2', name: 'write_file', args: { Path: path.join(retryWs, 'app.js'), Content: 'const a = 2;' } }
+    });
+    const state4 = JSON.parse(fs.readFileSync(retryHandoffFile, 'utf8'));
+    assert.ok(state4.lastEditAt > t1, 'Real new file edit must advance lastEditAt > T1');
+
+    const stopAfterNewEdit = runHook('agy-stop.js', {
+      conversationId: convRetry,
+      workspacePaths: [retryWs],
+      cwd: retryWs,
+      continuationActive: false,
+      executionNum: 3,
+      terminationReason: 'model_stop'
+    });
+    assert.strictEqual(stopAfterNewEdit.decision, 'continue', 'Stop must continue once again after real new file edit');
+  }
+
   console.log('Antigravity (AGY) lifecycle hook adapters verified: SessionStart, PreInvocation, PreToolUse, PostToolUse, and Stop all conform to protocol.');
 } finally {
   if (originalStateHome === undefined) delete process.env.HARNESS_STATE_HOME;

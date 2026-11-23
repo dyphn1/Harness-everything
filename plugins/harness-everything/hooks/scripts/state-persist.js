@@ -151,10 +151,6 @@ function processState(payload) {
         { toolName, sessionId, agentId: payload.agent_id }));
       const metadataStep = !stateOnlyCandidate && verifiedSuccess
         && isSuccessfulMetadataStep(command, cwdOf(payload, root));
-      if (!metadataStep && commandClass !== 'read-only' && commandClass !== 'worktree-setup') {
-        if (stateOnlyCandidate) editAfterCapture = true;
-        else state.lastEditAt = Date.now();
-      }
       // The host-specific outcome must confirm success before verification advances.
       // Pilot ON only: a registered, argv-validated doc-check that resolves to this install's own runtime is the document
       // verification evidence, and only at the shipped pin (R3-02). Any other path earns no verification evidence. OFF stays legacy.
@@ -166,6 +162,13 @@ function processState(payload) {
       const verifies = stateOnlyCandidate ? false : docCheckCandidate
         ? Boolean(pinCheckable) && docCheck.fileDigest(installedCheck.installed) === docCheck.SHIPPED_DOC_CHECK_DIGEST
         : !(pilotEnabled && docCheck.trustRisk(command)) && isVerificationShell(command, { cwd: cwdOf(payload, root), root });
+      // On AGY hosts that omit shell error/exitCode, an unconfirmed verification-only command must not advance lastEditAt
+      // and defeat agy-stop.js's bounded continuation fingerprint.
+      const agyUnknownOutcomeVerify = agy && !verifiedSuccess && !isFailed && verifies;
+      if (!metadataStep && !agyUnknownOutcomeVerify && commandClass !== 'read-only' && commandClass !== 'worktree-setup') {
+        if (stateOnlyCandidate) editAfterCapture = true;
+        else state.lastEditAt = Date.now();
+      }
       if (verifiedSuccess && verifies) {
         const verifiedAt = Date.now();
         const verifiedExitCode = exitCode ?? null;
