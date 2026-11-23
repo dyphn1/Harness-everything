@@ -648,6 +648,265 @@ try {
     assert.deepStrictEqual(stopStrictVerified, { decision: 'allow' }, 'Strict verification must allow verified work');
   }
 
+  // 6. Multi-root workspacePaths end-to-end (PreToolUse -> PostToolUse -> Stop)
+  {
+    const multiA = path.join(tempRoot, 'multi-ws-a');
+    const multiB = path.join(tempRoot, 'multi-ws-b');
+    const multiArtifact = path.join(tempRoot, 'multi-artifacts', 'conv');
+    const multiOutside = path.join(tempRoot, 'multi-outside');
+    fs.mkdirSync(multiA, { recursive: true });
+    fs.mkdirSync(multiB, { recursive: true });
+    fs.mkdirSync(multiArtifact, { recursive: true });
+    fs.mkdirSync(multiOutside, { recursive: true });
+
+    const convMulti = 'test-conv-multiroot-' + Date.now();
+    const convOther = 'test-conv-multiroot-other-' + Date.now();
+    const targetInB = path.join(multiB, 'file.js');
+    const sessionDirA = getSessionDir(multiA, convMulti);
+    const handoffMultiA = path.join(sessionDirA, 'handoff-state.json');
+
+    // 6.1-6.2: PreToolUse allows B/file.js; PostToolUse advances lastEditAt in A-bound session
+    const preWriteB = runHook('agy-pre-tool.js', {
+      conversationId: convMulti,
+      workspacePaths: [multiA, multiB],
+      cwd: multiA,
+      toolCall: { id: 'toolu_multi_b_1', name: 'write_file', args: { Path: targetInB, Content: 'export const x = 1;' } }
+    });
+    assert.strictEqual(preWriteB.decision, 'allow', 'PreToolUse must allow write inside secondary workspacePaths[1]');
+
+    const postWriteB = runHook('agy-post-tool.js', {
+      conversationId: convMulti,
+      workspacePaths: [multiA, multiB],
+      cwd: multiA,
+      toolCall: { id: 'toolu_multi_b_1', name: 'write_file', args: { Path: targetInB, Content: 'export const x = 1;' } }
+    });
+    assert.deepStrictEqual(postWriteB, {}, 'PostToolUse must output empty object on secondary root write');
+
+    assert.ok(fs.existsSync(handoffMultiA), 'handoff-state.json must be written to primary A-bound session');
+    const stateAfterB = JSON.parse(fs.readFileSync(handoffMultiA, 'utf8'));
+    assert.ok(stateAfterB.lastEditAt > 0, 'PostToolUse write to B/file.js must advance lastEditAt in A-bound session');
+
+    const sessionDirB = getSessionDir(multiB, convMulti);
+    assert.ok(
+      !fs.existsSync(path.join(sessionDirB, 'handoff-state.json')),
+      'Multi-root edit must stay bound to primary A session rather than forking state into B'
+    );
+
+    // 6.3: Unverified edit in B blocks Stop on both model_stop and NO_TOOL_CALL
+    for (const reason of ['model_stop', 'NO_TOOL_CALL']) {
+      const stopUnverified = runHook('agy-stop.js', {
+        conversationId: convMulti,
+        workspacePaths: [multiA, multiB],
+        cwd: multiA,
+        continuationActive: false,
+        terminationReason: reason
+      });
+      assert.strictEqual(
+        stopUnverified.decision,
+        'continue',
+        `Stop (${reason}) must continue when unverified edit exists in secondary root B`
+      );
+    }
+
+    // Separate conversationId must not inherit convMulti's edit
+    const stopOtherConv = runHook('agy-stop.js', {
+      conversationId: convOther,
+      workspacePaths: [multiA, multiB],
+      cwd: multiA,
+      continuationActive: false,
+      terminationReason: 'NO_TOOL_CALL'
+    });
+    assert.deepStrictEqual(stopOtherConv, { decision: 'allow' }, 'Separate conversationId must not inherit multi-root edit');
+
+    // 6.4: Unknown shell outcome (omitted error/exitCode) grants NO verification credit and Stop continues
+    const postUnknownVerify = runHook('agy-post-tool.js', {
+      conversationId: convMulti,
+      workspacePaths: [multiA, multiB],
+      cwd: multiA,
+      toolCall: { name: 'run_command', args: { CommandLine: 'npm test', Cwd: multiB } },
+      error: ''
+    });
+    assert.deepStrictEqual(postUnknownVerify, {}, 'PostToolUse must output empty object on unknown shell outcome');
+    const stateAfterUnknown = JSON.parse(fs.readFileSync(handoffMultiA, 'utf8'));
+    assert.ok(!stateAfterUnknown.lastVerifyAt, 'Unknown shell outcome must not grant lastVerifyAt after multi-root edit');
+
+    const stopStillUnverified = runHook('agy-stop.js', {
+      conversationId: convMulti,
+      workspacePaths: [multiA, multiB],
+      cwd: multiA,
+      continuationActive: false,
+      terminationReason: 'model_stop'
+    });
+    assert.strictEqual(stopStillUnverified.decision, 'continue', 'Stop must continue when shell outcome after B edit was unknown');
+
+    // Trusted verification (run_command with exitCode: 0) -> Stop allows
+    const postTrustedVerify = runHook('agy-post-tool.js', {
+      conversationId: convMulti,
+      workspacePaths: [multiA, multiB],
+      cwd: multiA,
+      toolCall: { name: 'run_command', args: { CommandLine: 'npm test', Cwd: multiB } },
+      exitCode: 0
+    });
+    assert.deepStrictEqual(postTrustedVerify, {}, 'PostToolUse must output empty object on trusted verification');
+
+    const stateAfterVerify = JSON.parse(fs.readFileSync(handoffMultiA, 'utf8'));
+    assert.ok(stateAfterVerify.lastVerifyAt >= stateAfterVerify.lastEditAt, 'Trusted verification must advance lastVerifyAt in A-bound session');
+    assert.strictEqual(stateAfterVerify.lastVerifyExitCode, 0, 'Trusted verification must record exitCode 0');
+
+    for (const reason of ['model_stop', 'NO_TOOL_CALL']) {
+      const stopAllowed = runHook('agy-stop.js', {
+        conversationId: convMulti,
+        workspacePaths: [multiA, multiB],
+        cwd: multiA,
+        continuationActive: false,
+        terminationReason: reason
+      });
+      assert.deepStrictEqual(stopAllowed, { decision: 'allow' }, `Stop (${reason}) must allow after trusted verification`);
+    }
+
+    // 6.5 & edge cases: outside roots, artifactDirectoryPath, relative paths, symlinks, empty path
+    const convIsolated = 'test-conv-multiroot-oob-' + Date.now();
+    const handoffIsolated = path.join(getSessionDir(multiA, convIsolated), 'handoff-state.json');
+
+    // Outside all allowed roots -> PreToolUse denies, PostToolUse does NOT advance lastEditAt
+    const outsideTarget = path.join(multiOutside, 'x.js');
+    const preOob = runHook('agy-pre-tool.js', {
+      conversationId: convIsolated,
+      workspacePaths: [multiA, multiB],
+      cwd: multiA,
+      artifactDirectoryPath: multiArtifact,
+      toolCall: { name: 'write_file', args: { Path: outsideTarget } }
+    });
+    assert.strictEqual(preOob.decision, 'deny', 'PreToolUse must deny write outside all allowed roots');
+
+    runHook('agy-post-tool.js', {
+      conversationId: convIsolated,
+      workspacePaths: [multiA, multiB],
+      cwd: multiA,
+      artifactDirectoryPath: multiArtifact,
+      toolCall: { name: 'write_file', args: { Path: outsideTarget } }
+    });
+    const stateAfterOob = JSON.parse(fs.readFileSync(handoffIsolated, 'utf8'));
+    assert.ok(!stateAfterOob.lastEditAt, 'PostToolUse outside all allowed roots must NOT advance lastEditAt');
+
+    // artifactDirectoryPath outside workspacePaths -> PreToolUse allows, PostToolUse does NOT advance lastEditAt
+    const artifactTarget = path.join(multiArtifact, 'notes.md');
+    const preArtifact = runHook('agy-pre-tool.js', {
+      conversationId: convIsolated,
+      workspacePaths: [multiA, multiB],
+      cwd: multiA,
+      artifactDirectoryPath: multiArtifact,
+      toolCall: { name: 'write_file', args: { Path: artifactTarget } }
+    });
+    assert.strictEqual(preArtifact.decision, 'allow', 'PreToolUse must still allow writes to artifactDirectoryPath');
+
+    runHook('agy-post-tool.js', {
+      conversationId: convIsolated,
+      workspacePaths: [multiA, multiB],
+      cwd: multiA,
+      artifactDirectoryPath: multiArtifact,
+      toolCall: { name: 'write_file', args: { Path: artifactTarget } }
+    });
+    const stateAfterArtifact = JSON.parse(fs.readFileSync(handoffIsolated, 'utf8'));
+    assert.ok(!stateAfterArtifact.lastEditAt, 'PostToolUse to artifactDirectoryPath outside workspacePaths must NOT advance lastEditAt');
+
+    // Symlink inside B pointing outside + symlink loop inside B -> PreToolUse denies, PostToolUse does NOT advance lastEditAt
+    const escapeInB = path.join(multiB, 'escape-to-outside');
+    const loopInB1 = path.join(multiB, 'loop-1');
+    const loopInB2 = path.join(multiB, 'loop-2');
+    let multiSymlinksSupported = true;
+    try {
+      fs.symlinkSync(multiOutside, escapeInB, 'dir');
+      fs.symlinkSync(loopInB2, loopInB1);
+      fs.symlinkSync(loopInB1, loopInB2);
+    } catch (_) {
+      multiSymlinksSupported = false;
+    }
+    if (multiSymlinksSupported) {
+      const symTarget = path.join(escapeInB, 'leak.js');
+      const preSym = runHook('agy-pre-tool.js', {
+        conversationId: convIsolated,
+        workspacePaths: [multiA, multiB],
+        cwd: multiA,
+        toolCall: { name: 'write_file', args: { Path: symTarget } }
+      });
+      assert.strictEqual(preSym.decision, 'deny', 'PreToolUse must deny symlink in B pointing outside allowed roots');
+
+      runHook('agy-post-tool.js', {
+        conversationId: convIsolated,
+        workspacePaths: [multiA, multiB],
+        cwd: multiA,
+        toolCall: { name: 'write_file', args: { Path: symTarget } }
+      });
+      const stateAfterSym = JSON.parse(fs.readFileSync(handoffIsolated, 'utf8'));
+      assert.ok(!stateAfterSym.lastEditAt, 'PostToolUse through symlink in B escaping outside must NOT advance lastEditAt');
+
+      const preLoop = runHook('agy-pre-tool.js', {
+        conversationId: convIsolated,
+        workspacePaths: [multiA, multiB],
+        cwd: multiA,
+        toolCall: { name: 'write_file', args: { Path: loopInB1 } }
+      });
+      assert.strictEqual(preLoop.decision, 'deny', 'PreToolUse must deny symlink loop in B');
+
+      runHook('agy-post-tool.js', {
+        conversationId: convIsolated,
+        workspacePaths: [multiA, multiB],
+        cwd: multiA,
+        toolCall: { name: 'write_file', args: { Path: loopInB1 } }
+      });
+      const stateAfterLoop = JSON.parse(fs.readFileSync(handoffIsolated, 'utf8'));
+      assert.ok(!stateAfterLoop.lastEditAt, 'PostToolUse on symlink loop in B must fail closed and NOT advance lastEditAt');
+    }
+
+    // Empty path in state-persist.js --agy must fail closed and NOT advance lastEditAt
+    const emptyStateRun = spawnSync(process.execPath, [path.join(SCRIPTS_DIR, 'state-persist.js'), '--agy'], {
+      input: JSON.stringify({
+        hook_event_name: 'PostToolUse',
+        session_id: convIsolated,
+        workspace_root: multiA,
+        cwd: multiA,
+        workspacePaths: [multiA, multiB],
+        tool_name: 'Write',
+        tool_input: { file_path: '   ' }
+      }),
+      encoding: 'utf8',
+      env: { ...process.env, HARNESS_STATE_HOME: tempStateHome },
+      timeout: 20000
+    });
+    assert.strictEqual(emptyStateRun.status, 0, 'state-persist.js --agy must exit 0 on empty path');
+    const stateAfterEmpty = JSON.parse(fs.readFileSync(handoffIsolated, 'utf8'));
+    assert.ok(!stateAfterEmpty.lastEditAt, 'state-persist.js --agy must fail closed on empty path and NOT advance lastEditAt');
+
+    // Relative path resolved against cwd (A -> ../multi-ws-b/rel.js) -> PreToolUse allows & PostToolUse advances lastEditAt
+    const relTarget = path.join('..', 'multi-ws-b', 'rel.js');
+    const preRelB = runHook('agy-pre-tool.js', {
+      conversationId: convIsolated,
+      workspacePaths: [multiA, multiB],
+      cwd: multiA,
+      toolCall: { name: 'write_file', args: { Path: relTarget } }
+    });
+    assert.strictEqual(preRelB.decision, 'allow', 'PreToolUse must allow relative path from cwd A into workspace B');
+
+    runHook('agy-post-tool.js', {
+      conversationId: convIsolated,
+      workspacePaths: [multiA, multiB],
+      cwd: multiA,
+      toolCall: { name: 'write_file', args: { Path: relTarget } }
+    });
+    const stateAfterRelB = JSON.parse(fs.readFileSync(handoffIsolated, 'utf8'));
+    assert.ok(stateAfterRelB.lastEditAt > 0, 'PostToolUse relative path into B must advance lastEditAt');
+
+    const stopAfterRelB = runHook('agy-stop.js', {
+      conversationId: convIsolated,
+      workspacePaths: [multiA, multiB],
+      cwd: multiA,
+      continuationActive: false,
+      terminationReason: 'model_stop'
+    });
+    assert.strictEqual(stopAfterRelB.decision, 'continue', 'Stop must continue after unverified relative-path edit in B');
+  }
+
   console.log('Antigravity (AGY) lifecycle hook adapters verified: SessionStart, PreInvocation, PreToolUse, PostToolUse, and Stop all conform to protocol.');
 } finally {
   if (originalStateHome === undefined) delete process.env.HARNESS_STATE_HOME;

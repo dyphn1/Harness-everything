@@ -2,11 +2,40 @@
 const fs = require('fs');
 const path = require('path');
 const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
-const { cwdOf, classifyShell, isVerificationShell, directMutationInWorkspace } = require('./lib/workflow-isolation');
+const { cwdOf, classifyShell, isVerificationShell, directMutationInWorkspace, mutationPaths } = require('./lib/workflow-isolation');
+const { getAgyWorkspacePaths, isOutOfBoundsPath } = require('./lib/agy-adapter-core');
 const { observeTool } = require('./lib/telemetry');
 const { readCodexToolOutcome } = require('./lib/codex-tool-outcome');
 const codex = process.argv.includes('--codex');
 const agy = process.argv.includes('--agy');
+
+function agyMutationTargets(payload, toolName) {
+  if (toolName === 'apply_patch') {
+    return mutationPaths(payload).map(v => String(v || '').trim()).filter(Boolean);
+  }
+  const input = (payload && (payload.tool_input ?? payload.toolInput ?? payload.input)) || {};
+  const candidates = [
+    input.file_path,
+    input.filePath,
+    input.path,
+    input.TargetFile,
+    input.Path,
+    input.targetFile
+  ];
+  const target = candidates.find(value => typeof value === 'string' && value.trim());
+  return target ? [target.trim()] : [];
+}
+
+function agyDirectMutationInWorkspace(payload, mutationCwd, root, toolName) {
+  const targets = agyMutationTargets(payload, toolName);
+  if (targets.length === 0) return false;
+  const agyRoots = getAgyWorkspacePaths(payload);
+  if (typeof root === 'string' && root.trim() && !agyRoots.includes(root.trim())) {
+    agyRoots.push(root.trim());
+  }
+  if (agyRoots.length === 0) return false;
+  return targets.some(target => !isOutOfBoundsPath(target, agyRoots, mutationCwd));
+}
 
 function isSuccessfulMetadataStep(command, cwd) {
   // A line break starts a second shell command, so it can never be metadata-only.
@@ -108,7 +137,9 @@ function processState(payload) {
       state.lastResolved = { tool: state.tool, timestamp: state.timestamp }; state.status = 'idle'; state.timestamp = new Date().toISOString(); delete state.exitCode; delete state.errorSummary;
     }
     const isDirectTool = toolName === 'Edit' || toolName === 'Write' || toolName === 'apply_patch';
-    if (isDirectTool && directMutationInWorkspace(payload, cwdOf(payload, root), root)) state.lastEditAt = Date.now();
+    if (isDirectTool && (agy
+      ? agyDirectMutationInWorkspace(payload, cwdOf(payload, root), root, toolName)
+      : directMutationInWorkspace(payload, cwdOf(payload, root), root))) state.lastEditAt = Date.now();
     const isShell = toolName === 'Bash' || toolName === 'PowerShell' || toolName === 'exec_command';
     const command = (payload.tool_input && payload.tool_input.command) || '';
     if (isShell) {
