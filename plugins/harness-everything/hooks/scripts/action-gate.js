@@ -112,10 +112,13 @@ function normalizeActionDescriptor(payload, options = {}) {
   const tool = toolNameOf(payload);
   const input = toolInputOf(payload);
   const explicit = explicitActionDescriptor(payload);
-  const codexPrUpdate = detectHost(payload, options.host) === 'codex' && isPullRequestUpdateTool(tool);
-  const toolFamily = inferToolFamily(tool, codexPrUpdate ? null : explicit);
+  const codex = detectHost(payload, options.host) === 'codex';
+  const codexPrUpdate = codex && isPullRequestUpdateTool(tool);
+  const codexIssueMutation = codex && isRoutineIssueTool(tool);
+  const protectedMcpMutation = codexPrUpdate || codexIssueMutation;
+  const toolFamily = inferToolFamily(tool, protectedMcpMutation ? null : explicit);
   const inferred = inferStructuredAction(tool, explicit);
-  const action = codexPrUpdate && !STRUCTURED_GATED_ACTIONS.has(inferred) ? 'mutate' : inferred;
+  const action = protectedMcpMutation && !STRUCTURED_GATED_ACTIONS.has(inferred) ? 'mutate' : inferred;
   const classification = STRUCTURED_GATED_ACTIONS.has(action)
     ? 'gated'
     : (STRUCTURED_SAFE_ACTIONS.has(action) ? 'safe' : 'unknown');
@@ -146,6 +149,49 @@ function isPullRequestUpdateTool(name) {
   return name.split('__').pop() === 'update_pull_request' || name === 'mcp__codex_apps__github_update_pull_request';
 }
 
+const ISSUE_COMMENT_TOOLS = new Set([
+  'mcp__codex_apps__github__add_comment_to_issue',
+  'mcp__codex_apps__github_add_comment_to_issue',
+]);
+const ISSUE_COMPLETED_CLOSE_TOOLS = new Set([
+  'mcp__codex_apps__github__update_issue',
+  'mcp__codex_apps__github_update_issue',
+]);
+// Both Issue exceptions require an owner/name repository selector; an ownerless
+// name is uncertain and must keep the original gate.
+const OWNER_REPO_SELECTOR = /^[^/\s]+\/[^/\s]+$/;
+
+function isRoutineIssueTool(name) {
+  return ISSUE_COMMENT_TOOLS.has(name) || ISSUE_COMPLETED_CLOSE_TOOLS.has(name);
+}
+
+function hasExactKeys(input, expected) {
+  const keys = Object.keys(input);
+  return keys.length === expected.length && expected.every(key => Object.prototype.hasOwnProperty.call(input, key));
+}
+
+function isRoutineIssueComment(payload) {
+  const input = toolInputOf(payload);
+  return ISSUE_COMMENT_TOOLS.has(toolNameOf(payload))
+    && input && typeof input === 'object' && !Array.isArray(input)
+    && hasExactKeys(input, ['repo_full_name', 'pr_number', 'comment'])
+    && typeof input.repo_full_name === 'string' && input.repo_full_name.trim() !== ''
+    && OWNER_REPO_SELECTOR.test(input.repo_full_name)
+    && Number.isSafeInteger(input.pr_number) && input.pr_number > 0
+    && typeof input.comment === 'string' && input.comment.trim() !== '';
+}
+
+function isRoutineIssueCompletedClose(payload) {
+  const input = toolInputOf(payload);
+  return ISSUE_COMPLETED_CLOSE_TOOLS.has(toolNameOf(payload))
+    && input && typeof input === 'object' && !Array.isArray(input)
+    && hasExactKeys(input, ['repository_full_name', 'issue_number', 'state', 'state_reason'])
+    && typeof input.repository_full_name === 'string' && input.repository_full_name.trim() !== ''
+    && OWNER_REPO_SELECTOR.test(input.repository_full_name)
+    && Number.isSafeInteger(input.issue_number) && input.issue_number > 0
+    && input.state === 'closed' && input.state_reason === 'completed';
+}
+
 function isPullRequestMetadataUpdate(payload) {
   if (!isPullRequestUpdateTool(toolNameOf(payload))) return false;
   const input = toolInputOf(payload);
@@ -172,6 +218,26 @@ function structuredRule(payload, options = {}) {
   if (detectHost(payload, options.host) === 'codex' && descriptor.action === 'mutate'
       && isPullRequestMetadataUpdate(payload) && !(hint && hint.required)) {
     return { descriptor, rule: null, hostDeferred: true };
+  }
+  if (detectHost(payload, options.host) === 'codex' && descriptor.action === 'mutate'
+      && isRoutineIssueComment(payload) && !(hint && hint.required)) {
+    return {
+      descriptor,
+      rule: null,
+      hostDeferred: true,
+      hostDeferredId: 'routine-issue-comment',
+      hostDeferredReason: 'Codex routine Issue comments defer to native task scope and permissions.',
+    };
+  }
+  if (detectHost(payload, options.host) === 'codex' && descriptor.action === 'mutate'
+      && isRoutineIssueCompletedClose(payload) && !(hint && hint.required)) {
+    return {
+      descriptor,
+      rule: null,
+      hostDeferred: true,
+      hostDeferredId: 'routine-issue-completed-close',
+      hostDeferredReason: 'Codex routine Issue completed-close operations defer to native task scope and permissions.',
+    };
   }
   if (descriptor.classification === 'gated') {
     return {
@@ -495,8 +561,8 @@ function evaluatePreToolUse(payload, options = {}) {
 
   if (!rule) {
     const record = structured.hostDeferred ? recordDecision(payload, {
-      id: 'routine-pr-metadata-update',
-      reason: 'Codex PR title/body metadata update defers to native task scope and permissions.',
+      id: structured.hostDeferredId || 'routine-pr-metadata-update',
+      reason: structured.hostDeferredReason || 'Codex PR title/body metadata update defers to native task scope and permissions.',
     }, table, host, 'deferred-to-host', { ...options, sessionDir: context.sessionDir }) : null;
     return {
       kind: 'allow',

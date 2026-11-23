@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.57.4](https://github.com/dyphn1/Harness-everything/compare/v0.57.3...v0.57.4) (2026-11-22)
+
+### Bug Fixes
+
+* **action-gate:** defer routine codex issue comments and completed closes ([6cdbb10](https://github.com/dyphn1/Harness-everything/commit/6cdbb108aa5c5d565abe04f9d4bf2dfd1b264448)), closes [#508](https://github.com/dyphn1/Harness-everything/issues/508)
+* **action-gate:** keep ownerless issue repository selectors gated ([a82d2a8](https://github.com/dyphn1/Harness-everything/commit/a82d2a81787600bb96c19bdb606f6af482ee6421))
+
+## [0.57.3](https://github.com/dyphn1/Harness-everything/compare/v0.57.2...v0.57.3) (2026-11-22)
+
+### Bug Fixes
+
+* **opencode:** deliver ledger lessons for the live v2 shell tool ([d74ca22](https://github.com/dyphn1/Harness-everything/commit/d74ca22021ccb41b6877d6eaa6673f6af61cfe65)), closes [#509](https://github.com/dyphn1/Harness-everything/issues/509)
+
 ## [0.57.2](https://github.com/dyphn1/Harness-everything/compare/v0.57.1...v0.57.2) (2026-11-22)
 
 ### Bug Fixes
@@ -183,6 +196,10 @@ All notable changes to this project are documented in this file.
 * **doc-reconciliation:** order final review after the correlated worker closes ([4aa016c](https://github.com/dyphn1/Harness-everything/commit/4aa016ccf11f7db129b9969d7594f9eb2bdb3c08)), closes [#341](https://github.com/dyphn1/Harness-everything/issues/341)
 
 ## [Unreleased]
+
+- Codex defers exact Issue comments and completed closes to native host permissions (#508).
+
+- OpenCode V2: accept the live `shell` tool name alongside `bash` for ledger lesson injection and turn observations, with live-shape mechanism rows (#509).
 
 - Error-ledger lesson injection (#394): ledger records gain optional `match` rules; a shared matcher carries matched Cue/Lesson text into Claude Code, Codex and OpenCode V2 context at a `git commit` action and its commitlint failure (mechanism evidence; OpenCode V1 delivery unchecked). ROUTE-001 is superseded.
 

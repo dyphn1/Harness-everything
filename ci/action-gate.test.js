@@ -438,6 +438,168 @@ try {
     check(actionGate.evaluatePreToolUse(creation, { host: 'codex', sessionDir, ruleTable: table }).kind === 'block', 'PR creation still honors the documented explicit required gate');
   }
 
+  const issueCommentTools = [
+    'mcp__codex_apps__github__add_comment_to_issue',
+    'mcp__codex_apps__github_add_comment_to_issue',
+  ];
+  const issueCompletedCloseTools = [
+    'mcp__codex_apps__github__update_issue',
+    'mcp__codex_apps__github_update_issue',
+  ];
+  const issueCommentInput = { repo_full_name: 'dyphn1/Harness-everything', pr_number: 502, comment: 'routine fixture comment' };
+  const issueCloseInput = { repository_full_name: 'dyphn1/Harness-everything', issue_number: 502, state: 'closed', state_reason: 'completed' };
+  const issuePayload = (tool, input, id, extra = {}) => ({
+    ...payload('', { tool, toolUseId: id }),
+    tool_name: tool,
+    tool_input: input,
+    ...extra,
+  });
+
+  for (const [tools, input, id, expectedRule, operation] of [
+    [issueCommentTools, issueCommentInput, 'issue-comment-positive', 'routine-issue-comment', 'Issue comment'],
+    [issueCompletedCloseTools, issueCloseInput, 'issue-close-positive', 'routine-issue-completed-close', 'Issue completed-close'],
+  ]) {
+    for (const tool of tools) {
+      const candidate = issuePayload(tool, input, id + '-' + tools.indexOf(tool));
+      const result = actionGate.evaluatePreToolUse(candidate, { host: 'codex', sessionDir, ruleTable: table });
+      check(result.kind === 'allow' && result.exitCode === 0 && result.stdout === null, operation + ' exact Codex tool defers to host');
+      check(result.record && result.record.disposition === 'deferred-to-host' && result.record.matchedRule === expectedRule, operation + ' records its distinct host-deferred id');
+      const descriptor = result.descriptor || (result.record && result.record.actionDescriptor);
+      check(descriptor && descriptor.action === 'mutate' && descriptor.classification === 'gated', operation + ' remains a gated mutation');
+      check(!Object.prototype.hasOwnProperty.call(result, 'permissionDecision'), operation + ' emits no Harness permission decision');
+    }
+  }
+
+  const issueInvalidInputs = [
+    ['comment null arguments', issueCommentTools[0], null],
+    ['comment missing repo selector', issueCommentTools[0], { pr_number: 502, comment: 'comment' }],
+    ['comment empty repo selector', issueCommentTools[0], { ...issueCommentInput, repo_full_name: ' ' }],
+    ['comment ownerless repo selector', issueCommentTools[0], { ...issueCommentInput, repo_full_name: 'repo-only' }],
+    ['comment wrong repo selector type', issueCommentTools[0], { ...issueCommentInput, repo_full_name: 502 }],
+    ['comment invalid issue selector', issueCommentTools[0], { ...issueCommentInput, pr_number: 0 }],
+    ['comment fractional issue selector', issueCommentTools[0], { ...issueCommentInput, pr_number: 1.5 }],
+    ['comment string issue selector', issueCommentTools[0], { ...issueCommentInput, pr_number: '502' }],
+    ['comment missing text', issueCommentTools[0], { ...issueCommentInput, comment: '' }],
+    ['comment whitespace text', issueCommentTools[0], { ...issueCommentInput, comment: '  ' }],
+    ['comment invalid text type', issueCommentTools[0], { ...issueCommentInput, comment: null }],
+    ['comment extra null key', issueCommentTools[0], { ...issueCommentInput, unknown: null }],
+    ['close missing repo selector', issueCompletedCloseTools[0], { issue_number: 502, state: 'closed', state_reason: 'completed' }],
+    ['close missing issue selector', issueCompletedCloseTools[0], { ...issueCloseInput, issue_number: null }],
+    ['close empty repo selector', issueCompletedCloseTools[0], { ...issueCloseInput, repository_full_name: '' }],
+    ['close ownerless repo selector', issueCompletedCloseTools[0], { ...issueCloseInput, repository_full_name: 'repo-only' }],
+    ['close wrong repo selector type', issueCompletedCloseTools[0], { ...issueCloseInput, repository_full_name: 502 }],
+    ['close string issue selector', issueCompletedCloseTools[0], { ...issueCloseInput, issue_number: '502' }],
+    ['close wrong state', issueCompletedCloseTools[0], { ...issueCloseInput, state: 'open' }],
+    ['close reopened state', issueCompletedCloseTools[0], { ...issueCloseInput, state: 'reopened' }],
+    ['close wrong reason', issueCompletedCloseTools[0], { ...issueCloseInput, state_reason: 'not_planned' }],
+    ['close duplicate reason', issueCompletedCloseTools[0], { ...issueCloseInput, state_reason: 'duplicate' }],
+    ['close reopened reason', issueCompletedCloseTools[0], { ...issueCloseInput, state_reason: 'reopened' }],
+    ['close null reason', issueCompletedCloseTools[0], { ...issueCloseInput, state_reason: null }],
+    ['close missing state', issueCompletedCloseTools[0], { repository_full_name: issueCloseInput.repository_full_name, issue_number: 502, state_reason: 'completed' }],
+    ['close missing reason', issueCompletedCloseTools[0], { repository_full_name: issueCloseInput.repository_full_name, issue_number: 502, state: 'closed' }],
+    ['close null extra key', issueCompletedCloseTools[0], { ...issueCloseInput, title: null }],
+  ];
+  for (const [name, tool, input] of issueInvalidInputs) {
+    const result = actionGate.evaluatePreToolUse(issuePayload(tool, input, 'issue-invalid-' + name.replace(/[^a-z0-9]+/gi, '-')), {
+      host: 'codex', sessionDir, ruleTable: table,
+    });
+    check(result.kind === 'block' && result.exitCode === 2 && result.record.disposition === 'rejected'
+      && result.rule && result.rule.id === 'structured-mutate', name + ' remains gated');
+  }
+  for (const key of ['title', 'body', 'labels', 'assignees', 'milestone']) {
+    const input = { ...issueCloseInput, [key]: null };
+    const result = actionGate.evaluatePreToolUse(issuePayload(issueCompletedCloseTools[0], input, 'issue-close-extra-' + key), {
+      host: 'codex', sessionDir, ruleTable: table,
+    });
+    check(result.kind === 'block' && result.exitCode === 2, 'completed-close rejects extra ' + key + ' even when null');
+  }
+
+  for (const tool of [
+    'add_comment_to_issue',
+    'mcp__github__add_comment_to_issue',
+    'mcp__codex_apps__github__add_comment_to_issues',
+    'mcp__codex_apps__github_add_comment_to_issue_extra',
+    'mcp__demo__add_comment_to_issue',
+    'mcp__codex_apps__github__foo_add_comment_to_issue',
+    'mcp__github__update_issue',
+    'mcp__codex_apps__github_update_issues',
+    'local__mcp__codex_apps__github_update_issue',
+  ]) {
+    const input = tool.includes('comment') ? issueCommentInput : issueCloseInput;
+    const result = actionGate.evaluatePreToolUse(issuePayload(tool, input, 'issue-spoof-' + tool.replace(/[^a-z0-9]+/gi, '-')), {
+      host: 'codex', sessionDir, ruleTable: table,
+    });
+    check(result.kind === 'block' && result.exitCode === 2, 'near-match or other provider ' + tool + ' stays gated');
+  }
+
+  for (const action of ['delete', 'publish', 'deploy', 'send']) {
+    const candidate = issuePayload(issueCommentTools[0], issueCommentInput, 'issue-high-risk-' + action, {
+      action_descriptor: { toolFamily: 'shell', action },
+    });
+    const result = actionGate.evaluatePreToolUse(candidate, { host: 'codex', sessionDir, ruleTable: table });
+    check(result.kind === 'block' && result.exitCode === 2, 'explicit higher-risk ' + action + ' descriptor stays gated');
+    check(result.record.actionDescriptor.toolFamily === 'mcp', 'actual Issue tool identity overrides a spoofed shell family');
+  }
+  for (const action of ['read', 'unknown']) {
+    const candidate = issuePayload(issueCommentTools[0], issueCommentInput, 'issue-downgrade-' + action, {
+      action_descriptor: { toolFamily: 'shell', action },
+    });
+    const result = actionGate.evaluatePreToolUse(candidate, { host: 'codex', sessionDir, ruleTable: table });
+    check(result.kind === 'allow' && result.record.matchedRule === 'routine-issue-comment'
+      && result.record.actionDescriptor.toolFamily === 'mcp' && result.record.actionDescriptor.action === 'mutate',
+    'explicit ' + action + ' descriptor cannot downgrade the exact Issue mutation');
+  }
+
+  for (const host of ['claude', 'opencode', 'unknown']) {
+    const candidate = issuePayload(issueCommentTools[0], issueCommentInput, 'issue-host-' + host);
+    const result = actionGate.evaluatePreToolUse(candidate, { host, sessionDir, ruleTable: table });
+    check(result.rule && result.rule.id === 'structured-mutate', host + ' issue comment keeps its existing mutation gate');
+  }
+
+  for (const operation of [
+    [issueCommentTools[0], issueCommentInput, 'comment'],
+    [issueCompletedCloseTools[0], issueCloseInput, 'close'],
+  ]) {
+    for (let requiredAt = 0; requiredAt < 4; requiredAt++) {
+      const optionalHints = Object.assign({}, ...gateEnvelopes({ required: false }));
+      const hints = { ...optionalHints, ...gateEnvelopes({ required: true })[requiredAt] };
+      const candidate = issuePayload(operation[0], operation[1], 'issue-required-' + operation[2] + '-' + requiredAt, hints);
+      const result = actionGate.evaluatePreToolUse(candidate, { host: 'codex', sessionDir, ruleTable: table });
+      check(result.kind === 'block' && result.exitCode === 2 && result.record.disposition === 'rejected', 'required actionGate envelope ' + requiredAt + ' wins for issue ' + operation[2]);
+    }
+  }
+
+  const issueAuditCases = [
+    [issueCommentTools[0], { ...issueCommentInput, comment: 'audit comment one' }, 'issue-audit-one', 'success'],
+    [issueCommentTools[0], { ...issueCommentInput, comment: 'audit comment two' }, 'issue-audit-two', 'failure'],
+    [issueCompletedCloseTools[0], issueCloseInput, 'issue-audit-close-success', 'success'],
+    [issueCompletedCloseTools[0], issueCloseInput, 'issue-audit-close-failure', 'failure'],
+  ];
+  const issueAuditPres = issueAuditCases.map(([tool, input, id]) => {
+    const candidate = issuePayload(tool, input, id);
+    return { candidate, result: actionGate.evaluatePreToolUse(candidate, { host: 'codex', sessionDir, ruleTable: table }) };
+  });
+  for (let index = 0; index < issueAuditCases.length; index++) {
+    const [tool, input, id, outcome] = issueAuditCases[index];
+    const { candidate, result } = issueAuditPres[index];
+    check(result.record && result.record.disposition === 'deferred-to-host', id + ' has an independent pre-action audit record');
+    check(result.record && result.record.commandHash === actionGate.hashExact(actionGate.exactPayloadText(candidate)), id + ' records the exact payload hash');
+    check(result.record && !JSON.stringify(result.record).includes(input.comment || 'routine fixture comment'), id + ' audit does not persist comment text');
+    const post = actionGate.finalizeExecution(candidate, outcome, { sessionDir });
+    check(post.record && post.record.disposition === 'executed' && post.record.executionOutcome === outcome, id + ' PostToolUse outcome is accurate');
+    check(post.record && Boolean(post.record.executionFailure) === (outcome === 'failure'), id + ' failure flag matches outcome');
+  }
+  check(issueAuditPres[0].result.record.commandHash !== issueAuditPres[1].result.record.commandHash, 'different issue comments have different audit hashes');
+  const alteredIssue = {
+    ...issueAuditPres[0].candidate,
+    tool_input: { ...issueAuditPres[0].candidate.tool_input, comment: 'changed after PreToolUse' },
+  };
+  check(actionGate.finalizeExecution(alteredIssue, 'success', { sessionDir }).record.disposition === 'integrity-violation', 'changed issue payload cannot reuse a deferred audit record');
+  const unexecutedIssue = issuePayload(issueCommentTools[0], { ...issueCommentInput, comment: 'never executed' }, 'issue-unexecuted-stop');
+  actionGate.evaluatePreToolUse(unexecutedIssue, { host: 'codex', sessionDir, ruleTable: table });
+  const issueStop = actionGate.rejectPendingAtStop(unexecutedIssue, { sessionDir });
+  check(issueStop.rejected > 0 && readAudit(sessionDir, unexecutedIssue.tool_use_id).disposition === 'rejected', 'Stop rejects an unexecuted issue deferral');
+
 
 } catch (err) {
   console.error(err.stack || err.message);
