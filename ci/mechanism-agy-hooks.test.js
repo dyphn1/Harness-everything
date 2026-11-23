@@ -23,10 +23,14 @@ function runHook(scriptName, inputPayload, env = {}) {
   const scriptPath = path.join(SCRIPTS_DIR, scriptName);
   assert.ok(fs.existsSync(scriptPath), `Hook script ${scriptName} must exist`);
 
+  const childEnv = { ...process.env, HARNESS_STATE_HOME: tempStateHome };
+  delete childEnv.HARNESS_REQUIRE_VERIFICATION;
+  Object.assign(childEnv, env);
+
   const run = spawnSync(process.execPath, [scriptPath], {
     input: JSON.stringify(inputPayload),
     encoding: 'utf8',
-    env: { ...process.env, HARNESS_STATE_HOME: tempStateHome, ...env },
+    env: childEnv,
     timeout: 20000
   });
 
@@ -452,17 +456,24 @@ try {
     });
     assert.deepStrictEqual(editRes, {}, 'PostToolUse must output empty object');
 
-    // Step 2: Stop on convA with workspacePaths-only (NO cwd!) -> MUST continue (unverified edit)
-    for (const normalCase of [
+    // Step 2: Stop on unverified edit with workspacePaths-only (NO cwd!) -> MUST continue across normal reasons
+    for (const [idx, normalCase] of [
       { terminationReason: 'NO_TOOL_CALL', fullyIdle: true, executionNum: 0 },
       { terminationReason: 'model_stop', fullyIdle: false, executionNum: 1 },
       { terminationReason: 'MODEL_STOP', fullyIdle: true, executionNum: 2 },
       { terminationReason: '' },
       {},
       { terminationReason: 'normal_completion' }
-    ]) {
+    ].entries()) {
+      const caseConv = `${convA}-normal-${idx}`;
+      runHook('agy-post-tool.js', {
+        conversationId: caseConv,
+        workspacePaths: [e2eWs],
+        toolCall: { name: 'write_to_file', args: { TargetFile: path.join(e2eWs, 'feature.js') } },
+        stepIdx: 2
+      });
       const stopUnverified = runHook('agy-stop.js', {
-        conversationId: convA,
+        conversationId: caseConv,
         workspacePaths: [e2eWs],
         continuationActive: false,
         ...normalCase
@@ -546,7 +557,19 @@ try {
       executionNum: 0,
       terminationReason: 'NO_TOOL_CALL'
     });
-    assert.strictEqual(stopAfterUnknownVerify.decision, 'continue', 'Stop must continue after unverified edit + unknown shell outcome');
+    assert.strictEqual(stopAfterUnknownVerify.decision, 'continue', 'Stop attempt 1 must continue after unverified edit + unknown shell outcome');
+
+    const stopAfterUnknownVerifyRetry = runHook('agy-stop.js', {
+      conversationId: convA,
+      workspacePaths: [e2eWs],
+      continuationActive: false,
+      fullyIdle: true,
+      executionNum: 1,
+      terminationReason: 'NO_TOOL_CALL'
+    });
+    assert.deepStrictEqual(stopAfterUnknownVerifyRetry, { decision: 'allow' }, 'Stop attempt 2 on same unverified edit must allow (bounded retry, no infinite loop)');
+    const handoffAfterBoundedStop = JSON.parse(fs.readFileSync(handoffFile, 'utf8'));
+    assert.ok(!handoffAfterBoundedStop.lastVerifyAt, 'Bounded Stop allow must leave P1-B lastVerifyAt unset on unknown shell outcome');
 
     // Step 6: PostToolUse observes failing run_command via AGY protojson `error` string (no exitCode) and explicit exitCode
     const failRes = runHook('agy-post-tool.js', {
@@ -646,6 +669,22 @@ try {
       terminationReason: 'NO_TOOL_CALL'
     }, { HARNESS_REQUIRE_VERIFICATION: '1' });
     assert.deepStrictEqual(stopStrictVerified, { decision: 'allow' }, 'Strict verification must allow verified work');
+
+    const convStrictBounded = `${convA}-strict-bounded`;
+    const strictAttempt1 = runHook('agy-stop.js', {
+      conversationId: convStrictBounded,
+      workspacePaths: [e2eWs],
+      continuationActive: false,
+      terminationReason: 'NO_TOOL_CALL'
+    }, { HARNESS_REQUIRE_VERIFICATION: '1' });
+    assert.strictEqual(strictAttempt1.decision, 'continue', 'Strict verification attempt 1 without verify must continue');
+    const strictAttempt2 = runHook('agy-stop.js', {
+      conversationId: convStrictBounded,
+      workspacePaths: [e2eWs],
+      continuationActive: false,
+      terminationReason: 'NO_TOOL_CALL'
+    }, { HARNESS_REQUIRE_VERIFICATION: '1' });
+    assert.deepStrictEqual(strictAttempt2, { decision: 'allow' }, 'Strict verification attempt 2 on same state must allow (bounded retry)');
   }
 
   // 6. Multi-root workspacePaths end-to-end (PreToolUse -> PostToolUse -> Stop)
@@ -660,6 +699,7 @@ try {
     fs.mkdirSync(multiOutside, { recursive: true });
 
     const convMulti = 'test-conv-multiroot-' + Date.now();
+    const convMultiNoToolCall = 'test-conv-multiroot-ntc-' + Date.now();
     const convOther = 'test-conv-multiroot-other-' + Date.now();
     const targetInB = path.join(multiB, 'file.js');
     const sessionDirA = getSessionDir(multiA, convMulti);
@@ -692,21 +732,21 @@ try {
       'Multi-root edit must stay bound to primary A session rather than forking state into B'
     );
 
-    // 6.3: Unverified edit in B blocks Stop on both model_stop and NO_TOOL_CALL
-    for (const reason of ['model_stop', 'NO_TOOL_CALL']) {
-      const stopUnverified = runHook('agy-stop.js', {
-        conversationId: convMulti,
-        workspacePaths: [multiA, multiB],
-        cwd: multiA,
-        continuationActive: false,
-        terminationReason: reason
-      });
-      assert.strictEqual(
-        stopUnverified.decision,
-        'continue',
-        `Stop (${reason}) must continue when unverified edit exists in secondary root B`
-      );
-    }
+    // 6.3: Unverified edit in B blocks Stop on NO_TOOL_CALL (separate session) and model_stop (after unknown shell outcome)
+    runHook('agy-post-tool.js', {
+      conversationId: convMultiNoToolCall,
+      workspacePaths: [multiA, multiB],
+      cwd: multiA,
+      toolCall: { id: 'toolu_multi_b_ntc', name: 'write_file', args: { Path: targetInB, Content: 'export const ntc = 1;' } }
+    });
+    const stopNoToolCall = runHook('agy-stop.js', {
+      conversationId: convMultiNoToolCall,
+      workspacePaths: [multiA, multiB],
+      cwd: multiA,
+      continuationActive: false,
+      terminationReason: 'NO_TOOL_CALL'
+    });
+    assert.strictEqual(stopNoToolCall.decision, 'continue', 'Stop (NO_TOOL_CALL) must continue when unverified edit exists in secondary root B');
 
     // Separate conversationId must not inherit convMulti's edit
     const stopOtherConv = runHook('agy-stop.js', {
@@ -718,7 +758,7 @@ try {
     });
     assert.deepStrictEqual(stopOtherConv, { decision: 'allow' }, 'Separate conversationId must not inherit multi-root edit');
 
-    // 6.4: Unknown shell outcome (omitted error/exitCode) grants NO verification credit and Stop continues
+    // 6.4: Unknown shell outcome (omitted error/exitCode) grants NO verification credit; Stop is bounded to 1 continuation
     const postUnknownVerify = runHook('agy-post-tool.js', {
       conversationId: convMulti,
       workspacePaths: [multiA, multiB],
@@ -730,14 +770,58 @@ try {
     const stateAfterUnknown = JSON.parse(fs.readFileSync(handoffMultiA, 'utf8'));
     assert.ok(!stateAfterUnknown.lastVerifyAt, 'Unknown shell outcome must not grant lastVerifyAt after multi-root edit');
 
-    const stopStillUnverified = runHook('agy-stop.js', {
+    const stopAttempt1 = runHook('agy-stop.js', {
       conversationId: convMulti,
       workspacePaths: [multiA, multiB],
       cwd: multiA,
       continuationActive: false,
+      executionNum: 0,
       terminationReason: 'model_stop'
     });
-    assert.strictEqual(stopStillUnverified.decision, 'continue', 'Stop must continue when shell outcome after B edit was unknown');
+    assert.strictEqual(stopAttempt1.decision, 'continue', 'Stop attempt 1 (model_stop) must continue when shell outcome after B edit was unknown');
+
+    const stopAttempt2 = runHook('agy-stop.js', {
+      conversationId: convMulti,
+      workspacePaths: [multiA, multiB],
+      cwd: multiA,
+      continuationActive: false,
+      executionNum: 1,
+      terminationReason: 'model_stop'
+    });
+    assert.deepStrictEqual(stopAttempt2, { decision: 'allow' }, 'Stop attempt 2 on same unverified edit must allow (bounded retry, no infinite loop)');
+    const stateAfterBoundedAllow = JSON.parse(fs.readFileSync(handoffMultiA, 'utf8'));
+    assert.ok(!stateAfterBoundedAllow.lastVerifyAt, 'Bounded Stop allow must leave P1-B lastVerifyAt unset when shell outcome was unknown');
+
+    // Subsequent new edit in same session advances lastEditAt -> Stop reminds once again, then retry allows
+    const postSecondEditB = runHook('agy-post-tool.js', {
+      conversationId: convMulti,
+      workspacePaths: [multiA, multiB],
+      cwd: multiA,
+      toolCall: { id: 'toolu_multi_b_2', name: 'write_file', args: { Path: path.join(multiB, 'file2.js'), Content: 'export const y = 2;' } }
+    });
+    assert.deepStrictEqual(postSecondEditB, {}, 'PostToolUse must output empty object on subsequent edit');
+    const stateAfterSecondEdit = JSON.parse(fs.readFileSync(handoffMultiA, 'utf8'));
+    assert.ok(stateAfterSecondEdit.lastEditAt > stateAfterBoundedAllow.lastEditAt, 'Subsequent edit must advance lastEditAt');
+
+    const stopSecondEditAttempt1 = runHook('agy-stop.js', {
+      conversationId: convMulti,
+      workspacePaths: [multiA, multiB],
+      cwd: multiA,
+      continuationActive: false,
+      executionNum: 2,
+      terminationReason: 'NO_TOOL_CALL'
+    });
+    assert.strictEqual(stopSecondEditAttempt1.decision, 'continue', 'Stop must continue once again after a new unverified edit');
+
+    const stopSecondEditAttempt2 = runHook('agy-stop.js', {
+      conversationId: convMulti,
+      workspacePaths: [multiA, multiB],
+      cwd: multiA,
+      continuationActive: false,
+      executionNum: 3,
+      terminationReason: 'NO_TOOL_CALL'
+    });
+    assert.deepStrictEqual(stopSecondEditAttempt2, { decision: 'allow' }, 'Stop retry after second edit must allow (bounded to 1 continuation per edit)');
 
     // Trusted verification (run_command with exitCode: 0) -> Stop allows
     const postTrustedVerify = runHook('agy-post-tool.js', {
@@ -860,6 +944,8 @@ try {
     }
 
     // Empty path in state-persist.js --agy must fail closed and NOT advance lastEditAt
+    const emptyStateEnv = { ...process.env, HARNESS_STATE_HOME: tempStateHome };
+    delete emptyStateEnv.HARNESS_REQUIRE_VERIFICATION;
     const emptyStateRun = spawnSync(process.execPath, [path.join(SCRIPTS_DIR, 'state-persist.js'), '--agy'], {
       input: JSON.stringify({
         hook_event_name: 'PostToolUse',
@@ -871,7 +957,7 @@ try {
         tool_input: { file_path: '   ' }
       }),
       encoding: 'utf8',
-      env: { ...process.env, HARNESS_STATE_HOME: tempStateHome },
+      env: emptyStateEnv,
       timeout: 20000
     });
     assert.strictEqual(emptyStateRun.status, 0, 'state-persist.js --agy must exit 0 on empty path');

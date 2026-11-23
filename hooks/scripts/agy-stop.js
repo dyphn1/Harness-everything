@@ -9,6 +9,9 @@
  * - If unverified edits exist or an unresolved tool failure exists, returns
  *   {"decision": "continue", "reason": "..."} to keep the agent in the loop.
  * - If verified (or no unverified edits), returns {"decision": "allow"}.
+ * - Tracks the last continued state fingerprint in agy-stop-state.json so each
+ *   unverified edit or failure triggers at most one forced continuation (preventing
+ *   infinite loops on hosts that omit exitCode or continuationActive).
  * - Respects compatibility recursion guards (continuationActive / stop_hook_active)
  *   to prevent infinite continuation loops, and allows stop on explicit abnormal
  *   terminationReason values (USER_CANCELED, ERROR, limits, etc.) while evaluating
@@ -23,6 +26,29 @@ const {
   normalizeAgyStatePayload
 } = require('./lib/agy-adapter-core');
 const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
+
+const STOP_STATE_FILE = 'agy-stop-state.json';
+
+function readStopState(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return null;
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeStopState(filePath, state) {
+  try {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    const temp = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(temp, JSON.stringify(state, null, 2) + '\n', 'utf8');
+    fs.renameSync(temp, filePath);
+  } catch (_) {
+    // Best-effort marker write; never fail stop evaluation on state IO.
+  }
+}
 
 const ABNORMAL_TERMINATION_REASONS = new Set([
   'USER_CANCELED',
@@ -73,25 +99,38 @@ function evaluateStop(payload) {
   const lastVerifyAt = (handoff && handoff.lastVerifyAt) || 0;
   const isFailed = handoff && handoff.status === 'failed';
 
-  // 4. Check for unverified edits or unresolved failure
+  // 4. Check for unverified edits or unresolved failure (bounded to 1 continuation per pending state)
+  let pending = null;
   if (isFailed) {
-    return {
-      decision: 'continue',
+    pending = {
+      fingerprint: `failed:${handoff.timestamp || ''}:${handoff.tool || ''}:${handoff.exitCode ?? ''}`,
       reason: 'Harness Verify-Before-Claim: pending tool failure must be resolved before claiming completion.'
     };
-  }
-
-  if (lastEditAt > 0 && lastVerifyAt < lastEditAt) {
-    return {
-      decision: 'continue',
+  } else if (lastEditAt > 0 && lastVerifyAt < lastEditAt) {
+    pending = {
+      fingerprint: `edit:${lastEditAt}`,
       reason: 'Harness Verify-Before-Claim: unverified edits exist in session. Run relevant test/build/lint verification before claiming completion.'
+    };
+  } else if (process.env.HARNESS_REQUIRE_VERIFICATION === '1' && (!lastVerifyAt || lastVerifyAt < lastEditAt)) {
+    pending = {
+      fingerprint: `strict:${lastVerifyAt}`,
+      reason: 'Harness Verify-Before-Claim: objective test verification is required before claiming completion.'
     };
   }
 
-  if (process.env.HARNESS_REQUIRE_VERIFICATION === '1' && (!lastVerifyAt || lastVerifyAt < lastEditAt)) {
+  if (pending) {
+    const stopStateFile = path.join(sessionDir, STOP_STATE_FILE);
+    const saved = readStopState(stopStateFile);
+    if (saved && saved.lastContinuedFingerprint === pending.fingerprint) {
+      return { decision: 'allow' };
+    }
+    writeStopState(stopStateFile, {
+      lastContinuedFingerprint: pending.fingerprint,
+      updatedAt: new Date().toISOString()
+    });
     return {
       decision: 'continue',
-      reason: 'Harness Verify-Before-Claim: objective test verification is required before claiming completion.'
+      reason: pending.reason
     };
   }
 
