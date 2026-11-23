@@ -6,28 +6,42 @@
  *
  * Implements the Verify-Before-Claim gate:
  * - Inspects real session verification state (handoff-state.json in sessionDir).
- * - If unverified edits exist or unverified completion is claimed, returns
+ * - If unverified edits exist or an unresolved tool failure exists, returns
  *   {"decision": "continue", "reason": "..."} to keep the agent in the loop.
  * - If verified (or no unverified edits), returns {}.
- * - Respects continuationActive to prevent infinite continuation loops.
+ * - Respects continuationActive / stop_hook_active to prevent infinite continuation loops,
+ *   and allows stop on non-NO_TOOL_CALL terminationReason (USER_CANCELED, ERROR, limits, etc.).
  */
 
 const fs = require('fs');
 const path = require('path');
-const { readJsonStdin } = require('./lib/agy-adapter-core');
+const {
+  readJsonStdin,
+  getAgySessionId,
+  normalizeAgyStatePayload
+} = require('./lib/agy-adapter-core');
 const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
 
 function evaluateStop(payload) {
-  if (!payload) return {};
+  if (!payload || typeof payload !== 'object') return {};
 
   // 1. If a previous Stop hook already continued work during this turn, allow stop to prevent loops
-  if (payload.continuationActive) {
+  if (payload.continuationActive || payload.stop_hook_active) {
     return {};
   }
 
-  // 2. Locate session state
-  const sessionId = payload.conversationId || payload.session_id || payload.sessionId;
-  const root = getWorkspaceRoot(payload) || payload.cwd || (Array.isArray(payload.workspacePaths) && payload.workspacePaths[0]) || process.cwd();
+  // 2. Allow stop on non-normal termination reasons (USER_CANCELED, ERROR, MAX_INVOCATIONS, etc.)
+  const terminationReason = typeof payload.terminationReason === 'string'
+    ? payload.terminationReason.trim()
+    : '';
+  if (terminationReason && terminationReason !== 'NO_TOOL_CALL') {
+    return {};
+  }
+
+  // 3. Locate session state using normalized AGY workspace/session context
+  const normalized = normalizeAgyStatePayload(payload);
+  const sessionId = getAgySessionId(payload);
+  const root = getWorkspaceRoot(normalized) || normalized.cwd;
   const sessionDir = getSessionDir(root, sessionId);
   const handoffFile = path.join(sessionDir, 'handoff-state.json');
 
@@ -42,7 +56,7 @@ function evaluateStop(payload) {
   const lastVerifyAt = (handoff && handoff.lastVerifyAt) || 0;
   const isFailed = handoff && handoff.status === 'failed';
 
-  // 3. Check for unverified edits or unresolved failure
+  // 4. Check for unverified edits or unresolved failure
   if (isFailed) {
     return {
       decision: 'continue',

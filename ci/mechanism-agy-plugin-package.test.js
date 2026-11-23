@@ -10,6 +10,10 @@ const PLUGIN = path.join(ROOT, 'plugins', 'harness-everything');
 const ROOT_PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const SOURCE_MANIFEST = JSON.parse(fs.readFileSync(path.join(ROOT, '.claude-plugin', 'plugin.json'), 'utf8'));
 
+function sha256File(filePath) {
+  return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+}
+
 // 1. Manifest structure & schema
 const AGY_MANIFEST_PATH = path.join(PLUGIN, '.antigravity-plugin', 'plugin.json');
 assert.ok(fs.existsSync(AGY_MANIFEST_PATH), '.antigravity-plugin/plugin.json must exist');
@@ -27,11 +31,30 @@ assert.ok(Array.isArray(agyManifest.keywords) && agyManifest.keywords.length > 0
 // 2. Rules integration (AGENTS.md)
 const RULES_PATH = path.join(PLUGIN, 'rules', 'AGENTS.md');
 assert.ok(fs.existsSync(RULES_PATH), 'plugins/harness-everything/rules/AGENTS.md must exist');
-const rootAgentsSha = crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, 'AGENTS.md'))).digest('hex');
-const pluginAgentsSha = crypto.createHash('sha256').update(fs.readFileSync(RULES_PATH)).digest('hex');
-assert.strictEqual(pluginAgentsSha, rootAgentsSha, 'rules/AGENTS.md must match repository AGENTS.md byte-for-byte');
+assert.strictEqual(sha256File(RULES_PATH), sha256File(path.join(ROOT, 'AGENTS.md')), 'rules/AGENTS.md must match repository AGENTS.md byte-for-byte');
 
-// 3. Canonical skills parity
+// 3. AGY hook runtime parity between hooks/scripts/ and plugins/harness-everything/hooks/scripts/
+const HOOKS_JSON = path.join(PLUGIN, 'hooks.json');
+assert.ok(fs.existsSync(HOOKS_JSON), 'plugins/harness-everything/hooks.json must exist at plugin root');
+JSON.parse(fs.readFileSync(HOOKS_JSON, 'utf8'));
+
+const agyHookFiles = [
+  'agy-session-start.js',
+  'agy-pre-invocation.js',
+  'agy-pre-tool.js',
+  'agy-post-tool.js',
+  'agy-stop.js',
+  path.join('lib', 'agy-adapter-core.js')
+];
+for (const rel of agyHookFiles) {
+  const sourceFile = path.join(ROOT, 'hooks', 'scripts', rel);
+  const packagedFile = path.join(PLUGIN, 'hooks', 'scripts', rel);
+  assert.ok(fs.existsSync(sourceFile), `Source hook script missing: ${rel}`);
+  assert.ok(fs.existsSync(packagedFile), `Packaged hook script missing: ${rel}`);
+  assert.strictEqual(sha256File(packagedFile), sha256File(sourceFile), `Packaged hook script must match source byte-for-byte: ${rel}`);
+}
+
+// 4. Canonical skills parity
 const expectedSkills = (SOURCE_MANIFEST.skills || []).map(entry => path.basename(entry)).sort();
 const packagedSkills = fs.readdirSync(path.join(PLUGIN, 'skills'), { withFileTypes: true })
   .filter(entry => entry.isDirectory())
@@ -49,4 +72,4 @@ for (const skillName of packagedSkills) {
   assert.ok(content.includes('## DO NOT USE FOR:'), `${skillName} must contain ## DO NOT USE FOR:`);
 }
 
-console.log('Antigravity (AGY) plugin package verified: manifest, rules, and 28 canonical skills in lockstep.');
+console.log('Antigravity (AGY) plugin package verified: manifest, rules, hooks parity, and 28 canonical skills in lockstep.');

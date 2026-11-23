@@ -11,40 +11,58 @@
 
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { readJsonStdin } = require('./lib/agy-adapter-core');
+const {
+  readJsonStdin,
+  getAgySessionId,
+  getAgyEffectiveCwd
+} = require('./lib/agy-adapter-core');
+
+const FILE_MUTATION_TOOLS = new Set([
+  'write_file',
+  'write_to_file',
+  'edit_file',
+  'replace_file_content',
+  'multi_replace_file_content'
+]);
 
 function mapAgyPayloadToStatePersist(payload) {
-  const sessionId = payload.conversationId || payload.session_id || payload.sessionId || '';
-  const cwd = payload.cwd || (Array.isArray(payload.workspacePaths) && payload.workspacePaths[0]) || process.cwd();
-  const toolCall = payload.toolCall || {};
-  const rawToolName = toolCall.name || payload.tool_name || payload.tool || '';
-  const args = toolCall.args || payload.tool_input || {};
+  const safePayload = payload && typeof payload === 'object' ? payload : {};
+  const sessionId = getAgySessionId(safePayload);
+  const workspaceCwd = getAgyEffectiveCwd(safePayload);
+  const toolCall = (safePayload.toolCall && typeof safePayload.toolCall === 'object') ? safePayload.toolCall : {};
+  const rawToolName = toolCall.name || safePayload.tool_name || safePayload.toolName || safePayload.tool || '';
+  const args = (toolCall.args && typeof toolCall.args === 'object')
+    ? toolCall.args
+    : ((safePayload.tool_input && typeof safePayload.tool_input === 'object') ? safePayload.tool_input : {});
 
   let toolName = rawToolName;
   let toolInput = { ...args };
+  let effectiveCwd = workspaceCwd;
 
   if (rawToolName === 'run_command') {
     toolName = 'Bash';
-    toolInput = { command: String(args.CommandLine || args.command || '').trim() };
-  } else if (
-    rawToolName === 'write_file' ||
-    rawToolName === 'write_to_file' ||
-    rawToolName === 'edit_file' ||
-    rawToolName === 'replace_file_content' ||
-    rawToolName === 'multi_replace_file_content'
-  ) {
+    const command = String(args.CommandLine || args.command || '').trim();
+    const commandCwd = (typeof args.Cwd === 'string' && args.Cwd.trim())
+      || (typeof args.cwd === 'string' && args.cwd.trim())
+      || workspaceCwd;
+    effectiveCwd = commandCwd;
+    toolInput = {
+      command,
+      ...(commandCwd ? { cwd: commandCwd } : {})
+    };
+  } else if (FILE_MUTATION_TOOLS.has(rawToolName)) {
     toolName = 'Write';
-    const filePath = args.TargetFile || args.Path || args.path || args.targetFile || args.filePath || '';
-    toolInput = { file_path: filePath, ...args };
+    const filePath = args.TargetFile || args.Path || args.path || args.targetFile || args.filePath || args.file_path || '';
+    toolInput = { ...args, file_path: filePath };
   }
 
-  const toolResponse = payload.toolResponse || payload.tool_response || payload.result || {};
-  const rawError = payload.error || toolResponse.error || '';
+  const toolResponse = safePayload.toolResponse || safePayload.tool_response || safePayload.result || {};
+  const rawError = safePayload.error || toolResponse.error || '';
   const error = typeof rawError === 'string' ? rawError : (rawError ? JSON.stringify(rawError) : '');
-  const stdout = toolResponse.stdout || (typeof payload.output === 'string' ? payload.output : '') || '';
+  const stdout = toolResponse.stdout || (typeof safePayload.output === 'string' ? safePayload.output : '') || '';
   const stderr = toolResponse.stderr || (typeof error === 'string' ? error : '') || '';
 
-  let exitCode = payload.exitCode;
+  let exitCode = safePayload.exitCode;
   if (exitCode === undefined && toolResponse.exitCode !== undefined) exitCode = toolResponse.exitCode;
   if (exitCode === undefined && toolResponse.exit_code !== undefined) exitCode = toolResponse.exit_code;
 
@@ -55,8 +73,11 @@ function mapAgyPayloadToStatePersist(payload) {
     session_id: sessionId,
     sessionId: sessionId,
     conversationId: sessionId,
-    cwd,
-    workspacePaths: payload.workspacePaths || [cwd],
+    cwd: effectiveCwd,
+    workspace_root: workspaceCwd,
+    workspacePaths: (Array.isArray(safePayload.workspacePaths) && safePayload.workspacePaths.length > 0)
+      ? safePayload.workspacePaths
+      : [workspaceCwd],
     tool_name: toolName,
     tool_input: toolInput,
     tool_response: {

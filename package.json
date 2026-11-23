@@ -41,7 +41,6 @@
     "plugin:claude:stage": "node scripts/stage-claude-plugin.js",
     "plugin:claude:validate": "node scripts/validate-claude-plugin.js",
     "test:plugin:openai": "node ci/openai-plugin-package.test.js && node ci/openai-plugin-runtime.test.js",
-    "test:plugin:agy": "node ci/agy-plugin-package.test.js && node ci/agy-hooks.test.js",
     "test:plugin:hosts": "node ci/mechanism-2ao-plugin-sync.test.js",
     "test:release:sbom": "node ci/mechanism-2ap-sbom.test.js",
     "plugin:submission:build": "node scripts/build-openai-submission.js",

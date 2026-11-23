@@ -403,7 +403,7 @@ for (const sourceType of ['git', 'npm', 'remote', 'unknown']) {
     events.push(`call:${command}`);
     return fake.runner(command, args, opts);
   };
-  const result = sync({ host: 'all', codexHome, repository: 'dyphn1/Harness-everything', ref: 'main' }, {
+  const result = sync({ host: 'all', codexHome, agyHome: codexHome, repository: 'dyphn1/Harness-everything', ref: 'main' }, {
     runner,
     codexHooksInstall: fake.codexHooksInstall,
     commandAvailable: () => true,
@@ -443,25 +443,99 @@ for (const sourceType of ['git', 'npm', 'remote', 'unknown']) {
   assert.strictEqual(updateResult.failed, 0);
   assert.strictEqual(updateResult.results[0].action, 'update');
 
-  // Test dry-run
+  // Test dry-run on absent target: reports dry-run (not synchronized) and writes nothing
+  const absentTarget = path.join(agyTemp, 'plugins', 'absent-dry-run');
+  const absentDryLogs = [];
+  const absentDryResult = sync({ host: 'agy', agyTarget: absentTarget, dryRun: true }, {
+    commandAvailable: () => true,
+    log: msg => absentDryLogs.push(msg),
+    warn: () => {}
+  });
+  assert.strictEqual(absentDryResult.failed, 0);
+  assert.strictEqual(absentDryResult.synchronized, 0, 'dry-run must not increment synchronized count');
+  assert.strictEqual(absentDryResult.planned, 1, 'dry-run must increment planned count');
+  assert.strictEqual(absentDryResult.results[0].status, 'dry-run', 'dry-run must report status=dry-run');
+  assert.strictEqual(absentDryResult.results[0].action, 'install');
+  assert.ok(!fs.existsSync(absentTarget), 'dry-run must not create target directory');
+  assert.ok(absentDryLogs.some(log => log.includes('[dry-run] agy plugin install')), 'dry-run install log must be emitted');
+
+  // Test dry-run on existing target: reports dry-run (not synchronized)
   const dryLogs = [];
   const dryResult = sync({ host: 'agy', agyTarget: target, dryRun: true }, {
     commandAvailable: () => true,
     log: msg => dryLogs.push(msg),
     warn: () => {}
   });
-  assert.strictEqual(dryResult.results[0].status, 'synchronized');
+  assert.strictEqual(dryResult.failed, 0);
+  assert.strictEqual(dryResult.synchronized, 0, 'dry-run update must not report synchronized');
+  assert.strictEqual(dryResult.planned, 1);
+  assert.strictEqual(dryResult.results[0].status, 'dry-run');
+  assert.strictEqual(dryResult.results[0].action, 'update');
   assert.ok(dryLogs.some(log => log.includes('[dry-run] agy plugin update')), 'dry-run log must be emitted');
+
+  // Test CLI exit code 0 for `--host agy --dry-run` in a repo with bare `.agents/` -> targets global ~/.gemini, never pollutes .agents/plugins/
+  const bareAgentsRepo = path.join(agyTemp, 'codex-repo');
+  fs.mkdirSync(path.join(bareAgentsRepo, '.agents', 'skills'), { recursive: true });
+  const cliDryRun = require('child_process').spawnSync(
+    process.execPath,
+    [path.join(ROOT, 'scripts', 'plugin-sync.js'), '--host', 'agy', '--dry-run', '--json'],
+    {
+      cwd: bareAgentsRepo,
+      encoding: 'utf8',
+      env: { ...process.env, HOME: agyTemp, USERPROFILE: agyTemp, PATH: '' }
+    }
+  );
+  assert.strictEqual(cliDryRun.status, 0, `CLI --host agy --dry-run must exit 0: ${cliDryRun.stderr}`);
+  const cliDryJson = JSON.parse(cliDryRun.stdout);
+  assert.strictEqual(cliDryJson.results[0].status, 'dry-run', 'CLI JSON output must report status=dry-run');
+  assert.strictEqual(cliDryJson.synchronized, 0);
+  assert.strictEqual(cliDryJson.planned, 1);
+  assert.strictEqual(
+    cliDryJson.results[0].target,
+    path.join(agyTemp, '.gemini', 'config', 'plugins', 'harness-everything'),
+    'Fresh --host agy inside a repo with bare .agents/ must target global ~/.gemini, not .agents/plugins/'
+  );
+  assert.ok(
+    !fs.existsSync(path.join(bareAgentsRepo, '.agents', 'plugins')),
+    'Fresh --host agy must not pollute bare .agents/plugins/'
+  );
+
+  // Test real CLI `--host all --dry-run --json` discovers an existing global $HOME/.gemini/config/plugins/harness-everything
+  const globalExisting = path.join(agyTemp, '.gemini', 'config', 'plugins', 'harness-everything', '.antigravity-plugin');
+  fs.mkdirSync(globalExisting, { recursive: true });
+  fs.writeFileSync(path.join(globalExisting, 'plugin.json'), '{"name":"harness-everything"}\n', 'utf8');
+  const cliAllDryRun = require('child_process').spawnSync(
+    process.execPath,
+    [path.join(ROOT, 'scripts', 'plugin-sync.js'), '--host', 'all', '--dry-run', '--json'],
+    {
+      cwd: bareAgentsRepo,
+      encoding: 'utf8',
+      env: { ...process.env, HOME: agyTemp, USERPROFILE: agyTemp, PATH: '' }
+    }
+  );
+  assert.strictEqual(cliAllDryRun.status, 0, `CLI --host all --dry-run with existing global AGY install must exit 0: ${cliAllDryRun.stderr}`);
+  const cliAllDryJson = JSON.parse(cliAllDryRun.stdout);
+  const agyAllEntry = cliAllDryJson.results.find(r => r.host === 'agy');
+  assert.ok(agyAllEntry, 'agy entry must be present in --host all output');
+  assert.strictEqual(agyAllEntry.status, 'dry-run', 'Existing global AGY install must be discovered under real CLI --host all');
+  assert.strictEqual(agyAllEntry.action, 'update', 'Existing global AGY install must take update action');
+  assert.strictEqual(
+    agyAllEntry.target,
+    path.join(agyTemp, '.gemini', 'config', 'plugins', 'harness-everything')
+  );
 
   fs.rmSync(agyTemp, { recursive: true, force: true });
 }
 
-// AGY sync acceptance: --host all with only Codex .agents skips AGY without installing files
+// AGY sync acceptance: --host all with Codex .agents (including bare plugin.json) skips AGY
 {
   const projectTemp = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-codex-only-'));
   fs.mkdirSync(path.join(projectTemp, '.agents', 'skills'), { recursive: true });
+  const codexOnlyPluginDir = path.join(projectTemp, '.agents', 'plugins', 'harness-everything');
+  fs.mkdirSync(codexOnlyPluginDir, { recursive: true });
+  fs.writeFileSync(path.join(codexOnlyPluginDir, 'plugin.json'), '{"name":"harness-everything"}\n', 'utf8');
 
-  const result = sync({ host: 'all', cwd: projectTemp }, {
+  const result = sync({ host: 'all', cwd: projectTemp, agyHome: projectTemp }, {
     commandAvailable: cmd => cmd === 'codex',
     log: () => {},
     warn: () => {},
@@ -470,16 +544,36 @@ for (const sourceType of ['git', 'npm', 'remote', 'unknown']) {
 
   const agyRes = result.results.find(r => r.host === 'agy');
   assert.ok(agyRes, 'agy result should be present');
-  assert.strictEqual(agyRes.status, 'skipped', 'agy must be skipped when only Codex .agents exists');
+  assert.strictEqual(agyRes.status, 'skipped', 'agy must be skipped when .agents/plugins lacks .antigravity-plugin/plugin.json');
   assert.strictEqual(agyRes.reasonCode, 'cli-not-found');
-
-  // Assert no AGY files were created in .agents/plugins/harness-everything
   assert.ok(
-    !fs.existsSync(path.join(projectTemp, '.agents', 'plugins', 'harness-everything')),
-    'No AGY files should be installed in Codex project'
+    !fs.existsSync(path.join(codexOnlyPluginDir, '.antigravity-plugin', 'plugin.json')),
+    'No AGY manifest should be installed into Codex-only project'
   );
 
   fs.rmSync(projectTemp, { recursive: true, force: true });
+}
+
+// AGY sync acceptance: partial/corrupted target dir without plugin.json is replaced cleanly
+{
+  const partialTemp = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-agy-partial-'));
+  const target = path.join(partialTemp, 'plugins', 'harness-everything');
+  fs.mkdirSync(target, { recursive: true });
+  const brokenMarker = path.join(target, 'corrupted-partial.tmp');
+  fs.writeFileSync(brokenMarker, 'incomplete install', 'utf8');
+
+  const repairResult = sync({ host: 'agy', agyTarget: target }, {
+    commandAvailable: () => true,
+    log: () => {},
+    warn: () => {}
+  });
+  assert.strictEqual(repairResult.failed, 0, `Partial dir replacement must not fail: ${JSON.stringify(repairResult)}`);
+  assert.strictEqual(repairResult.results[0].status, 'synchronized');
+  assert.strictEqual(repairResult.results[0].action, 'install');
+  assert.ok(!fs.existsSync(brokenMarker), 'Corrupted leftover file must be removed');
+  assert.ok(fs.existsSync(path.join(target, '.antigravity-plugin', 'plugin.json')), 'Valid AGY manifest must be installed');
+
+  fs.rmSync(partialTemp, { recursive: true, force: true });
 }
 
 // AGY sync acceptance: atomic refresh removes obsolete files

@@ -5,13 +5,32 @@
  * Antigravity (AGY) SessionStart Hook Adapter
  *
  * Runs once when a new conversation session begins.
- * Injects Harness bootstrap message into the conversation trajectory.
+ * Binds session workspace identity (when provided) and injects Harness bootstrap message.
  */
 
-const { readJsonStdin } = require('./lib/agy-adapter-core');
+const {
+  readJsonStdin,
+  getAgySessionId,
+  normalizeAgyStatePayload
+} = require('./lib/agy-adapter-core');
+const { getWorkspaceRoot } = require('./lib/harness-state');
 
 async function main() {
-  await readJsonStdin();
+  const payload = await readJsonStdin();
+
+  try {
+    const sessionId = getAgySessionId(payload);
+    const hasWorkspaceHint = Boolean(
+      (typeof payload.cwd === 'string' && payload.cwd.trim()) ||
+      (Array.isArray(payload.workspacePaths) && payload.workspacePaths.some(entry => typeof entry === 'string' && entry.trim()))
+    );
+    if (sessionId && hasWorkspaceHint) {
+      const normalized = normalizeAgyStatePayload(payload);
+      getWorkspaceRoot(normalized);
+    }
+  } catch (_) {
+    // Session workspace binding is best-effort and must never fail startup.
+  }
 
   const response = {
     injectSteps: [

@@ -235,7 +235,7 @@ function resultError(result) {
 
 function createContext(options = {}) {
   const runner = options.runner || defaultRunner;
-  const log = options.log || (message => console.log(message));
+  const log = options.log || (message => (options.json ? console.warn(message) : console.log(message)));
   const warn = options.warn || (message => console.warn(message));
   const context = {
     ...DEFAULTS,
@@ -244,6 +244,7 @@ function createContext(options = {}) {
     log,
     warn,
     dryRun: Boolean(options.dryRun),
+    hasCustomProbe: Boolean(options.commandAvailable || options.runner),
     commandAvailable: options.commandAvailable || (command => {
       const result = runner(command, ['--version'], { probe: true });
       return result && result.status === 0 && !result.error;
@@ -602,17 +603,20 @@ function syncCodex(context) {
 
 function syncAgy(context) {
   const hasAgyCli = context.commandAvailable('agy');
-  const projectRoot = context.cwd || (context.commandAvailable === defaultRunner ? process.cwd() : null);
+  const projectRoot = context.cwd || (!context.hasCustomProbe ? process.cwd() : null);
   const projectAgentsDir = context.agyProjectRoot || (projectRoot ? path.join(projectRoot, '.agents') : null);
-  const globalGeminiDir = context.agyGlobalRoot || (context.agyHome ? path.join(context.agyHome, '.gemini') : null);
+  const globalGeminiDir = context.agyGlobalRoot ||
+    (context.agyHome
+      ? path.join(context.agyHome, '.gemini')
+      : (!context.hasCustomProbe ? path.join(os.homedir(), '.gemini') : null));
 
   const isExplicitAgy = context.host === 'agy';
   const hasExplicitTarget = Boolean(context.agyTarget);
 
-  const existingProjectTarget = projectAgentsDir && (
-    fs.existsSync(path.join(projectAgentsDir, 'plugins', context.plugin, '.antigravity-plugin', 'plugin.json')) ||
-    fs.existsSync(path.join(projectAgentsDir, 'plugins', context.plugin, 'plugin.json'))
-  ) ? path.join(projectAgentsDir, 'plugins', context.plugin) : null;
+  const existingProjectTarget = projectAgentsDir &&
+    fs.existsSync(path.join(projectAgentsDir, 'plugins', context.plugin, '.antigravity-plugin', 'plugin.json'))
+    ? path.join(projectAgentsDir, 'plugins', context.plugin)
+    : null;
 
   const existingGlobalTarget = globalGeminiDir && (
     fs.existsSync(path.join(globalGeminiDir, 'config', 'plugins', context.plugin, '.antigravity-plugin', 'plugin.json')) ||
@@ -633,11 +637,9 @@ function syncAgy(context) {
   const effectiveTarget = context.agyTarget ||
     existingProjectTarget ||
     existingGlobalTarget ||
-    ((projectAgentsDir && fs.existsSync(projectAgentsDir) && (hasAgyCli || isExplicitAgy))
-      ? path.join(projectAgentsDir, 'plugins', context.plugin)
-      : (context.agyHome
-          ? path.join(context.agyHome, '.gemini', 'config', 'plugins', context.plugin)
-          : path.join(os.homedir(), '.gemini', 'config', 'plugins', context.plugin)));
+    (context.agyProjectRoot
+      ? path.join(context.agyProjectRoot, 'plugins', context.plugin)
+      : path.join(context.agyHome || os.homedir(), '.gemini', 'config', 'plugins', context.plugin));
 
   const isInstalled = fs.existsSync(path.join(effectiveTarget, 'plugin.json')) ||
                       fs.existsSync(path.join(effectiveTarget, '.antigravity-plugin', 'plugin.json'));
@@ -646,20 +648,19 @@ function syncAgy(context) {
 
   if (context.dryRun) {
     context.log(`[dry-run] agy plugin ${action} -> ${effectiveTarget}`);
-    return { host: 'agy', status: 'synchronized', action, target: effectiveTarget };
+    return { host: 'agy', status: 'dry-run', action, target: effectiveTarget };
   }
 
   const sourcePackage = path.resolve(__dirname, '..', 'plugins', context.plugin);
   const targetParent = path.dirname(effectiveTarget);
-  fs.mkdirSync(targetParent, { recursive: true });
-
   const stagingDir = `${effectiveTarget}.${process.pid}.${Date.now()}.tmp`;
   const backupDir = `${effectiveTarget}.${process.pid}.${Date.now()}.bak`;
 
   try {
+    fs.mkdirSync(targetParent, { recursive: true });
     fs.cpSync(sourcePackage, stagingDir, { recursive: true });
 
-    if (isInstalled) {
+    if (fs.existsSync(effectiveTarget)) {
       fs.renameSync(effectiveTarget, backupDir);
       try {
         fs.renameSync(stagingDir, effectiveTarget);
@@ -749,6 +750,7 @@ function sync(options, dependencies = {}) {
     dryRun: context.dryRun,
     results,
     synchronized: results.filter(result => result.status === 'synchronized').length,
+    planned: results.filter(result => result.status === 'dry-run').length,
     skipped: results.filter(result => result.status === 'skipped').length,
     failed: results.filter(result => result.status === 'failed').length
   };
@@ -774,16 +776,18 @@ function main(argv = process.argv.slice(2)) {
   else {
     for (const result of summary.results) {
       if (result.status === 'synchronized') console.log('[ok] ' + result.host + ': ' + result.action + (result.compatHooks ? '; Codex hooks ' + result.compatHooks.status : ''));
+      else if (result.status === 'dry-run') console.log(`[dry-run] ${result.host}: ${result.action}${result.target ? ' -> ' + result.target : ''}`);
       else if (result.status === 'skipped') console.log(`[skip] ${result.host}: ${result.reason}`);
       else console.error(`[fail] ${result.host}: ${result.error}`);
     }
-    if (summary.synchronized === 0 && summary.failed === 0) {
+    const completed = summary.synchronized + summary.planned;
+    if (completed === 0 && summary.failed === 0) {
       console.error(summary.results.every(result => result.reasonCode === 'cli-not-found')
         ? 'No supported host CLI was found. Install Claude Code, Codex, and/or Antigravity (AGY), then retry.'
         : 'No host plugin was synchronized. Review the skip reasons above.');
     }
   }
-  return summary.failed > 0 || summary.synchronized === 0 ? 1 : 0;
+  return summary.failed > 0 || (summary.synchronized + summary.planned) === 0 ? 1 : 0;
 }
 
 if (require.main === module) process.exitCode = main();
