@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.58.0](https://github.com/dyphn1/Harness-everything/compare/v0.57.4...v0.58.0) (2026-11-23)
+
+### Features
+
+* **plugin:** add native antigravity plugin and lifecycle hooks ([#513](https://github.com/dyphn1/Harness-everything/issues/513)) ([2c9cd88](https://github.com/dyphn1/Harness-everything/commit/2c9cd881c18ca3e72bcd79b9493cfb5761196022)), closes [#510](https://github.com/dyphn1/Harness-everything/issues/510)
+
 ## [0.57.4](https://github.com/dyphn1/Harness-everything/compare/v0.57.3...v0.57.4) (2026-11-22)
 
 ### Bug Fixes
