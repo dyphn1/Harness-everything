@@ -37,7 +37,7 @@ flowchart LR
 | `<skill-name>/SKILL.md` | One canonical skill per top-level directory. Frontmatter: `name`, `description`, `metadata.author`, `metadata.version`. |
 | `hooks/` | Claude Code lifecycle hooks and shared mechanisms (circuit breaker, workflow/action/scope guards, stop gates). Not every host packages every hook. |
 | `harness-everything/scripts/` | Runtime: kernel/tier routing, workflow contract, verification, bootstrap, self-heal. |
-| `opencode-plugin/` | OpenCode native plugin. Mechanism-tested, with partial live-host evidence (see the boundary below). |
+| `opencode-plugin/` | OpenCode V2 native plugin (OpenCode 1.x / V1 unsupported). Mechanism-tested, with partial live-host evidence (see the boundary below). |
 | `.agents/plugins/` + `plugins/harness-everything/` | Local OpenAI/Codex marketplace + `.codex-plugin` package with canonical skill copies and packaged session/prompt hooks. |
 | `submission/openai/` | Public OpenAI Skills-only listing/test inputs. The public artifact does not include local `.codex-plugin` lifecycle hooks. |
 | `evals/<skill>/` | Trigger/routing eval per skill (waza format). Required for every canonical routed skill. |
@@ -51,7 +51,13 @@ flowchart LR
 
 ## OpenCode evidence boundary
 
-The retained [OpenCode evidence](benchmarks/results/live-host/opencode-2026-09-16/README.md) supports project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS).
+- **Support boundary (V2-only, #453):** Harness supports the OpenCode V2 plugin API only; OpenCode 1.x / V1 is unsupported.
+- New features, fixes, tests, and host compatibility work target V2 only. No V1 public entrypoint, V1-only event fallback, V1 hook registration, or compatibility mode may be added.
+- Retain historical V1 artifacts, but never promote them to current V2 capability evidence.
+- Reintroducing V1 support requires an explicit owner-approved support-contract change; it is not a routine compatibility fix.
+- State the V2 API family as the supported boundary. Tested V2 versions are recorded separately (`2.1.3` server-log load-only; `2.1.4` limited session workspace trace); neither establishes full V2 lifecycle verification, a validated minimum patch version, or coverage of every V2 release.
+
+**Historical / unsupported V1 evidence:** the retained [OpenCode evidence](benchmarks/results/live-host/opencode-2026-09-16/README.md) documents project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS). It is preserved as historical/unsupported evidence only and does not establish current V2 capability:
 
 - The final snapshot is post-reset (`hardLock: false`, `count: 1`).
 - Hard lock is only an interactive observation with no retained blocked-tool trace.

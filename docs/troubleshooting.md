@@ -237,9 +237,9 @@ Do not troubleshoot a missing `SessionStart` or `UserPromptSubmit` hook in the p
 
 ### OpenCode plugin implementation works in tests but host loading is uncertain
 
-**Symptom:** Source/mechanism tests pass, but there is no evidence that a real OpenCode session loaded and fired the plugin.
+**Symptom:** Source/mechanism tests pass, but there is no evidence that a real OpenCode V2 session loaded and fired the plugin.
 
-**Interpretation:** The current repository claim is intentionally **mechanism-tested, live loading unverified**. Check [`../opencode-plugin/README.md`](../opencode-plugin/README.md) and run the OpenCode mechanism coverage. Do not promote a source-level pass into a live-host pass without a real session artifact.
+**Interpretation:** Harness targets the **OpenCode V2 plugin API only** (OpenCode 1.x / V1 is unsupported, #453), and full V2 lifecycle firing remains **mechanism-tested, live lifecycle unverified** (existing 2.1.3 load-only and 2.1.4 workspace traces do not establish full V2 hook fire, and the retained 1.18.31 artifact is historical/unsupported V1 evidence only). Check [`../opencode-plugin/README.md`](../opencode-plugin/README.md) and run the OpenCode mechanism coverage. Do not promote a source-level pass or historical V1 artifact into a V2 live-host pass without a real V2 session artifact.
 
 ## Performance Issues
 

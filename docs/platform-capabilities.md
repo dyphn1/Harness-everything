@@ -15,7 +15,7 @@ Statuses are intentionally explicit:
 - `Unsupported`: official host documentation explicitly rules out the capability.
 - `Unknown`: the capability or its current host behavior was not established.
 
-Codex, Antigravity (AGY), and OpenCode are `Partial` in `liveHostVerification`. The Codex artifact verifies user-hook compatibility capture for two consecutive turns on one Windows Codex CLI host; native plugin-hook mounting and other host/version combinations remain unverified. The AGY artifact covers global Desktop App `2.34.0` and `agy` CLI `1.5.15` (macOS) for plugin loading/validation and lifecycle hooks under host-limited `PostToolUse` shell outcomes; IDE write tools, live `exitCode: 0` shell verification credit, live `model_stop`, and full project-scope isolation remain unverified. OpenCode's retained evidence supports project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS), not durable hard enforcement. No fresh artifacts exist yet for the other surfaces, managed-workspace import, or public OpenAI approval.
+Codex, Antigravity (AGY), and OpenCode are `Partial` in `liveHostVerification`. The Codex artifact verifies user-hook compatibility capture for two consecutive turns on one Windows Codex CLI host; native plugin-hook mounting and other host/version combinations remain unverified. The AGY artifact covers global Desktop App `2.34.0` and `agy` CLI `1.5.15` (macOS) for plugin loading/validation and lifecycle hooks under host-limited `PostToolUse` shell outcomes; IDE write tools, live `exitCode: 0` shell verification credit, live `model_stop`, and full project-scope isolation remain unverified. OpenCode supports the **V2 plugin API only** (OpenCode 1.x / V1 is unsupported): existing V2 live observations are limited (`2.1.3` macOS server-log load-only; `2.1.4` macOS limited session workspace trace) and neither establishes full V2 lifecycle verification, while the retained OpenCode 1.18.31 (macOS) project-scope `.js` loading and edit/verification state artifact is historical/unsupported V1 evidence only. No fresh artifacts exist yet for the other surfaces, managed-workspace import, or public OpenAI approval.
 
 ### Codex PR metadata action-gate boundary
 
@@ -66,7 +66,7 @@ Source and packaged plugin self-evolve entrypoints use installation-relative can
 
 ### Error-ledger lesson injection (mechanism only, #394)
 
-A shared matcher (`hooks/scripts/lib/ledger-match.js`) selects workspace ledger lessons whose `match` rules fit a direct `git commit` action (optionally after `-C`, `-c`, `--git-dir=`, `--work-tree=`, `--no-pager` or `-P`; compound and wrapped commands stay silent, #502) or its commitlint failure; rules are read from the generated index row and checked against the record's frontmatter binding, and the host carriers add the record's Cue and Lesson as model context: Claude Code `PreToolUse` and `PostToolUseFailure` (`hooks/scripts/ledger-lesson.js`), Codex `PreToolUse` and `PostToolUse` with outcome classification (`hooks/scripts/codex-ledger-lesson.js`, packaged and user-hook compatibility paths), and OpenCode V2 tool `execute.before/after` selection delivered through the next `context` hook, i.e. after the action. The OpenCode V1 adapter does not register `experimental.chat.system.transform` (`output.system`). V1 lesson delivery is `UNCHECKED`. Delivery is bounded, deduplicated per session and phase, fail-open, and never changes a tool result or permission. Deterministic mechanism tests cover all three carriers. [Claude Code live evidence](../benchmarks/results/live-host/claude-2026-11-21-ledger-lesson/README.md) (2.1.330, one run) shows both contexts in the model request that follows the commit, so the action lesson arrives after the first attempt. Codex and OpenCode live receipt remain `UNCHECKED`.
+A shared matcher (`hooks/scripts/lib/ledger-match.js`) selects workspace ledger lessons whose `match` rules fit a direct `git commit` action (optionally after `-C`, `-c`, `--git-dir=`, `--work-tree=`, `--no-pager` or `-P`; compound and wrapped commands stay silent, #502) or its commitlint failure; rules are read from the generated index row and checked against the record's frontmatter binding, and the host carriers add the record's Cue and Lesson as model context: Claude Code `PreToolUse` and `PostToolUseFailure` (`hooks/scripts/ledger-lesson.js`), Codex `PreToolUse` and `PostToolUse` with outcome classification (`hooks/scripts/codex-ledger-lesson.js`, packaged and user-hook compatibility paths), and OpenCode V2 tool `execute.before/after` selection delivered through the next `context` hook, i.e. after the action. OpenCode 1.x / V1 is unsupported; lesson delivery targets the OpenCode V2 plugin API only. Delivery is bounded, deduplicated per session and phase, fail-open, and never changes a tool result or permission. Deterministic mechanism tests cover all three carriers. [Claude Code live evidence](../benchmarks/results/live-host/claude-2026-11-21-ledger-lesson/README.md) (2.1.330, one run) shows both contexts in the model request that follows the commit, so the action lesson arrives after the first attempt. Codex and OpenCode live receipt remain `UNCHECKED`.
 
 ## Current capability summary
 
@@ -76,7 +76,7 @@ A shared matcher (`hooks/scripts/lib/ledger-match.js`) selects workspace ledger 
 | Antigravity (AGY) | `Supported` | `Partial` (`Mechanism verified`; global Desktop App `2.34.0` load and `agy` CLI `1.5.15` `validate`/`list --json` live-verified on macOS; `validate --strict` fails on 2 multi-host warnings; temp `.agents/plugins/` hook discovery observed via `agy --print`) | `Partial`: `Mechanism verified` for all adapters; Desktop App `2.34.0` + CLI `1.5.15` (macOS) live-verified `SessionStart`, `PreInvocation` dedup, `PreToolUse` (`write_file`/`run_command`), `PostToolUse` edit tracking, and `Stop` (`NO_TOOL_CALL`); `PostToolUse` omits `exitCode`/`error` on shell non-zero exit (`1`) on both `2.34.0` and CLI `1.5.15`, so unknown shell outcomes grant no verification credit (`exitCode === 0` required); IDE write tools (`write_to_file`/`replace_file_content`/`multi_replace_file_content`) and live `model_stop` remain mechanism-only | `.agents/plugins/harness-everything/`, `.agents/rules/AGENTS.md` | `~/.gemini/config/plugins/harness-everything/` | [Mechanism evidence](../benchmarks/results/live-host/agy-2026-11-22/README.md) + [partial live-host evidence](../benchmarks/results/live-host/agy-2026-11-23/README.md) (Antigravity 2.0 Desktop App `2.34.0` + `agy` CLI `1.5.15`, macOS); `/hooks` TUI view, full project-scope `harness-everything` isolation, IDE write tools, live shell `exitCode: 0` verification credit, and live `Stop` `model_stop` remain open in issue #514. |
 | ChatGPT / OpenAI Plugin | `Unknown` for a repository-local standalone path | `Mechanism verified` | `Partial`: local Work/Codex hooks are separate from ordinary Chat | Managed workspace marketplace | Not established | The public Skills-only bundle is mechanically reproducible; import, approval, and live behavior remain `Unknown`. |
 | Claude Code | `Supported` | `Supported` | `Mechanism verified` for Harness configuration | `.claude/skills/` | `~/.claude/skills/` | Native Claude surfaces and the state-specific plugin sync command are mechanically checked; fresh-host execution is not preserved here. |
-| OpenCode | `Supported` | `Partial` live-host loading for the project-scope, `.js`-filename install path on OpenCode 1.18.31 (macOS); router injection and observation capture are mechanism-tested on V2 | `Partial` live-host evidence for project-scope `.js` loading and edit/verification state; new prompt/context hooks have mechanism evidence only | `.opencode/skills/`, `.agents/skills/`, `.opencode/plugins/` | `~/.config/opencode/skills/`, `~/.agents/skills/`, `~/.config/opencode/plugins/` | [Retained evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md): loading and state effects verified in one host session; final snapshot post-reset; hard lock only an interactive observation, with no retained blocked-tool trace, and a post-reset final snapshot; reflection operator-seeded, then agent-rewritten; no raw transcript or behavioral-effectiveness claim. `.mjs` auto-discovery broken (issue #127); global scope, npm-package installation, and other host versions remain unverified; V2 default-export load verified live on OpenCode 2.1.3 (macOS, 2026-10-23, server-log evidence only). A separate [OpenCode 2.1.4/macOS session workspace trace](../benchmarks/results/live-host/opencode-2026-11-15-workspace/README.md) observed `ctx.session.get({sessionID})` returning `location.directory` for two sessions, both matching setup; it did not exercise a mismatch or fire the V2 hooks. Prompt/system injection and observation capture remain mechanism evidence only; no live-host behavior claim is made. |
+| OpenCode | `Supported` | `Partial` (V2 plugin API only; OpenCode 1.x / V1 unsupported; V2 default-export load verified live on OpenCode 2.1.3 macOS via server-log only, plus 2.1.4 macOS workspace trace; router injection and observation capture are mechanism-tested on V2) | `Partial` (V2 hooks are mechanism-verified only; OpenCode 2.1.3 load is server-log only and 2.1.4 workspace trace did not fire V2 hooks; retained 1.18.31 project-scope `.js` loading and edit/verification state artifact is historical/unsupported V1 evidence) | `.opencode/skills/`, `.agents/skills/`, `.opencode/plugins/` | `~/.config/opencode/skills/`, `~/.agents/skills/`, `~/.config/opencode/plugins/` | **V2-only support boundary (#453):** OpenCode V2 plugin API family only (OpenCode 1.x / V1 unsupported; no validated minimum patch version claimed). Tested V2 observations are limited: V2 default-export load on OpenCode 2.1.3 (macOS, 2026-10-23, server-log evidence only) and a separate [OpenCode 2.1.4/macOS session workspace trace](../benchmarks/results/live-host/opencode-2026-11-15-workspace/README.md) observing `ctx.session.get({sessionID})` returning `location.directory` for two sessions matching setup (no mismatch test or V2 hook fire); neither establishes full V2 lifecycle verification. Prompt/system injection, verification reminders, and observation capture remain mechanism evidence only. [Retained historical/unsupported V1 evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md) (OpenCode 1.18.31, macOS) documents project-scope `.js` loading and edit/verification state in one V1 host session, with a post-reset final snapshot, hard lock only an interactive observation with no retained blocked-tool trace, and operator-seeded then agent-rewritten reflection; it is preserved as historical/unsupported evidence only and does not establish current V2 support. `.mjs` auto-discovery is silently ignored (issue #127); global scope, npm-package installation, and other host versions remain unverified. |
 | GitHub Copilot agent surfaces | `Supported` | `Unknown` for a Harness-specific plugin install | `Unknown` | `.github/skills/`, `.agents/skills/`, repository instructions | `~/.copilot/skills/`, `~/.agents/skills/` | GitHub Agent Skills paths and installer behavior are checked; no live Copilot session or plugin install is preserved. |
 | Cursor | `Supported` | `Mechanism verified` for the portable package shape | `Unknown` for Harness | `.cursor/skills/`, `.agents/skills/` | `~/.cursor/skills/`, `~/.agents/skills/` | Official paths and package shape are checked; Cursor plugin loading and hooks remain unverified. |
 | Continue.dev | `Unknown` for standalone `SKILL.md` discovery | `Unknown` | `Unknown` | `.continue/rules/` is documented; `.continue/skills/` is only an installer candidate | `~/.continue/skills/` is only an installer candidate | The reviewed official docs establish rules, not an Agent Skills host contract. |
@@ -192,29 +192,53 @@ The general installer merges shared files only through Harness-owned markers and
 
 ## OpenCode boundary
 
-The OpenCode adapter targets the V2 plugin contract: it default-exports
-`{ id: "harness.enforcement", setup(ctx) }` that registers
-`ctx.session.hook("prompt|context")`, `ctx.tool.hook("execute.before|after")`,
-and `ctx.event.subscribe()` through the OpenCode 2 plugin context, and keeps the V1-shaped `HarnessEnforcement` factory
-for OpenCode 1.x hosts. OpenCode 2 rejects named-export-only plugins with
-`Plugin must export a default definition with an id and an effect or setup
-function`; that failure (observed on OpenCode 2.1.3, macOS) and the recovery
-after the V2 entrypoint were verified live on one host, with retained evidence
-in the OpenCode server log only (loading succeeded after a plugin-file
-reload; no hook-fire artifact). A separate OpenCode 2.1.4/macOS trace observed
-that `ctx.session.get({sessionID})` returns `location.directory` for two
-sessions whose directories matched setup; it establishes field availability,
-not mismatch handling or V2 hook behavior ([trace notes](../benchmarks/results/live-host/opencode-2026-11-15-workspace/README.md)). The adapter itself has deterministic mechanism
-coverage (`ci/mechanism-2n-opencode-plugin.test.js`, V1 shapes;
-`ci/mechanism-2p-opencode-v2-entrypoint.test.js`, V2 lifecycle shapes;
-`ci/mechanism-397-opencode-observations.test.js`, router injection, fail-open
-router diagnostics on launch or runtime failure, turn capture,
-malformed-label export counts and opt-out). The injection/capture path has
-mechanism evidence only; no live-host hook-fire or mismatch-handling artifact
-exists. Retained
-evidence supports project-scope `.js` loading and edit/verification state on
-OpenCode 1.18.31 (macOS): [live-host evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md). The
-retained snapshot predates #190 and remains historical evidence only. The forced Rule-of-3 reflection gate has since been retired; current package and mechanism checks cover that retirement, but no post-retirement live-host run is preserved. The old reflection was operator-seeded, then agent-rewritten, so it proves no behavioral effect. `.mjs` auto-discovery is broken on this host version (issue #127). npm-package installation and behavioral V2-hook fire remain unverified.
+Harness supports the **OpenCode V2 plugin API only**; OpenCode 1.x / V1 is
+unsupported (#453). The plugin module (`opencode-plugin/index.mjs`, installed
+under a `.js` filename) default-exports `{ id: "harness.enforcement", setup(ctx) }`
+as its only public surface and registers `ctx.session.hook("prompt|context")`,
+`ctx.tool.hook("execute.before|after")`, and `ctx.event.subscribe()` through
+the OpenCode V2 plugin context, backed by a private internal enforcement core.
+No public V1 factory export, V1-only event fallback (such as host
+`session.idle` or legacy top-level/nested session-id fallbacks), V1 hook
+registration, or compatibility mode is supported; reintroducing V1 support
+requires an explicit owner-approved support-contract change. OpenCode V2
+rejects named-export-only plugins with `Plugin must export a default definition
+with an id and an effect or setup function`.
+
+The supported boundary is the **V2 API family**; exact tested versions are
+recorded separately rather than claiming a validated minimum patch version or
+coverage of every V2 release:
+
+- **OpenCode 2.1.3 (macOS, 2026-10-23):** server-log load-only evidence showing
+  the named-export failure and recovery after switching to the V2 default
+  export (no hook-fire artifact).
+- **OpenCode 2.1.4 (macOS, 2026-11-15):** a separate [workspace trace](../benchmarks/results/live-host/opencode-2026-11-15-workspace/README.md)
+  observing `ctx.session.get({sessionID})` returning `location.directory` for
+  two sessions whose directories matched setup; it establishes field
+  availability only, not mismatch handling or V2 hook behavior.
+
+Neither observation establishes full V2 lifecycle verification. The adapter has
+deterministic V2 mechanism coverage (`ci/mechanism-2n-opencode-plugin.test.js`,
+V2 edit/verification/reminder/state shapes;
+`ci/mechanism-2p-opencode-v2-entrypoint.test.js`, V2-only export contract and
+lifecycle shapes; `ci/mechanism-397-opencode-observations.test.js`, router
+injection, fail-open router diagnostics on launch or runtime failure, turn
+capture, malformed-label export counts, and opt-out). Prompt/context injection,
+verification reminders, and observation capture have mechanism evidence only;
+no live-host V2 hook-fire or mismatch-handling artifact exists.
+
+**Historical / unsupported V1 evidence:** retained evidence from the retired V1
+era documents project-scope `.js` loading and edit/verification state on
+OpenCode 1.18.31 (macOS): [live-host evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md).
+That snapshot predates #190 and #453 and is preserved as historical/unsupported
+evidence only — never promote it to current V2 capability evidence. Its final
+snapshot is post-reset, the old hard lock was only an interactive observation
+with no retained blocked-tool trace, and the old reflection was operator-seeded
+then agent-rewritten (so it proves no behavioral effect). The forced Rule-of-3
+reflection gate has since been retired; current package and mechanism checks
+cover that retirement, with no post-retirement live-host run preserved. `.mjs`
+auto-discovery is silently ignored (issue #127). Global scope, npm-package
+installation, and other OpenCode versions remain unverified.
 
 The plugin verification runner uses asynchronous child processes with a shared
 sequence budget and bounded streamed diagnostics. Deterministic mechanism
