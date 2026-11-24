@@ -139,7 +139,13 @@ function processState(payload) {
     const isDirectTool = toolName === 'Edit' || toolName === 'Write' || toolName === 'apply_patch';
     if (isDirectTool && (agy
       ? agyDirectMutationInWorkspace(payload, cwdOf(payload, root), root, toolName)
-      : directMutationInWorkspace(payload, cwdOf(payload, root), root))) state.lastEditAt = Date.now();
+      : directMutationInWorkspace(payload, cwdOf(payload, root), root))) {
+      state.lastEditAt = Date.now();
+      if (agy) {
+        const revision = Number.isSafeInteger(state.agyDirectMutationRevision) ? state.agyDirectMutationRevision : 0;
+        if (revision < Number.MAX_SAFE_INTEGER) state.agyDirectMutationRevision = revision + 1;
+      }
+    }
     const isShell = toolName === 'Bash' || toolName === 'PowerShell' || toolName === 'exec_command';
     const command = (payload.tool_input && payload.tool_input.command) || '';
     if (isShell) {
