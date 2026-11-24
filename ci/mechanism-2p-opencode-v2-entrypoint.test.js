@@ -108,10 +108,13 @@ helper.check(
     `default export keys: ${JSON.stringify(definition && Object.keys(definition))}`
   );
 
+  const exportKeys = Object.keys(mod).sort();
   helper.check(
-    '2p. the module still exports the V1 HarnessEnforcement factory for OpenCode 1 hosts and tests',
-    typeof mod.HarnessEnforcement === 'function',
-    `exports: ${Object.keys(mod).join(', ')}`
+    '2p. the module exports only the V2 default definition with setup and no server',
+    exportKeys.length === 1 && exportKeys[0] === 'default'
+      && Boolean(definition) && typeof definition.setup === 'function'
+      && !Object.hasOwn(definition, 'server'),
+    `exports: ${exportKeys.join(', ')}; default keys: ${JSON.stringify(definition && Object.keys(definition))}`
   );
 
   await definition.setup(fakeCtx);

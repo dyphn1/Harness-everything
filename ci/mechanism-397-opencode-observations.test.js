@@ -870,10 +870,11 @@ test('control: a legacy session.idle and a V2 session.execution.succeeded for on
   }
 });
 
-test('control: the V1 HarnessEnforcement factory export remains available', { concurrency: false }, async () => {
+test('control: the plugin exports only the V2 default definition with setup and no server', { concurrency: false }, async () => {
   const mod = await import(pathToFileURL(PLUGIN).href);
-  assert.equal(typeof mod.HarnessEnforcement, 'function');
+  assert.deepStrictEqual(Object.keys(mod).sort(), ['default']);
   assert.equal(typeof mod.default.setup, 'function');
+  assert.equal(Object.hasOwn(mod.default, 'server'), false);
 });
 
 test('V2 consumers α1: flat execution.succeeded verifies the edit in its session once', { concurrency: false }, async () => {
