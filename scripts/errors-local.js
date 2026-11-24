@@ -37,18 +37,24 @@ function requireValue(argv, index, flag) {
 function parseLimit(raw) {
   if (!/^\d+$/.test(String(raw))) throw new UsageError(`invalid --limit: ${raw}`);
   const value = Number.parseInt(raw, 10);
-  if (!Number.isSafeInteger(value) || value < 0) throw new UsageError(`invalid --limit: ${raw}`);
+  if (!Number.isSafeInteger(value) || value < 1) throw new UsageError(`invalid --limit: ${raw}`);
   return Math.min(value, localErrors.LIMITS.maxRecordsPerWorkspace);
 }
 
-function deriveSignature(match, lesson) {
+function deriveSignature(match, lesson, env = process.env) {
+  const redactedLesson = localErrors.redactErrorText(String(lesson || '').trim(), env)
+    .slice(0, localErrors.LIMITS.maxLessonChars);
   const firstRule = (match.failures && match.failures[0]) || (match.actions && match.actions[0]);
-  const hash = crypto.createHash('sha256').update(JSON.stringify([match, lesson])).digest('hex').slice(0, 8);
+  const hash = crypto.createHash('sha256').update(JSON.stringify([match, redactedLesson])).digest('hex').slice(0, 8);
   if (firstRule && firstRule.executable && firstRule.subcommand) {
     const base = `local-${firstRule.executable}-${firstRule.subcommand}-${hash}`;
     if (base.length <= 64 && IDENTIFIER_PATTERN.test(base)) return base;
   }
   return `local-${hash}`;
+}
+
+function isValidationError(error) {
+  return error instanceof Error && !error.code && typeof error.message === 'string' && /^invalid\b/i.test(error.message);
 }
 
 function sanitizeExportRecord(record, env) {
@@ -99,7 +105,7 @@ function sanitizeExportRecord(record, env) {
   return null;
 }
 
-function parseAddArgs(argv) {
+function parseAddArgs(argv, env = process.env) {
   const opts = {
     matchJson: null,
     executable: null,
@@ -184,7 +190,7 @@ function parseAddArgs(argv) {
     throw new UsageError(`invalid --destination: ${opts.destination} (expected harness|project|unknown)`);
   }
 
-  const signature = opts.signature || deriveSignature(match, opts.lesson.trim());
+  const signature = opts.signature || deriveSignature(match, opts.lesson.trim(), env);
   if (!IDENTIFIER_PATTERN.test(signature)) {
     throw new UsageError(`invalid --signature: ${signature}`);
   }
@@ -232,7 +238,7 @@ function parseQueryArgs(subcommand, argv, allowJson) {
 }
 
 function handleAdd(argv, env, cwd) {
-  const opts = parseAddArgs(argv);
+  const opts = parseAddArgs(argv, env);
   if (opts.help) {
     process.stdout.write(`${usageText()}\n`);
     return 0;
@@ -251,7 +257,10 @@ function handleAdd(argv, env, cwd) {
       ...(opts.promotionId !== undefined ? { promotionId: opts.promotionId } : {}),
     }, { env });
   } catch (error) {
-    throw new UsageError(error && error.message ? error.message : String(error));
+    if (isValidationError(error)) {
+      throw new UsageError(error.message);
+    }
+    throw error;
   }
 
   if (res.status === 'lock-timeout' || !res.record) {

@@ -443,6 +443,69 @@ test('packaged local-error-source copy exists and matches canonical behavior', (
   assert.equal(projected[0].lesson, 'Packaged source check.');
 });
 
+test('provisional source prefers newest lessons within the 32 bound and leaves <=32 unchanged', () => {
+  const s = makeSandbox();
+  const { createProvisionalSource } = loadProvisionalSource();
+  const source = createProvisionalSource({ env: s.env, workspaceRoot: s.repoA });
+  const budget = { maxCandidates: 32, maxBytes: 65536, maxTextChars: 4096 };
+  const baseMs = Date.parse('2026-11-24T00:00:00.000Z');
+
+  function addLesson(n) {
+    const pad = String(n).padStart(2, '0');
+    const res = localErrors.addProvisionalLesson({
+      workspaceRoot: s.repoA,
+      provisionalId: `lesson-${pad}`,
+      signature: `sig-${pad}`,
+      destination: 'project',
+      match: { actions: [{ tool: 'shell', executable: 'git', subcommand: `cmd-${pad}` }] },
+      lesson: `Provisional lesson number ${pad}.`,
+    }, { env: s.env, now: baseMs + n * 1000 });
+    assert.equal(res.status, 'appended');
+  }
+
+  for (let i = 1; i <= 32; i += 1) {
+    addLesson(i);
+  }
+
+  // <=32 unchanged: all 32 lessons remain projected in order, oldest and 32nd both match.
+  const at32 = source('workspace:a', budget);
+  assert.equal(at32.length, 32);
+  assert.deepEqual(
+    at32.map(c => c.identity),
+    Array.from({ length: 32 }, (_, idx) => `lesson-${String(idx + 1).padStart(2, '0')}`)
+  );
+
+  // Add 33rd lesson: bound stays 32, oldest (lesson-01) is dropped, newest (lesson-33) wins.
+  addLesson(33);
+  const at33 = source('workspace:a', budget);
+  assert.equal(at33.length, 32, 'candidate bound must remain 32');
+  assert.equal(at33.some(c => c.identity === 'lesson-01'), false, 'oldest lesson must be dropped');
+  assert.equal(at33.some(c => c.identity === 'lesson-02'), true, 'second oldest lesson must remain');
+  assert.equal(at33.some(c => c.identity === 'lesson-33'), true, 'newest 33rd lesson must be projected');
+
+  const matched33 = matchLedgerLessons({
+    workspaceRoot: s.repoA,
+    workspaceIdentity: 'workspace:a',
+    sessionIdentity: 'session:newest-33',
+    stateDir: path.join(s.matcherState, 'newest-33'),
+    event: { phase: 'action', tool: 'shell', command: 'git cmd-33', outcome: { failed: 'unknown' } },
+    provisionalSource: source,
+  });
+  assert.ok(matched33, 'expected matchLedgerLessons to deliver the 33rd (newest) lesson');
+  assert.deepEqual(matched33.ids, ['lesson-33']);
+  assert.ok(matched33.text.includes('Provisional lesson number 33.'));
+
+  const matched01 = matchLedgerLessons({
+    workspaceRoot: s.repoA,
+    workspaceIdentity: 'workspace:a',
+    sessionIdentity: 'session:oldest-01',
+    stateDir: path.join(s.matcherState, 'oldest-01'),
+    event: { phase: 'action', tool: 'shell', command: 'git cmd-01', outcome: { failed: 'unknown' } },
+    provisionalSource: source,
+  });
+  assert.equal(matched01, null, 'dropped oldest lesson must not be delivered');
+});
+
 for (const dir of sandboxes) {
   try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
 }
