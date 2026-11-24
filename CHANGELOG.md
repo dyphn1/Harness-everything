@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.0.0](https://github.com/dyphn1/Harness-everything/compare/v0.58.0...v1.0.0) (2026-11-24)
+
+### ⚠ BREAKING CHANGES
+
+* **opencode:** OpenCode 1.x / the V1 HarnessEnforcement named export is no longer supported.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01RPz4xUrN12wGoL19istZUE
+
+### Features
+
+* **opencode:** support only the OpenCode V2 plugin API ([#453](https://github.com/dyphn1/Harness-everything/issues/453)) ([db1a7d5](https://github.com/dyphn1/Harness-everything/commit/db1a7d5f3089dfeb6069d341c60d56683cbbd425))
+
 ## [0.58.0](https://github.com/dyphn1/Harness-everything/compare/v0.57.4...v0.58.0) (2026-11-23)
 
 ### Features
