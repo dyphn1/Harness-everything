@@ -5,8 +5,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { pathToFileURL } = require('node:url');
 const { test } = require('node:test');
+const { createV2Driver } = require('./lib/opencode-v2-driver');
 
 const ROOT = path.resolve(__dirname, '..');
 const PLUGIN = path.join(ROOT, 'opencode-plugin', 'index.mjs');
@@ -15,7 +15,7 @@ const ERRORS_SYNC = path.join(ROOT, 'scripts', 'errors-sync.js');
 const COMMITLINT = fs.readFileSync(path.join(__dirname, 'fixtures/394-ledger-match/commitlint-subject-case.txt'), 'utf8');
 const OLD_ENV = Object.fromEntries(['HOME', 'USERPROFILE', 'HARNESS_STATE_HOME', 'HARNESS_TELEMETRY', 'HARNESS_SYSTEM_ONE_MODE']
   .map(key => [key, process.env[key]]));
-const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'mechanism-394-opencode-ledger-'));
+const TMP = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'mechanism-394-opencode-ledger-')));
 
 function isOutside(root, target) {
   const relative = path.relative(root, target);
@@ -49,63 +49,11 @@ function packagePlugin() {
   return path.join(pluginDir, 'harness-enforcement.mjs');
 }
 
-function createV2Context(sessionWorkspaces, pluginFile = PLUGIN) {
-  const toolHooks = new Map();
-  const sessionHooks = new Map();
-  const eventQueue = [];
-  let eventWaiter;
-  let currentEvent;
-  const ctx = {
-    location: { directory: ROOT },
-    tool: { hook: async (name, callback) => { toolHooks.set(name, callback); return { dispose: async () => {} }; } },
-    session: {
-      get: async ({ sessionID }) => ({ id: sessionID, location: { directory: sessionWorkspaces[sessionID] } }),
-      hook: async (name, callback) => { sessionHooks.set(name, callback); return { dispose: async () => {} }; },
-      prompt: async () => ({}),
-      context: async () => [],
-    },
-    event: {
-      subscribe: ({ signal }) => ({
-        [Symbol.asyncIterator]() {
-          return {
-            next: () => {
-              currentEvent?.resolve();
-              currentEvent = null;
-              if (eventQueue.length) {
-                currentEvent = eventQueue.shift();
-                return Promise.resolve({ value: currentEvent.event, done: false });
-              }
-              if (signal.aborted) return Promise.resolve({ done: true });
-              return new Promise(resolve => {
-                eventWaiter = resolve;
-                signal.addEventListener('abort', () => resolve({ done: true }), { once: true });
-              });
-            },
-          };
-        },
-      }),
-    },
-  };
-  return import(pathToFileURL(pluginFile).href).then(async mod => ({
-    toolHooks,
-    sessionHooks,
-    pushEvent: event => new Promise(resolve => {
-      const item = { event, resolve };
-      if (eventWaiter) {
-        currentEvent = item;
-        eventWaiter({ value: event, done: false });
-        eventWaiter = null;
-      } else eventQueue.push(item);
-    }),
-    dispose: await mod.default.setup(ctx),
-  }));
-}
-
-async function toolCall(harness, sessionID, id, status = 'completed', output = 'ok', exit = 0,
+async function toolCall(driver, sessionID, id, status = 'completed', output = 'ok', exit = 0,
   command = 'git commit -m "docs(errors): Bad Case"') {
   const before = { tool: 'bash', sessionID, agent: 'build', messageID: `message-${id}`, id, input: { command } };
   const beforeSnapshot = structuredClone(before);
-  assert.equal(await harness.toolHooks.get('execute.before')(before), undefined);
+  assert.equal(await driver.toolHook('execute.before')(before), undefined);
   assert.deepEqual(before, beforeSnapshot, 'execute.before does not change the tool request');
 
   const after = {
@@ -116,13 +64,13 @@ async function toolCall(harness, sessionID, id, status = 'completed', output = '
       : { result: { output, metadata: exit === null ? {} : { exit } } }),
   };
   const afterSnapshot = structuredClone(after);
-  assert.equal(await harness.toolHooks.get('execute.after')(after), undefined);
+  assert.equal(await driver.toolHook('execute.after')(after), undefined);
   assert.deepEqual(after, afterSnapshot, 'execute.after does not change the host tool result');
 }
 
-async function context(harness, sessionID, base = 'base system') {
+async function context(driver, sessionID, base = 'base system') {
   const event = { sessionID, kind: 'primary', system: [{ type: 'text', text: base }] };
-  await harness.sessionHooks.get('context')(event);
+  await driver.sessionHook('context')(event);
   return event.system.map(part => part.text || '').join('\n');
 }
 
@@ -136,19 +84,15 @@ test.after(() => {
 
 test('OpenCode V2 carries real ledger matches through the source and packaged context hooks', async () => {
   assert.ok(isOutside(ROOT, TMP), 'fixture state must stay outside the repository');
-  const home = path.join(TMP, 'home');
   const workspace = path.join(TMP, 'workspace');
   const otherWorkspace = path.join(TMP, 'other-workspace');
   const emptyWorkspace = path.join(TMP, 'empty-workspace');
-  fs.mkdirSync(home, { recursive: true });
+  const sharedStateHome = path.join(TMP, 'harness-state');
   fs.mkdirSync(workspace, { recursive: true });
   fs.mkdirSync(otherWorkspace, { recursive: true });
   fs.mkdirSync(emptyWorkspace, { recursive: true });
   addLedger(workspace);
   addLedger(otherWorkspace);
-  process.env.HOME = home;
-  process.env.USERPROFILE = home;
-  process.env.HARNESS_STATE_HOME = path.join(TMP, 'harness-state');
   process.env.HARNESS_TELEMETRY = 'off';
   delete process.env.HARNESS_SYSTEM_ONE_MODE;
 
@@ -164,16 +108,18 @@ test('OpenCode V2 carries real ledger matches through the source and packaged co
     disposal: workspace,
     sessionCleanup: workspace,
   };
-  const harness = await createV2Context(sessionWorkspaces);
+  const sessionLookup = async ({ sessionID }) => ({ id: sessionID, location: { directory: sessionWorkspaces[sessionID] } });
+  const driver = await createV2Driver({ workspace, sessionLookup });
+  process.env.HARNESS_STATE_HOME = sharedStateHome;
   const command = 'git -C x commit -m "docs(errors): Bad Case"';
   try {
-    assert.ok(harness.toolHooks.has('execute.before') && harness.toolHooks.has('execute.after'));
-    assert.ok(harness.sessionHooks.has('context'));
-    assert.equal(harness.toolHooks.size, 2, 'the carrier registers no permission hook or additional tool gate');
+    assert.ok(driver.toolHooks.has('execute.before') && driver.toolHooks.has('execute.after'));
+    assert.ok(driver.sessionHooks.has('context'));
+    assert.equal(driver.toolHooks.size, 2, 'the carrier registers no permission hook or additional tool gate');
 
     const before = { tool: 'bash', sessionID: 'same', agent: 'build', messageID: 'message-same', id: 'same-action', input: { command } };
     const beforeSnapshot = structuredClone(before);
-    assert.equal(await harness.toolHooks.get('execute.before')(before), undefined);
+    assert.equal(await driver.toolHook('execute.before')(before), undefined);
     assert.deepEqual(before, beforeSnapshot);
 
     const failure = {
@@ -182,35 +128,35 @@ test('OpenCode V2 carries real ledger matches through the source and packaged co
       error: { name: 'ToolError', message: COMMITLINT },
     };
     const failureSnapshot = structuredClone(failure);
-    assert.equal(await harness.toolHooks.get('execute.after')(failure), undefined);
+    assert.equal(await driver.toolHook('execute.after')(failure), undefined);
     assert.deepEqual(failure, failureSnapshot, 'the failed shell result remains untouched');
 
     const wrongSessionSystem = [{ type: 'text', text: 'base system' }];
-    await harness.sessionHooks.get('context')({ sessionID: 'other', kind: 'primary', system: wrongSessionSystem });
+    await driver.sessionHook('context')({ sessionID: 'other', kind: 'primary', system: wrongSessionSystem });
     assert.deepEqual(wrongSessionSystem, [{ type: 'text', text: 'base system' }], 'a pending lesson stays bound to its session');
 
-    const delivered = await context(harness, 'same');
+    const delivered = await context(driver, 'same');
     assert.equal((delivered.match(/Cue:\n/g) || []).length, 2,
       'action selection runs in execute.before and failure selection in execute.after; both arrive at the next model request');
     assert.match(delivered, /subject-case/);
-    assert.equal(await context(harness, 'same'), 'base system', 'a delivered phase is not replayed on another context build');
+    assert.equal(await context(driver, 'same'), 'base system', 'a delivered phase is not replayed on another context build');
 
-    await toolCall(harness, 'other', 'other-action', 'completed', COMMITLINT, 0);
-    assert.equal((await context(harness, 'other')).match(/Cue:\n/g)?.length, 1,
+    await toolCall(driver, 'other', 'other-action', 'completed', COMMITLINT, 0);
+    assert.equal((await context(driver, 'other')).match(/Cue:\n/g)?.length, 1,
       'a direct command with diagnostic-looking output and zero exit remains action-only');
 
-    await toolCall(harness, 'masked', 'masked-action', 'completed', COMMITLINT, 0,
+    await toolCall(driver, 'masked', 'masked-action', 'completed', COMMITLINT, 0,
       'git commit -m "Bad Subject"; echo "$?"');
-    assert.equal((await context(harness, 'masked')).match(/Cue:\n/g)?.length, 2,
+    assert.equal((await context(driver, 'masked')).match(/Cue:\n/g)?.length, 2,
       'a precise commitlint diagnostic recovers a commit failure masked by a compound shell exit');
 
-    await toolCall(harness, 'unknownExit', 'unknown-exit-action', 'completed', COMMITLINT, null,
+    await toolCall(driver, 'unknownExit', 'unknown-exit-action', 'completed', COMMITLINT, null,
       'git commit -m "Bad Subject"; echo "$?"');
-    assert.equal((await context(harness, 'unknownExit')).match(/Cue:\n/g)?.length, 1,
+    assert.equal((await context(driver, 'unknownExit')).match(/Cue:\n/g)?.length, 1,
       'a completed compound command without metadata.exit remains action-only');
 
-    await toolCall(harness, 'separateWorkspace', 'workspace-action', 'completed', COMMITLINT, 1);
-    assert.equal((await context(harness, 'separateWorkspace')).match(/Cue:\n/g)?.length, 2,
+    await toolCall(driver, 'separateWorkspace', 'workspace-action', 'completed', COMMITLINT, 1);
+    assert.equal((await context(driver, 'separateWorkspace')).match(/Cue:\n/g)?.length, 2,
       'a completed tool result with nonzero metadata.exit and captured diagnostics selects failure too');
 
     // Live OpenCode 2.1.4 shape (E-0006/E-0008): tool "shell", input carries workdir,
@@ -220,13 +166,13 @@ test('OpenCode V2 carries real ledger matches through the source and packaged co
 
     const shellActionEvent = { ...shellBase, sessionID: 'shellAction', id: 'shell-action' };
     const shellActionSnapshot = structuredClone(shellActionEvent);
-    assert.equal(await harness.toolHooks.get('execute.before')(shellActionEvent), undefined);
+    assert.equal(await driver.toolHook('execute.before')(shellActionEvent), undefined);
     assert.deepEqual(shellActionEvent, shellActionSnapshot, 'execute.before does not change a live shell tool request');
-    assert.equal((await context(harness, 'shellAction')).match(/Cue:\n/g)?.length, 1,
+    assert.equal((await context(driver, 'shellAction')).match(/Cue:\n/g)?.length, 1,
       'a live shell action event delivers the action lesson');
 
     const shellFailureBefore = { ...shellBase, sessionID: 'shellFailure', id: 'shell-failure-before' };
-    assert.equal(await harness.toolHooks.get('execute.before')(shellFailureBefore), undefined);
+    assert.equal(await driver.toolHook('execute.before')(shellFailureBefore), undefined);
     const shellFailureAfter = {
       ...shellFailureBefore,
       id: 'shell-failure-after',
@@ -238,41 +184,44 @@ test('OpenCode V2 carries real ledger matches through the source and packaged co
       },
     };
     const shellFailureSnapshot = structuredClone(shellFailureAfter);
-    assert.equal(await harness.toolHooks.get('execute.after')(shellFailureAfter), undefined);
+    assert.equal(await driver.toolHook('execute.after')(shellFailureAfter), undefined);
     assert.deepEqual(shellFailureAfter, shellFailureSnapshot, 'execute.after does not change a live shell tool result');
-    const shellDelivered = await context(harness, 'shellFailure');
+    const shellDelivered = await context(driver, 'shellFailure');
     assert.equal((shellDelivered.match(/Cue:\n/g) || []).length, 2,
       'live shell action and failure events deliver both lessons');
     assert.match(shellDelivered, /subject-case/, 'the failure lesson carries the commitlint diagnostic');
 
-    await toolCall(harness, 'noLedger', 'no-ledger-action');
-    assert.equal(await context(harness, 'noLedger'), 'base system', 'an unrelated workspace without a ledger is silent');
+    await toolCall(driver, 'noLedger', 'no-ledger-action');
+    assert.equal(await context(driver, 'noLedger'), 'base system', 'an unrelated workspace without a ledger is silent');
 
-    await toolCall(harness, 'sessionCleanup', 'session-cleanup-action');
+    await toolCall(driver, 'sessionCleanup', 'session-cleanup-action');
     const state = require(path.join(ROOT, 'hooks/scripts/lib/harness-state.js'));
     const sessionState = state.getSessionDir(workspace, 'sessionCleanup', { workspace_root: workspace, session_id: 'sessionCleanup', host_id: 'opencode' });
     const claims = fs.readdirSync(sessionState).filter(file => file.endsWith('.claim'));
     assert.equal(claims.length, 1);
-    await harness.pushEvent({ type: 'session.deleted', sessionID: 'sessionCleanup' });
-    assert.ok(claims.every(file => !fs.existsSync(path.join(sessionState, file))),
-      'session invalidation releases an undelivered matcher reservation');
+    driver.emit('session.deleted', 'sessionCleanup');
+    await driver.waitFor(
+      () => claims.every(file => !fs.existsSync(path.join(sessionState, file))),
+      { label: 'session invalidation releases undelivered matcher reservation' },
+    );
 
-    await harness.toolHooks.get('execute.before')({
+    await driver.toolHook('execute.before')({
       tool: 'bash', sessionID: 'disposal', agent: 'build', messageID: 'message-disposal', id: 'pending-action', input: { command },
     });
   } finally {
-    await harness.dispose();
+    await driver.teardown();
   }
 
-  const packaged = await createV2Context(sessionWorkspaces, packagePlugin());
+  const packaged = await createV2Driver({ plugin: packagePlugin(), workspace, sessionLookup });
+  process.env.HARNESS_STATE_HOME = sharedStateHome;
   try {
-    await packaged.toolHooks.get('execute.before')({
+    await packaged.toolHook('execute.before')({
       tool: 'bash', sessionID: 'disposal', agent: 'build', messageID: 'message-disposal-2', id: 'pending-action-2', input: { command },
     });
     const packagedDelivery = await context(packaged, 'disposal');
     assert.match(packagedDelivery, /subject-case/,
       'disposing the prior carrier releases an undelivered claim, and the packaged loader resolves the shared matcher');
   } finally {
-    await packaged.dispose();
+    await packaged.teardown();
   }
 });

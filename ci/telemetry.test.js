@@ -4,10 +4,10 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { pathToFileURL } = require('url');
 const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
+const { createV2Driver } = require(path.join(ROOT, 'ci/lib/opencode-v2-driver'));
 const telemetry = require(path.join(ROOT, 'hooks/scripts/lib/telemetry.js'));
 const { buildReport } = require(path.join(ROOT, 'telemetry/scripts/report.js'));
 const { runBenchmark } = require(path.join(ROOT, 'telemetry/scripts/benchmark.js'));
@@ -154,30 +154,37 @@ async function main() {
     check(disabled.ok === true && disabled.disabled === true && fs.statSync(file).size === beforeDisabled, 'telemetry can be locally disabled without task failure');
     process.env.HARNESS_TELEMETRY = 'local';
 
-    // OpenCode: use the real plugin hooks. No extra process is spawned for
+    // OpenCode: use the real V2 plugin hooks. No extra process is spawned for
     // per-tool timing; before/after timestamps live inside the plugin process.
-    const skillDir = path.join(workspace, '.claude', 'skills', 'tdd');
-    fs.mkdirSync(skillDir, { recursive: true });
-    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '---\nname: tdd\nmetadata:\n  version: 9.9.9\n---\n', 'utf8');
-    const pluginUrl = pathToFileURL(path.join(ROOT, 'opencode-plugin', 'index.mjs')).href + `?telemetry=${Date.now()}`;
-    const { HarnessEnforcement } = await import(pluginUrl);
-    const hooks = await HarnessEnforcement({
-      directory: workspace,
-      client: { session: { prompt: async () => {} } },
-    });
-    await hooks['tool.execute.before']({ tool: 'skill', sessionID: 'oc-session', callID: 'oc-skill-1', args: { name: 'tdd', secret } }, {});
-    await hooks['tool.execute.after']({ tool: 'skill', sessionID: 'oc-session', callID: 'oc-skill-1', args: { name: 'tdd' } }, {});
-    await hooks['tool.execute.before']({ tool: 'bash', sessionID: 'oc-session', callID: 'oc-tool-1', args: { command: secret } }, {});
-    await new Promise(resolve => setTimeout(resolve, 2));
-    await hooks['tool.execute.after']({ tool: 'bash', sessionID: 'oc-session', callID: 'oc-tool-1', args: { command: secret } }, {});
-    await hooks.event({ event: { type: 'session.idle', properties: { sessionID: 'oc-session' } } });
+    const d = await createV2Driver();
+    try {
+      const skillDir = path.join(d.workspace, '.claude', 'skills', 'tdd');
+      fs.mkdirSync(skillDir, { recursive: true });
+      fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '---\nname: tdd\nmetadata:\n  version: 9.9.9\n---\n', 'utf8');
 
-    const allEvents = telemetry.readEvents(file);
-    const ocEvents = allEvents.filter(event => event.host === 'opencode');
-    check(ocEvents.some(event => event.event === 'skill.invoke') && ocEvents.some(event => event.event === 'skill.complete'), 'real OpenCode plugin emits skill invocation and turn-boundary completion events');
-    check(ocEvents.some(event => event.event === 'tool.observed' && Number.isFinite(event.timing.attributedToolDurationMs)), 'OpenCode adapter measures in-process tool duration while skill is active');
-    check(ocEvents.some(event => event.skillVersion === '9.9.9'), 'OpenCode adapter records locally resolved skill version without storing skill-file path');
-    check(!fs.readFileSync(file, 'utf8').includes(secret), 'OpenCode telemetry also excludes raw tool arguments');
+      const ocFile = telemetry.telemetryFile(d.workspace, { cwd: d.workspace });
+      const beforeHook = d.toolHook('execute.before');
+      const afterHook = d.toolHook('execute.after');
+      await beforeHook({ tool: 'skill', sessionID: 'oc-session', agent: 'main', messageID: 'oc-msg-1', id: 'oc-skill-1', input: { name: 'tdd', secret } });
+      await afterHook({ tool: 'skill', sessionID: 'oc-session', agent: 'main', messageID: 'oc-msg-1', id: 'oc-skill-1', input: { name: 'tdd' }, status: 'completed', result: {} });
+      await beforeHook({ tool: 'bash', sessionID: 'oc-session', agent: 'main', messageID: 'oc-msg-2', id: 'oc-tool-1', input: { command: secret } });
+      await afterHook({ tool: 'bash', sessionID: 'oc-session', agent: 'main', messageID: 'oc-msg-2', id: 'oc-tool-1', input: { command: secret }, status: 'completed', result: { output: secret } });
+      d.emit('session.execution.succeeded', 'oc-session');
+
+      await d.waitFor(
+        () => telemetry.readEvents(ocFile).some(event => event.host === 'opencode' && event.event === 'skill.complete'),
+        { label: 'OpenCode skill.complete telemetry event' }
+      );
+
+      const allEvents = telemetry.readEvents(ocFile);
+      const ocEvents = allEvents.filter(event => event.host === 'opencode');
+      check(ocEvents.some(event => event.event === 'skill.invoke') && ocEvents.some(event => event.event === 'skill.complete'), 'real OpenCode plugin emits skill invocation and turn-boundary completion events');
+      check(ocEvents.some(event => event.event === 'tool.observed' && Number.isFinite(event.timing.attributedToolDurationMs)), 'OpenCode adapter measures in-process tool duration while skill is active');
+      check(ocEvents.some(event => event.skillVersion === '9.9.9'), 'OpenCode adapter records locally resolved skill version without storing skill-file path');
+      check(!fs.readFileSync(ocFile, 'utf8').includes(secret), 'OpenCode telemetry also excludes raw tool arguments');
+    } finally {
+      await d.teardown();
+    }
 
     const benchmark = runBenchmark(120);
     check(Number.isFinite(benchmark.p50Ms) && Number.isFinite(benchmark.p95Ms) && benchmark.count === 120, 'instrumentation benchmark measures local append overhead');
