@@ -26,6 +26,7 @@ const {
   normalizeAgyStatePayload
 } = require('./lib/agy-adapter-core');
 const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
+const { workspaceFingerprint } = require('./lib/workflow-isolation');
 
 const STOP_STATE_FILE = 'agy-stop-state.json';
 
@@ -40,14 +41,56 @@ function readStopState(filePath) {
 }
 
 function writeStopState(filePath, state) {
+  let temp;
   try {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    const temp = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+    temp = `${filePath}.${process.pid}.${Date.now()}.tmp`;
     fs.writeFileSync(temp, JSON.stringify(state, null, 2) + '\n', 'utf8');
     fs.renameSync(temp, filePath);
+    return true;
   } catch (_) {
-    // Best-effort marker write; never fail stop evaluation on state IO.
+    if (temp) { try { fs.unlinkSync(temp); } catch (_) {} }
+    return false;
   }
+}
+
+function clearStopState(filePath) {
+  try { fs.unlinkSync(filePath); } catch (_) {}
+}
+
+function pendingRevision(handoff, root, sessionId) {
+  const directRevision = Number.isSafeInteger(handoff && handoff.agyDirectMutationRevision)
+    ? handoff.agyDirectMutationRevision
+    : null;
+  let contentFingerprint = null;
+  try { contentFingerprint = workspaceFingerprint(root, { maxPaths: 5000 }); } catch (_) {}
+  return {
+    revision: directRevision === null ? `session:${sessionId || 'default'}` : `direct:${directRevision}`,
+    directRevision,
+    contentFingerprint
+  };
+}
+
+function samePendingRevision(saved, current) {
+  if (!saved) return false;
+  if (!saved.lastContinuedRevision) {
+    // Older markers have no stable revision. Keep their session allowance
+    // when handoff state is legacy too; the prior content baseline is unknown.
+    return current.directRevision === null && Boolean(saved.lastContinuedFingerprint);
+  }
+  if (saved.lastContinuedRevision !== current.revision) return false;
+  return !current.contentFingerprint || !saved.lastContinuedContentFingerprint
+    || saved.lastContinuedContentFingerprint === current.contentFingerprint;
+}
+
+function stopMarker(revision, reason) {
+  return {
+    lastContinuedRevision: revision.revision,
+    lastContinuedContentFingerprint: revision.contentFingerprint,
+    lastContinuedFingerprint: `${revision.revision}${revision.contentFingerprint ? `|workspace:${revision.contentFingerprint}` : ''}`,
+    lastContinuedReason: reason,
+    updatedAt: new Date().toISOString()
+  };
 }
 
 const ABNORMAL_TERMINATION_REASONS = new Set([
@@ -103,17 +146,14 @@ function evaluateStop(payload) {
   let pending = null;
   if (isFailed) {
     pending = {
-      fingerprint: `failed:${handoff.timestamp || ''}:${handoff.tool || ''}:${handoff.exitCode ?? ''}`,
       reason: 'Harness Verify-Before-Claim: pending tool failure must be resolved before claiming completion.'
     };
   } else if (lastEditAt > 0 && lastVerifyAt < lastEditAt) {
     pending = {
-      fingerprint: `edit:${lastEditAt}`,
       reason: 'Harness Verify-Before-Claim: unverified edits exist in session. Run relevant test/build/lint verification before claiming completion.'
     };
   } else if (process.env.HARNESS_REQUIRE_VERIFICATION === '1' && (!lastVerifyAt || lastVerifyAt < lastEditAt)) {
     pending = {
-      fingerprint: `strict:${lastVerifyAt}`,
       reason: 'Harness Verify-Before-Claim: objective test verification is required before claiming completion.'
     };
   }
@@ -121,19 +161,32 @@ function evaluateStop(payload) {
   if (pending) {
     const stopStateFile = path.join(sessionDir, STOP_STATE_FILE);
     const saved = readStopState(stopStateFile);
-    if (saved && saved.lastContinuedFingerprint === pending.fingerprint) {
+    const revision = pendingRevision(handoff, root, sessionId);
+    if (samePendingRevision(saved, revision)) {
+      if (saved.lastContinuedReason !== pending.reason
+        || saved.lastContinuedRevision !== revision.revision
+        || (!saved.lastContinuedContentFingerprint && revision.contentFingerprint)) {
+        const marker = stopMarker(revision, pending.reason);
+        // A missed probe can refresh diagnostics, but cannot erase the last content baseline.
+        if (!revision.contentFingerprint && saved.lastContinuedContentFingerprint) {
+          marker.lastContinuedContentFingerprint = saved.lastContinuedContentFingerprint;
+          marker.lastContinuedFingerprint = saved.lastContinuedFingerprint;
+        }
+        writeStopState(stopStateFile, {
+          ...saved,
+          ...marker
+        });
+      }
       return { decision: 'allow' };
     }
-    writeStopState(stopStateFile, {
-      lastContinuedFingerprint: pending.fingerprint,
-      updatedAt: new Date().toISOString()
-    });
+    if (!writeStopState(stopStateFile, stopMarker(revision, pending.reason))) return { decision: 'allow' };
     return {
       decision: 'continue',
       reason: pending.reason
     };
   }
 
+  clearStopState(path.join(sessionDir, STOP_STATE_FILE));
   return { decision: 'allow' };
 }
 
