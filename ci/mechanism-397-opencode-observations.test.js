@@ -246,12 +246,6 @@ async function sendEdit(f, sessionID, id) {
   await f.toolHooks.get('execute.after')({ ...event, status: 'completed', result: {} });
 }
 
-function completionEvent(kind, sessionID) {
-  return kind === 'idle'
-    ? { type: 'session.idle', sessionID }
-    : v2Event('session.execution.succeeded', sessionID);
-}
-
 test('inject: the documented OpenCode hooks deliver the kernel router output and exact label line', { concurrency: false }, async () => {
   const f = fixture();
   let dispose;
@@ -383,7 +377,7 @@ test('record: OpenCode prompt, tool and idle events append one host-tagged recor
     await f.toolHooks.get('execute.after')({
       status: 'completed', tool: 'edit', sessionID: 'record-session', id: 'call-1', input: { filePath: 'changed.js' }, result: {},
     });
-    f.push({ type: 'session.idle', sessionID: 'record-session' });
+    f.push(v2Event('session.execution.succeeded', 'record-session'));
     await waitFor(() => recordList(f.store).length === 1);
     const [record] = recordList(f.store);
     assert.equal(record.host, 'opencode');
@@ -675,7 +669,7 @@ test('workspace: an unbound session lifecycle event resolves its own workspace b
   let dispose;
   try {
     dispose = await install(f);
-    f.push({ type: 'session.created', sessionID });
+    f.push(v2Event('session.created', sessionID));
     await waitFor(() => f.sessionLookupCount() === 1 && !fs.existsSync(stateDir));
     assert.equal(fs.existsSync(routerArtifact(f.workspace, sessionID)), false);
     assert.deepEqual(recordList(f.store), []);
@@ -692,7 +686,7 @@ test('malformed: invalid labels remain null with a reason and export counts are 
     dispose = await install(f);
     f.setFinal('Done.\n<!-- harness-label {"validity":"valid","tier":3,"skills_used":[]} -->');
     await f.sessionHooks.get('prompt')({ sessionID: 'malformed-opencode', messageID: 'bad-opencode', prompt: { text: 'record an invalid label' } });
-    f.push({ type: 'session.idle', sessionID: 'malformed-opencode' });
+    f.push(v2Event('session.execution.succeeded', 'malformed-opencode'));
     await waitFor(() => recordList(f.store).length === 1);
     assert.equal(recordList(f.store)[0].selfReport, null);
     assert.equal(recordList(f.store)[0].selfReportReason, 'label-invalid');
@@ -728,8 +722,7 @@ test('opt-out: HARNESS_OBSERVATIONS=off disables capture while prompt routing st
     const context = { sessionID: 'optout-session', kind: 'primary', system: [], messages: [] };
     await f.sessionHooks.get('context')(context);
     assert.match(context.system.map(part => part.text || '').join('\n'), /=> ROUTER WORKFLOW PLAN/);
-    f.push({ type: 'session.idle', sessionID: 'optout-session' });
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await f.push(v2Event('session.execution.succeeded', 'optout-session'));
     assert.deepEqual(recordList(f.store), []);
   } finally {
     if (dispose) await dispose();
@@ -852,18 +845,26 @@ test('control: a V2 turn end without a prompt route records nothing', { concurre
   }
 });
 
-test('control: a legacy session.idle and a V2 session.execution.succeeded for one turn record it once', { concurrency: false }, async () => {
+test('control: repeated V2 session.execution.succeeded events for one turn record it once', { concurrency: false }, async () => {
   const f = fixture();
   let dispose;
   try {
     dispose = await install(f);
     await f.sessionHooks.get('prompt')({ sessionID: 'dedupe', messageID: 'dedupe-1', prompt: { text: 'dedupe the turn end' } });
-    f.push(v2Event('session.execution.succeeded', 'dedupe'));
-    f.push({ type: 'session.idle', sessionID: 'dedupe' });
-    await waitFor(() => recordList(f.store).length === 1);
-    await new Promise(resolve => setTimeout(resolve, 80));
-    assert.equal(recordList(f.store).length, 1, 'the same turn must not be recorded twice');
-    assert.equal(recordList(f.store)[0].selfReportReason, null);
+    const firstDone = f.push({ ...v2Event('session.execution.succeeded', 'dedupe'), id: 'evt-dedupe-1' });
+    const secondDone = f.push({ ...v2Event('session.execution.succeeded', 'dedupe'), id: 'evt-dedupe-2' });
+    await Promise.all([firstDone, secondDone]);
+    await waitFor(() => recordList(f.store).some(record => record.writer.sessionId === 'dedupe'));
+
+    // Positive control in the same fixture: a second session completes and
+    // flushes the async observation path without duplicating the first turn.
+    await f.sessionHooks.get('prompt')({ sessionID: 'dedupe-control', messageID: 'dedupe-control-1', prompt: { text: 'flush the observation path' } });
+    await f.push(v2Event('session.execution.succeeded', 'dedupe-control'));
+    await waitFor(() => recordList(f.store).some(record => record.writer.sessionId === 'dedupe-control'));
+
+    const dedupeRecords = recordList(f.store).filter(record => record.writer.sessionId === 'dedupe');
+    assert.equal(dedupeRecords.length, 1, 'the same turn must not be recorded twice');
+    assert.equal(dedupeRecords[0].selfReportReason, null);
   } finally {
     if (dispose) await dispose();
     f.restore();
@@ -948,7 +949,7 @@ async function flatLifecycleReset(startType, lifecycleType) {
   }
 }
 
-for (const startType of ['session.idle', 'session.execution.succeeded']) {
+for (const startType of ['session.execution.succeeded']) {
   for (const lifecycleType of ['session.created', 'session.deleted']) {
     test(`V2 consumers α2: flat ${startType} check is cancelled by flat ${lifecycleType}`, { concurrency: false }, async () => {
       await flatLifecycleReset(startType, lifecycleType);
@@ -1072,7 +1073,7 @@ test('V2 consumers α: flat lifecycle and completion events without an id leave 
   }
 });
 
-test('V2 consumers α3: both completion orders and a post-completion counterpart verify one revision once', { concurrency: false }, async () => {
+test('V2 consumers α3: repeated V2 completions and a post-completion duplicate verify one revision once', { concurrency: false }, async () => {
   const f = fixture('off');
   const sessionID = 'v2-double-completion';
   const checkLog = path.join(f.dir, 'check-runs.txt');
@@ -1080,29 +1081,34 @@ test('V2 consumers α3: both completion orders and a post-completion counterpart
   let dispose;
   try {
     dispose = await install(f);
-    const orders = [
-      { first: 'succeeded', second: 'idle', sequential: false },
-      { first: 'idle', second: 'succeeded', sequential: false },
-      { first: 'idle', second: 'succeeded', sequential: true },
+    const deliveries = [
+      { label: 'back-to-back', sequential: false, duplicate: true },
+      { label: 'post-completion', sequential: true, duplicate: true },
+      { label: 'next-revision-control', sequential: false, duplicate: false },
     ];
-    for (let i = 0; i < orders.length; i++) {
-      const order = orders[i];
+    for (let i = 0; i < deliveries.length; i++) {
+      const delivery = deliveries[i];
       await sendEdit(f, sessionID, `success-edit-${i + 1}`);
-      f.push(completionEvent(order.first, sessionID));
-      if (order.sequential) {
+      const first = f.push({ ...v2Event('session.execution.succeeded', sessionID), id: `evt-a3-pass-${i + 1}-a` });
+      if (delivery.sequential) {
         const completed = await waitUntil(() => fs.existsSync(checkLog)
           && fs.readFileSync(checkLog, 'utf8').trim().split(/\r?\n/).length === i + 1
           && readJson(editStateArtifact(f.workspace, sessionID)).verificationPending === false);
         assert.equal(completed, true, 'the first end notification completed the check');
-        f.push(completionEvent(order.second, sessionID));
+        await first;
+        await f.push({ ...v2Event('session.execution.succeeded', sessionID), id: `evt-a3-pass-${i + 1}-b` });
+      } else if (delivery.duplicate) {
+        const second = f.push({ ...v2Event('session.execution.succeeded', sessionID), id: `evt-a3-pass-${i + 1}-b` });
+        await Promise.all([first, second]);
       } else {
-        f.push(completionEvent(order.second, sessionID));
+        await first;
       }
-      await waitUntil(() => fs.existsSync(checkLog)
-        && fs.readFileSync(checkLog, 'utf8').trim().split(/\r?\n/).length >= i + 1);
-      await new Promise(resolve => setTimeout(resolve, 80));
+      assert.equal(await waitUntil(() => fs.existsSync(checkLog)
+        && fs.readFileSync(checkLog, 'utf8').trim().split(/\r?\n/).length >= i + 1
+        && readJson(editStateArtifact(f.workspace, sessionID)).verificationPending === false), true,
+      `delivery ${delivery.label} completed verification`);
       assert.equal(fs.readFileSync(checkLog, 'utf8').trim().split(/\r?\n/).length, i + 1,
-        `completion pair ${order.first}/${order.second} ran one check`);
+        `delivery ${delivery.label} ran one check`);
       assert.equal(readJson(path.join(stateDir(f.workspace, sessionID), 'compliance.json')).verifiedEdits, i + 1,
         'compliance advances once for each new edit revision');
       assert.equal(readJson(editStateArtifact(f.workspace, sessionID)).editsSinceVerification, 0);
@@ -1121,21 +1127,25 @@ test('V2 consumers α3: duplicate completion notifications do not duplicate veri
   let dispose;
   try {
     dispose = await install(f);
-    const orders = [
-      { first: 'succeeded', second: 'idle', sequential: false },
-      { first: 'idle', second: 'succeeded', sequential: false },
-      { first: 'idle', second: 'succeeded', sequential: true },
+    const deliveries = [
+      { label: 'back-to-back', sequential: false, duplicate: true },
+      { label: 'post-completion', sequential: true, duplicate: true },
+      { label: 'next-revision-control', sequential: false, duplicate: false },
     ];
-    for (let i = 0; i < orders.length; i++) {
-      const order = orders[i];
+    for (let i = 0; i < deliveries.length; i++) {
+      const delivery = deliveries[i];
       await sendEdit(f, sessionID, `failure-edit-${i + 1}`);
-      f.push(completionEvent(order.first, sessionID));
-      if (order.sequential) {
+      const first = f.push({ ...v2Event('session.execution.succeeded', sessionID), id: `evt-a3-fail-${i + 1}-a` });
+      if (delivery.sequential) {
         assert.equal(await waitUntil(() => readJson(editStateArtifact(f.workspace, sessionID)).followUpPending === true), true,
           'the first end notification delivered its follow-up');
-        f.push(completionEvent(order.second, sessionID));
+        await first;
+        await f.push({ ...v2Event('session.execution.succeeded', sessionID), id: `evt-a3-fail-${i + 1}-b` });
+      } else if (delivery.duplicate) {
+        const second = f.push({ ...v2Event('session.execution.succeeded', sessionID), id: `evt-a3-fail-${i + 1}-b` });
+        await Promise.all([first, second]);
       } else {
-        f.push(completionEvent(order.second, sessionID));
+        await first;
       }
       assert.equal(await waitUntil(() => fs.existsSync(editStateArtifact(f.workspace, sessionID))
         && readJson(editStateArtifact(f.workspace, sessionID)).followUpPending === true), true,
@@ -1358,7 +1368,7 @@ test('V2 consumers β2: a late session lookup cannot resurrect a deleted session
     pendingPrompt = f.sessionHooks.get('prompt')({ sessionID, messageID: 'user-turn-b', prompt: { text: 'lookup will finish after deletion' } });
     assert.equal(await waitUntil(() => lookupStarted), true, 'P2 lookup is pending');
 
-    f.push({ type: 'session.deleted', properties: { sessionID } });
+    f.push(v2Event('session.deleted', sessionID));
     const deleted = await waitUntil(() => !fs.existsSync(routerFile));
     assert.equal(deleted, true, 'the known owner binding resets the session without waiting for P2 lookup');
     resolvePending({ id: sessionID, location: { directory: f.workspace } });
