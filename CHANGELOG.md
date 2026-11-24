@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.0.1](https://github.com/dyphn1/Harness-everything/compare/v1.0.0...v1.0.1) (2026-11-24)
+
+### Bug Fixes
+
+* **agy:** bound stop continuation per work revision and normalize post-tool outcomes ([#516](https://github.com/dyphn1/Harness-everything/issues/516)) ([0fd30f5](https://github.com/dyphn1/Harness-everything/commit/0fd30f5f841212495b6278778e541f5e439093b6))
+* **hooks:** match ledger lessons through pipelines and plain redirects ([#518](https://github.com/dyphn1/Harness-everything/issues/518)) ([509e010](https://github.com/dyphn1/Harness-everything/commit/509e01014bfcf8c2b7f3b6071ecf921860d50083))
+
 ## [1.0.0](https://github.com/dyphn1/Harness-everything/compare/v0.58.0...v1.0.0) (2026-11-24)
 
 ### ⚠ BREAKING CHANGES
