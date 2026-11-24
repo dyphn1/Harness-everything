@@ -2,7 +2,7 @@
 
 Adds edit tracking, verification reminders, prompt routing, and observation hooks for OpenCode.
 
-> **Support and evidence boundary:** Harness supports the **OpenCode V2 plugin API only**; OpenCode 1.x / V1 is unsupported (#453). The plugin is covered by deterministic V2 mechanism tests. Existing V2 live observations are limited: OpenCode `2.1.3` (macOS) has server-log load-only evidence and OpenCode `2.1.4` (macOS) has a limited session workspace trace ([workspace trace](../benchmarks/results/live-host/opencode-2026-11-15-workspace/README.md)); neither establishes full V2 lifecycle verification or a validated minimum patch version. Retained historical/unsupported V1 evidence documents project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS) — [live-host evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md). That retained snapshot is historical and does not establish current V2 capability: its final state was post-reset; the hard-lock was only an interactive observation with no retained blocked-tool trace. Reflection was operator-seeded, then agent-rewritten, so no behavioral-effectiveness claim is made. The current plugin does not force reflection or block edits based on verification history. Global scope, npm-package installation, and other host versions remain unverified. See [`../docs/platform-capabilities.md`](../docs/platform-capabilities.md).
+> **Support and evidence boundary:** Harness supports the **OpenCode V2 plugin API only**; OpenCode 1.x / V1 is unsupported (#453). The plugin is covered by deterministic V2 mechanism tests. Tested V2 live observations cover one isolated OpenCode `2.1.4` (macOS 26.6.2) long-lived server run ([V2 lifecycle trace](../benchmarks/results/live-host/opencode-2026-11-24-v2-lifecycle/README.md): V2 default-export load, V2 tool hooks, V2 event envelope + `session.execution.succeeded` completion, and completion → verification → reminder delivery; standalone `opencode run` exits before verification finishes), alongside OpenCode `2.1.3` (macOS, server-log load-only) and OpenCode `2.1.4` (macOS, [workspace trace](../benchmarks/results/live-host/opencode-2026-11-15-workspace/README.md)); router/context injection, observation recording, ledger lessons, session create/delete reset, cancellation, and a validated minimum patch version remain unverified. Retained historical/unsupported V1 evidence documents project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS) — [live-host evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md). That retained snapshot is historical and does not establish current V2 capability: its final state was post-reset; the hard-lock was only an interactive observation with no retained blocked-tool trace. Reflection was operator-seeded, then agent-rewritten, so no behavioral-effectiveness claim is made. The current plugin does not force reflection or block edits based on verification history. Global scope, npm-package installation, and other host versions remain unverified. See [`../docs/platform-capabilities.md`](../docs/platform-capabilities.md).
 
 ## Problem
 
@@ -169,10 +169,14 @@ behavior, and legacy-state migration.
 They do not launch a real opencode process; the tests remain deterministic
 hook-sequence checks against the documented and source-verified V2 hook
 signatures. A passing test is therefore mechanism evidence, not live-host
-loading evidence. The historical/unsupported 1.18.31 archive lives at
-[`benchmarks/results/live-host/opencode-2026-09-16/`](../benchmarks/results/live-host/opencode-2026-09-16/),
+loading evidence. The isolated OpenCode 2.1.4 (macOS 26.6.2) V2 lifecycle trace
+lives at
+[`benchmarks/results/live-host/opencode-2026-11-24-v2-lifecycle/`](../benchmarks/results/live-host/opencode-2026-11-24-v2-lifecycle/),
 the limited OpenCode 2.1.4 workspace trace lives at
 [`benchmarks/results/live-host/opencode-2026-11-15-workspace/`](../benchmarks/results/live-host/opencode-2026-11-15-workspace/),
+the historical/unsupported 1.18.31 archive lives at
+[`benchmarks/results/live-host/opencode-2026-09-16/`](../benchmarks/results/live-host/opencode-2026-09-16/),
 and `ci/mechanism-30-opencode-plugin-loadability.test.js` (npm script
 `test:opencode:loadability`) fails any change that reintroduces a
 silently-ignored install filename such as `harness-enforcement.mjs`.
+Verification reminders need a long-lived server (`opencode serve` + `opencode run --server`); `opencode run --standalone` exits before verification completes.
