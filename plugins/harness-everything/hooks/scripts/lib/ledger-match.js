@@ -190,40 +190,152 @@ function words(command) {
   return tokens;
 }
 
-// Recognize only a bounded top-level sequence. Wrappers, pipelines, redirects,
-// subshells, and heredocs stay unsupported; quoted separators remain arguments.
-function splitSimpleCommandSegments(command) {
-  if (typeof command !== 'string' || command.length > LIMITS.command || /[\r\n\0]/.test(command)) return null;
-  const segments = [];
+function literalRedirectTarget(command, start) {
+  let index = start;
+  while (index < command.length && /\s/.test(command[index])) index += 1;
+  const targetStart = index;
   let quote = null;
-  let start = 0;
-  for (let index = 0; index < command.length; index += 1) {
+  let length = 0;
+  for (; index < command.length; index += 1) {
     const char = command[index];
-    if (quote) {
-      if (char === quote) quote = null;
-      else if (char === '\\' && quote === '"' && index + 1 < command.length) index += 1;
+    if (quote === "'") {
+      if (char === "'") quote = null;
+      else length += 1;
+      continue;
+    }
+    if (quote === '"') {
+      if (char === '"') quote = null;
+      else if (char === '\\' && index + 1 < command.length) { index += 1; length += 1; }
+      else if (char === '$' || char === '`') return null;
+      else length += 1;
       continue;
     }
     if (char === '"' || char === "'") { quote = char; continue; }
-    if (char === '\\' && index + 1 < command.length) { index += 1; continue; }
-    if ('<>()`'.includes(char)) return null;
+    if (char === '\\' && index + 1 < command.length) { index += 1; length += 1; continue; }
+    if (/\s/.test(char) || ';|&<>'.includes(char)) break;
+    if (char === '#' && index === targetStart) return null;
+    if ('()$`'.includes(char) || /[*?\[\]{}]/.test(char) || (char === '~' && length === 0)) return null;
+    length += 1;
+  }
+  return quote || length === 0 ? null : index;
+}
+
+function readRedirect(command, index, fileDescriptor) {
+  const char = command[index];
+  let operatorEnd = index + 1;
+  if (char === '<') {
+    if (command[index + 1] === '<' || command[index + 1] === '>') return null;
+  } else if (char === '>') {
+    if (command[index + 1] === '|') return null;
+    if (command[index + 1] === '>') operatorEnd += 1;
+    else if (command[index + 1] === '&') {
+      if (!fileDescriptor) return null;
+      let targetEnd = index + 2;
+      const digitsStart = targetEnd;
+      while (/[0-9]/.test(command[targetEnd] || '')) targetEnd += 1;
+      if (targetEnd === digitsStart ||
+          (targetEnd < command.length && !/\s/.test(command[targetEnd]) && !';|&<>'.includes(command[targetEnd]))) return null;
+      return targetEnd;
+    }
+  } else if (char === '&') {
+    if (command[index + 1] !== '>' || command[index + 2] === '>') return null;
+    operatorEnd += 1;
+  } else return null;
+  return literalRedirectTarget(command, operatorEnd);
+}
+
+// Recognize a bounded top-level command list; redirects are removed before
+// candidate matching so their filenames never become command words.
+function splitSimpleCommandSegments(command) {
+  if (typeof command !== 'string' || command.length > LIMITS.command || /[\r\n\0]/.test(command)) return null;
+  const segments = [];
+  let segment = '';
+  let quote = null;
+  let tokenStart = true;
+  let afterSeparator = false;
+  for (let index = 0; index < command.length; index += 1) {
+    const char = command[index];
+    if (quote === "'") {
+      segment += char;
+      if (char === "'") quote = null;
+      tokenStart = false;
+      afterSeparator = false;
+      continue;
+    }
+    if (quote === '"') {
+      if (char === '"') { segment += char; quote = null; tokenStart = false; afterSeparator = false; continue; }
+      if (char === '\\' && index + 1 < command.length) { segment += char + command[++index]; afterSeparator = false; continue; }
+      if (char === '`' || (char === '$' && command[index + 1] === '(')) return null;
+      segment += char;
+      afterSeparator = false;
+      continue;
+    }
+    if (char === '"' || char === "'") { segment += char; quote = char; tokenStart = false; afterSeparator = false; continue; }
+    if (char === '\\' && index + 1 < command.length) { segment += char + command[++index]; tokenStart = false; afterSeparator = false; continue; }
+    if (char === '`' || (char === '$' && command[index + 1] === '(') || '()'.includes(char)) return null;
+    if (char === '#' && tokenStart) {
+      if (afterSeparator) return null;
+      break;
+    }
+    if (/\s/.test(char)) { segment += char; tokenStart = true; continue; }
+
+    let descriptorEnd = index;
+    if (tokenStart && /[0-9]/.test(char)) {
+      while (/[0-9]/.test(command[descriptorEnd] || '')) descriptorEnd += 1;
+      if (command[descriptorEnd] === '>' || command[descriptorEnd] === '<') {
+        const end = readRedirect(command, descriptorEnd, true);
+        if (end === null) return null;
+        index = end - 1;
+        tokenStart = true;
+        continue;
+      }
+    }
+    if (char === '<' || char === '>') {
+      const end = readRedirect(command, index, false);
+      if (end === null) return null;
+      index = end - 1;
+      tokenStart = true;
+      continue;
+    }
+    if (char === '&' && command[index + 1] === '>') {
+      const end = readRedirect(command, index, false);
+      if (end === null) return null;
+      index = end - 1;
+      tokenStart = true;
+      continue;
+    }
+
     let separatorLength = 0;
     if (char === ';') separatorLength = 1;
-    else if (char === '&' || char === '|') {
-      if (command[index + 1] !== char || command[index + 2] === char) return null;
+    else if (char === '&') {
+      if (command[index + 1] !== '&' || command[index + 2] === '&') return null;
       separatorLength = 2;
+    } else if (char === '|') {
+      if (command[index + 1] === '&' || command[index + 2] === '|') return null;
+      separatorLength = command[index + 1] === '|' ? 2 : 1;
     }
-    if (!separatorLength) continue;
-    const segment = command.slice(start, index).trim();
-    if (!segment || segments.length >= LIMITS.commandSegments - 1) return null;
-    segments.push(segment);
-    index += separatorLength - 1;
-    start = index + 1;
+    if (separatorLength) {
+      const current = segment.trim();
+      if (!current || segments.length >= LIMITS.commandSegments - 1) return null;
+      segments.push(current);
+      segment = '';
+      index += separatorLength - 1;
+      tokenStart = true;
+      afterSeparator = true;
+      continue;
+    }
+    if (char === '&' || char === '|') return null;
+    segment += char;
+    tokenStart = false;
+    afterSeparator = false;
   }
   if (quote) return null;
-  const finalSegment = command.slice(start).trim();
-  if (!finalSegment || segments.length >= LIMITS.commandSegments) return null;
-  segments.push(finalSegment);
+  const finalSegment = segment.trim();
+  if (afterSeparator) return null;
+  if (finalSegment) {
+    if (segments.length >= LIMITS.commandSegments) return null;
+    segments.push(finalSegment);
+  }
   return segments;
 }
 
