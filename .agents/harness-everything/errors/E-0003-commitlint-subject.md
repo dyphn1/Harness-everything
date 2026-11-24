@@ -152,6 +152,19 @@ episodes:
         change: "re-committed with wrapped lines"
         review: "commitlint"
         result: "accepted"
+  - episode: 517-commitlint-subject-case
+    feature: "#453 / PR #517 commits"
+    date: 2026-11-24
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "commitlint (husky commit-msg)"
+        result: "commit subjects containing uppercase acronyms (\"AGENTS\", \"OpenCode V2\") were rejected twice for subject-case during PR #517."
+      - round: 1
+        change: "re-committed with all lower-case subjects (\"opencode v2\", \"agents\")"
+        review: "commitlint"
+        result: "accepted; PR #517 merged as cf0cad07"
 ---
 
 ## Cue
@@ -198,3 +211,5 @@ The coordinator wrote `docs(errors): record the PR #476 CI fix episodes`; commit
 A coordinator `git merge --no-ff -m` message had no conventional type and was rejected by commitlint; the merge was completed with a `chore(errors): merge …` message. Lesson added: local merge commits into an integration branch need a conventional message too.
 - PR #494 (2026-11-20): merge message without type rejected; re-run as `chore(merge)` in `28e60098`.
 - PR #501 (2026-11-21): body-max-line-length on a coordinator commit.
+- PR #517 (2026-11-24): `subject-case` rejected uppercase acronyms (`AGENTS`, `OpenCode V2`) twice; lower-cased to `opencode v2` / `agents` and merged as `cf0cad07`.
+- Why the #394 lesson did not prevent the #517 repeat: the matcher skips piped/redirected commands (`git commit … 2>&1 | tail`), the usual coordinator shape; tracked in #518.

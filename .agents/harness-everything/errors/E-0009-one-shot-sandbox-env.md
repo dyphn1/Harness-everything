@@ -8,6 +8,8 @@ sites:
   - "claude -p one-shot dispatch command (prompt directly after -p, flags after it)"
   - "read-only reviewer dispatch (fixture scratch directory and report write)"
   - "coordinator monitor script (zsh loop)"
+  - "coordinator launcher script (zsh loop)"
+  - "agy -p one-shot dispatch command (headless permissions)"
   - ci/mechanism-system-one-provider.test.js
 violates: "Shared agent standard: \"Verification includes the CI-equivalent gates ... not only unit tests.\""
 scope: in
@@ -142,6 +144,28 @@ episodes:
         change: "coordinator applied the .agents edits and regenerates the index; continuation packets forbid verify:all for sandboxed workers"
         review: "HC2/HO2/FX reports + coordinator verify:all"
         result: "all completed within budget; coordinator verify:all 13 PASS / 0 FAIL"
+  - episode: 453-zsh-launcher-bash-uppercase
+    feature: "#453 coordinator dispatch (zsh launcher loop)"
+    date: 2026-11-24
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "A zsh launcher loop used bash-only `${p^^}` (uppercase expansion); zsh failed with \"bad substitution\" and the background launcher silently started no worker, noticed only by the absence of logs."
+  - episode: 453-p0-agy-headless-permission-deny
+    feature: "#453 packet P0 attempt 1 (agy -p one-shot runner)"
+    date: 2026-11-24
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "`agy -p` exited 0 with no report when headless mode auto-denied the `read_file` permission (`jetski: no output produced — a tool required the \"read_file\" permission that headless mode cannot prompt for, so it was auto-denied.`)."
+      - round: 1
+        change: "Pass `--settings '{\"permissions\":{\"allow\":[\"command(*)\",\"read_file(*)\"]}}'` to `agy -p`"
+        review: unknown
+        result: "Settings allowlist applied; exit code 0 is not success — only the report STATUS line counts. No closing review is recorded, so the episode stays open."
 ---
 
 ## Cue
@@ -159,6 +183,8 @@ Dispatch one-shot `codex exec` with a TMPDIR outside every repository and stdin 
 - Swept 2026-11-17 (Codex logs 11-10 to 11-15): the workflow-state EPERM recurred in 24 sessions, so it has three episodes now (11-07, 11-08, 11-17) and is a `mechanism` candidate. Either the state dir is a writable root of the dispatch, or workflow-disposition degrades silently under a read-only state dir. `ps` and `diff <(...)` are also blocked in the sandbox; use them only outside it.
 - Put the prompt directly after `-p` in `claude -p`, and the flags after it. A variadic `--add-dir` placed before the prompt swallowed the prompt on 2026-11-12. Feature and PR unknown.
 - zsh does not word-split unquoted parameter expansions by default (bash does). A coordinator monitor loop `for x in "a b c"; do set -- $x` never split, so the check hung and was killed (2026-11-17); it was replaced with a per-agent function.
+- Avoid bash-only parameter expansions such as `${p^^}` in coordinator zsh launcher scripts (use zsh `${(U)p}` or `tr`); a "bad substitution" error in a background launcher silently starts no worker. Verify that the expected worker log appears right after launch.
+- For headless `agy -p` one-shot runs, pass `--settings '{"permissions":{"allow":["command(*)","read_file(*)"]}}'` so required tools are not auto-denied. Treat exit code 0 without a report as a failed run; only the report's terminal `STATUS:` line counts (see also E-0002, E-0024).
 
 ## Stage 2 read-only review scratch (#396, 2026-11-07)
 
@@ -180,3 +206,5 @@ After the known permission failure, do not rerun the same fixture commands in th
 
 The default free runners `opencode/glm-5.3-flash-free` (deprecated) and `nvidia/deepseek-ai/deepseek-v4.1-flash` (end of life 2026-11-16) stopped working. A ping before dispatch caught it, so no run was lost. Different shape from sandbox EPERM: the runner itself was retired; the existing "ping the model first" lesson covers it. E-0020 covers concurrency on a shared key, not provider retirement.
 - PR #501 (2026-11-21): S BLOCKED report and HC/HO RUN_TIMEOUT; continuation packets HC2/HO2.
+- #453 (2026-11-24): coordinator zsh launcher failed with "bad substitution" on bash-only `${p^^}` and silently started no worker.
+- #453 packet P0 attempt 1 (2026-11-24): `agy -p` exited 0 with no report after headless auto-deny on `read_file`; fixed with `--settings '{"permissions":{"allow":["command(*)","read_file(*)"]}}'`.
