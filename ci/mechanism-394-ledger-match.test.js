@@ -170,8 +170,6 @@ test('source and packaged matchers bound simple command sequences and reject uns
   ];
   const unsupported = [
     "echo 'git commit; echo done'",
-    'git commit | cat',
-    'cat | git commit',
     '(git commit)',
     'git commit <<EOF\nmessage\nEOF',
     'git commit;',
@@ -183,6 +181,77 @@ test('source and packaged matchers bound simple command sequences and reject uns
   for (const implementation of [matcher, packagedMatcher]) {
     for (const command of supported) assert.deepEqual(implementation.normalizeGitCommitCommand(command), expected, command);
     for (const command of unsupported) assert.equal(implementation.normalizeGitCommitCommand(command), null, command);
+  }
+});
+
+test('source and packaged matchers recognize pipeline members and literal redirects', () => {
+  const expected = { tool: 'shell', executable: 'git', subcommand: 'commit' };
+  const supported = [
+    'git commit -m "A"',
+    'cd /x && git commit -m "A"',
+    'git commit --dry-run -m "A"',
+    'git commit -m "A" 2>&1',
+    'git commit -m "A" 2>&1 | tail -3',
+    'git commit -m "A" | cat',
+    'echo before | git commit -m "A"',
+    'git 2>&1 commit -m "A"',
+    '2>errors.log git commit -m "A"',
+    'git commit 2>&1 -m "A"',
+    'git commit -m "A" >out.log',
+    'git commit -m "A" >out#log',
+    'git commit -m "A" >> "out file.log"',
+    'git commit -m "A" < input.txt',
+    'git commit -m "A" &>combined.log',
+    'git commit -m "A" 2> errors.log',
+    'git commit -m "A | B"',
+    'git commit -m A \\| cat',
+    'git commit -m "A" # | cat is comment text'
+  ];
+  const unsupported = [
+    "echo 'git commit | cat'",
+    'echo before > git commit',
+    'echo before # git commit | cat',
+    'env git commit',
+    'git commit |',
+    '| git commit',
+    'git commit | | cat',
+    'git commit |& cat',
+    'git commit &',
+    'git commit &>>out.log',
+    'git commit 2>&-',
+    'git commit 2>&1-',
+    'git commit 2>&1suffix',
+    '2 >errors.log git commit',
+    "'2'>errors.log git commit",
+    'name2>errors.log git commit',
+    'git commit >',
+    'git commit > # missing redirect target',
+    'git commit >#missing-target',
+    'git commit >""',
+    'git commit >"$OUT"',
+    'git commit >*.log',
+    'git commit <<EOF\nmessage\nEOF',
+    'git commit <<< message',
+    'git commit > >(tee out.log)',
+    'cat <(git commit)',
+    '(git commit)',
+    'echo "$(git commit)"',
+    'echo "`git commit`"'
+  ];
+  for (const implementation of [matcher, packagedMatcher]) {
+    for (const command of supported) {
+      assert.deepEqual(implementation.normalizeGitCommitCommand(command), expected, command);
+      const result = implementation.matchLedgerLessons(input({
+        event: { phase: 'action', tool: 'shell', command, outcome: { failed: 'unknown' } }
+      }));
+      assert.deepEqual(result?.ids, ['E-0003'], command);
+    }
+    for (const command of unsupported) {
+      assert.equal(implementation.normalizeGitCommitCommand(command), null, command);
+      assert.equal(implementation.matchLedgerLessons(input({
+        event: { phase: 'action', tool: 'shell', command, outcome: { failed: 'unknown' } }
+      })), null, command);
+    }
   }
 });
 
@@ -225,7 +294,6 @@ test('simple command segments select commit lessons without matching quoted text
   }
   for (const command of [
     "echo 'git commit; echo done'",
-    'git commit | cat',
     '(git commit)',
     'git commit <<EOF\nmessage\nEOF',
     'env git commit'
@@ -270,6 +338,40 @@ test('failure lessons require a known outcome and an exact diagnostic', () => {
       assert.deepEqual(result?.ids ?? null, expected, JSON.stringify({ command, failed, output }));
     }
   }
+});
+
+test('a pipeline keeps the per-session action and failure reminder policy', () => {
+  const state = stateDir('pipeline-once');
+  const base = input({ stateDir: state, sessionIdentity: 'session:pipeline-once' });
+  const action = matcher.matchLedgerLessons(base);
+  assert.deepEqual(action?.ids, ['E-0003']);
+  assert.equal(matcher.matchLedgerLessons(base), null, 'a duplicate action stays silent');
+
+  const failureInput = {
+    ...base,
+    event: {
+      phase: 'failure',
+      tool: 'shell',
+      command: 'git commit -m "Bad Subject" 2>&1 | tail -3',
+      outcome: { failed: false, output: COMMITLINT_OUTPUT }
+    }
+  };
+  const failure = matcher.matchLedgerLessons(failureInput);
+  assert.deepEqual(failure?.ids, ['E-0003'], 'an exact diagnostic can recover a pipeline masked by zero status');
+  assert.equal(matcher.matchLedgerLessons(failureInput), null, 'a duplicate failure stays silent');
+
+  const unknown = matcher.matchLedgerLessons({
+    ...failureInput,
+    sessionIdentity: 'session:pipeline-unknown',
+    event: { ...failureInput.event, outcome: { failed: 'unknown', output: COMMITLINT_OUTPUT } }
+  });
+  assert.equal(unknown, null, 'an unknown pipeline outcome stays silent');
+  const redirectedZero = matcher.matchLedgerLessons({
+    ...failureInput,
+    sessionIdentity: 'session:redirected-zero',
+    event: { ...failureInput.event, command: 'git commit -m "Bad Subject" 2>&1', outcome: { failed: false, output: COMMITLINT_OUTPUT } }
+  });
+  assert.equal(redirectedZero, null, 'a redirect alone remains one command and cannot recover a zero status');
 });
 
 test('the real generator and runtime accept quoted identity and match scalars', () => {
