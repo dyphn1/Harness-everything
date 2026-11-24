@@ -60,9 +60,13 @@ const OBSERVATIONS_FILE = HARNESS_ROOT && join(HARNESS_ROOT, "hooks", "scripts",
 const ROUTER_FILE = HARNESS_ROOT && join(HARNESS_ROOT, "harness-everything", "scripts", "kernel-router.js")
 const LEDGER_MATCHER_FILE = HARNESS_ROOT && join(HARNESS_ROOT, "hooks", "scripts", "lib", "ledger-match.js")
 const HARNESS_STATE_FILE = HARNESS_ROOT && join(HARNESS_ROOT, "hooks", "scripts", "lib", "harness-state.js")
+const LOCAL_ERRORS_FILE = HARNESS_ROOT && join(HARNESS_ROOT, "hooks", "scripts", "lib", "local-errors.js")
+const LOCAL_ERROR_SOURCE_FILE = HARNESS_ROOT && join(HARNESS_ROOT, "hooks", "scripts", "lib", "local-error-source.js")
 let observationsApi
 let ledgerMatcherApi
 let harnessStateApi
+let localErrorsApi
+let localErrorSourceApi
 
 function systemOneObservations() {
   if (!OBSERVATIONS_FILE) return null
@@ -70,6 +74,22 @@ function systemOneObservations() {
     try { observationsApi = requireFromPlugin(OBSERVATIONS_FILE) } catch { return null }
   }
   return observationsApi
+}
+
+function localErrors() {
+  if (!LOCAL_ERRORS_FILE) return null
+  if (!localErrorsApi) {
+    try { localErrorsApi = requireFromPlugin(LOCAL_ERRORS_FILE) } catch { return null }
+  }
+  return typeof localErrorsApi?.appendOccurrence === "function" ? localErrorsApi : null
+}
+
+function localErrorSource() {
+  if (!LOCAL_ERROR_SOURCE_FILE) return null
+  if (!localErrorSourceApi) {
+    try { localErrorSourceApi = requireFromPlugin(LOCAL_ERROR_SOURCE_FILE) } catch { return null }
+  }
+  return typeof localErrorSourceApi?.createProvisionalSource === "function" ? localErrorSourceApi : null
 }
 
 function ledgerMatcher() {
@@ -94,18 +114,77 @@ function queueLedgerLesson(pending, workspace, sessionID, event) {
     const identity = api.state.resolveWorkspaceIdentity(context)
     if (!identity?.workspaceRoot || !identity.workspaceKey || identity.sessionId !== sessionID) return
     if (identity.workspaceKey !== getWorkspaceKey(workspace)) return
+    let provisionalSource
+    const sourceApi = localErrorSource()
+    if (sourceApi) {
+      try {
+        provisionalSource = sourceApi.createProvisionalSource({
+          env: process.env,
+          workspaceRoot: identity.workspaceRoot,
+        })
+      } catch {
+        provisionalSource = undefined
+      }
+    }
     const result = api.matcher.matchLedgerLessons({
       workspaceRoot: identity.workspaceRoot,
       workspaceIdentity: identity.workspaceKey,
       sessionIdentity: sessionID,
       stateDir: api.state.getSessionDir(identity.workspaceRoot, sessionID, context),
       event,
+      ...(provisionalSource ? { provisionalSource } : {}),
     })
     if (!result) return
     const lessons = pending.get(sessionID) || []
     lessons.push({ workspace: identity.workspaceRoot, phase: event.phase, result })
     pending.set(sessionID, lessons)
   } catch { /* ledger context is fail-open */ }
+}
+
+function captureOpenCodeFailure(workspace, sessionID, event, command, failureOutput, exitCode) {
+  try {
+    if (typeof workspace !== "string" || !workspace || typeof sessionID !== "string" || !sessionID) return
+    const store = localErrors()
+    if (!store) return
+    const api = ledgerMatcher()
+    let workspaceRoot = workspace
+    if (api) {
+      const context = { workspace_root: workspace, session_id: sessionID, host_id: "opencode" }
+      const identity = api.state.resolveWorkspaceIdentity(context)
+      if (!identity?.workspaceRoot || !identity.workspaceKey || identity.sessionId !== sessionID) return
+      if (identity.workspaceKey !== getWorkspaceKey(workspace)) return
+      workspaceRoot = identity.workspaceRoot
+    }
+    let matchedLedgerIds = []
+    if (typeof api?.matcher?.peekRepoMatches === "function") {
+      try {
+        matchedLedgerIds = api.matcher.peekRepoMatches({
+          workspaceRoot,
+          event: {
+            phase: "failure",
+            tool: "shell",
+            command,
+            outcome: { failed: true, ...(typeof failureOutput === "string" ? { output: failureOutput } : {}) },
+          },
+        })
+      } catch {
+        matchedLedgerIds = []
+      }
+    }
+    const callId = [event?.id, event?.callID, event?.callId, event?.toolCallID, event?.toolCallId]
+      .find(value => typeof value === "string" && value.trim())
+    store.appendOccurrence({
+      workspaceRoot,
+      host: "opencode",
+      sessionKey: sessionID,
+      ...(callId ? { toolUseId: callId } : {}),
+      command,
+      exitCode: Number.isFinite(exitCode) ? exitCode : null,
+      output: typeof failureOutput === "string" ? failureOutput : "",
+      matchedLedgerIds,
+      destination: "unknown",
+    }, { env: process.env })
+  } catch { /* capture is write-only, silent, and fail-open */ }
 }
 
 function releaseLedgerLessons(lessons) {
@@ -1280,12 +1359,18 @@ export default {
           ? typeof event.error === "string" ? event.error
             : typeof event.error?.message === "string" ? event.error.message : undefined
           : undefined
-        const resultExit = event.status === "completed" && Number.isFinite(event.result?.metadata?.exit)
+        const metadataExit = Number.isFinite(event.result?.metadata?.exit)
           ? event.result.metadata.exit : null
+        const resultExit = event.status === "completed" && metadataExit !== null
+          ? metadataExit : null
         const resultFailed = resultExit !== null && resultExit !== 0
+        const confirmedFailure = event.status === "error" || (metadataExit !== null && metadataExit !== 0)
         const resultOutput = typeof event.result?.output === "string" ? event.result.output
           : typeof event.result?.output?.output === "string" ? event.result.output.output : undefined
         const failureOutput = errorOutput ?? resultOutput
+        if ((event.tool === "bash" || event.tool === "shell") && confirmedFailure && typeof event.input?.command === "string") {
+          captureOpenCodeFailure(binding.workspace, event.sessionID, event, event.input.command, failureOutput, metadataExit)
+        }
         if ((event.tool === "bash" || event.tool === "shell") && failureOutput !== undefined && typeof event.input?.command === "string") {
           queueLedgerLesson(pendingLedgerLessons, binding.workspace, event.sessionID, {
             phase: "failure", tool: "shell", command: event.input.command,
