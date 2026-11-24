@@ -23,6 +23,19 @@ episodes:
         change: "git pull --ff-only, then re-dispatch"
         review: dispatch CLI
         result: "both runs 0 DONE"
+  - episode: 1125-clone-local-stale-main
+    feature: "stage-close ledger packet errors-1125 (after PRs #519-#521 merged)"
+    date: 2026-11-25
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator inspection of the clone
+        result: "A throwaway clone made with `git clone --local` of the main checkout used `origin/main`, which in the clone is the source checkout's local `main` branch (not yet pulled, three merges behind GitHub); the worker started without E-0031/E-0032."
+      - round: 1
+        change: "killed the worker; recreated the clone on the explicit SHA of the source checkout's `origin/main` after `git fetch`"
+        review: coordinator inspection
+        result: "worker saw E-0001..E-0032 and completed"
 ---
 
 ## Cue
@@ -36,3 +49,4 @@ Pull the checkout you run the tool from (or run it from the merged worktree) bef
 ## Evidence
 
 - PR #499 merge `8fc5205c`; HC2/HO2 first dispatch logs (local).
+- Episode 2026-11-25: in a `git clone --local` throwaway clone, `origin/main` is the source checkout's local `main`, not the remote. Base worker clones on an explicit fetched SHA (`git -C <source> rev-parse origin/main` after `git fetch`).

@@ -166,6 +166,15 @@ episodes:
         change: "Pass `--settings '{\"permissions\":{\"allow\":[\"command(*)\",\"read_file(*)\"]}}'` to `agy -p`"
         review: unknown
         result: "Settings allowlist applied; exit code 0 is not success — only the report STATUS line counts. No closing review is recorded, so the episode stays open."
+  - episode: 516-p516-sandbox-fast-gate-timeout
+    feature: "#516 repair packets P516-A / P516-A2 (PR #521)"
+    date: 2026-11-25
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "A Codex (GPT-6-Luna xhigh) repair packet for #516 (P516-A2) ran 65+ minutes; its own `verify:all -- --fast` inside the sandbox did not finish within the 45-minute packet limit, so it reported `STATUS: BLOCKED` although the fix itself was RED->GREEN. The original P516-A also ran ~65 min. Repeats the existing lesson: packets should not ask sandboxed workers to run the full fast gate when the coordinator re-runs it outside the sandbox anyway."
 ---
 
 ## Cue
@@ -208,3 +217,4 @@ The default free runners `opencode/glm-5.3-flash-free` (deprecated) and `nvidia/
 - PR #501 (2026-11-21): S BLOCKED report and HC/HO RUN_TIMEOUT; continuation packets HC2/HO2.
 - #453 (2026-11-24): coordinator zsh launcher failed with "bad substitution" on bash-only `${p^^}` and silently started no worker.
 - #453 packet P0 attempt 1 (2026-11-24): `agy -p` exited 0 with no report after headless auto-deny on `read_file`; fixed with `--settings '{"permissions":{"allow":["command(*)","read_file(*)"]}}'`.
+- PR #521 (merged as `ae7a0260`, 2026-11-25): #516 packets P516-A and P516-A2 each ran ~65+ min because P516-A2 ran `verify:all -- --fast` inside the sandbox past the 45-minute limit and reported `STATUS: BLOCKED` despite the fix being RED->GREEN.
