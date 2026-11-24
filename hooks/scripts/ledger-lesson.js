@@ -12,6 +12,18 @@ try {
 } catch (_) {
   // Missing runtime pieces leave the host hook fail-open and silent.
 }
+let localErrorSource;
+try {
+  localErrorSource = require('./lib/local-error-source');
+} catch (_) {
+  // Missing provisional source leaves the host hook fail-open.
+}
+let localErrors;
+try {
+  localErrors = require('./lib/local-errors');
+} catch (_) {
+  // Missing local error store leaves capture fail-open and silent.
+}
 
 let pending = null;
 function releasePending() {
@@ -21,6 +33,39 @@ function releasePending() {
 }
 
 process.stdout.on('error', releasePending);
+
+function structuredExitCode(payload) {
+  const response = payload.tool_response && typeof payload.tool_response === 'object' && !Array.isArray(payload.tool_response)
+    ? payload.tool_response : null;
+  for (const candidate of [payload.exit_code, payload.exitCode, response?.exit_code, response?.exitCode]) {
+    if (Number.isInteger(candidate)) return candidate;
+  }
+  return null;
+}
+
+function captureFailure(payload, workspace, sessionIdentity, command, event) {
+  if (!localErrors || typeof localErrors.appendOccurrence !== 'function') return;
+  try {
+    const matchedLedgerIds = typeof matcher?.peekRepoMatches === 'function'
+      ? matcher.peekRepoMatches({ workspaceRoot: workspace.workspaceRoot, event })
+      : [];
+    localErrors.appendOccurrence({
+      workspaceRoot: workspace.workspaceRoot,
+      host: 'claude',
+      sessionKey: sessionIdentity,
+      ...(typeof payload.tool_use_id === 'string' && payload.tool_use_id.trim()
+        ? { toolUseId: payload.tool_use_id }
+        : {}),
+      command,
+      exitCode: structuredExitCode(payload),
+      output: typeof payload.error === 'string' ? payload.error : '',
+      matchedLedgerIds,
+      destination: 'unknown'
+    }, { env: process.env });
+  } catch (_) {
+    // Capture is write-only, silent, and fail-open.
+  }
+}
 
 function handle(payload) {
   try {
@@ -38,30 +83,56 @@ function handle(payload) {
 
     const workspace = state.resolveWorkspaceIdentity(payload);
     if (!workspace.workspaceRoot || !workspace.workspaceKey) return;
-    const sessionDir = state.getSessionDir(workspace.workspaceRoot, sessionIdentity, payload);
-    const result = matcher.matchLedgerLessons({
-      workspaceRoot: workspace.workspaceRoot,
-      workspaceIdentity: workspace.workspaceKey,
-      sessionIdentity,
-      stateDir: path.join(sessionDir, 'ledger-lessons'),
-      event: {
-        phase,
-        tool: 'shell',
-        command,
-        outcome: phase === 'failure'
-          ? { failed: true, ...(typeof payload.error === 'string' ? { output: payload.error } : {}) }
-          : { failed: 'unknown' }
-      }
-    });
-    if (!result) return;
 
-    pending = result;
-    process.stdout.write(`${JSON.stringify({
-      hookSpecificOutput: { hookEventName, additionalContext: result.text }
-    })}\n`, error => {
-      if (error) releasePending();
-      else pending = null;
-    });
+    const event = {
+      phase,
+      tool: 'shell',
+      command,
+      outcome: phase === 'failure'
+        ? { failed: true, ...(typeof payload.error === 'string' ? { output: payload.error } : {}) }
+        : { failed: 'unknown' }
+    };
+
+    let provisionalSource;
+    if (localErrorSource && typeof localErrorSource.createProvisionalSource === 'function') {
+      try {
+        provisionalSource = localErrorSource.createProvisionalSource({
+          env: process.env,
+          workspaceRoot: workspace.workspaceRoot
+        });
+      } catch (_) {
+        provisionalSource = undefined;
+      }
+    }
+
+    let result = null;
+    try {
+      const sessionDir = state.getSessionDir(workspace.workspaceRoot, sessionIdentity, payload);
+      result = matcher.matchLedgerLessons({
+        workspaceRoot: workspace.workspaceRoot,
+        workspaceIdentity: workspace.workspaceKey,
+        sessionIdentity,
+        stateDir: path.join(sessionDir, 'ledger-lessons'),
+        event,
+        ...(provisionalSource ? { provisionalSource } : {})
+      });
+    } catch (_) {
+      result = null;
+    }
+
+    if (result) {
+      pending = result;
+      process.stdout.write(`${JSON.stringify({
+        hookSpecificOutput: { hookEventName, additionalContext: result.text }
+      })}\n`, error => {
+        if (error) releasePending();
+        else pending = null;
+      });
+    }
+
+    if (phase === 'failure') {
+      captureFailure(payload, workspace, sessionIdentity, command, event);
+    }
   } catch (_) {
     releasePending();
   }
