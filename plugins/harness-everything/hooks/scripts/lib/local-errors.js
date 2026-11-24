@@ -64,6 +64,7 @@ function redactErrorText(text, env = process.env) {
   }
   // Omit suspected credentials and token-like strings.
   out = out.replace(/(https?:\/\/)([^:@/\s]+):([^@/\s]+)@/gi, '$1<redacted>@');
+  out = out.replace(/(\b(?:proxy-)?authorization[ \t]*:[ \t]*)(?:basic|bearer)\b[ \t]+[^\r\n]*/gi, '$1<redacted>');
   out = out.replace(/\b(Bearer\s+)[A-Za-z0-9._~+/=-]{8,}\b/gi, '$1<redacted>');
   out = out.replace(/\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/g, '<redacted>');
   out = out.replace(/\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g, '<redacted>');
@@ -339,12 +340,13 @@ function evictOne(records, predicate) {
   return false;
 }
 
+function withinRetention(record, now, retentionMs) {
+  const ts = Date.parse(record && record.createdAt || '');
+  return !Number.isFinite(ts) || ts > now - retentionMs;
+}
+
 function enforceBounds(index, workspaceKey, limits, now) {
-  const cutoff = now - limits.retentionMs;
-  index.records = index.records.filter(r => {
-    const ts = Date.parse(r && r.createdAt || '');
-    return !Number.isFinite(ts) || ts > cutoff;
-  });
+  index.records = index.records.filter(r => withinRetention(r, now, limits.retentionMs));
 
   // Per-workspace cap.
   const inWorkspace = () => index.records.filter(r => r.workspaceKey === workspaceKey).length;
@@ -539,6 +541,8 @@ function addProvisionalLesson(input, options = {}) {
 function listRecords(options = {}) {
   try {
     const env = options.env || process.env;
+    const limits = effectiveLimits(options.limits);
+    const now = Number.isFinite(options.now) ? options.now : Date.now();
     const { file } = getStorePath({ root: options.root, env });
     const index = loadIndex(file);
     let targetWorkspace = null;
@@ -559,6 +563,7 @@ function listRecords(options = {}) {
     }
     let records = index.records.filter(record => {
       if (!isObject(record)) return false;
+      if (!withinRetention(record, now, limits.retentionMs)) return false;
       if (targetWorkspace && record.workspaceKey !== targetWorkspace) return false;
       if (options.kind && record.kind !== options.kind) return false;
       if (options.destination && record.destination !== options.destination) return false;
