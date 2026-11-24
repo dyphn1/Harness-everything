@@ -696,3 +696,100 @@ test('an unavailable dedupe directory is silent and never falls back', () => {
   fs.writeFileSync(blocker, 'not a directory');
   assert.equal(select(input({ stateDir: path.join(blocker, 'session') })), null);
 });
+
+test('R-518 P2/P3: unspaced single-char middle pipeline members match and trailing unescaped redirect backslashes are rejected', () => {
+  const expected = { tool: 'shell', executable: 'git', subcommand: 'commit' };
+  const supported = [
+    'x|y|git commit -m "A"',
+    'a|b|c|git commit -m "A"',
+    'x | y | git commit -m "A"',
+    'x||y||git commit -m "A"',
+    'git commit -m "A" > out\\\\',
+    'git commit -m "A" > "out\\\\"',
+    "git commit -m \"A\" > 'out\\'",
+    'git commit -m "A" > out\\ file.log'
+  ];
+  const unsupported = [
+    'x|||git commit -m "A"',
+    'git commit ||| echo done',
+    'x| |git commit -m "A"',
+    'git commit -m "A" > out\\',
+    'git commit -m "A" > \\',
+    'git commit -m "A" > out\\\\\\'
+  ];
+  for (const implementation of [matcher, packagedMatcher]) {
+    for (const command of supported) {
+      assert.deepEqual(implementation.normalizeGitCommitCommand(command), expected, command);
+      const result = implementation.matchLedgerLessons(input({
+        event: { phase: 'action', tool: 'shell', command, outcome: { failed: 'unknown' } }
+      }));
+      assert.deepEqual(result?.ids, ['E-0003'], command);
+    }
+    for (const command of unsupported) {
+      assert.equal(implementation.normalizeGitCommitCommand(command), null, command);
+      assert.equal(implementation.matchLedgerLessons(input({
+        event: { phase: 'action', tool: 'shell', command, outcome: { failed: 'unknown' } }
+      })), null, command);
+    }
+  }
+});
+
+test('exports validateMatch and read-only peekRepoMatches without taking claims or applying reminder caps', () => {
+  for (const implementation of [matcher, packagedMatcher]) {
+    assert.equal(typeof implementation.validateMatch, 'function', 'validateMatch is exported');
+    assert.deepEqual(implementation.validateMatch({
+      actions: [{ tool: 'shell', executable: 'git', subcommand: 'commit' }]
+    }), {
+      actions: [{ tool: 'shell', executable: 'git', subcommand: 'commit' }]
+    });
+    assert.throws(() => implementation.validateMatch({ invalidKey: [] }), /invalid match/);
+
+    assert.equal(typeof implementation.peekRepoMatches, 'function', 'peekRepoMatches is exported');
+
+    const freshState = stateDir('peek-no-claim');
+    const actionInput = input({ stateDir: freshState });
+    assert.deepEqual(implementation.peekRepoMatches(actionInput), ['E-0003'], 'first peek returns matching repo id');
+    assert.deepEqual(implementation.peekRepoMatches(actionInput), ['E-0003'], 'second peek still returns matching repo id');
+    assert.equal(fs.existsSync(freshState), false, 'peek does not create stateDir or write claim files');
+
+    const delivered = implementation.matchLedgerLessons(actionInput);
+    assert.deepEqual(delivered?.ids, ['E-0003'], 'matchLedgerLessons still delivers once after two peeks');
+    assert.equal(implementation.matchLedgerLessons(actionInput), null, 'duplicate delivery stays silent');
+    assert.deepEqual(implementation.peekRepoMatches(actionInput), ['E-0003'],
+      'peek still reports repo match after delivery claim is exhausted');
+
+    assert.deepEqual(implementation.peekRepoMatches({
+      workspaceRoot: GENERATED_E3_ROOT,
+      event: {
+        phase: 'failure',
+        tool: 'shell',
+        command: 'git commit -m "Bad Subject"',
+        outcome: { failed: true, output: COMMITLINT_OUTPUT }
+      }
+    }), ['E-0003'], 'peek works for failure phase without sessionIdentity or stateDir');
+
+    for (const command of ['git status', 'echo "git commit"', '']) {
+      assert.deepEqual(implementation.peekRepoMatches({
+        workspaceRoot: GENERATED_E3_ROOT,
+        event: { phase: 'action', tool: 'shell', command, outcome: { failed: 'unknown' } }
+      }), [], `unknown command returns empty: ${command}`);
+    }
+    assert.deepEqual(implementation.peekRepoMatches(null), [], 'null input fails open to []');
+
+    const oversizedCue = E3_TEXT.replace(/(^## Cue\r?\n\r?\n)[\s\S]*?(\r?\n\r?\n## What happened)/m,
+      (_, start, end) => `${start}${'C'.repeat(1500)}${end}`);
+    const oversizedRoot = repoWorkspace('peek oversized repo', { recordText: oversizedCue });
+    assert.equal(implementation.matchLedgerLessons(input({ workspaceRoot: oversizedRoot })), null,
+      'oversized repo excerpt is skipped by reminder cap in matchLedgerLessons');
+    assert.deepEqual(implementation.peekRepoMatches({
+      workspaceRoot: oversizedRoot,
+      event: { phase: 'action', tool: 'shell', command: 'git commit', outcome: { failed: 'unknown' } }
+    }), ['E-0003'], 'peek ignores reminder char cap and still returns repo match');
+
+    assert.deepEqual(implementation.peekRepoMatches({
+      workspaceRoot: workspace('peek no repo'),
+      event: { phase: 'action', tool: 'shell', command: 'git commit', outcome: { failed: 'unknown' } },
+      provisionalSource: localSource([PROVISIONAL_FIXTURE[0]])
+    }), [], 'peek is repo-only and ignores provisionalSource');
+  }
+});

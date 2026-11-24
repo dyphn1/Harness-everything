@@ -9,6 +9,7 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const observations = require('./observations');
 const { resolveWorkspaceIdentity } = require('./harness-state');
+const { validateMatch } = require('./ledger-match');
 
 const SCHEMA_VERSION = 1;
 const INDEX_FILE = 'errors-index.json';
@@ -45,44 +46,12 @@ function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function hasOnlyKeys(value, allowed) {
-  return Object.keys(value).every(key => allowed.includes(key));
-}
-
 function validIdentifier(value) {
   return typeof value === 'string' && IDENTIFIER_PATTERN.test(value);
 }
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function validateRuleList(value, failure) {
-  if (!Array.isArray(value) || value.length < 1 || value.length > 8) throw new Error('invalid rule list');
-  const keys = failure ? ['tool', 'executable', 'subcommand', 'diagnostics'] : ['tool', 'executable', 'subcommand'];
-  return value.map(rule => {
-    if (!isObject(rule) || !hasOnlyKeys(rule, keys) || rule.tool !== 'shell' ||
-        !validIdentifier(rule.executable) || !validIdentifier(rule.subcommand)) throw new Error('invalid rule');
-    const result = { tool: 'shell', executable: rule.executable, subcommand: rule.subcommand };
-    if (failure) {
-      if (!Array.isArray(rule.diagnostics) || rule.diagnostics.length < 1 || rule.diagnostics.length > 16 ||
-          !rule.diagnostics.every(validIdentifier) || new Set(rule.diagnostics).size !== rule.diagnostics.length) {
-        throw new Error('invalid diagnostics');
-      }
-      result.diagnostics = [...rule.diagnostics];
-    }
-    return result;
-  });
-}
-
-// Mirrors hooks/scripts/lib/ledger-match.js validateMatch (not exported there).
-function validateMatch(match) {
-  if (!isObject(match) || !hasOnlyKeys(match, ['actions', 'failures']) ||
-      (!Object.hasOwn(match, 'actions') && !Object.hasOwn(match, 'failures'))) throw new Error('invalid match');
-  const result = {};
-  if (Object.hasOwn(match, 'actions')) result.actions = validateRuleList(match.actions, false);
-  if (Object.hasOwn(match, 'failures')) result.failures = validateRuleList(match.failures, true);
-  return result;
 }
 
 function redactErrorText(text, env = process.env) {

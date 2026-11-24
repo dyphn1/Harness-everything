@@ -10,7 +10,7 @@ const { spawnSync, execFileSync } = require('node:child_process');
 const ROOT = path.resolve(__dirname, '..');
 const EXPORTER = path.join(ROOT, 'scripts', 'system-one-observations-export.js');
 const observations = require(path.join(ROOT, 'hooks', 'scripts', 'lib', 'observations.js'));
-const { matchLedgerLessons } = require(path.join(ROOT, 'hooks', 'scripts', 'lib', 'ledger-match.js'));
+const { matchLedgerLessons, validateMatch } = require(path.join(ROOT, 'hooks', 'scripts', 'lib', 'ledger-match.js'));
 const localErrors = require(path.join(ROOT, 'hooks', 'scripts', 'lib', 'local-errors.js'));
 
 let failures = 0;
@@ -297,6 +297,9 @@ test('local error records stay absent from turn index and System One export path
 });
 
 test('provisional lesson validates match, rejects invalid match and E- namespace, and projects into ledger-match', () => {
+  assert.strictEqual(typeof validateMatch, 'function', 'ledger-match.js must export validateMatch');
+  assert.strictEqual(localErrors.validateMatch, validateMatch,
+    'local-errors.js must import validateMatch from ledger-match.js rather than copying it');
   const s = makeSandbox();
   const validMatch = {
     actions: [{ tool: 'shell', executable: 'git', subcommand: 'commit' }],
