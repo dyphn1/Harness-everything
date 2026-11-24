@@ -661,7 +661,7 @@ function appendTelemetry(workspace, input) {
   }
 }
 
-export const HarnessEnforcement = async ({ client, directory, signal }) => {
+const createEnforcement = async ({ client, directory, signal }) => {
   // State is resolved per real workspace and per opencode session. The CJS
   // hooks use the same workspaces/<key>/state/sessions/<id> contract, while
   // the old flat plugin state is intentionally left untouched because it is
@@ -1033,9 +1033,9 @@ export const HarnessEnforcement = async ({ client, directory, signal }) => {
 // function" (SchemaError at ["default"]) - this is what tripped the global
 // install on this machine's OpenCode 2.1.3.
 //
-// The named `HarnessEnforcement` factory above keeps the hooks-object shape
-// used by the repository mechanism tests (and by OpenCode 1.x hosts); this
-// default export adapts it to the V2 hooks. Tool hook events are verified
+// The private `createEnforcement` factory above keeps an internal hooks-object
+// shape; this default export adapts it to the V2 hooks. OpenCode 1.x is not
+// supported. Tool hook events are verified
 // OpenCode 2.1.3 shapes: execute.before is {tool, sessionID, agent, messageID,
 // id, input} with `input` carrying the tool args; execute.after adds
 // {status, result | error}.
@@ -1129,11 +1129,11 @@ export default {
     const enforcementFor = workspace => {
       if (events.signal.aborted) return Promise.resolve(null)
       if (!enforcementByWorkspace.has(workspace)) {
-        enforcementByWorkspace.set(workspace, HarnessEnforcement({
+        enforcementByWorkspace.set(workspace, createEnforcement({
           signal: events.signal,
           client: {
             session: {
-              // V1 shutdown path calls client.session.prompt({path, body}) twice;
+              // The private core calls client.session.prompt({path, body}) twice;
               // map it onto the V2 session API instead of duplicating the code.
               prompt: ({ path, body }) =>
                 ctx.session.prompt({
@@ -1309,13 +1309,11 @@ export default {
       try {
         for await (const raw of ctx.event.subscribe({ signal: events.signal })) {
           if (events.signal.aborted) break
-          // OpenCode 2.x events are flat with the session id at data.sessionID;
-          // V1 hosts keep it top-level. V2 hosts send no session.idle, so a
-          // completed turn ends with session.execution.succeeded.
-          const sessionID = raw.sessionID || (raw.data && raw.data.sessionID)
-            || (raw.properties && (raw.properties.sessionID || raw.properties.info?.id))
-          const turnEnded = raw.type === "session.idle" || raw.type === "session.execution.succeeded"
-          const lifecycleEvent = ["session.idle", "session.created", "session.deleted"].includes(raw.type)
+          // OpenCode V2 events carry the session id at data.sessionID. A turn
+          // completes with session.execution.succeeded; V2 sends no session.idle.
+          const sessionID = raw.data && raw.data.sessionID
+          const turnEnded = raw.type === "session.execution.succeeded"
+          const lifecycleEvent = ["session.created", "session.deleted"].includes(raw.type)
           if ((!turnEnded && !lifecycleEvent) || typeof sessionID !== "string" || !sessionID) continue
           retryLedgerReleases()
           if (raw.type === "session.deleted") invalidatedSessions.add(sessionID)
