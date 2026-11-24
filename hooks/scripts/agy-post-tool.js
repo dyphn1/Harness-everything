@@ -25,6 +25,66 @@ const FILE_MUTATION_TOOLS = new Set([
   'multi_replace_file_content'
 ]);
 
+const FAILED_STATUSES = new Set([
+  'failed',
+  'fail',
+  'error',
+  'errored',
+  'timed_out',
+  'timeout',
+  'cancelled',
+  'canceled',
+  'aborted'
+]);
+
+function normalizeErrorText(rawError) {
+  if (typeof rawError === 'string') return rawError.trim();
+  if (rawError === null || rawError === undefined || rawError === false) return '';
+  if (typeof rawError === 'object') {
+    if (Array.isArray(rawError) && rawError.length === 0) return '';
+    if (!Array.isArray(rawError) && Object.keys(rawError).length === 0) return '';
+  }
+  const serialized = JSON.stringify(rawError);
+  return typeof serialized === 'string' ? serialized.trim() : '';
+}
+
+function hasExplicitFailureFlag(obj) {
+  return obj.isError === true
+    || obj.is_error === true
+    || obj.success === false
+    || obj.ok === false
+    || obj.interrupted === true;
+}
+
+function classifyStructuredOutcome(safePayload, responseObj, error) {
+  const rawExitCodes = [
+    safePayload.exitCode,
+    safePayload.exit_code,
+    responseObj.exitCode,
+    responseObj.exit_code
+  ].filter(Number.isInteger);
+  const nonzeroCode = rawExitCodes.find(code => code !== 0);
+  const exitCode = nonzeroCode ?? rawExitCodes[0];
+
+  const statuses = [safePayload.status, responseObj.status]
+    .filter(value => typeof value === 'string' && value.trim())
+    .map(value => value.trim().toLowerCase());
+
+  // Structured host errors, failure flags, and nonzero exit codes win over any
+  // zero or generic metadata fields. Text-only stdout/output markers are never parsed here
+  // because retained AGY captures do not distinguish host metadata from stdout.
+  const isFailed = Boolean(error && error.trim())
+    || (exitCode !== undefined && exitCode !== 0)
+    || hasExplicitFailureFlag(safePayload)
+    || hasExplicitFailureFlag(responseObj)
+    || statuses.some(status => FAILED_STATUSES.has(status));
+
+  return {
+    isFailed,
+    exitCode: isFailed ? (exitCode !== undefined && exitCode !== 0 ? exitCode : undefined) : exitCode
+  };
+}
+
 function mapAgyPayloadToStatePersist(payload) {
   const safePayload = payload && typeof payload === 'object' ? payload : {};
   const sessionId = getAgySessionId(safePayload);
@@ -56,21 +116,22 @@ function mapAgyPayloadToStatePersist(payload) {
     toolInput = { ...args, file_path: filePath };
   }
 
-  const toolResponse = safePayload.toolResponse || safePayload.tool_response || safePayload.result || {};
-  const rawError = safePayload.error || toolResponse.error || '';
-  const error = typeof rawError === 'string' ? rawError : (rawError ? JSON.stringify(rawError) : '');
-  const stdout = toolResponse.stdout || (typeof safePayload.output === 'string' ? safePayload.output : '') || '';
-  const stderr = toolResponse.stderr || (typeof error === 'string' ? error : '') || '';
+  const rawResponse = safePayload.toolResponse || safePayload.tool_response || safePayload.result;
+  const responseObj = (rawResponse && typeof rawResponse === 'object' && !Array.isArray(rawResponse))
+    ? rawResponse
+    : {};
+  const error = normalizeErrorText(safePayload.error) || normalizeErrorText(responseObj.error);
+  const stdout = (typeof responseObj.stdout === 'string' && responseObj.stdout)
+    || (typeof safePayload.stdout === 'string' && safePayload.stdout)
+    || (typeof safePayload.output === 'string' && safePayload.output)
+    || (typeof rawResponse === 'string' && rawResponse)
+    || '';
+  const stderr = (typeof responseObj.stderr === 'string' && responseObj.stderr)
+    || (typeof safePayload.stderr === 'string' && safePayload.stderr)
+    || error
+    || '';
 
-  const rawExitCodes = [
-    safePayload.exitCode,
-    safePayload.exit_code,
-    toolResponse.exitCode,
-    toolResponse.exit_code
-  ].filter(Number.isInteger);
-  const exitCode = rawExitCodes.find(code => code !== 0) ?? rawExitCodes[0];
-
-  const isFailed = Boolean(error && error.trim()) || (exitCode !== undefined && exitCode !== 0);
+  const { isFailed, exitCode } = classifyStructuredOutcome(safePayload, responseObj, error);
 
   return {
     hook_event_name: isFailed ? 'PostToolUseFailure' : 'PostToolUse',
@@ -89,7 +150,9 @@ function mapAgyPayloadToStatePersist(payload) {
       stderr,
       ...(exitCode !== undefined ? { exitCode } : {})
     },
-    error: isFailed ? (error || stderr || `Command exited with code ${exitCode}`) : '',
+    error: isFailed
+      ? (error || stderr || (exitCode !== undefined ? `Command exited with code ${exitCode}` : 'Tool execution failed'))
+      : '',
     ...(exitCode !== undefined ? { exitCode } : {})
   };
 }
@@ -121,4 +184,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { main, mapAgyPayloadToStatePersist };
+module.exports = { main, mapAgyPayloadToStatePersist, classifyStructuredOutcome };
