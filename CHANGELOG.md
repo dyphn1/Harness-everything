@@ -203,6 +203,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### BREAKING CHANGES
+
+* **opencode:** support OpenCode V2 plugin API only; OpenCode 1.x / V1 is unsupported (#453). Removed the public `HarnessEnforcement` named V1 factory export, host `session.idle`, and legacy session-id event fallbacks; the V2 default export (`{ id, setup(ctx) }`) is now the only public surface. Historical OpenCode 1.18.31 evidence is retained for provenance only and does not establish V2 support.
+
 - Codex defers exact Issue comments and completed closes to native host permissions (#508).
 
 - OpenCode V2: accept the live `shell` tool name alongside `bash` for ledger lesson injection and turn observations, with live-shape mechanism rows (#509).

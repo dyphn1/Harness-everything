@@ -74,12 +74,25 @@ for (const platform of matrix.platforms) {
   if (platform.id === 'opencode') {
     const capability = platform.capabilities.liveHostVerification;
     assert.strictEqual(capability.status, 'Partial');
-    assert.strictEqual(capability.evidence, 'benchmarks/results/live-host/opencode-2026-09-16/README.md');
+    assert.strictEqual(capability.evidence, 'benchmarks/results/live-host/opencode-2026-11-24-v2-lifecycle/README.md');
     const artifactRoot = path.dirname(path.join(ROOT, capability.evidence));
-    for (const file of ['README.md', 'probe-control.md', 'run-commands.md']) {
-      assert.ok(fs.statSync(path.join(artifactRoot, file)).size > 0, `Missing OpenCode evidence: ${file}`);
+    for (const file of [
+      'README.md',
+      'events-2026-11-24.jsonl',
+      'edit-state-final.json',
+      'reminder-excerpt.txt',
+      'plugin-load-lines.txt',
+      'live-event-trace-probe.js',
+      'host-version.txt',
+    ]) {
+      assert.ok(fs.statSync(path.join(artifactRoot, file)).size > 0, `Missing OpenCode V2 evidence: ${file}`);
     }
-    const session = path.join(artifactRoot, 'state', 'sessions', 'ses_f5520f1d9ffeB8KLTIUKgA5ng8');
+    const OPENCODE_HISTORICAL_EVIDENCE = 'benchmarks/results/live-host/opencode-2026-09-16/README.md';
+    const historicalArtifactRoot = path.dirname(path.join(ROOT, OPENCODE_HISTORICAL_EVIDENCE));
+    for (const file of ['README.md', 'probe-control.md', 'run-commands.md']) {
+      assert.ok(fs.statSync(path.join(historicalArtifactRoot, file)).size > 0, `Missing historical OpenCode evidence: ${file}`);
+    }
+    const session = path.join(historicalArtifactRoot, 'state', 'sessions', 'ses_f5520f1d9ffeB8KLTIUKgA5ng8');
     // This is an archived post-reset snapshot, not a current behavior witness.
     const breaker = JSON.parse(fs.readFileSync(path.join(session, 'circuit-breaker.json'), 'utf8'));
     const compliance = JSON.parse(fs.readFileSync(path.join(session, 'compliance.json'), 'utf8'));

@@ -6,8 +6,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { pathToFileURL } = require('node:url');
 const { test } = require('node:test');
+const { createV2Driver } = require('./lib/opencode-v2-driver');
 
 const ROOT = path.resolve(__dirname, '..');
 const STOP_GATE = path.join(ROOT, 'hooks/scripts/workflow-stop-gate.js');
@@ -29,10 +29,7 @@ function runJson(script, cwd, input, env = {}) {
   });
 }
 
-function makeFixture() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-341-opencode-workspace-'));
-  const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-341-opencode-state-'));
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-341-opencode-home-'));
+function initWorkspace(root) {
   fs.mkdirSync(path.join(root, '.agents/harness-everything'), { recursive: true });
   fs.mkdirSync(path.join(root, 'docs/adr'), { recursive: true });
   fs.writeFileSync(path.join(root, '.agents/harness-everything/project-docs.json'), JSON.stringify({ governed: [{ path: 'docs/adr/**', role: 'adr' }], domains: ['GRPH'] }, null, 2) + '\n');
@@ -43,6 +40,13 @@ function makeFixture() {
   assert.equal(git(root, ['add', '-A']).status, 0);
   assert.equal(git(root, ['-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'baseline']).status, 0);
   fs.writeFileSync(path.join(root, 'docs/adr/GRPH-001.md'), '# GRPH-001 Retry\n\nCheckout MUST retry twice.\n');
+}
+
+function makeFixture() {
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'harness-341-opencode-workspace-')));
+  const stateHome = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'harness-341-opencode-state-')));
+  const home = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'harness-341-opencode-home-')));
+  initWorkspace(root);
   process.env.HOME = home;
   process.env.HARNESS_STATE_HOME = stateHome;
   process.env.HARNESS_WORKSPACE_ROOT = root;
@@ -55,13 +59,14 @@ function makeFixture() {
   };
 }
 
-function seedWorkflow(fixture, sessionId) {
-  const payload = { session_id: sessionId, cwd: fixture.root, host_id: 'opencode' };
+function seedWorkflow(rootOrFixture, sessionId) {
+  const root = typeof rootOrFixture === 'string' ? rootOrFixture : rootOrFixture.root;
+  const payload = { session_id: sessionId, cwd: root, host_id: 'opencode' };
   const { getSessionDir } = require(path.join(ROOT, 'hooks/scripts/lib/harness-state.js'));
-  const sessionDir = getSessionDir(fixture.root, sessionId, payload);
+  const sessionDir = getSessionDir(root, sessionId, payload);
   const plan = { strategySelection: 'selected', tier: 'tier2', strategy: 'iterative-single' };
   const context = {
-    root: fixture.root,
+    root,
     sessionId,
     sessionDir,
     file: path.join(sessionDir, 'workflow-run.json'),
@@ -102,68 +107,20 @@ function writeEditState(sessionDir, values) {
   }));
 }
 
-function createEventStream() {
-  const queued = [];
-  const waiters = [];
-  let last = null;
-  let closed = false;
-  return {
-    subscribe(signal) {
-      const iterator = {
-        next() {
-          if (last) { last.resolve(); last = null; }
-          if (queued.length) {
-            last = queued.shift();
-            return Promise.resolve({ value: last.value, done: false });
-          }
-          if (closed) return Promise.resolve({ done: true });
-          return new Promise(resolve => waiters.push(resolve));
-        },
-        return() { closed = true; return Promise.resolve({ done: true }); },
-      };
-      signal.addEventListener('abort', () => {
-        closed = true;
-        while (waiters.length) waiters.shift()({ done: true });
-      }, { once: true });
-      return { [Symbol.asyncIterator]: () => iterator };
-    },
-    async dispatch(value) {
-      await new Promise(resolve => {
-        const item = { value, resolve };
-        if (waiters.length) {
-          if (last) { last.resolve(); last = null; }
-          last = item;
-          waiters.shift()({ value, done: false });
-        } else queued.push(item);
-      });
-    },
-  };
-}
-
-async function startPlugin(workspace) {
-  const plugin = await import(pathToFileURL(path.join(ROOT, 'opencode-plugin/index.mjs')).href);
-  const registered = new Map();
-  const sessionHooks = new Map();
-  const stream = createEventStream();
-  const dispose = await plugin.default.setup({
-    location: { directory: workspace },
-    tool: { hook: async (name, callback) => registered.set(name, callback) },
-    session: {
-      get: async ({ sessionID }) => ({ id: sessionID, location: { directory: workspace } }),
-      hook: async (name, callback) => { sessionHooks.set(name, callback); return { dispose: async () => {} }; },
-      prompt: async () => ({}),
-      context: async () => [],
-    },
-    event: { subscribe: ({ signal }) => stream.subscribe(signal) },
-  });
-  return { registered, stream, dispose };
-}
-
-async function waitForIdleConsumer(predicate) {
-  const deadline = Date.now() + 5000;
-  while (!predicate()) {
-    assert.ok(Date.now() < deadline, 'asynchronous idle consumer did not complete');
-    await new Promise(resolve => setTimeout(resolve, 20));
+async function withV2DocFixture(fn) {
+  const d = await createV2Driver();
+  const pilotSaved = Object.fromEntries(['HARNESS_WORKSPACE_ROOT', 'HARNESS_DOC_RECONCILIATION_PILOT'].map(key => [key, process.env[key]]));
+  try {
+    initWorkspace(d.workspace);
+    process.env.HARNESS_WORKSPACE_ROOT = d.workspace;
+    process.env.HARNESS_DOC_RECONCILIATION_PILOT = '1';
+    return await fn(d);
+  } finally {
+    for (const [key, value] of Object.entries(pilotSaved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    await d.teardown();
   }
 }
 
@@ -198,78 +155,6 @@ test('existing Stop consumer writes a refused report without qualification', () 
 });
 
 test('OpenCode capture → idle Stop whole path is refused without live qualification', async () => {
-  const fixture = makeFixture();
-  const findings = [];
-  let dispose;
-  let originalAssess;
-  try {
-    const sessionId = 'native-v2-whole-path';
-    const { sessionDir } = seedWorkflow(fixture, sessionId);
-    const pilot = require(PILOT);
-    originalAssess = pilot.assess;
-    const assessmentSessions = [];
-    pilot.assess = function (context, ...args) {
-      assessmentSessions.push(context?.sessionId);
-      return originalAssess.call(this, context, ...args);
-    };
-
-    const plugin = await startPlugin(fixture.root);
-    dispose = plugin.dispose;
-    const nativeResult = { output: 'private-result-body', metadata: { exit: 0 } };
-    await plugin.registered.get('execute.after')({
-      tool: 'edit', sessionID: sessionId, id: 'call-1', messageID: 'message-1',
-      status: 'completed', result: nativeResult,
-      input: { filePath: path.join(fixture.root, 'docs/adr/GRPH-001.md') },
-    });
-    await plugin.registered.get('execute.after')({
-      tool: 'bash', sessionID: sessionId, id: 'call-2', messageID: 'message-2',
-      status: 'completed', error: { name: 'NativeError', message: 'native command error', code: 'NATIVE_FAILURE' },
-      input: { command: 'doc-check' },
-    });
-
-    const journal = path.join(sessionDir, 'opencode-captures.jsonl');
-    let records = [];
-    if (fs.existsSync(journal)) {
-      const lines = fs.readFileSync(journal, 'utf8').trim().split(/\r?\n/);
-      records = lines.map(line => JSON.parse(line));
-    }
-    const canonical = JSON.stringify(canonicalJson(nativeResult));
-    const record = records[0];
-    const errorRecord = records[1];
-    if (records.length !== 2 || !record || record.hostId !== 'opencode' || record.session_id !== sessionId || record.call_id !== 'call-1' ||
-        record.message_id !== 'message-1' || record.status !== 'completed' || record.exit !== 0 ||
-        record.cwd !== undefined || record.result_digest !== crypto.createHash('sha256').update(canonical).digest('hex') ||
-        record.result_bytes !== Buffer.byteLength(canonical) || fs.readFileSync(journal, 'utf8').includes('private-result-body')) {
-      findings.push(`native result was not retained as one host-labelled digest-only record: ${JSON.stringify(record)}`);
-    }
-    if (!errorRecord || errorRecord.hostId !== 'opencode' || errorRecord.call_id !== 'call-2' ||
-        errorRecord.error?.name !== 'NativeError' || errorRecord.error?.message !== 'native command error' ||
-        errorRecord.error?.code !== 'NATIVE_FAILURE' || errorRecord.exit === 0) {
-      findings.push(`native error was not preserved as failure without fabricated exit zero: ${JSON.stringify(errorRecord)}`);
-    }
-
-    await plugin.stream.dispatch({ type: 'session.idle', sessionID: sessionId });
-    await waitForIdleConsumer(() => assessmentSessions.filter(id => id === sessionId).length === 1);
-    const reportPath = path.join(sessionDir, 'doc-reconciliation-pilot.json');
-    const report = fs.existsSync(reportPath) ? JSON.parse(fs.readFileSync(reportPath, 'utf8')) : null;
-    if (assessmentSessions.filter(id => id === sessionId).length !== 1) {
-      findings.push(`idle Stop dispatch count=${assessmentSessions.filter(id => id === sessionId).length}, expected exactly one`);
-    }
-    if (!report || report.pilotCredit !== false || report.pilotStatus !== 'unresolved' || !report.diagnostics?.length) {
-      findings.push(`idle did not write the actual refused/unavailable report: ${JSON.stringify(report)}`);
-    }
-    assert.deepEqual(findings, []);
-  } finally {
-    if (dispose) await dispose();
-    if (originalAssess) require(PILOT).assess = originalAssess;
-    fixture.cleanup();
-    restoreEnv();
-  }
-});
-
-test('session idle dispatches the real consumer once across every existing early return', async () => {
-  const fixture = makeFixture();
-  let dispose;
   const findings = [];
   const pilot = require(PILOT);
   const originalAssess = pilot.assess;
@@ -279,80 +164,155 @@ test('session idle dispatches the real consumer once across every existing early
     return originalAssess.call(this, context, ...args);
   };
   try {
-    const plugin = await startPlugin(fixture.root);
-    dispose = plugin.dispose;
-    const cases = [
-      ['follow-up-pending', { followUpPending: true }],
-      ['follow-up-delivery-pending', { followUpDeliveryPending: true, followUpMessage: 'deliver once' }],
-      ['no-verification-pending', { verificationPending: false, editsSinceVerification: 0 }],
-      ['verification-succeeds', { verificationPending: true, editsSinceVerification: 1 }],
-    ];
-    for (const [suffix, state] of cases) {
-      const sessionId = `idle-${suffix}`;
-      const { sessionDir } = seedWorkflow(fixture, sessionId);
-      writeEditState(sessionDir, state);
-      await plugin.stream.dispatch({ type: 'session.idle', sessionID: sessionId });
-      await waitForIdleConsumer(() => assessmentSessions.filter(id => id === sessionId).length === 1);
+    await withV2DocFixture(async d => {
+      const sessionId = 'native-v2-whole-path';
+      const { sessionDir } = seedWorkflow(d.workspace, sessionId);
+      const nativeResult = { output: 'private-result-body', metadata: { exit: 0 } };
+      await d.toolHook('execute.after')({
+        tool: 'edit', sessionID: sessionId, id: 'call-1', messageID: 'message-1',
+        status: 'completed', result: nativeResult,
+        input: { filePath: path.join(d.workspace, 'docs/adr/GRPH-001.md') },
+      });
+      await d.toolHook('execute.after')({
+        tool: 'bash', sessionID: sessionId, id: 'call-2', messageID: 'message-2',
+        status: 'completed', error: { name: 'NativeError', message: 'native command error', code: 'NATIVE_FAILURE' },
+        input: { command: 'doc-check' },
+      });
+
+      const journal = path.join(sessionDir, 'opencode-captures.jsonl');
+      let records = [];
+      if (fs.existsSync(journal)) {
+        const lines = fs.readFileSync(journal, 'utf8').trim().split(/\r?\n/);
+        records = lines.map(line => JSON.parse(line));
+      }
+      const canonical = JSON.stringify(canonicalJson(nativeResult));
+      const record = records[0];
+      const errorRecord = records[1];
+      if (records.length !== 2 || !record || record.hostId !== 'opencode' || record.session_id !== sessionId || record.call_id !== 'call-1' ||
+          record.message_id !== 'message-1' || record.status !== 'completed' || record.exit !== 0 ||
+          record.cwd !== undefined || record.result_digest !== crypto.createHash('sha256').update(canonical).digest('hex') ||
+          record.result_bytes !== Buffer.byteLength(canonical) || fs.readFileSync(journal, 'utf8').includes('private-result-body')) {
+        findings.push(`native result was not retained as one host-labelled digest-only record: ${JSON.stringify(record)}`);
+      }
+      if (!errorRecord || errorRecord.hostId !== 'opencode' || errorRecord.call_id !== 'call-2' ||
+          errorRecord.error?.name !== 'NativeError' || errorRecord.error?.message !== 'native command error' ||
+          errorRecord.error?.code !== 'NATIVE_FAILURE' || errorRecord.exit === 0) {
+        findings.push(`native error was not preserved as failure without fabricated exit zero: ${JSON.stringify(errorRecord)}`);
+      }
+
       const reportPath = path.join(sessionDir, 'doc-reconciliation-pilot.json');
-      const report = fs.existsSync(reportPath) ? JSON.parse(fs.readFileSync(reportPath, 'utf8')) : null;
+      d.emit('session.execution.succeeded', sessionId);
+      await d.waitFor(
+        () => assessmentSessions.filter(id => id === sessionId).length === 1 && fs.existsSync(reportPath),
+        { label: 'V2 completion Stop assessment and pilot report', timeoutMs: 8000 },
+      );
+      const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
       if (assessmentSessions.filter(id => id === sessionId).length !== 1) {
-        findings.push(`${suffix}: consumer assessment count=${assessmentSessions.filter(id => id === sessionId).length}, expected exactly one`);
+        findings.push(`idle Stop dispatch count=${assessmentSessions.filter(id => id === sessionId).length}, expected exactly one`);
       }
-      if (!report || report.pilotCredit !== false || report.pilotStatus !== 'unresolved') {
-        findings.push(`${suffix}: expected one refused/unavailable report, received ${JSON.stringify(report)}`);
+      if (!report || report.pilotCredit !== false || report.pilotStatus !== 'unresolved' || !report.diagnostics?.length) {
+        findings.push(`idle did not write the actual refused/unavailable report: ${JSON.stringify(report)}`);
       }
-    }
-    const cleanupSession = 'idle-no-verification-pending';
-    await plugin.stream.dispatch({ type: 'session.idle', sessionID: cleanupSession });
-    await waitForIdleConsumer(() => assessmentSessions.filter(id => id === cleanupSession).length === 2);
-    if (assessmentSessions.filter(id => id === cleanupSession).length !== 2) {
-      findings.push(`finally did not release the per-session idle guard for a second event: ${assessmentSessions.filter(id => id === cleanupSession).length} assessments`);
-    }
-    assert.deepEqual(findings, []);
+      assert.deepEqual(findings, []);
+    });
   } finally {
-    if (dispose) await dispose();
     pilot.assess = originalAssess;
-    fixture.cleanup();
-    restoreEnv();
+  }
+});
+
+test('session idle dispatches the real consumer once across every existing early return', async () => {
+  const findings = [];
+  const pilot = require(PILOT);
+  const originalAssess = pilot.assess;
+  const assessmentSessions = [];
+  pilot.assess = function (context, ...args) {
+    assessmentSessions.push(context?.sessionId);
+    return originalAssess.call(this, context, ...args);
+  };
+  try {
+    await withV2DocFixture(async d => {
+      const cases = [
+        ['follow-up-pending', { followUpPending: true }],
+        ['follow-up-delivery-pending', { followUpDeliveryPending: true, followUpMessage: 'deliver once' }],
+        ['no-verification-pending', { verificationPending: false, editsSinceVerification: 0 }],
+        ['verification-succeeds', { verificationPending: true, editsSinceVerification: 1 }],
+      ];
+      for (const [suffix, state] of cases) {
+        const sessionId = `idle-${suffix}`;
+        const { sessionDir } = seedWorkflow(d.workspace, sessionId);
+        writeEditState(sessionDir, state);
+        const reportPath = path.join(sessionDir, 'doc-reconciliation-pilot.json');
+        d.emit('session.execution.succeeded', sessionId);
+        await d.waitFor(
+          () => assessmentSessions.filter(id => id === sessionId).length === 1 && fs.existsSync(reportPath),
+          { label: `${suffix} V2 completion Stop assessment`, timeoutMs: 8000 },
+        );
+        const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+        if (assessmentSessions.filter(id => id === sessionId).length !== 1) {
+          findings.push(`${suffix}: consumer assessment count=${assessmentSessions.filter(id => id === sessionId).length}, expected exactly one`);
+        }
+        if (!report || report.pilotCredit !== false || report.pilotStatus !== 'unresolved') {
+          findings.push(`${suffix}: expected one refused/unavailable report, received ${JSON.stringify(report)}`);
+        }
+      }
+      const cleanupSession = 'idle-no-verification-pending';
+      d.emit('session.execution.succeeded', cleanupSession);
+      await d.waitFor(
+        () => assessmentSessions.filter(id => id === cleanupSession).length === 2,
+        { label: 'second V2 completion Stop assessment after cleanup' },
+      );
+      if (assessmentSessions.filter(id => id === cleanupSession).length !== 2) {
+        findings.push(`finally did not release the per-session idle guard for a second event: ${assessmentSessions.filter(id => id === cleanupSession).length} assessments`);
+      }
+      assert.deepEqual(findings, []);
+    });
+  } finally {
+    pilot.assess = originalAssess;
   }
 });
 
 test('V1/no-status, pilot-OFF, no-workflow, and Claude host controls stay fail-closed', async () => {
-  const fixture = makeFixture();
-  let dispose;
-  try {
-    const plugin = await startPlugin(fixture.root);
-    dispose = plugin.dispose;
+  await withV2DocFixture(async d => {
+    const positiveSession = 'v2-positive-control';
+    const { sessionDir: positiveDir } = seedWorkflow(d.workspace, positiveSession);
+    await d.toolHook('execute.after')({
+      tool: 'edit', sessionID: positiveSession, id: 'pos-call', status: 'completed',
+      result: { output: 'ok', metadata: { exit: 0 } },
+      input: { filePath: path.join(d.workspace, 'docs/adr/GRPH-001.md') },
+    });
+    assert.equal(fs.existsSync(path.join(positiveDir, 'opencode-captures.jsonl')), true, 'positive control: V2 execute.after with status creates a native capture');
+    const positiveReport = path.join(positiveDir, 'doc-reconciliation-pilot.json');
+    d.emit('session.execution.succeeded', positiveSession);
+    await d.waitFor(() => fs.existsSync(positiveReport), { label: 'positive control pilot report', timeoutMs: 8000 });
 
     const v1Session = 'v1-no-status';
-    const { sessionDir: v1Dir } = seedWorkflow(fixture, v1Session);
-    await plugin.registered.get('execute.after')({
-      tool: 'edit', sessionID: v1Session, id: 'v1-call', input: { filePath: path.join(fixture.root, 'docs/adr/GRPH-001.md') },
+    const { sessionDir: v1Dir } = seedWorkflow(d.workspace, v1Session);
+    await d.toolHook('execute.after')({
+      tool: 'edit', sessionID: v1Session, id: 'v1-call', input: { filePath: path.join(d.workspace, 'docs/adr/GRPH-001.md') },
     });
+    await d.settled({ quietMs: 100 });
     assert.equal(fs.existsSync(path.join(v1Dir, 'opencode-captures.jsonl')), false, 'V1/no-status output must not create a native capture');
 
     const noWorkflow = 'no-workflow';
     const { getSessionDir } = require(path.join(ROOT, 'hooks/scripts/lib/harness-state.js'));
-    const noWorkflowDir = getSessionDir(fixture.root, noWorkflow, { session_id: noWorkflow, cwd: fixture.root, host_id: 'opencode' });
-    await plugin.stream.dispatch({ type: 'session.idle', sessionID: noWorkflow });
+    const noWorkflowDir = getSessionDir(d.workspace, noWorkflow, { session_id: noWorkflow, cwd: d.workspace, host_id: 'opencode' });
+    d.emit('session.execution.succeeded', noWorkflow);
+    await d.settled({ quietMs: 150 });
     assert.equal(fs.existsSync(path.join(noWorkflowDir, 'doc-reconciliation-pilot.json')), false, 'no workflow must not write a pilot report');
 
     const offSession = 'pilot-off';
-    const { sessionDir: offDir } = seedWorkflow(fixture, offSession);
+    const { sessionDir: offDir } = seedWorkflow(d.workspace, offSession);
     process.env.HARNESS_DOC_RECONCILIATION_PILOT = '0';
-    await plugin.stream.dispatch({ type: 'session.idle', sessionID: offSession });
+    d.emit('session.execution.succeeded', offSession);
+    await d.settled({ quietMs: 150 });
     assert.equal(fs.existsSync(path.join(offDir, 'doc-reconciliation-pilot.json')), false, 'pilot OFF must not write a reconciliation report');
 
     const { createClaudeOriginProvider } = require(path.join(ROOT, 'hooks/scripts/lib/doc-reconciliation-provider.js'));
     const claudeProvider = createClaudeOriginProvider({ hostId: 'opencode', sessionId: 'native-host-control' });
-    const claudeContext = claudeProvider.resolveContext({ workspaceRoot: fixture.root });
+    const claudeContext = claudeProvider.resolveContext({ workspaceRoot: d.workspace });
     assert.equal(claudeContext.status, 'unavailable', 'OpenCode must not enter through Claude provider semantics');
     assert.ok(claudeContext.diagnostics.some(item => item.code === 'unsupported-host'));
-  } finally {
-    if (dispose) await dispose();
-    fixture.cleanup();
-    restoreEnv();
-  }
+  });
 });
 
 const OPENCODE_SESSION = 'provider-session';

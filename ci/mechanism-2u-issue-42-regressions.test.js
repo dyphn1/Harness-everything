@@ -213,8 +213,47 @@ fs.mkdirSync(opencodeLegacy, { recursive: true });
 fs.writeFileSync(path.join(opencodeLegacy, 'edit-state.json'), '{"legacy":true}', 'utf8');
 const opencodeScript = `
   import { existsSync } from 'node:fs';
-  const { HarnessEnforcement } = await import(${JSON.stringify(pathToFileURL(path.join(root, 'opencode-plugin', 'index.mjs')).href)});
-  await HarnessEnforcement({ client: {}, directory: ${JSON.stringify(opencodeWorkspace)} });
+  const mod = await import(${JSON.stringify(pathToFileURL(path.join(root, 'opencode-plugin', 'index.mjs')).href)});
+  const toolHooks = new Map();
+  const teardown = await mod.default.setup({
+    location: { directory: ${JSON.stringify(opencodeWorkspace)} },
+    tool: {
+      hook: async (name, cb) => {
+        toolHooks.set(name, cb);
+        return { dispose: async () => {} };
+      },
+    },
+    session: {
+      get: async ({ sessionID }) => ({ id: sessionID, location: { directory: ${JSON.stringify(opencodeWorkspace)} } }),
+      hook: async () => ({ dispose: async () => {} }),
+      prompt: async () => ({}),
+      context: async () => [],
+    },
+    event: {
+      subscribe: ({ signal }) => ({
+        [Symbol.asyncIterator]: () => ({
+          next: () => signal.aborted
+            ? Promise.resolve({ done: true, value: undefined })
+            : new Promise(resolve => {
+                signal.addEventListener('abort', () => resolve({ done: true, value: undefined }), { once: true });
+              }),
+          return: async () => ({ done: true, value: undefined }),
+        }),
+      }),
+    },
+  });
+  try {
+    await toolHooks.get('execute.before')({
+      tool: 'read',
+      sessionID: 's-2u-issue-42',
+      agent: 'default',
+      messageID: 'm-2u-issue-42',
+      id: 'c-2u-issue-42',
+      input: {},
+    });
+  } finally {
+    if (typeof teardown === 'function') await teardown();
+  }
   console.log(JSON.stringify({ legacy: existsSync(${JSON.stringify(opencodeLegacy)}), target: existsSync(${JSON.stringify(path.join(opencodeStateDir, 'edit-state.json'))}) }));
 `;
 const opencodeRun = run(noGitA, ['--input-type=module', '-e', opencodeScript], {

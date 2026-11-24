@@ -157,7 +157,8 @@ requireText('submission/openai/README.md', [
   { name: 'submission excludes local hooks', re: /does not contain the local `\.codex-plugin` lifecycle hooks/i },
 ]);
 
-const OPENCODE_EVIDENCE = 'benchmarks/results/live-host/opencode-2026-09-16/README.md';
+const OPENCODE_EVIDENCE = 'benchmarks/results/live-host/opencode-2026-11-24-v2-lifecycle/README.md';
+const OPENCODE_HISTORICAL_EVIDENCE = 'benchmarks/results/live-host/opencode-2026-09-16/README.md';
 const OPENCODE_SURFACES = [
   'README.md',
   'AGENTS.md',
@@ -170,6 +171,7 @@ const OPENCODE_SURFACES = [
 ];
 
 read(OPENCODE_EVIDENCE);
+read(OPENCODE_HISTORICAL_EVIDENCE);
 for (const rel of OPENCODE_SURFACES) {
   requireText(rel, [
     { name: 'OpenCode retained artifact path', re: /benchmarks\/results\/live-host\/opencode-2026-09-16\/README\.md/ },
@@ -198,7 +200,7 @@ for (const dimension of ['hooksLifecycle', 'liveHostVerification']) {
   }
 }
 if (opencode?.capabilities.liveHostVerification.evidence !== OPENCODE_EVIDENCE) {
-  fail('OpenCode liveHostVerification: missing exact retained artifact path');
+  fail('OpenCode liveHostVerification: missing exact V2 artifact path');
 }
 if (codex?.capabilities.hooksLifecycle.status !== 'Partial') {
   fail('Codex hooksLifecycle: expected partial live verification for the compatibility fallback');

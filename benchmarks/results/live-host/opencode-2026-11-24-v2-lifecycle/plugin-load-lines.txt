@@ -1,0 +1,2 @@
+timestamp=2026-11-24T10:57:48.468Z level=INFO  msg="loading plugin" id=<probe>/ws/.opencode/plugins/harness-enforcement.js entrypoint=file://<probe>/ws/.opencode/plugins/harness-enforcement.js http.span=887 role=server
+timestamp=2026-11-24T10:57:48.473Z level=INFO  msg="loading plugin" id=<probe>/ws/.opencode/plugins/zz-event-trace.js entrypoint=file://<probe>/ws/.opencode/plugins/zz-event-trace.js http.span=892 role=server

@@ -40,7 +40,7 @@ When a host does not expose a reliable duration, the value remains `null`; Harne
 | Host | Adapter | Evidence boundary |
 | --- | --- | --- |
 | Claude Code | Narrow `Skill` Pre/Post hooks + Stop; existing `state-persist` observes host-reported tool duration | Mechanism covered in CI; live certification remains #82 |
-| OpenCode | Existing single-process plugin records skill before/after, measures tool elapsed in-process, closes on `session.idle` | Mechanism covered in CI; retained live support remains bounded by #37/#82 |
+| OpenCode | Existing single-process V2 plugin records skill before/after, measures tool elapsed in-process, closes on `session.execution.succeeded` (V2-only; 1.x / V1 unsupported) | Mechanism covered in CI; retained live support remains bounded by #37/#82/#453 |
 | Codex | OpenAI package includes the same narrow Skill/Stop adapter | **Mechanism only** while plugin hook mounting/attribution is blocked by #122; no live claim |
 
 Telemetry failure is always fail-open and cannot block a task.

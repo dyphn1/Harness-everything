@@ -7,9 +7,8 @@ const helper = require('./test-helper');
 console.log('\n[2p] opencode 2.x default-export entrypoint: registration and firing behavior...');
 
 // OpenCode 2.x requires a default export { id, setup } that registers hooks
-// through ctx.tool.hook / ctx.event.subscribe. The named V1 factory still
-// exists for OpenCode 1 hosts and the mechanism tests; this test covers the
-// V2 adapter that the real host actually loads.
+// through ctx.tool.hook / ctx.session.hook / ctx.event.subscribe. This test
+// covers the V2 plugin surface and event shapes.
 
 helper.check(
   '2p. the plugin entrypoint resolves the canonical router and observations runtime from the source checkout',
@@ -86,14 +85,20 @@ helper.check(
     },
   };
 
+  const v2Event = (type, sessionID, data = {}) => ({
+    id: `evt-${type}-${sessionID}-${Date.now()}`,
+    created: Date.now(),
+    type,
+    durable: true,
+    data: { sessionID, ...data },
+  });
   const push = (event) => eventQueue.push(event);
-  const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
-  const waitFor = async (predicate) => {
+  const waitFor = async (predicate, label = 'V2 async verification') => {
     const deadline = Date.now() + 5000;
     while (!predicate()) {
       if (Date.now() > deadline) {
         const editState = path.join(stateRoot, 's1', 'edit-state.json');
-        throw new Error(`V2 async verification did not settle: prompts=${prompts.length}; consumedEvents=${consumedEvents}; queued=${eventQueue.length}; editState=${fs.existsSync(editState) ? fs.readFileSync(editState, 'utf8') : 'missing'}`);
+        throw new Error(`${label} did not settle: prompts=${prompts.length}; consumedEvents=${consumedEvents}; queued=${eventQueue.length}; editState=${fs.existsSync(editState) ? fs.readFileSync(editState, 'utf8') : 'missing'}`);
       }
       await new Promise(resolve => setTimeout(resolve, 20));
     }
@@ -108,13 +113,16 @@ helper.check(
     `default export keys: ${JSON.stringify(definition && Object.keys(definition))}`
   );
 
+  const exportKeys = Object.keys(mod).sort();
   helper.check(
-    '2p. the module still exports the V1 HarnessEnforcement factory for OpenCode 1 hosts and tests',
-    typeof mod.HarnessEnforcement === 'function',
-    `exports: ${Object.keys(mod).join(', ')}`
+    '2p. the module exports only the V2 default definition with setup and no server',
+    exportKeys.length === 1 && exportKeys[0] === 'default'
+      && Boolean(definition) && typeof definition.setup === 'function'
+      && !Object.hasOwn(definition, 'server'),
+    `exports: ${exportKeys.join(', ')}; default keys: ${JSON.stringify(definition && Object.keys(definition))}`
   );
 
-  await definition.setup(fakeCtx);
+  const dispose = await definition.setup(fakeCtx);
 
   helper.check(
     '2p. setup registers the V2 tool hooks under their OpenCode 2 names',
@@ -135,12 +143,12 @@ helper.check(
 
   // Flow 1: repeated failures use real V2 event shapes and leave edits available:
   // execute.before/after carry {tool, sessionID, id, input}; the event stream
-  // carries flat {type, sessionID}.
+  // carries V2 envelopes {id, created, type, durable, data: {sessionID}}.
   const sessionDir = path.join(stateRoot, 's1');
   for (let i = 1; i <= 3; i++) {
     await before({ tool: 'edit', sessionID: 's1', id: `before-${i}`, input: {} });
     await after({ tool: 'edit', sessionID: 's1', id: `c${i}`, input: {} });
-    push({ type: 'session.idle', sessionID: 's1' });
+    push(v2Event('session.execution.succeeded', 's1'));
     await waitFor(() => prompts.length === i);
   }
 
@@ -202,17 +210,18 @@ helper.check(
     legacyDir
   );
 
-  // Flow 3: session reset through the flat V2 event shape.
+  // Flow 3: session reset through the V2 event envelope.
   await after({ tool: 'edit', sessionID: 'reset', id: 'reset-edit', input: {} });
   helper.check('2p. an edit created state for its session before the reset probe', fs.existsSync(path.join(stateRoot, 'reset', 'edit-state.json')), 'state/reset');
-  push({ type: 'session.created', sessionID: 'reset' });
-  await settle();
+  push(v2Event('session.created', 'reset'));
+  await waitFor(() => !fs.existsSync(path.join(stateRoot, 'reset', 'edit-state.json')), 'session.created reset');
   helper.check(
     '2p. a flat v2 session.created event resets that session state',
     !fs.existsSync(path.join(stateRoot, 'reset', 'edit-state.json')),
     'edit-state.json survived the reset'
   );
 
+  if (typeof dispose === 'function') await dispose();
   helper.finish();
 })().catch((err) => {
   console.error('2p. opencode v2 entrypoint test crashed:', err);
