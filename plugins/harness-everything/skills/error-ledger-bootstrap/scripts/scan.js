@@ -492,6 +492,28 @@ function validLocalRecord(record, workspaceKey, store) {
     (record.promotionId === null || (typeof record.promotionId === 'string' && RECORD_ID.test(record.promotionId)));
 }
 
+function validLocalStoreReader(store) {
+  try {
+    if (!store || typeof store !== 'object' || Array.isArray(store)) return false;
+    const destinations = store.DESTINATIONS;
+    const commandClasses = store.COMMAND_CLASSES;
+    const limits = store.LIMITS;
+    const validEnum = (values, required) => Array.isArray(values) &&
+      required.every(value => values.includes(value)) &&
+      values.every((value, index) => typeof value === 'string' && value.length > 0 && values.indexOf(value) === index);
+    return Number.isSafeInteger(store.SCHEMA_VERSION) && store.SCHEMA_VERSION > 0 &&
+      typeof store.INDEX_FILE === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(store.INDEX_FILE) &&
+      typeof store.INDEX_KIND === 'string' && store.INDEX_KIND.length > 0 &&
+      validEnum(destinations, ['harness', 'project', 'unknown']) &&
+      validEnum(commandClasses, ['git', 'gh', 'test', 'build', 'package', 'shell']) &&
+      limits !== null && typeof limits === 'object' && !Array.isArray(limits) &&
+      ['maxIndexBytes', 'maxExcerptBytes', 'maxMatchedLedgerIds', 'maxLessonChars', 'maxCueChars']
+        .every(name => Number.isSafeInteger(limits[name]) && limits[name] > 0) &&
+      ['getStorePath', 'resolveWorkspaceKey', 'listRecords', 'validateMatch']
+        .every(name => typeof store[name] === 'function');
+  } catch (_) { return false; }
+}
+
 function inspectLocalStore(file, store) {
   let stat;
   try { stat = fs.lstatSync(file); }
@@ -634,6 +656,7 @@ function localCandidate(title, signature, records, match, ledger, store, destina
 
 function collectLocalStore(options, root) {
   const fallbackWorkspaceRef = workspaceRef(root);
+  const emptyCounts = { workspaceRecords: 0, lessons: 0, occurrences: 0, candidates: 0, destinationMismatch: 0, unknownDestination: 0, malformed: 0, suppressedOccurrences: 0 };
   let store;
   try { store = require(path.join(__dirname, '..', '..', 'hooks', 'scripts', 'lib', 'local-errors.js')); }
   catch (_) {
@@ -647,6 +670,15 @@ function collectLocalStore(options, root) {
       candidates: []
     };
   }
+  if (!validLocalStoreReader(store)) {
+    return {
+      source: sourceStatus('local-store', 'workspace', 'unavailable', {
+        reason: 'reader-contract-incomplete', workspaceRef: fallbackWorkspaceRef, destination: options.destination,
+        ledgerStatus: 'unverified', ledgerReason: 'ledger-not-checked', counts: emptyCounts
+      }),
+      candidates: []
+    };
+  }
 
   let workspaceKey;
   try { workspaceKey = store.resolveWorkspaceKey({ workspaceRoot: root }); }
@@ -655,7 +687,7 @@ function collectLocalStore(options, root) {
       source: sourceStatus('local-store', 'workspace', 'unverified', {
         reason: 'workspace-unavailable', workspaceRef: fallbackWorkspaceRef, destination: options.destination,
         ledgerStatus: 'unverified', ledgerReason: 'ledger-not-checked',
-        counts: { workspaceRecords: 0, lessons: 0, occurrences: 0, candidates: 0, destinationMismatch: 0, unknownDestination: 0, malformed: 0, suppressedOccurrences: 0 }
+        counts: emptyCounts
       }),
       candidates: []
     };
@@ -671,7 +703,7 @@ function collectLocalStore(options, root) {
         source: sourceStatus('local-store', 'workspace', 'unverified', {
           reason: 'workspace-binding-unavailable', workspaceRef: ref, destination: options.destination,
           ledgerStatus: 'unverified', ledgerReason: 'ledger-not-checked',
-          counts: { workspaceRecords: 0, lessons: 0, occurrences: 0, candidates: 0, destinationMismatch: 0, unknownDestination: 0, malformed: 0, suppressedOccurrences: 0 }
+          counts: emptyCounts
         }),
         candidates: []
       };
@@ -681,7 +713,7 @@ function collectLocalStore(options, root) {
         source: sourceStatus('local-store', 'workspace', 'unverified', {
           reason: 'workspace-binding-mismatch', workspaceRef: ref, destination: options.destination,
           ledgerStatus: 'unverified', ledgerReason: 'ledger-not-checked',
-          counts: { workspaceRecords: 0, lessons: 0, occurrences: 0, candidates: 0, destinationMismatch: 0, unknownDestination: 0, malformed: 0, suppressedOccurrences: 0 }
+          counts: emptyCounts
         }),
         candidates: []
       };
@@ -695,14 +727,13 @@ function collectLocalStore(options, root) {
       source: sourceStatus('local-store', 'workspace', 'unverified', {
         reason: 'store-unreadable', workspaceRef: ref, destination: options.destination,
         ledgerStatus: 'unverified', ledgerReason: 'ledger-not-checked',
-        counts: { workspaceRecords: 0, lessons: 0, occurrences: 0, candidates: 0, destinationMismatch: 0, unknownDestination: 0, malformed: 0, suppressedOccurrences: 0 }
+        counts: emptyCounts
       }),
       candidates: []
     };
   }
   const diagnostic = inspectLocalStore(storePath, store);
   const ledger = inspectDestinationLedger(root, store);
-  const emptyCounts = { workspaceRecords: 0, lessons: 0, occurrences: 0, candidates: 0, destinationMismatch: 0, unknownDestination: 0, malformed: 0, suppressedOccurrences: 0 };
   if (diagnostic.status !== 'used') {
     return {
       source: sourceStatus('local-store', 'workspace', diagnostic.status, {
@@ -738,9 +769,21 @@ function collectLocalStore(options, root) {
     seen.add(key);
     valid.push(record);
   }
-  const counts = { ...emptyCounts, workspaceRecords: valid.length, malformed };
-  const selected = [];
+  const idKinds = new Map();
   for (const record of valid) {
+    const kinds = idKinds.get(record.provisionalId) || new Set();
+    kinds.add(record.kind);
+    idKinds.set(record.provisionalId, kinds);
+  }
+  const collisions = new Set([...idKinds].filter(([, kinds]) => kinds.size > 1).map(([id]) => id));
+  const unambiguous = valid.filter(record => {
+    if (!collisions.has(record.provisionalId)) return true;
+    malformed += 1;
+    return false;
+  });
+  const counts = { ...emptyCounts, workspaceRecords: unambiguous.length, malformed };
+  const selected = [];
+  for (const record of unambiguous) {
     if (record.destination === 'unknown') { counts.unknownDestination += 1; continue; }
     if (record.destination !== options.destination) { counts.destinationMismatch += 1; continue; }
     selected.push(record);
@@ -764,7 +807,7 @@ function collectLocalStore(options, root) {
   }
   counts.candidates = candidates.length;
   const status = malformed || scoped.length === 0 ? 'unverified' : 'used';
-  const reason = malformed ? 'malformed-records' : scoped.length === 0 ? 'empty-reader-result' : undefined;
+  const reason = collisions.size ? 'provisional-id-collision' : malformed ? 'malformed-records' : scoped.length === 0 ? 'empty-reader-result' : undefined;
   return {
     source: sourceStatus('local-store', 'workspace', status, {
       ...(reason ? { reason } : {}), workspaceRef: ref, destination: options.destination,

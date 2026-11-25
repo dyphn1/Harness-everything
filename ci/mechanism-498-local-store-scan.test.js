@@ -19,7 +19,8 @@ const NOW = '2026-11-25T12:34:56.000Z';
 const PRIVATE_VALUES = [
   'PRIVATE_EXCERPT_SENTINEL', 'PRIVATE_CUE_SENTINEL', 'PRIVATE_LESSON_SENTINEL',
   'PRIVATE_URL_SENTINEL', 'PRIVATE_PATH_SENTINEL', 'PRIVATE_SESSION_SENTINEL',
-  'PRIVATE_TOOL_USE_SENTINEL', 'sharedrawid'
+  'PRIVATE_TOOL_USE_SENTINEL', 'PRIVATE_READER_ROW_SENTINEL', 'sharedrawid',
+  'readerprivateid', 'distinct-lesson-id', 'surviving-lesson-id'
 ];
 const ACTIONS = {
   commit: { actions: [{ tool: 'shell', executable: 'git', subcommand: 'commit' }] },
@@ -121,7 +122,6 @@ function addOccurrence(workspaceRoot, signature, destination, index) {
   const result = localErrors.appendOccurrence({
     workspaceRoot,
     destination,
-    provisionalId: `occurrence-${index}`,
     signature,
     commandClass: 'test',
     exitCode: 1,
@@ -198,6 +198,29 @@ function assertPrivate(report, markdown) {
   for (const value of PRIVATE_VALUES) assert.ok(!output.includes(value), `private local value escaped: ${value}`);
 }
 
+function incompleteReaderSource() {
+  return [
+    "'use strict';",
+    "const fs = require('node:fs');",
+    "const path = require('node:path');",
+    "function called(name) { fs.appendFileSync(process.env.READER_CALL_LOG, name + '\\n'); }",
+    'const reader = {',
+    '  SCHEMA_VERSION: 1,',
+    "  INDEX_FILE: 'errors-index.json',",
+    "  INDEX_KIND: 'local-error-store',",
+    "  DESTINATIONS: ['harness', 'project', 'unknown'],",
+    "  COMMAND_CLASSES: ['git', 'gh', 'test', 'build', 'package', 'shell'],",
+    '  LIMITS: { maxIndexBytes: 2 * 1024 * 1024, maxExcerptBytes: 2048, maxLessonChars: 4096, maxCueChars: 4096, maxMatchedLedgerIds: 16 },',
+    '  resolveWorkspaceKey(input) { called(\'resolveWorkspaceKey\'); return input.workspaceRoot; },',
+    "  getStorePath() { called('getStorePath'); return { file: path.join(process.env.HARNESS_OBSERVATIONS_DIR, 'errors-index.json') }; },",
+    "  listRecords() { called('listRecords'); return JSON.parse(fs.readFileSync(process.env.READER_FIXTURE_ROWS, 'utf8')); },",
+    '  validateMatch(match) { called(\'validateMatch\'); return match; }',
+    '};',
+    'delete reader.DESTINATIONS;',
+    'module.exports = reader;'
+  ].join('\n');
+}
+
 const legacy = makeRepo('legacy-target');
 const legacyOut = path.join(TMP, 'legacy-reports');
 fs.mkdirSync(legacyOut);
@@ -245,6 +268,7 @@ assert.strictEqual(legacyMarkdownBytes, [
 
 const workspaceA = makeRepo('workspace-a');
 const workspaceB = makeRepo('workspace-b');
+const workspaceCollision = makeRepo('workspace-collision');
 addLedgerRecord(workspaceA, 'E-0001', 'duplicate-lesson', null);
 addLedgerRecord(workspaceA, 'E-0002', 'existing-rule', ACTIONS.push);
 addLedgerRecord(workspaceA, 'E-0003', 'ambiguous-lesson', null);
@@ -252,6 +276,8 @@ addLedgerRecord(workspaceA, 'E-0004', 'other-ambiguous', ACTIONS.pull);
 finalizeLedger(workspaceA);
 fs.mkdirSync(path.join(workspaceB, '.agents', 'harness-everything', 'errors'), { recursive: true });
 finalizeLedger(workspaceB);
+fs.mkdirSync(path.join(workspaceCollision, '.agents', 'harness-everything', 'errors'), { recursive: true });
+finalizeLedger(workspaceCollision);
 
 const sharedA = addLesson(workspaceA, 'shared-lesson', 'harness', ACTIONS.commit, 'sharedrawid');
 const sharedB = addLesson(workspaceB, 'shared-lesson', 'harness', ACTIONS.commit, 'sharedrawid');
@@ -269,6 +295,15 @@ addOccurrence(workspaceA, 'covered-lesson', 'harness', 3);
 addOccurrence(workspaceA, 'project-occurrence', 'project', 4);
 addOccurrence(workspaceA, 'unknown-occurrence', 'unknown', 5);
 addOccurrence(workspaceB, 'workspace-b-occurrence', 'harness', 6);
+const collisionOccurrence = addOccurrence(workspaceCollision, 'collision-occurrence', 'harness', 7);
+const collisionRawId = collisionOccurrence.provisionalId;
+PRIVATE_VALUES.push(collisionRawId);
+const collisionLesson = addLesson(workspaceCollision, 'collision-lesson', 'project', ACTIONS.commit, collisionRawId);
+addLesson(workspaceB, 'collision-id-other-workspace', 'harness', ACTIONS.commit, collisionRawId);
+const distinctLesson = addLesson(workspaceCollision, 'distinct-lesson-signature', 'harness', ACTIONS.commit, 'distinct-lesson-id');
+const distinctOccurrence = addOccurrence(workspaceCollision, 'distinct-occurrence-signature', 'harness', 8);
+PRIVATE_VALUES.push(distinctOccurrence.provisionalId);
+const survivingLesson = addLesson(workspaceCollision, 'surviving-lesson', 'harness', ACTIONS.commit, 'surviving-lesson-id');
 
 const baselineStore = fs.readFileSync(path.join(STORE, localErrors.INDEX_FILE));
 const firstA = scan(workspaceA, 'harness');
@@ -307,12 +342,13 @@ const secondA = scan(workspaceA, 'harness');
 assert.deepStrictEqual(sourceRefs(bySignature(secondA.report, 'shared-lesson')),
   sourceRefs(bySignature(firstA.report, 'shared-lesson')), 'repeat scan preserves the record ref');
 const scanB = scan(workspaceB, 'harness');
-assert.strictEqual(localCandidates(scanB.report).length, 3, 'workspace B sees only its two lessons and one occurrence cluster');
+assert.strictEqual(localCandidates(scanB.report).length, 4, 'workspace B sees its same-ID row independently from workspace C');
 assert.strictEqual(sourceRefs(bySignature(scanB.report, 'shared-lesson')).length, 1);
 assert.notDeepStrictEqual(sourceRefs(bySignature(scanB.report, 'shared-lesson')),
   sourceRefs(bySignature(firstA.report, 'shared-lesson')), 'same raw provisional ID has a different ref in another workspace');
 assert.ok(!bySignature(scanB.report, 'duplicate-lesson'));
 assert.ok(bySignature(scanB.report, 'workspace-b-only'));
+assert.ok(bySignature(scanB.report, 'collision-id-other-workspace'), 'a matching raw ID in another workspace remains isolated');
 
 const projectScan = scan(workspaceA, 'project');
 assert.strictEqual(localSource(projectScan.report).destination, 'project');
@@ -414,7 +450,121 @@ assert.strictEqual(localSource(packagedReport).status, 'unavailable');
 assert.strictEqual(localSource(packagedReport).reason, 'reader-unavailable');
 assert.strictEqual(localCandidates(packagedReport).length, 0);
 
+function verifyProvisionalCollision() {
+  const originalBytes = fs.readFileSync(rawStoreFile);
+  const index = JSON.parse(originalBytes.toString('utf8'));
+  const collisionRows = index.records.filter(record =>
+    record.workspaceKey === collisionLesson.workspaceKey && record.provisionalId === collisionRawId);
+  assert.deepStrictEqual(collisionRows.map(record => record.kind).sort(), ['occurrence', 'provisional-lesson']);
+  try {
+    for (const records of [index.records, [...index.records].reverse()]) {
+      fs.writeFileSync(rawStoreFile, `${JSON.stringify({ ...index, records })}\n`);
+      const { report, markdown } = scan(workspaceCollision, 'harness');
+      const source = localSource(report);
+      assert.deepStrictEqual({
+        status: source.status,
+        reason: source.reason,
+        malformed: source.counts.malformed,
+        workspaceRecords: source.counts.workspaceRecords,
+        destinationMismatch: source.counts.destinationMismatch,
+        candidates: localCandidates(report).map(candidate => candidate.signature).sort()
+      }, {
+        status: 'unverified',
+        reason: 'provisional-id-collision',
+        malformed: 2,
+        workspaceRecords: 3,
+        destinationMismatch: 0,
+        candidates: ['distinct-lesson-signature', 'distinct-occurrence-signature', 'surviving-lesson']
+      }, 'both cross-kind rows are excluded while unrelated and distinct-ID leads survive');
+      assert.notStrictEqual(distinctLesson.provisionalId, distinctOccurrence.provisionalId);
+      assert.strictEqual(sourceRefs(bySignature(report, 'distinct-lesson-signature')).length, 1);
+      assert.strictEqual(sourceRefs(bySignature(report, 'distinct-occurrence-signature')).length, 1);
+      assert.notDeepStrictEqual(
+        sourceRefs(bySignature(report, 'distinct-lesson-signature')),
+        sourceRefs(bySignature(report, 'distinct-occurrence-signature')),
+        'distinct IDs retain distinct opaque refs');
+      assert.ok(bySignature(report, 'surviving-lesson'), 'an unrelated lead survives');
+      assert.ok(!bySignature(report, 'collision-lesson'));
+      assert.ok(!bySignature(report, 'collision-occurrence'));
+      assertPrivate(report, markdown);
+    }
+  } finally { fs.writeFileSync(rawStoreFile, originalBytes); }
+}
+
+function verifyIncompleteReaderContract() {
+  const fixtureRoot = path.join(TMP, 'incomplete-reader');
+  const fixtureScanner = path.join(fixtureRoot, 'error-ledger-bootstrap', 'scripts', 'scan.js');
+  write(fixtureScanner, fs.readFileSync(SCANNER, 'utf8'));
+  write(path.join(fixtureRoot, 'hooks', 'scripts', 'lib', 'local-errors.js'), incompleteReaderSource());
+
+  const readerRowsFile = path.join(TMP, 'incomplete-reader-rows.json');
+  write(readerRowsFile, JSON.stringify([{
+    schemaVersion: localErrors.SCHEMA_VERSION,
+    kind: 'occurrence',
+    workspaceKey: workspaceA,
+    provisionalId: 'readerprivateid',
+    destination: 'harness',
+    signature: 'reader-contract-control',
+    createdAt: NOW,
+    source: 'tool-failure',
+    host: 'unknown',
+    commandClass: 'test',
+    exitCode: 1,
+    sessionKey: null,
+    toolUseId: null,
+    outputExcerpt: 'PRIVATE_READER_ROW_SENTINEL',
+    matchedLedgerIds: []
+  }]));
+  const readerCallLog = path.join(TMP, 'incomplete-reader-calls.txt');
+  const out = path.join(TMP, 'incomplete-reader-reports');
+  fs.mkdirSync(out);
+  const ledgerDir = path.join(workspaceA, '.agents', 'harness-everything', 'errors');
+  const beforeStore = treeHash(STORE);
+  const beforeLedger = treeHash(ledgerDir);
+  const result = runNode(fixtureScanner, [
+    '--root', workspaceA, '--no-memory', '--source', 'local-store', '--destination', 'harness',
+    '--out', out, '--json'
+  ], {
+    HARNESS_OBSERVATIONS_DIR: STORE,
+    READER_CALL_LOG: readerCallLog,
+    READER_FIXTURE_ROWS: readerRowsFile,
+    HOME,
+    USERPROFILE: HOME
+  });
+  assert.strictEqual(result.status, 0,
+    `incomplete reader should produce a safe report; exit ${result.status}; stderr: ${result.stderr.trim()}; stdout: ${result.stdout.trim()}`);
+  assert.strictEqual(result.stderr.trim(), '');
+  const envelope = JSON.parse(result.stdout);
+  const report = JSON.parse(fs.readFileSync(envelope.reportJson, 'utf8'));
+  const markdown = fs.readFileSync(envelope.reportMd, 'utf8');
+  assert.strictEqual(localSource(report).status, 'unavailable');
+  assert.strictEqual(localSource(report).reason, 'reader-contract-incomplete');
+  assert.strictEqual(localCandidates(report).length, 0);
+  assert.ok(!fs.existsSync(readerCallLog), 'incomplete reader is rejected before any reader function is called');
+  const otherSources = new Set(report.sources.filter(source => source.type !== 'local-store').map(source => source.type));
+  for (const type of ['git', 'doc', 'tracker', 'memory', 'instruction']) {
+    assert.ok(otherSources.has(type), `non-local source ${type} remains in the report`);
+  }
+  assertPrivate(report, markdown);
+  assert.strictEqual(treeHash(STORE), beforeStore, 'incomplete reader scan leaves store bytes unchanged');
+  assert.strictEqual(treeHash(ledgerDir), beforeLedger, 'incomplete reader scan leaves ledger bytes unchanged');
+}
+
+const acceptanceFailures = [];
+function runAcceptanceCase(name, test) {
+  try { test(); }
+  catch (error) { acceptanceFailures.push(`${name}: ${error.message}`); }
+}
+runAcceptanceCase('F1 cross-kind collision', verifyProvisionalCollision);
+runAcceptanceCase('F2 incomplete reader', verifyIncompleteReaderContract);
+if (acceptanceFailures.length) {
+  process.stderr.write(`Scanner acceptance failures:\n${acceptanceFailures.join('\n')}\n`);
+  process.exitCode = 1;
+}
+
 assert.deepStrictEqual(fs.readFileSync(rawStoreFile), baselineStore, 'the fixture store is restored byte-for-byte');
-console.log('Local-store scanner CLI verified: legacy bytes, workspace isolation, redaction, statuses, dedupe, and packaged fallback.');
+if (!acceptanceFailures.length) {
+  console.log('Local-store scanner CLI verified: legacy bytes, workspace isolation, collision handling, reader contract, redaction, statuses, dedupe, and packaged fallback.');
+}
 
 try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (_) { /* temporary fixture cleanup */ }
