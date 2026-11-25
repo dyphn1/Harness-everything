@@ -102,16 +102,18 @@ function createProvisionalSource(options = {}) {
       const records = localErrors.listRecords(query);
       if (!Array.isArray(records) || !records.length) return [];
 
+      // localErrors.listRecords returns oldest-first; walk newest-first so recent lessons win within budget.
       const projected = [];
-      for (const record of records) {
+      for (let i = records.length - 1; i >= 0; i -= 1) {
         if (projected.length >= maxCandidates) break;
-        const candidate = projectProvisionalRecord(record, maxTextChars);
+        const candidate = projectProvisionalRecord(records[i], maxTextChars);
         if (!candidate) continue;
         const next = [...projected, candidate];
         if (Buffer.byteLength(JSON.stringify(next), 'utf8') > maxBytes) continue;
         if (matcherSerializedBytes(next) > maxBytes) continue;
         projected.push(candidate);
       }
+      projected.reverse();
       return projected;
     } catch (_) {
       return [];

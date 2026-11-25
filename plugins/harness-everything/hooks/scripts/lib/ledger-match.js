@@ -611,7 +611,17 @@ function peekRepoMatches(input) {
     if (!event) return [];
     const repo = matchedRepoCandidates(root, event);
     if (!repo.length) return [];
-    return collapseCandidates(repo, []).map(candidate => candidate.id);
+    const compare = (left, right) => left < right ? -1 : left > right ? 1 : 0;
+    const ordered = [...repo].sort((a, b) => compare(a.signature, b.signature) || compare(a.id, b.id));
+    const ids = [];
+    const seen = new Set();
+    for (const candidate of ordered) {
+      if (seen.has(candidate.id)) continue;
+      seen.add(candidate.id);
+      ids.push(candidate.id);
+      if (ids.length >= LIMITS.candidates) break;
+    }
+    return ids;
   } catch (_) {
     return [];
   }

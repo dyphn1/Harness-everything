@@ -793,3 +793,125 @@ test('exports validateMatch and read-only peekRepoMatches without taking claims 
     }), [], 'peek is repo-only and ignores provisionalSource');
   }
 });
+
+test('peekRepoMatches keeps every matching repo id across shared signatures while preserving delivery collapse and bounds', () => {
+  const syncEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== 'HARNESS_SYSTEM_ONE_MODE'));
+  const buildSameSignatureRepo = (name, count) => {
+    const root = workspace(name);
+    const ledger = path.join(root, '.agents', 'harness-everything', 'errors');
+    for (let index = 1; index <= count; index += 1) {
+      const id = `E-${String(index).padStart(4, '0')}`;
+      const recordText = index === 1
+        ? E3_TEXT.replace(/^id:\s*E-0003$/m, 'id: E-0001')
+        : E3_TEXT
+          .replace(/^id:\s*E-0003$/m, `id: ${id}`)
+          .replace(/^## Lesson\r?\n\r?\n[\s\S]*?(?=\r?\n\r?\n## Evidence)/m,
+            `## Lesson\n\nSAME_SIGNATURE_SECOND_LESSON_SENTINEL_${id}`);
+      write(path.join(ledger, `${id}-commitlint-subject.md`), recordText);
+    }
+    const generated = spawnSync(process.execPath, [ERRORS_SYNC, '--root', root], {
+      cwd: ROOT,
+      env: syncEnv,
+      encoding: 'utf8'
+    });
+    assert.equal(generated.status, 0, generated.stderr);
+    return { root, ledger };
+  };
+
+  const pair = buildSameSignatureRepo('peek-same-sig-pair', 2);
+  const single = buildSameSignatureRepo('peek-same-sig-single', 1);
+  const pairIndexPath = path.join(pair.ledger, 'index.jsonl');
+  const pairRows = fs.readFileSync(pairIndexPath, 'utf8').trim().split('\n');
+
+  const reversedRoot = workspace('peek-same-sig-reversed');
+  const reversedLedger = path.join(reversedRoot, '.agents', 'harness-everything', 'errors');
+  for (const file of fs.readdirSync(pair.ledger)) {
+    if (file.endsWith('.md')) {
+      write(path.join(reversedLedger, file), fs.readFileSync(path.join(pair.ledger, file), 'utf8'));
+    }
+  }
+  write(path.join(reversedLedger, 'index.jsonl'), `${[...pairRows].reverse().join('\n')}\n`);
+
+  const duplicateIdRoot = workspace('peek-same-sig-dup-id');
+  const duplicateIdLedger = path.join(duplicateIdRoot, '.agents', 'harness-everything', 'errors');
+  for (const file of fs.readdirSync(pair.ledger)) {
+    if (file.endsWith('.md')) {
+      write(path.join(duplicateIdLedger, file), fs.readFileSync(path.join(pair.ledger, file), 'utf8'));
+    }
+  }
+  write(path.join(duplicateIdLedger, 'index.jsonl'), `${[pairRows[0], pairRows[0], pairRows[1]].join('\n')}\n`);
+
+  const atCap = buildSameSignatureRepo('peek-same-sig-cap-32', 32);
+  const overCap = buildSameSignatureRepo('peek-same-sig-over-33', 33);
+  const expected32 = Array.from({ length: 32 }, (_, idx) => `E-${String(idx + 1).padStart(4, '0')}`);
+
+  const actionEvent = { phase: 'action', tool: 'shell', command: 'git commit', outcome: { failed: 'unknown' } };
+  const failureEvent = {
+    phase: 'failure',
+    tool: 'shell',
+    command: 'git commit -m "Bad Subject"',
+    outcome: { failed: true, output: COMMITLINT_OUTPUT }
+  };
+
+  for (const implementation of [matcher, packagedMatcher]) {
+    assert.deepEqual(
+      implementation.peekRepoMatches({ workspaceRoot: pair.root, event: actionEvent }),
+      ['E-0001', 'E-0002'],
+      'peek returns both ids for two same-signature repo records at action'
+    );
+    assert.deepEqual(
+      implementation.peekRepoMatches({ workspaceRoot: pair.root, event: failureEvent }),
+      ['E-0001', 'E-0002'],
+      'peek returns both ids for two same-signature repo records at failure'
+    );
+    assert.deepEqual(
+      implementation.peekRepoMatches({ workspaceRoot: reversedRoot, event: actionEvent }),
+      ['E-0001', 'E-0002'],
+      'peek keeps deterministic id order regardless of index order'
+    );
+    assert.deepEqual(
+      implementation.peekRepoMatches({ workspaceRoot: duplicateIdRoot, event: actionEvent }),
+      ['E-0001', 'E-0002'],
+      'peek deduplicates repeated id rows'
+    );
+
+    const baselineDelivery = implementation.matchLedgerLessons(input({
+      workspaceRoot: single.root,
+      stateDir: stateDir('delivery-single'),
+      event: actionEvent
+    }));
+    const pairDelivery = implementation.matchLedgerLessons(input({
+      workspaceRoot: pair.root,
+      stateDir: stateDir('delivery-pair'),
+      event: actionEvent
+    }));
+    assert.deepEqual(pairDelivery?.ids, ['E-0001'], 'delivery still collapses same-signature records to one lesson');
+    assert.equal(pairDelivery?.text, baselineDelivery?.text, 'delivery text for same-signature pair is unchanged');
+    assert.ok(!pairDelivery?.text.includes('SAME_SIGNATURE_SECOND_LESSON_SENTINEL'),
+      'second same-signature lesson is not delivered');
+
+    const pairFailureDelivery = implementation.matchLedgerLessons(input({
+      workspaceRoot: pair.root,
+      stateDir: stateDir('delivery-pair-failure'),
+      event: failureEvent
+    }));
+    const baselineFailureDelivery = implementation.matchLedgerLessons(input({
+      workspaceRoot: single.root,
+      stateDir: stateDir('delivery-single-failure'),
+      event: failureEvent
+    }));
+    assert.deepEqual(pairFailureDelivery?.ids, ['E-0001'], 'failure delivery still collapses same-signature records');
+    assert.equal(pairFailureDelivery?.text, baselineFailureDelivery?.text, 'failure delivery text is unchanged');
+
+    assert.deepEqual(
+      implementation.peekRepoMatches({ workspaceRoot: atCap.root, event: actionEvent }),
+      expected32,
+      'peek returns all 32 unique ids up to the candidate bound'
+    );
+    assert.deepEqual(
+      implementation.peekRepoMatches({ workspaceRoot: overCap.root, event: actionEvent }),
+      [],
+      'peek enforces the 32-candidate bound by failing open above cap'
+    );
+  }
+});
