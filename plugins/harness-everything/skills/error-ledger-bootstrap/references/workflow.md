@@ -38,6 +38,8 @@ Obtain explicit owner approval for each candidate. Bind the approval to the exac
 
 The top-level approval JSON has `schemaVersion: 1`, a 20-character hexadecimal `candidateId`, a 64-character hexadecimal `reportSha256` of the exact report bytes, an absolute canonical `targetRoot` matching `--target`, a non-empty `approvedBy`, and a parseable `approvedAt` timestamp. Its `record` object has a kebab-case `signature`; non-empty `class`, `title`, `violates`, and `sourcesNote`; `scope` of `in`, `out`, or `unresolved`; `status` of `open`, `lesson`, or `mechanism`; and `sites`, an array of existing target-repository files named by relative paths without absolute paths or `.` or `..` components. Do not put absolute paths in `approvedBy`, `approvedAt`, or the record text fields. The approved candidate must occur exactly once in the report, and the selected and approved site files must exist in the target.
 
+For a candidate with a `local-store` source, also include top-level `destination: harness` or `destination: project` in the approval. Promotion requires one `used` workspace binding whose opaque ref resolves to canonical `--target` through the trusted Harness checkout's local-store reader; every candidate ref must still resolve to a row for that workspace and destination. The report's exact-dedupe result must be eligible, and the candidate must carry a verified Git or documentation commit source that exists in the target repository on that same candidate. Promotion rechecks exact signature and whole-rule dedupe against the current destination ledger while holding the promotion lock. Missing, unknown, mismatched, stale, or unreadable local bindings fail closed before ledger changes. Legacy reports without a local-store source keep their existing approval shape. A stored issue URL is only a local lead and never satisfies the durable-source requirement.
+
 Use this complete example as the approval file structure, replacing the sample candidate ID and digest with the exact report values, `targetRoot` with the target's absolute canonical path, and the approver, timestamp, and reviewed record content with the owner's approval:
 
 ```json
@@ -71,7 +73,7 @@ mkdir -p "<target repo>/.agents/harness-everything/errors"
 
 Promotion refuses when the directory is absent. No index file is needed beforehand; successful promotion updates the index through the sync command below.
 
-Before promotion, resolve a trusted local Harness checkout containing `scripts/errors-sync.js` and verify its Node dependencies are installed. The current sync script requires `js-yaml`; a read-only preflight is:
+Before promotion, resolve a trusted local Harness checkout containing `scripts/errors-sync.js` and verify its Node dependencies are installed. Local-store candidates also require `hooks/scripts/lib/local-errors.js` in that checkout. The current sync script requires `js-yaml`; a read-only preflight is:
 
 ```sh
 test -f "<Harness checkout>/scripts/errors-sync.js"
