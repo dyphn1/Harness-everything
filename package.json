@@ -18,6 +18,7 @@
     "repo:contract": "node scripts/repository-contract.js",
     "docs:sync": "node scripts/sync-current-docs.js",
     "errors:sync": "node scripts/errors-sync.js",
+    "errors:local": "node scripts/errors-local.js",
     "report": "node scripts/report-writer.js",
     "dispatch": "node scripts/dispatch.js",
     "test:repo-contract": "node ci/repository-contract.test.js",

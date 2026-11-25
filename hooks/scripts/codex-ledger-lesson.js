@@ -4,58 +4,134 @@
 const path = require('node:path');
 const { getWorkspaceRoot, getSessionDir, getSessionId, resolveWorkspaceIdentity } = require('./lib/harness-state');
 const { readCodexToolOutcome } = require('./lib/codex-tool-outcome');
-const { matchLedgerLessons, releaseLedgerMatch } = require('./lib/ledger-match');
+const { matchLedgerLessons, peekRepoMatches, releaseLedgerMatch } = require('./lib/ledger-match');
+
+let localErrorSource;
+try {
+  localErrorSource = require('./lib/local-error-source');
+} catch (_) {
+  // Missing provisional source leaves the host hook fail-open.
+}
+let localErrors;
+try {
+  localErrors = require('./lib/local-errors');
+} catch (_) {
+  // Missing local error store leaves capture fail-open and silent.
+}
 
 const MAX_INPUT_BYTES = 128 * 1024;
 
-function eventFor(payload) {
+function buildInvocation(payload) {
   if (payload?.tool_name !== 'Bash' || typeof payload?.tool_input?.command !== 'string') return null;
   const command = payload.tool_input.command;
   if (payload.hook_event_name === 'PreToolUse') {
-    return { phase: 'action', tool: 'shell', command, outcome: { failed: 'unknown' } };
+    return {
+      event: { phase: 'action', tool: 'shell', command, outcome: { failed: 'unknown' } },
+      toolOutcome: null,
+    };
   }
   if (payload.hook_event_name !== 'PostToolUse') return null;
 
-  const result = readCodexToolOutcome(payload);
-  const failed = result.outcome === 'failure' ? true : result.outcome === 'success' ? false : 'unknown';
+  const toolOutcome = readCodexToolOutcome(payload);
+  const failed = toolOutcome.outcome === 'failure' ? true : toolOutcome.outcome === 'success' ? false : 'unknown';
   const outcome = { failed };
   // Exact ledger diagnostics can identify a masked failure only when the host
   // provides a structured exit outcome. Opaque text-only responses stay unknown.
-  if (result.outcome !== 'unknown') outcome.output = [result.stderr, result.stdout].filter(Boolean).join('\n');
-  return { phase: 'failure', tool: 'shell', command, outcome };
+  if (toolOutcome.outcome !== 'unknown') {
+    outcome.output = [toolOutcome.stderr, toolOutcome.stdout].filter(Boolean).join('\n');
+  }
+  return {
+    event: { phase: 'failure', tool: 'shell', command, outcome },
+    toolOutcome,
+  };
+}
+
+function extractToolUseId(payload) {
+  for (const candidate of [payload?.tool_use_id, payload?.toolUseId, payload?.call_id, payload?.callId]) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+  }
+  return null;
+}
+
+function captureFailure(payload, workspaceRoot, sessionIdentity, event, toolOutcome) {
+  if (!localErrors || typeof localErrors.appendOccurrence !== 'function') return;
+  try {
+    const matchedLedgerIds = typeof peekRepoMatches === 'function'
+      ? peekRepoMatches({ workspaceRoot, event })
+      : [];
+    const toolUseId = extractToolUseId(payload);
+    localErrors.appendOccurrence({
+      workspaceRoot,
+      host: 'codex',
+      sessionKey: sessionIdentity,
+      ...(toolUseId ? { toolUseId } : {}),
+      command: event.command,
+      exitCode: Number.isInteger(toolOutcome.exitCode) ? toolOutcome.exitCode : null,
+      output: typeof event.outcome?.output === 'string' ? event.outcome.output : '',
+      matchedLedgerIds,
+      destination: 'unknown',
+    }, { env: process.env });
+  } catch (_) {
+    // Capture is write-only, silent, and fail-open.
+  }
 }
 
 function deliver(payload) {
   if (typeof payload?.cwd !== 'string' || !payload.cwd.trim()) return;
-  const event = eventFor(payload);
+  const invocation = buildInvocation(payload);
   const sessionIdentity = getSessionId(payload);
-  if (!event || !sessionIdentity) return;
+  if (!invocation || !sessionIdentity) return;
 
+  const { event, toolOutcome } = invocation;
   const workspaceRoot = getWorkspaceRoot(payload);
   const identity = resolveWorkspaceIdentity(payload);
   if (!workspaceRoot || !identity?.workspaceKey) return;
-  const stateDir = path.join(getSessionDir(workspaceRoot, sessionIdentity, payload), 'ledger-lessons');
-  const result = matchLedgerLessons({
-    workspaceRoot,
-    workspaceIdentity: identity.workspaceKey,
-    sessionIdentity,
-    stateDir,
-    event,
-  });
-  if (!result) return;
 
+  let provisionalSource;
+  if (localErrorSource && typeof localErrorSource.createProvisionalSource === 'function') {
+    try {
+      provisionalSource = localErrorSource.createProvisionalSource({
+        env: process.env,
+        workspaceRoot,
+      });
+    } catch (_) {
+      provisionalSource = undefined;
+    }
+  }
+
+  let result = null;
   try {
-    const output = JSON.stringify({
-      hookSpecificOutput: {
-        hookEventName: payload.hook_event_name,
-        additionalContext: result.text,
-      },
-    });
-    process.stdout.write(output, error => {
-      if (error) releaseLedgerMatch(result);
+    const stateDir = path.join(getSessionDir(workspaceRoot, sessionIdentity, payload), 'ledger-lessons');
+    result = matchLedgerLessons({
+      workspaceRoot,
+      workspaceIdentity: identity.workspaceKey,
+      sessionIdentity,
+      stateDir,
+      event,
+      ...(provisionalSource ? { provisionalSource } : {}),
     });
   } catch (_) {
-    releaseLedgerMatch(result);
+    result = null;
+  }
+
+  if (result) {
+    try {
+      const output = JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: payload.hook_event_name,
+          additionalContext: result.text,
+        },
+      });
+      process.stdout.write(output, error => {
+        if (error) releaseLedgerMatch(result);
+      });
+    } catch (_) {
+      releaseLedgerMatch(result);
+    }
+  }
+
+  if (payload.hook_event_name === 'PostToolUse' && toolOutcome?.outcome === 'failure') {
+    captureFailure(payload, workspaceRoot, sessionIdentity, event, toolOutcome);
   }
 }
 

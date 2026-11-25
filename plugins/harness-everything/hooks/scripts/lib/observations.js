@@ -693,6 +693,6 @@ function handle(payload, env = process.env) {
 
 module.exports = {
   INTENTS, TIERS, STRATEGIES, RETENTION_MS, PREVIOUS_BYTES, enabled, storeRoot, redact, validLabel, parseLabelLine, stripLabels, tailBytes, sha, normalizeSystemOne, classifyCommand, labelTier, contradictions,
-  normalizeTerms, transcriptMessage, recordTool, emptyBehavior, mergeBehavior, toolFailed, handle, readJson, appendRecord, appendRecordDetailed, observationTurnMatch, findObservationTurnMatch, markSessionBackfillBehaviorUnobserved,
+  normalizeTerms, transcriptMessage, recordTool, emptyBehavior, mergeBehavior, toolFailed, handle, readJson, writeJsonAtomic, withLock, appendRecord, appendRecordDetailed, observationTurnMatch, findObservationTurnMatch, markSessionBackfillBehaviorUnobserved,
   expired, recordText, sweep,
 };
