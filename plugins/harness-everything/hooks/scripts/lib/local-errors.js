@@ -435,6 +435,7 @@ function appendOccurrence(input, options = {}) {
       ? options.lockTimeoutMs : limits.defaultLockTimeoutMs;
 
     let outcome = null;
+    let failureReason = null;
     let saved = record;
     const locked = observations.withLock(root, () => {
       const index = loadIndex(file);
@@ -452,6 +453,13 @@ function appendOccurrence(input, options = {}) {
           return;
         }
       }
+      const collision = index.records.some(r => r && r.kind !== 'occurrence' &&
+        r.workspaceKey === workspaceKey && r.provisionalId === provisionalId);
+      if (collision) {
+        outcome = 'invalid';
+        failureReason = 'provisional-id-in-use';
+        return;
+      }
       index.records.push(record);
       enforceBounds(index, workspaceKey, limits, now);
       observations.writeJsonAtomic(file, index);
@@ -459,6 +467,7 @@ function appendOccurrence(input, options = {}) {
     }, { timeoutMs: lockTimeoutMs });
 
     if (!locked) return { status: 'lock-timeout', record: null };
+    if (failureReason) return { status: 'invalid', record: null, error: failureReason };
     return { status: outcome || 'appended', record: saved };
   } catch (error) {
     return { status: 'error', record: null, error: error && error.message ? error.message : String(error) };
@@ -528,6 +537,9 @@ function addProvisionalLesson(input, options = {}) {
       saved = existing;
       return;
     }
+    const collision = index.records.some(r => r && r.kind !== 'provisional-lesson' &&
+      r.workspaceKey === workspaceKey && r.provisionalId === provisionalId);
+    if (collision) throw new Error('invalid provisionalId: already in use in this workspace');
     index.records.push(record);
     enforceBounds(index, workspaceKey, limits, now);
     observations.writeJsonAtomic(file, index);
@@ -544,12 +556,12 @@ function listRecords(options = {}) {
     const limits = effectiveLimits(options.limits);
     const now = Number.isFinite(options.now) ? options.now : Date.now();
     const { file } = getStorePath({ root: options.root, env });
-    const index = loadIndex(file);
     let targetWorkspace = null;
-    const hasWorkspaceContext = Boolean(extractWorkspacePath(options));
+    const scopeOptions = { ...options, root: undefined };
+    const workspaceRoot = extractWorkspacePath(scopeOptions);
     const hasSuppliedKey = options.workspaceKey !== undefined && options.workspaceKey !== null && options.workspaceKey !== '';
-    if (hasWorkspaceContext) {
-      const canonicalKey = resolveCanonicalWorkspaceKey(options, { env });
+    if (workspaceRoot) {
+      const canonicalKey = resolveCanonicalWorkspaceKey({ workspaceRoot }, { env });
       if (!canonicalKey) return [];
       if (hasSuppliedKey) {
         if (!isBoundedWorkspaceKey(options.workspaceKey) || options.workspaceKey.trim() !== canonicalKey) {
@@ -561,10 +573,12 @@ function listRecords(options = {}) {
       if (!isBoundedWorkspaceKey(options.workspaceKey)) return [];
       targetWorkspace = options.workspaceKey.trim();
     }
+    if (!targetWorkspace) return [];
+    const index = loadIndex(file);
     let records = index.records.filter(record => {
       if (!isObject(record)) return false;
       if (!withinRetention(record, now, limits.retentionMs)) return false;
-      if (targetWorkspace && record.workspaceKey !== targetWorkspace) return false;
+      if (record.workspaceKey !== targetWorkspace) return false;
       if (options.kind && record.kind !== options.kind) return false;
       if (options.destination && record.destination !== options.destination) return false;
       if (options.signature && record.signature !== options.signature) return false;

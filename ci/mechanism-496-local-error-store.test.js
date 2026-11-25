@@ -214,8 +214,96 @@ test('per-workspace and total retention/size bounds are enforced', () => {
     }, { env: s.env, limits });
     assert.strictEqual(r.status, 'appended');
   }
-  const all = localErrors.listRecords({ env: s.env });
+  const all = [
+    ...localErrors.listRecords({ env: s.env, workspaceRoot: s.repoA }),
+    ...localErrors.listRecords({ env: s.env, workspaceRoot: s.repoB }),
+  ];
   assert.strictEqual(all.length, 3, 'total cap keeps at most 3 records across workspaces');
+});
+
+test('same-workspace cross-kind IDs reject the lesson and preserve retries', () => {
+  const s = makeSandbox();
+  const occurrenceInput = {
+    workspaceRoot: s.repoA,
+    host: 'claude',
+    sessionKey: 'cross-kind-session',
+    toolUseId: 'cross-kind-tool-use',
+    command: 'npm test',
+    exitCode: 1,
+    output: 'npm ERR! code 1',
+  };
+  const occurrence = localErrors.appendOccurrence(occurrenceInput, { env: s.env });
+  assert.strictEqual(occurrence.status, 'appended');
+
+  const indexPath = path.join(s.store, localErrors.INDEX_FILE);
+  const before = fs.readFileSync(indexPath);
+  assert.throws(() => localErrors.addProvisionalLesson({
+    workspaceRoot: s.repoA,
+    provisionalId: occurrence.record.provisionalId,
+    signature: 'v1-git-cross-kind-lesson',
+    match: { actions: [{ tool: 'shell', executable: 'git', subcommand: 'commit' }] },
+    lesson: 'Keep failure IDs unique within their workspace.',
+  }, { env: s.env }), /invalid provisionalId: already in use in this workspace/);
+  assert.deepStrictEqual(fs.readFileSync(indexPath), before,
+    'rejecting a lesson collision leaves the store bytes unchanged');
+
+  const occurrenceRetry = localErrors.appendOccurrence(occurrenceInput, { env: s.env });
+  assert.strictEqual(occurrenceRetry.status, 'duplicate', 'same-kind occurrence retries still dedupe');
+  const lessonInput = {
+    workspaceRoot: s.repoA,
+    provisionalId: 'same-kind-lesson',
+    signature: 'v1-git-same-kind-lesson',
+    match: { actions: [{ tool: 'shell', executable: 'git', subcommand: 'commit' }] },
+    lesson: 'A same-kind lesson retry stays idempotent.',
+  };
+  assert.strictEqual(localErrors.addProvisionalLesson(lessonInput, { env: s.env }).status, 'appended');
+  assert.strictEqual(localErrors.addProvisionalLesson(lessonInput, { env: s.env }).status, 'duplicate',
+    'same-kind lesson retries still dedupe');
+
+  const sameIdOtherWorkspace = localErrors.addProvisionalLesson({
+    ...lessonInput,
+    workspaceRoot: s.repoB,
+    provisionalId: occurrence.record.provisionalId,
+  }, { env: s.env });
+  assert.strictEqual(sameIdOtherWorkspace.status, 'appended',
+    'the same raw ID remains available in another workspace');
+});
+
+test('same-workspace cross-kind IDs reject the occurrence using its deterministic writer ID', () => {
+  const s = makeSandbox();
+  const occurrenceInput = {
+    workspaceRoot: s.repoA,
+    host: 'claude',
+    sessionKey: 'reverse-cross-kind-session',
+    toolUseId: 'reverse-cross-kind-tool-use',
+    command: 'npm test',
+    exitCode: 1,
+    output: 'npm ERR! code 1',
+  };
+  const probeStore = path.join(s.dir, 'probe-store');
+  fs.mkdirSync(probeStore);
+  const deterministicOccurrence = localErrors.appendOccurrence(occurrenceInput, {
+    env: s.env,
+    root: probeStore,
+  });
+  assert.strictEqual(deterministicOccurrence.status, 'appended');
+
+  const lesson = localErrors.addProvisionalLesson({
+    workspaceRoot: s.repoA,
+    provisionalId: deterministicOccurrence.record.provisionalId,
+    signature: 'v1-git-reverse-cross-kind-lesson',
+    match: { actions: [{ tool: 'shell', executable: 'git', subcommand: 'commit' }] },
+    lesson: 'A lesson may not claim a future occurrence ID.',
+  }, { env: s.env });
+  assert.strictEqual(lesson.status, 'appended');
+
+  const indexPath = path.join(s.store, localErrors.INDEX_FILE);
+  const before = fs.readFileSync(indexPath);
+  const rejected = localErrors.appendOccurrence(occurrenceInput, { env: s.env });
+  assert.strictEqual(rejected.status, 'invalid');
+  assert.strictEqual(rejected.error, 'provisional-id-in-use');
+  assert.deepStrictEqual(fs.readFileSync(indexPath), before,
+    'rejecting an occurrence collision leaves the store bytes unchanged');
 });
 
 test('lock contention returns fail-open without throwing and leaves index untouched', () => {
@@ -671,16 +759,35 @@ test('D1b row 6: workspace-scoped reads and matcher-supplied bounded reader look
 
   const keyA = addedA.record.workspaceKey;
   const keyB = addedB.record.workspaceKey;
+  const signatures = (records) => records.map(record => record.signature).sort();
+
+  // Missing or unrecognized selectors never enumerate the shared store.
+  assert.deepStrictEqual(localErrors.listRecords({ env: s.env }), []);
+  assert.deepStrictEqual(localErrors.listRecords({ env: s.env, workspacePath: s.repoA }), []);
+  assert.deepStrictEqual(localErrors.listRecords({ env: s.env, root: s.store }), []);
+  assert.deepStrictEqual(localErrors.listRecords({
+    env: { ...s.env, HARNESS_WORKSPACE_ROOT: s.repoA },
+  }), [], 'environment-only workspace identity is not a read scope');
 
   // Normal workspace-scoped read works.
   const byRoot = localErrors.listRecords({ env: s.env, workspaceRoot: s.repoA });
-  assert.strictEqual(byRoot.length, 1);
-  assert.strictEqual(byRoot[0].signature, 'v1-git-read-a');
+  assert.deepStrictEqual(signatures(byRoot), ['v1-git-read-a']);
 
   // Matcher-supplied key works for bounded read lookup.
   const byKey = localErrors.listRecords({ env: s.env, workspaceKey: keyA });
-  assert.strictEqual(byKey.length, 1);
-  assert.strictEqual(byKey[0].signature, 'v1-git-read-a');
+  assert.deepStrictEqual(signatures(byKey), ['v1-git-read-a']);
+
+  // Matching explicit root plus key works; the top-level root remains the store location.
+  assert.deepStrictEqual(signatures(localErrors.listRecords({
+    env: s.env,
+    workspaceRoot: s.repoA,
+    workspaceKey: keyA,
+  })), ['v1-git-read-a']);
+  assert.deepStrictEqual(signatures(localErrors.listRecords({
+    env: s.env,
+    root: s.store,
+    workspaceKey: keyA,
+  })), ['v1-git-read-a']);
 
   // Disagreeing root + key on read returns empty.
   assert.deepStrictEqual(localErrors.listRecords({ env: s.env, workspaceRoot: s.repoA, workspaceKey: keyB }), []);
