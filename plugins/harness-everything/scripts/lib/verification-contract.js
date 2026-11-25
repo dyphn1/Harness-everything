@@ -201,6 +201,12 @@ function detectRoot(root) {
   }
   if (fs.existsSync(path.join(root, 'tox.ini'))) addCandidate(candidates, seen, { source: 'tox', run: 'tox', cwd: root });
   if (fs.existsSync(path.join(root, 'noxfile.py'))) addCandidate(candidates, seen, { source: 'nox', run: 'nox', cwd: root });
+  if (fs.existsSync(path.join(root, 'mkdocs.yml')) || fs.existsSync(path.join(root, 'mkdocs.yaml'))) {
+    addCandidate(candidates, seen, { source: 'mkdocs', run: 'mkdocs build --strict', cwd: root });
+    if (/\[tool\.poetry(?:\.|\])/m.test(pyproject)) {
+      addCandidate(candidates, seen, { source: 'mkdocs:poetry', run: 'poetry run mkdocs build --strict', cwd: root });
+    }
+  }
   if (fs.existsSync(path.join(root, 'Cargo.toml'))) addCandidate(candidates, seen, { source: 'cargo', run: 'cargo test', cwd: root });
   if (fs.existsSync(path.join(root, 'go.mod'))) addCandidate(candidates, seen, { source: 'go', run: 'go test ./...', cwd: root });
 
@@ -245,6 +251,10 @@ function normalizeCommand(command) {
   return String(command || '').trim().replace(/\s+/g, ' ');
 }
 
+function stripWindowsCmdShim(command) {
+  return String(command || '').replace(/^(npm|pnpm|yarn|bun|npx)\.cmd(?=\s|$)/i, '$1');
+}
+
 function hasControlOperators(command) {
   return /(?:&&|\|\||[;|\r\n])/.test(command);
 }
@@ -253,7 +263,9 @@ function commandMatches(command, expected) {
   const actual = normalizeCommand(command);
   const target = normalizeCommand(expected);
   if (!actual || !target || hasControlOperators(actual)) return false;
-  return actual === target || actual.startsWith(target + ' ');
+  const normalizedActual = stripWindowsCmdShim(actual);
+  const normalizedTarget = stripWindowsCmdShim(target);
+  return normalizedActual === normalizedTarget || normalizedActual.startsWith(normalizedTarget + ' ');
 }
 
 function isGitCommit(command) {
@@ -275,8 +287,8 @@ function bypassesHooks(command) {
 }
 
 function legacyVerificationCommand(command) {
-  const value = normalizeCommand(command);
-  return /^(?:(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?(?:test|lint|build|typecheck|check|verify)\b|npx\s+(?:jest|vitest|mocha|tsc|eslint)\b|(?:jest|vitest|mocha|pytest|rspec|phpunit)\b|uv\s+run\s+(?:pytest|ruff)\b|(?:make|just)\s+(?:test|check|lint|ci)\b|cargo\s+(?:test|check)\b|go\s+test\b|dotnet\s+(?:test|build)\b)/i.test(value);
+  const value = stripWindowsCmdShim(normalizeCommand(command));
+  return /^(?:(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?(?:test|lint|build|typecheck|check|verify)\b|npx\s+(?:jest|vitest|mocha|tsc|eslint)\b|node\s+--test\b|(?:jest|vitest|mocha|pytest|rspec|phpunit)\b|(?:uv|poetry)\s+run\s+(?:pytest|ruff|mkdocs\s+build)\b|(?:(?:\.?[/\\])?(?:\.?venv|env)[/\\](?:Scripts|bin)[/\\])?mkdocs(?:\.exe)?\s+build\b|(?:(?:\.?[/\\])?(?:\.?venv|env)[/\\](?:Scripts|bin)[/\\])?sphinx-build(?:\.exe)?\b|(?:make|just)\s+(?:test|check|lint|ci)\b|cargo\s+(?:test|check)\b|go\s+test\b|dotnet\s+(?:test|build)\b)/i.test(value);
 }
 
 function verificationCommandSet(cwd, options = {}) {
@@ -334,6 +346,7 @@ function verificationCommandSet(cwd, options = {}) {
 // command must be one plain command: no further control operators,
 // redirection, substitution, expansion, subshell, or background syntax.
 const CWD_PRELUDE_RE = /^cd\s+(?:"([^"]*)"|'([^']*)'|([A-Za-z0-9_./:@%+,-]+))\s*&&\s*([\s\S]+)$/;
+const PS_CWD_PRELUDE_RE = /^Set-Location\s+(?:-Path\s+)?(?:"([^"]*)"|'([^']*)'|([A-Za-z0-9_./:@%+,\\-]+))\s*;\s*([\s\S]+)$/i;
 const UNSAFE_WRAPPED_RE = /[`$<>&|;()\r\n]/;
 const UNSAFE_DOUBLE_QUOTED_RE = /[$`!]|\\[\\"$`]|\\$/;
 
@@ -356,7 +369,8 @@ function stableCdTarget(target, platform = process.platform) {
 }
 
 function parseCwdPrelude(command, options = {}) {
-  const match = String(command || '').trim().match(CWD_PRELUDE_RE);
+  const trimmed = String(command || '').trim();
+  const match = trimmed.match(CWD_PRELUDE_RE) || trimmed.match(PS_CWD_PRELUDE_RE);
   if (!match) return null;
   const [, doubleQuoted, singleQuoted, bare, restRaw] = match;
   const target = doubleQuoted ?? singleQuoted ?? bare;
