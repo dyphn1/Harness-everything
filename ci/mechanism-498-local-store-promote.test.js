@@ -293,7 +293,7 @@ function duplicateInjection(fixture, wholeRule = false) {
     '};', ''
   ].join('\n');
   write(hook, hookText);
-  return { marker, recordPath: config.recordPath, nodeOptions: `--require="${hook}"` };
+  return { marker, recordPath: config.recordPath, nodeOptions: `--require="${hook.replace(/\\/g, '/')}"` };
 }
 
 try {
