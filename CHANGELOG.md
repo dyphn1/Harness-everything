@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.2.0](https://github.com/dyphn1/Harness-everything/compare/v1.1.1...v1.2.0) (2026-11-25)
+
+### Features
+
+* **error-ledger-bootstrap:** bind local-store leads at promotion ([#498](https://github.com/dyphn1/Harness-everything/issues/498)) ([19f3b57](https://github.com/dyphn1/Harness-everything/commit/19f3b574613725819698558dc363ade2b890a036))
+* **error-ledger-bootstrap:** opt-in local-store scan source ([#498](https://github.com/dyphn1/Harness-everything/issues/498)) ([6ef61ae](https://github.com/dyphn1/Harness-everything/commit/6ef61ae3f4209f380d41529ef7d078931bbe05fd)), closes [#496](https://github.com/dyphn1/Harness-everything/issues/496)
+
+### Bug Fixes
+
+* **error-ledger-bootstrap:** exclude provisional id collisions, check reader contract ([#498](https://github.com/dyphn1/Harness-everything/issues/498)) ([17a28db](https://github.com/dyphn1/Harness-everything/commit/17a28dba01bf91424a243ac9cea60bf0b751d9e3))
+
 ## [1.1.1](https://github.com/dyphn1/Harness-everything/compare/v1.1.0...v1.1.1) (2026-11-25)
 
 ### Bug Fixes
