@@ -1,7 +1,7 @@
 {
   "name": "harness-enforcement",
   "description": "Repository inventory for the opencode enforcement plugin and its standalone helper",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "runtime": "index.mjs",
   "hooks": {
     "verify": "hooks/verify.js"

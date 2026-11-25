@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.1.1](https://github.com/dyphn1/Harness-everything/compare/v1.1.0...v1.1.1) (2026-11-25)
+
+### Bug Fixes
+
+* **agy:** exclude sphinx make-mode help from verification ([9cb27dc](https://github.com/dyphn1/Harness-everything/commit/9cb27dcb83225c1dfdac0f4f0deb53a27ae6df44))
+* **agy:** require grounded windows verification evidence ([#525](https://github.com/dyphn1/Harness-everything/issues/525)) ([1427391](https://github.com/dyphn1/Harness-everything/commit/1427391ead664e716caa6a3f16f9705033fda024))
+* **agy:** support windows verifiers and readonly powershell ([#516](https://github.com/dyphn1/Harness-everything/issues/516)) ([7b3b4d9](https://github.com/dyphn1/Harness-everything/commit/7b3b4d9d8c206ef347dddd7505a9120d0f665472))
+
 ## [1.1.0](https://github.com/dyphn1/Harness-everything/compare/v1.0.1...v1.1.0) (2026-11-25)
 
 ### Features
