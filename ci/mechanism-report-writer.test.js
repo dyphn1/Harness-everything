@@ -156,7 +156,7 @@ test('assembles BLOCKED from a raw body, blank line, and one EOF host label', t 
   const dir = tempDir(t);
   const raw = path.join(dir, 'raw.txt');
   const output = path.join(dir, 'report.md');
-  const rawBytes = Buffer.from(`Summary\n\nEvidence\n\n${labelLine({ ...CODEX_LABEL, intents: ['fix', 'lookup'], contextDependent: false })}`);
+  const rawBytes = Buffer.from(`Summary\n\nEvidence\n\n${labelLine({ ...CODEX_LABEL, workflow: null, intents: ['fix', 'lookup'], contextDependent: false })}`);
   const body = rawBytes.subarray(0, rawBytes.lastIndexOf(Buffer.from('<!-- harness-label')));
   fs.writeFileSync(raw, rawBytes);
 
@@ -240,6 +240,7 @@ test('464 rejects unrecognized terminal label schemas before touching report or 
     { ...CODEX_LABEL, validity: 'unknown' },
     { ...CODEX_LABEL, tier: 'tier9' },
     { ...CODEX_LABEL, workflow: 'unknown' },
+    { ...CODEX_LABEL, workflow: 'deferred' },
     { ...CODEX_LABEL, intents: 'fix' },
     { ...CODEX_LABEL, skills: [42] },
     [],

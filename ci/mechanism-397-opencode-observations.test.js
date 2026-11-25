@@ -253,13 +253,14 @@ test('inject: the documented OpenCode hooks deliver the kernel router output and
     dispose = await install(f);
     assert.ok(f.sessionHooks.has('prompt'), 'setup registers prompt admission');
     assert.ok(f.sessionHooks.has('context'), 'setup registers the system context transform');
-    const prompt = { sessionID: 'inject-session', messageID: 'inject-turn', prompt: { text: 'add a small behavior change' } };
+    const prompt = { sessionID: 'inject-session', messageID: 'inject-turn', prompt: { text: 'git status' } };
     await f.sessionHooks.get('prompt')(prompt);
     const context = { sessionID: 'inject-session', kind: 'primary', system: [], messages: [] };
     await f.sessionHooks.get('context')(context);
-    assert.equal(prompt.prompt.text, 'add a small behavior change', 'injection leaves the persisted user prompt unchanged');
+    assert.equal(prompt.prompt.text, 'git status', 'injection leaves the persisted user prompt unchanged');
     const injected = context.system.map(part => part.text || '').join('\n');
-    assert.match(injected, /=> ROUTER WORKFLOW PLAN/);
+    assert.match(injected, /=> WORKFLOW STRATEGY: deferred/);
+    assert.match(injected, /Use JSON null for workflow when the strategy is deferred/);
 
     const expectedRun = spawnSync(process.execPath, [path.join(ROOT, 'harness-everything/scripts/kernel-router.js')], {
       cwd: f.workspace,
