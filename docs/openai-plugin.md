@@ -93,7 +93,7 @@ Build the final upload from the synchronized package:
 npm run plugin:submission:build
 ```
 
-The generated ZIP has a portable root `plugin.json` and the synchronized `skills/<name>/...` tree. It excludes local lifecycle hooks, MCP definitions, and app wrappers. The generated checksum manifest records each file and the ZIP SHA-256. OpenAI documents a supported plugin manifest as an upload requirement. [Submission error reference](https://developers.openai.com/plugins/deploy/submission-errors#plugin-manifest-errors)
+The generated ZIP has a portable root `plugin.json` and the synchronized `skills/<name>/...` tree. It does **not** include the local `.codex-plugin` lifecycle hooks, MCP definitions, or app wrappers. The generated checksum manifest records each file and the ZIP SHA-256. OpenAI documents a supported plugin manifest as an upload requirement. [Submission error reference](https://developers.openai.com/plugins/deploy/submission-errors#plugin-manifest-errors)
 
 The [public submission runbook](../submission/openai/README.md) covers the developer identity, ZIP upload, automated scans, and publication. It also links to the project smoke cases for a fresh session. Use the [OpenAI submission guide](https://developers.openai.com/plugins/deploy/submission) to confirm the portal requirements.
 
