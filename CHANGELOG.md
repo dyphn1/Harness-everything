@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.1.0](https://github.com/dyphn1/Harness-everything/compare/v1.0.1...v1.1.0) (2026-11-25)
+
+### Features
+
+* **errors:** add the local error store and provisional lesson cli ([#496](https://github.com/dyphn1/Harness-everything/issues/496)) ([7c220a1](https://github.com/dyphn1/Harness-everything/commit/7c220a18d0eb5630e8a9c49fedeb67a97a9806f3))
+* **hooks:** capture claude bash failures and deliver provisional lessons ([#496](https://github.com/dyphn1/Harness-everything/issues/496)) ([b6ba4bc](https://github.com/dyphn1/Harness-everything/commit/b6ba4bc5804d57ea420603ace51eabe8fa178092))
+* **hooks:** capture codex and opencode shell failures and deliver provisional lessons ([#496](https://github.com/dyphn1/Harness-everything/issues/496)) ([5cddd27](https://github.com/dyphn1/Harness-everything/commit/5cddd272ae59caf9cfa6872076ed6646beabd372))
+* **hooks:** share the ledger match validator and add a read-only repo match peek ([#496](https://github.com/dyphn1/Harness-everything/issues/496)) ([a1c6c9a](https://github.com/dyphn1/Harness-everything/commit/a1c6c9a905c6195e428897ce33011cb364ac443e)), closes [#518](https://github.com/dyphn1/Harness-everything/issues/518)
+
+### Bug Fixes
+
+* **errors:** prefer newest provisional lessons and tighten the local error cli ([#496](https://github.com/dyphn1/Harness-everything/issues/496)) ([7bcc66d](https://github.com/dyphn1/Harness-everything/commit/7bcc66d3d127198e049a2a2115eac052e7662aaa))
+* **errors:** redact full authorization values and expire local records on read ([#496](https://github.com/dyphn1/Harness-everything/issues/496)) ([0dfaae2](https://github.com/dyphn1/Harness-everything/commit/0dfaae299bb4ca6a29c3ecfcc207fd1341640951))
+
 ## [1.0.1](https://github.com/dyphn1/Harness-everything/compare/v1.0.0...v1.0.1) (2026-11-24)
 
 ### Bug Fixes
