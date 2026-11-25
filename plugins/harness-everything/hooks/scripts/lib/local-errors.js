@@ -153,7 +153,10 @@ function normalizeSignature(input, options = {}) {
     // Order-independent composite for ambiguous multi-family output (E-0027).
     suffix = `multi-${observations.sha(families.join(','), 8)}`;
   } else {
-    const normalized = normalizeFallbackText(redacted);
+    const fallbackOutput = options.host === 'claude'
+      ? redacted.replace(/^Exit code [0-9]+\r?\n/, '')
+      : redacted;
+    const normalized = normalizeFallbackText(fallbackOutput);
     suffix = normalized ? `generic-${observations.sha(normalized, 12)}` : 'unknown';
   }
 
@@ -403,7 +406,7 @@ function appendOccurrence(input, options = {}) {
     const outputExcerpt = observations.tailBytes(redactedOutput, limits.maxExcerptBytes);
     const signature = typeof input.signature === 'string' && validIdentifier(input.signature)
       ? input.signature
-      : normalizeSignature({ commandClass, output: redactedOutput }, { env });
+      : normalizeSignature({ commandClass, output: redactedOutput }, { env, host });
     const exitCode = Number.isInteger(input.exitCode) ? input.exitCode : null;
     const matchedLedgerIds = normalizeMatchedLedgerIds(input.matchedLedgerIds);
     const destination = normalizeDestination(input.destination, false);
