@@ -296,11 +296,12 @@ function isVerifierInfoQuery(command) {
 
   // Keep quoted argument values together, while recognizing quoted switches.
   const args = command.slice(verifier[0].length).match(/(?:[^\s"'\x60\\]|\\.|\x60.|"[^"]*"|'[^']*')+/g) || [];
+  const options = args.map(arg => arg.replace(/["']/g, '').replace(/(?:\\|\x60)(?=[A-Za-z-])/g, ''));
+  if (options[0] === '-M' && options[1] === 'help' && /sphinx-build(?:\.exe)?\s*$/i.test(verifier[0])) return true;
   const versionFlag = nodeTest ? '-v' : '-V';
-  return args.some(arg => {
-    const option = arg.replace(/["']/g, '').replace(/(?:\\|\x60)(?=[A-Za-z-])/g, '');
-    return option === '--help' || option === '--version' || option === '-h' || option === versionFlag;
-  });
+  return options.some(option =>
+    option === '--help' || option === '--version' || option === '-h' || option === versionFlag
+  );
 }
 
 function legacyVerificationCommand(command) {

@@ -96,6 +96,7 @@ try {
     '.venv\\Scripts\\mkdocs.exe build --help',
     '.venv/bin/mkdocs build --help',
     'sphinx-build --version',
+    'sphinx-build -M help docs build',
     '.venv\\Scripts\\sphinx-build.exe -V',
   ];
 
@@ -117,6 +118,7 @@ try {
     '.venv/bin/mkdocs build --strict',
     'sphinx-build -W docs build',
     'sphinx-build -v docs build',
+    'sphinx-build -M html docs build',
   ]) {
     assert.strictEqual(isVerificationCommand(cmd, { cwd: repo, root: repo }), true, `must recognize verifier: ${cmd}`);
   }
