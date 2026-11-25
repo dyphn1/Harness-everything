@@ -17,7 +17,7 @@ const originalStateHome = process.env.HARNESS_STATE_HOME;
 fs.mkdirSync(stateHome, { recursive: true });
 process.env.HARNESS_STATE_HOME = stateHome;
 
-const { isVerificationCommand, detectRoot } = require('../scripts/lib/verification-contract');
+const { isVerificationCommand, detectRoot, parseCwdPrelude } = require('../scripts/lib/verification-contract');
 const { classifyShell } = require('../hooks/scripts/lib/workflow-isolation');
 const { getSessionDir } = require('../plugins/harness-everything/hooks/scripts/lib/harness-state');
 
@@ -53,10 +53,51 @@ function runScript(scriptPath, payload) {
   return JSON.parse(res.stdout.trim());
 }
 
+function runPowerShell(cwd, command) {
+  const env = { ...process.env };
+  delete env.NODE_TEST_CONTEXT;
+  const res = spawnSync('pwsh', ['-NoProfile', '-NonInteractive', '-Command', command], {
+    cwd,
+    encoding: 'utf8',
+    env,
+    timeout: 20000,
+  });
+  assert.ifError(res.error);
+  return res;
+}
+
+function readHandoff(repo, conversationId) {
+  return JSON.parse(fs.readFileSync(path.join(getSessionDir(repo, conversationId), 'handoff-state.json'), 'utf8'));
+}
+
+function postShell(repo, conversationId, command, exitCode, cwd = repo) {
+  runScript(PACKAGED_POST_TOOL, {
+    conversationId,
+    workspacePaths: [repo],
+    toolCall: { name: 'run_command', args: { CommandLine: command, Cwd: cwd } },
+    exitCode,
+  });
+  return readHandoff(repo, conversationId);
+}
+
 try {
   const repo = initRepo(path.join(temp, 'repo'));
   const outside = fs.realpathSync.native(fs.mkdtempSync(path.join(temp, 'outside-')));
   fs.mkdirSync(path.join(repo, 'pkg'), { recursive: true });
+  fs.mkdirSync(path.join(repo, 'pkg[1]'));
+  fs.mkdirSync(path.join(repo, 'pkg1'));
+  const infoQueries = [
+    'node --test --help',
+    'node --test "--version"',
+    'node --test -v',
+    'mkdocs build --help',
+    'poetry run mkdocs build --strict -h',
+    'uv run mkdocs build --"help"',
+    '.venv\\Scripts\\mkdocs.exe build --help',
+    '.venv/bin/mkdocs build --help',
+    'sphinx-build --version',
+    '.venv\\Scripts\\sphinx-build.exe -V',
+  ];
 
   // 1. Windows .cmd wrappers and Node/Docs verifiers
   for (const cmd of [
@@ -68,17 +109,20 @@ try {
     'yarn.cmd lint',
     'bun.cmd run check',
     'node --test ci/mechanism-516-agy-post-tool-exit.test.js',
+    'node --test --test-name-pattern "mentions --help in a test name"',
     'mkdocs build --strict',
     'poetry run mkdocs build --strict',
     'uv run mkdocs build --strict',
     '.venv\\Scripts\\mkdocs build --strict',
     '.venv/bin/mkdocs build --strict',
     'sphinx-build -W docs build',
+    'sphinx-build -v docs build',
   ]) {
     assert.strictEqual(isVerificationCommand(cmd, { cwd: repo, root: repo }), true, `must recognize verifier: ${cmd}`);
   }
 
   for (const cmd of [
+    ...infoQueries,
     'mkdocs serve',
     'node -e "console.log(1)"',
     'npm.cmd install',
@@ -106,6 +150,11 @@ try {
   const runs = detected.candidates.map(c => c.run);
   assert.ok(runs.includes('mkdocs build --strict'), `missing mkdocs candidate: ${JSON.stringify(runs)}`);
   assert.ok(runs.includes('poetry run mkdocs build --strict'), `missing poetry mkdocs candidate: ${JSON.stringify(runs)}`);
+  for (const prefix of ['mkdocs build --strict', 'poetry run mkdocs build --strict']) {
+    assert.strictEqual(isVerificationCommand(prefix, { cwd: docsRepo, root: docsRepo }), true);
+    assert.strictEqual(isVerificationCommand(prefix + ' --help', { cwd: docsRepo, root: docsRepo }), false);
+    assert.ok(!postShell(docsRepo, 'docs-help', prefix + ' --help', 0).lastVerifyAt);
+  }
 
   const gateOut = spawnSync(process.execPath, [VERIFY, '--json'], { cwd: docsRepo, encoding: 'utf8', timeout: 20000 });
   assert.strictEqual(gateOut.status, 0);
@@ -114,30 +163,101 @@ try {
   assert.ok(gateReport.candidates.some(c => c.run === 'mkdocs build --strict'));
 
   // 3. PowerShell Set-Location prelude
+  const changeLocation = dir => `Set-Location -LiteralPath '${dir}' -ErrorAction Stop`;
+  const testCommand = 'node --test verify.test.js';
+  const verifyInPkg = `${changeLocation('./pkg')} && ${testCommand}`;
+  const failedPrelude = `${changeLocation('./missing')} && ${testCommand}`;
+  const unconditionalPrelude = `Set-Location -Path './missing'; ${testCommand}`;
+  const wildcardPrelude = `Set-Location -Path './pkg[1]' -ErrorAction Stop && ${testCommand}`;
+  const literalBracketsPrelude = `${changeLocation('./pkg[1]')} && ${testCommand}`;
   const posixRepo = repo.replace(/\\/g, '/');
+  fs.mkdirSync(path.join(repo, '.harness'));
+  const pkgContract = JSON.stringify({
+    version: 1,
+    checks: [{ id: 'pkg-test', run: testCommand, cwd: 'pkg' }],
+  });
+  const contractPath = path.join(repo, '.harness', 'verify.json');
+  fs.writeFileSync(contractPath, pkgContract);
   for (const cmd of [
-    `Set-Location "${repo}"; npm.cmd test`,
-    `Set-Location '${repo}'; mkdocs build --strict`,
-    `Set-Location -Path "${repo}"; npm.cmd run test:consistency`,
-    `Set-Location '${posixRepo}'; npm.cmd test`,
-    'Set-Location ./pkg; npm.cmd test',
-    'Set-Location .; npm.cmd test',
+    verifyInPkg,
+    `${changeLocation(path.join(repo, 'pkg'))} && ${testCommand}`,
+    `${changeLocation(posixRepo + '/pkg')} && ${testCommand}`,
+    `cd ./pkg && ${testCommand}`,
   ]) {
-    assert.strictEqual(isVerificationCommand(cmd, { cwd: repo, root: repo }), true, `must unwrap Set-Location prelude: ${cmd}`);
+    assert.strictEqual(isVerificationCommand(cmd, { cwd: repo, root: repo }), true, `must unwrap matching prelude: ${cmd}`);
   }
   if (process.platform === 'win32') {
-    assert.strictEqual(isVerificationCommand('Set-Location .\\pkg; npm.cmd test', { cwd: repo, root: repo }), true, 'must unwrap Windows relative Set-Location');
+    assert.strictEqual(isVerificationCommand(`${changeLocation('.\\pkg')} && ${testCommand}`, { cwd: repo, root: repo }), true);
+  }
+
+  let successfulExit = 0;
+  let failedExit = 1;
+  let wildcardExit = 0;
+  if (process.platform === 'win32' || process.env.HARNESS_TEST_PWSH === '1') {
+    fs.writeFileSync(path.join(repo, 'verify.test.js'), 'require("node:test")("root verifier", () => {});\n');
+    fs.writeFileSync(path.join(repo, 'pkg', 'verify.test.js'), 'require("node:test")("package verifier", () => {});\n');
+    fs.writeFileSync(path.join(repo, 'pkg1', 'verify.test.js'), 'require("node:test")("wildcard verifier", () => {});\n');
+    fs.writeFileSync(path.join(repo, 'pkg[1]', 'verify.test.js'), 'require("node:test")("literal verifier", () => {});\n');
+
+    const success = runPowerShell(repo, verifyInPkg);
+    assert.strictEqual(success.status, 0, success.stderr);
+    assert.match(success.stdout, /package verifier/);
+    successfulExit = success.status;
+
+    const failure = runPowerShell(repo, failedPrelude);
+    assert.strictEqual(failure.status, 1, failure.stderr);
+    assert.doesNotMatch(failure.stdout, /verifier/);
+    failedExit = failure.status;
+
+    const unconditional = runPowerShell(repo, unconditionalPrelude);
+    assert.strictEqual(unconditional.status, 0, unconditional.stderr);
+    assert.match(unconditional.stdout, /root verifier/);
+
+    const wildcard = runPowerShell(repo, wildcardPrelude);
+    assert.strictEqual(wildcard.status, 0, wildcard.stderr);
+    assert.match(wildcard.stdout, /wildcard verifier/);
+    wildcardExit = wildcard.status;
+
+    const literal = runPowerShell(repo, literalBracketsPrelude);
+    assert.strictEqual(literal.status, 0, literal.stderr);
+    assert.match(literal.stdout, /literal verifier/);
   }
 
   for (const cmd of [
-    `Set-Location "${outside}"; npm.cmd test`,
-    `Set-Location "${repo}"; npm.cmd test; rm -rf build`,
-    `Set-Location "${repo}"; npm.cmd test && rm -rf build`,
-    'Set-Location pkg; npm.cmd test',
-    'Set-Location "$env:TEMP"; npm.cmd test',
+    failedPrelude,
+    unconditionalPrelude,
+    `Set-Location -Path './pkg' -ErrorAction Stop && ${testCommand}`,
+    `Set-Location -LiteralPath './pkg' && ${testCommand}`,
+    `${changeLocation('./pkg')}; ${testCommand}`,
+    literalBracketsPrelude,
+    wildcardPrelude,
+    `${changeLocation('./pkg1')} && ${testCommand}`,
+    `${changeLocation('./pkg1/../pkg')} && ${testCommand}`,
+    `${changeLocation('FileSystem::./pkg')} && ${testCommand}`,
+    `${changeLocation(outside)} && ${testCommand}`,
+    `${changeLocation('./pkg')} && ${testCommand} && echo done`,
   ]) {
     assert.strictEqual(isVerificationCommand(cmd, { cwd: repo, root: repo }), false, `must reject unsafe Set-Location prelude: ${cmd}`);
+    assert.ok(!postShell(repo, 'rejected-prelude', cmd, 0).lastVerifyAt, `must not credit prelude: ${cmd}`);
   }
+  assert.ok(!postShell(repo, 'failed-prelude', failedPrelude, failedExit).lastVerifyAt);
+  assert.strictEqual(parseCwdPrelude(`${changeLocation(outside)} && ${testCommand}`, { cwd: repo, root: repo }), null);
+  assert.ok(!postShell(repo, 'wrong-tool-cwd', testCommand, 0).lastVerifyAt);
+  assert.ok(postShell(repo, 'tool-cwd', testCommand, 0, path.join(repo, 'pkg')).lastVerifyAt);
+  // The wildcard fixture is checked against the directory the literal path
+  // would credit, so a contract mismatch cannot mask incorrect recognition.
+  fs.writeFileSync(contractPath, JSON.stringify({
+    version: 1,
+    checks: [{ id: 'literal-test', run: testCommand, cwd: 'pkg[1]' }],
+  }));
+  for (const command of [wildcardPrelude, literalBracketsPrelude]) {
+    assert.ok(!postShell(repo, 'wildcard-prelude', command, wildcardExit).lastVerifyAt);
+  }
+  fs.rmSync(contractPath);
+  for (const cmd of infoQueries) {
+    assert.ok(!postShell(repo, 'verifier-info', cmd, 0).lastVerifyAt, `must not credit info query: ${cmd}`);
+  }
+  fs.writeFileSync(contractPath, pkgContract);
 
   // 4. Read-only PowerShell cmdlets & agy CLI read commands
   for (const cmd of [
@@ -157,7 +277,7 @@ try {
   assert.strictEqual(classifyShell('Get-Content a.txt > b.txt'), 'untrusted');
 
   // 5. End-to-end packaged AGY hooks: read-only PowerShell doesn't trigger false Stop;
-  //    Set-Location + npm.cmd verification advances lastVerifyAt and allows Stop.
+  //    A successful, contained Set-Location verifier allows Stop.
   const convReadOnly = 'win-readonly-' + Date.now();
   runScript(PACKAGED_POST_TOOL, {
     conversationId: convReadOnly,
@@ -184,25 +304,15 @@ try {
     workspacePaths: [repo],
     toolCall: { name: 'write_file', args: { Path: target, Content: 'edited\n' } },
   });
-  const afterEdit = JSON.parse(fs.readFileSync(path.join(getSessionDir(repo, convEditVerify), 'handoff-state.json'), 'utf8'));
-  // Unconfirmed exitCode on Set-Location + npm.cmd must not bump lastEditAt
-  runScript(PACKAGED_POST_TOOL, {
-    conversationId: convEditVerify,
-    workspacePaths: [repo],
-    toolCall: { name: 'run_command', args: { CommandLine: `Set-Location "${repo}"; npm.cmd run test:consistency`, Cwd: repo } },
-  });
-  const afterUnknown = JSON.parse(fs.readFileSync(path.join(getSessionDir(repo, convEditVerify), 'handoff-state.json'), 'utf8'));
-  assert.strictEqual(afterUnknown.lastEditAt, afterEdit.lastEditAt, 'recognized Set-Location + npm.cmd without exitCode must not bump lastEditAt');
-
-  // Confirmed exitCode: 0 advances lastVerifyAt and allows Stop
-  runScript(PACKAGED_POST_TOOL, {
-    conversationId: convEditVerify,
-    workspacePaths: [repo],
-    toolCall: { name: 'run_command', args: { CommandLine: `Set-Location "${repo}"; npm.cmd run test:consistency`, Cwd: repo } },
-    exitCode: 0,
-  });
-  const afterPass = JSON.parse(fs.readFileSync(path.join(getSessionDir(repo, convEditVerify), 'handoff-state.json'), 'utf8'));
-  assert.ok(afterPass.lastVerifyAt >= afterEdit.lastEditAt, 'exitCode: 0 on Set-Location + npm.cmd must advance lastVerifyAt');
+  const afterEdit = readHandoff(repo, convEditVerify);
+  for (const exitCode of [undefined, '0']) {
+    const unverified = postShell(repo, convEditVerify, verifyInPkg, exitCode);
+    assert.strictEqual(unverified.lastEditAt, afterEdit.lastEditAt);
+    assert.strictEqual(unverified.lastVerifyAt, afterEdit.lastVerifyAt);
+  }
+  assert.strictEqual(postShell(repo, convEditVerify, verifyInPkg, 1).lastVerifyAt, afterEdit.lastVerifyAt);
+  const afterPass = postShell(repo, convEditVerify, verifyInPkg, successfulExit);
+  assert.ok(afterPass.lastVerifyAt >= afterEdit.lastEditAt, 'confirmed Set-Location verifier must advance lastVerifyAt');
   assert.deepStrictEqual(
     runScript(PACKAGED_STOP, { conversationId: convEditVerify, workspacePaths: [repo], terminationReason: 'NO_TOOL_CALL' }),
     { decision: 'allow' }

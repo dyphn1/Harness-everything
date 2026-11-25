@@ -286,9 +286,27 @@ function bypassesHooks(command) {
   );
 }
 
+const NODE_TEST_RE = /^node\s+--test(?:\s|$)/i;
+const DOC_BUILD_RE = /^(?:(?:uv|poetry)\s+run\s+mkdocs(?:\.exe)?\s+build|(?:(?:\.?[/\\])?(?:\.?venv|env)[/\\](?:Scripts|bin)[/\\])?(?:mkdocs(?:\.exe)?\s+build|sphinx-build(?:\.exe)?))(?:\s|$)/i;
+
+function isVerifierInfoQuery(command) {
+  const nodeTest = NODE_TEST_RE.exec(command);
+  const verifier = nodeTest || DOC_BUILD_RE.exec(command);
+  if (!verifier) return false;
+
+  // Keep quoted argument values together, while recognizing quoted switches.
+  const args = command.slice(verifier[0].length).match(/(?:[^\s"'\x60\\]|\\.|\x60.|"[^"]*"|'[^']*')+/g) || [];
+  const versionFlag = nodeTest ? '-v' : '-V';
+  return args.some(arg => {
+    const option = arg.replace(/["']/g, '').replace(/(?:\\|\x60)(?=[A-Za-z-])/g, '');
+    return option === '--help' || option === '--version' || option === '-h' || option === versionFlag;
+  });
+}
+
 function legacyVerificationCommand(command) {
   const value = stripWindowsCmdShim(normalizeCommand(command));
-  return /^(?:(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?(?:test|lint|build|typecheck|check|verify)\b|npx\s+(?:jest|vitest|mocha|tsc|eslint)\b|node\s+--test\b|(?:jest|vitest|mocha|pytest|rspec|phpunit)\b|(?:uv|poetry)\s+run\s+(?:pytest|ruff|mkdocs\s+build)\b|(?:(?:\.?[/\\])?(?:\.?venv|env)[/\\](?:Scripts|bin)[/\\])?mkdocs(?:\.exe)?\s+build\b|(?:(?:\.?[/\\])?(?:\.?venv|env)[/\\](?:Scripts|bin)[/\\])?sphinx-build(?:\.exe)?\b|(?:make|just)\s+(?:test|check|lint|ci)\b|cargo\s+(?:test|check)\b|go\s+test\b|dotnet\s+(?:test|build)\b)/i.test(value);
+  if (NODE_TEST_RE.test(value) || DOC_BUILD_RE.test(value)) return !isVerifierInfoQuery(value);
+  return /^(?:(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?(?:test|lint|build|typecheck|check|verify)\b|npx\s+(?:jest|vitest|mocha|tsc|eslint)\b|(?:jest|vitest|mocha|pytest|rspec|phpunit)\b|(?:uv|poetry)\s+run\s+(?:pytest|ruff)\b|(?:make|just)\s+(?:test|check|lint|ci)\b|cargo\s+(?:test|check)\b|go\s+test\b|dotnet\s+(?:test|build)\b)/i.test(value);
 }
 
 function verificationCommandSet(cwd, options = {}) {
@@ -346,7 +364,9 @@ function verificationCommandSet(cwd, options = {}) {
 // command must be one plain command: no further control operators,
 // redirection, substitution, expansion, subshell, or background syntax.
 const CWD_PRELUDE_RE = /^cd\s+(?:"([^"]*)"|'([^']*)'|([A-Za-z0-9_./:@%+,-]+))\s*&&\s*([\s\S]+)$/;
-const PS_CWD_PRELUDE_RE = /^Set-Location\s+(?:-Path\s+)?(?:"([^"]*)"|'([^']*)'|([A-Za-z0-9_./:@%+,\\-]+))\s*;\s*([\s\S]+)$/i;
+// PowerShell 7 must stop on a failed location change before running the
+// verifier. Match only a single-quoted filesystem path with explicit flags.
+const PS_CWD_PRELUDE_RE = /^Set-Location[ \t]+-LiteralPath[ \t]+'([^'\r\n]+)'[ \t]+-ErrorAction[ \t]+Stop[ \t]*&&[ \t]*([^\r\n]+)$/i;
 const UNSAFE_WRAPPED_RE = /[`$<>&|;()\r\n]/;
 const UNSAFE_DOUBLE_QUOTED_RE = /[$`!]|\\[\\"$`]|\\$/;
 
@@ -368,23 +388,44 @@ function stableCdTarget(target, platform = process.platform) {
   return target.startsWith('/');
 }
 
+function stablePowerShellTarget(target, platform = process.platform) {
+  const start = platform === 'win32' ? /^(?:[A-Za-z]:|\.)[/\\]/ : /^(?:\.)?\//;
+  if (target === '.') return true;
+  if (!start.test(target) || (platform !== 'win32' && target.includes('\\'))) return false;
+  // Restrict segments to unambiguous filesystem names. In particular, a
+  // parent component after a symlink can resolve differently from path.resolve.
+  return target.replace(start, '').split(/[/\\]/).every(part =>
+    /^[A-Za-z0-9_. -]*[A-Za-z0-9_-]$/.test(part) && !part.startsWith(' ')
+  );
+}
+
 function parseCwdPrelude(command, options = {}) {
   const trimmed = String(command || '').trim();
-  const match = trimmed.match(CWD_PRELUDE_RE) || trimmed.match(PS_CWD_PRELUDE_RE);
-  if (!match) return null;
-  const [, doubleQuoted, singleQuoted, bare, restRaw] = match;
-  const target = doubleQuoted ?? singleQuoted ?? bare;
+  const bash = trimmed.match(CWD_PRELUDE_RE);
+  const powerShell = bash ? null : trimmed.match(PS_CWD_PRELUDE_RE);
+  if (!bash && !powerShell) return null;
+  let target;
+  let restRaw;
+  if (bash) {
+    const [, doubleQuoted, singleQuoted, bare, bashRest] = bash;
+    target = doubleQuoted ?? singleQuoted ?? bare;
+    if (!target || (doubleQuoted !== undefined && UNSAFE_DOUBLE_QUOTED_RE.test(target))) return null;
+    if (!stableCdTarget(target, options.platform)) return null;
+    target = hostPathToNative(target, options.platform);
+    restRaw = bashRest;
+  } else {
+    [, target, restRaw] = powerShell;
+    if (!stablePowerShellTarget(target, options.platform)) return null;
+  }
   const rest = restRaw.trim();
-  if (!target || !rest) return null;
-  if (doubleQuoted !== undefined && UNSAFE_DOUBLE_QUOTED_RE.test(target)) return null;
+  if (!rest) return null;
   if (UNSAFE_WRAPPED_RE.test(rest) || hasControlOperators(rest)) return null;
-  if (!stableCdTarget(target, options.platform)) return null;
 
   const cwd = path.resolve(options.cwd || process.cwd());
   let resolved;
   let root;
   try {
-    resolved = fs.realpathSync.native(path.resolve(cwd, hostPathToNative(target, options.platform)));
+    resolved = fs.realpathSync.native(path.resolve(cwd, target));
     if (!fs.statSync(resolved).isDirectory()) return null;
     root = fs.realpathSync.native(path.resolve(options.root || findGitRoot(cwd)));
   } catch (_) {
@@ -409,7 +450,7 @@ function cwdKey(dir) {
 function isPlainVerificationCommand(command, options = {}) {
   const cwd = path.resolve(options.cwd || process.cwd());
   const actual = normalizeCommand(command);
-  if (!actual || hasControlOperators(actual)) return false;
+  if (!actual || hasControlOperators(actual) || isVerifierInfoQuery(actual)) return false;
   const set = verificationCommandSet(cwd, options);
   if (set.contractInvalid) return false;
 
