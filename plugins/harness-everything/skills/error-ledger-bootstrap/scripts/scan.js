@@ -7,10 +7,14 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const USAGE = 'usage: node scan.js --root <repo> [--out <dir>] [--no-memory] [--memory <path>]... [--instructions <path>]... [--tracker <file.json>]... [--hide-ledger] [--home <dir>] [--json]';
+const USAGE = 'usage: node scan.js --root <repo> [--out <dir>] [--no-memory] [--memory <path>]... [--instructions <path>]... [--tracker <file.json>]... [--source local-store --destination harness|project] [--hide-ledger] [--home <dir>] [--json]';
 const HASH = /^[0-9a-f]{40}$/i;
-const SOURCE_STATUSES = new Set(['used', 'missing', 'disabled', 'unverified']);
+const SOURCE_STATUSES = new Set(['used', 'missing', 'disabled', 'unverified', 'unavailable']);
 const GIT_MAX_BUFFER = 32 * 1024 * 1024;
+const LEDGER_INDEX_MAX_BYTES = 512 * 1024;
+const LOCAL_IDENTIFIER = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+const PROVISIONAL_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+const RECORD_ID = /^E-\d{4,}$/;
 
 function failure(message, exitCode = 2) {
   const error = new Error(message);
@@ -21,7 +25,7 @@ function failure(message, exitCode = 2) {
 function parseArgs(args) {
   const options = { memory: [], instructions: [], tracker: [], noMemory: false, hideLedger: false, json: false };
   const seen = new Set();
-  const values = new Set(['--root', '--out', '--home', '--memory', '--instructions', '--tracker']);
+  const values = new Set(['--root', '--out', '--home', '--memory', '--instructions', '--tracker', '--source', '--destination']);
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === '--no-memory' || arg === '--hide-ledger' || arg === '--json') {
@@ -44,6 +48,12 @@ function parseArgs(args) {
     options[arg.slice(2)] = value;
   }
   if (!options.root) failure(`--root is required; ${USAGE}`);
+  if (options.source !== undefined && options.source !== 'local-store') failure(`unknown source: ${options.source}`);
+  if (options.source === 'local-store' && !options.destination) failure('--destination is required for --source local-store');
+  if (options.destination !== undefined && options.source !== 'local-store') failure('--destination requires --source local-store');
+  if (options.destination !== undefined && !['harness', 'project'].includes(options.destination)) {
+    failure(`invalid --destination: ${options.destination}`);
+  }
   return options;
 }
 
@@ -444,6 +454,326 @@ function collectSources(options, root, home, files, historyCandidates) {
   return { sources, candidates };
 }
 
+function localStoreRef(workspaceKey, provisionalId) {
+  const key = JSON.stringify([workspaceKey, provisionalId]);
+  return `p-local-${crypto.createHash('sha256').update(key).digest('hex')}`;
+}
+
+function workspaceRef(workspaceKey) {
+  return `w-local-${crypto.createHash('sha256').update(workspaceKey).digest('hex')}`;
+}
+
+function validLocalRecord(record, workspaceKey, store) {
+  if (!record || typeof record !== 'object' || Array.isArray(record) ||
+      record.schemaVersion !== store.SCHEMA_VERSION ||
+      !['occurrence', 'provisional-lesson'].includes(record.kind) ||
+      record.workspaceKey !== workspaceKey ||
+      typeof record.provisionalId !== 'string' || !PROVISIONAL_ID.test(record.provisionalId) || /^E-/i.test(record.provisionalId) ||
+      !store.DESTINATIONS.includes(record.destination) ||
+      typeof record.signature !== 'string' || !LOCAL_IDENTIFIER.test(record.signature) ||
+      typeof record.createdAt !== 'string' || !Number.isFinite(Date.parse(record.createdAt))) return false;
+  if (record.kind === 'occurrence') {
+    return record.source === 'tool-failure' && ['claude', 'codex', 'opencode', 'unknown'].includes(record.host) &&
+      store.COMMAND_CLASSES.includes(record.commandClass) &&
+      (record.exitCode === null || Number.isSafeInteger(record.exitCode)) &&
+      (record.sessionKey === null || /^[a-f0-9]{24}$/.test(record.sessionKey)) &&
+      (record.toolUseId === null || /^[a-f0-9]{24}$/.test(record.toolUseId)) &&
+      typeof record.outputExcerpt === 'string' && Buffer.byteLength(record.outputExcerpt, 'utf8') <= store.LIMITS.maxExcerptBytes &&
+      Array.isArray(record.matchedLedgerIds) && record.matchedLedgerIds.length <= store.LIMITS.maxMatchedLedgerIds &&
+      record.matchedLedgerIds.every(id => typeof id === 'string' && (RECORD_ID.test(id) || LOCAL_IDENTIFIER.test(id)));
+  }
+  try {
+    store.validateMatch(record.match);
+  } catch (_) { return false; }
+  return typeof record.lesson === 'string' && record.lesson.trim().length > 0 &&
+    Buffer.byteLength(record.lesson, 'utf8') <= store.LIMITS.maxLessonChars &&
+    (record.cue === undefined || (typeof record.cue === 'string' && Buffer.byteLength(record.cue, 'utf8') <= store.LIMITS.maxCueChars)) &&
+    (record.issueUrl === null || typeof record.issueUrl === 'string') &&
+    (record.promotionId === null || (typeof record.promotionId === 'string' && RECORD_ID.test(record.promotionId)));
+}
+
+function inspectLocalStore(file, store) {
+  let stat;
+  try { stat = fs.lstatSync(file); }
+  catch (cause) {
+    return cause.code === 'ENOENT'
+      ? { status: 'missing', reason: 'index-missing' }
+      : { status: 'unverified', reason: 'store-unreadable' };
+  }
+  if (stat.isSymbolicLink() || !stat.isFile()) return { status: 'unverified', reason: 'store-unreadable' };
+  if (stat.size > store.LIMITS.maxIndexBytes) return { status: 'unverified', reason: 'store-corrupt' };
+  let envelope;
+  try {
+    const bytes = fs.readFileSync(file);
+    if (bytes.length > store.LIMITS.maxIndexBytes) return { status: 'unverified', reason: 'store-corrupt' };
+    envelope = JSON.parse(bytes.toString('utf8'));
+  } catch (_) { return { status: 'unverified', reason: 'store-corrupt' }; }
+  if (!envelope || typeof envelope !== 'object' || Array.isArray(envelope) || !Array.isArray(envelope.records)) {
+    return { status: 'unverified', reason: 'store-corrupt' };
+  }
+  if (envelope.schemaVersion !== store.SCHEMA_VERSION || envelope.kind !== store.INDEX_KIND) {
+    return { status: 'unverified', reason: 'store-unsupported' };
+  }
+  return { status: 'used', rowCount: envelope.records.length };
+}
+
+function inspectDestinationLedger(root, store) {
+  const errors = path.join(root, '.agents', 'harness-everything', 'errors');
+  let errorsStat;
+  try { errorsStat = fs.lstatSync(errors); }
+  catch (cause) {
+    return cause.code === 'ENOENT'
+      ? { status: 'unverified', reason: 'ledger-missing', rows: [] }
+      : { status: 'unverified', reason: 'ledger-unreadable', rows: [] };
+  }
+  if (errorsStat.isSymbolicLink() || !errorsStat.isDirectory()) return { status: 'unverified', reason: 'ledger-unreadable', rows: [] };
+  let realErrors;
+  try { realErrors = canonical(errors); }
+  catch (_) { return { status: 'unverified', reason: 'ledger-unreadable', rows: [] }; }
+  if (!isWithin(root, realErrors)) return { status: 'unverified', reason: 'ledger-unreadable', rows: [] };
+
+  const file = path.join(realErrors, 'index.jsonl');
+  let stat;
+  try { stat = fs.lstatSync(file); }
+  catch (cause) {
+    return cause.code === 'ENOENT'
+      ? { status: 'unverified', reason: 'ledger-missing', rows: [] }
+      : { status: 'unverified', reason: 'ledger-unreadable', rows: [] };
+  }
+  if (stat.isSymbolicLink() || !stat.isFile()) return { status: 'unverified', reason: 'ledger-unreadable', rows: [] };
+  if (stat.size > LEDGER_INDEX_MAX_BYTES) return { status: 'unverified', reason: 'ledger-corrupt', rows: [] };
+
+  let text;
+  try {
+    text = fs.readFileSync(file, 'utf8');
+    if (Buffer.byteLength(text, 'utf8') > LEDGER_INDEX_MAX_BYTES) return { status: 'unverified', reason: 'ledger-corrupt', rows: [] };
+  } catch (_) { return { status: 'unverified', reason: 'ledger-unreadable', rows: [] }; }
+
+  const lines = text.split(/\r?\n/);
+  if (lines.at(-1) === '') lines.pop();
+  if (lines.length > 512 || lines.some(line => !line.trim())) return { status: 'unverified', reason: 'ledger-corrupt', rows: [] };
+  const rows = [];
+  const ids = new Set();
+  try {
+    for (const line of lines) {
+      const row = JSON.parse(line);
+      if (!row || typeof row !== 'object' || Array.isArray(row) ||
+          typeof row.id !== 'string' || !RECORD_ID.test(row.id) || ids.has(row.id) ||
+          typeof row.signature !== 'string' || !LOCAL_IDENTIFIER.test(row.signature) ||
+          typeof row.file !== 'string' || !new RegExp(`^\\.agents/harness-everything/errors/${row.id}-[a-z0-9-]+\\.md$`).test(row.file)) {
+        throw new Error('invalid index row');
+      }
+      let match = null;
+      if (Object.hasOwn(row, 'match')) {
+        match = store.validateMatch(row.match);
+        if (typeof row.matchBinding !== 'string' || !/^[a-f0-9]{64}$/.test(row.matchBinding)) throw new Error('invalid match binding');
+      } else if (Object.hasOwn(row, 'matchBinding')) throw new Error('invalid match binding');
+      ids.add(row.id);
+      rows.push({ id: row.id, signature: row.signature, match });
+    }
+  } catch (_) { return { status: 'unverified', reason: 'ledger-corrupt', rows: [] }; }
+  return { status: 'verified', rows };
+}
+
+function canonicalMatch(match, store) {
+  const validated = store.validateMatch(match);
+  const normalized = {};
+  for (const phase of ['actions', 'failures']) {
+    if (!validated[phase]) continue;
+    normalized[phase] = validated[phase].map(rule => ({
+      ...rule,
+      ...(rule.diagnostics ? { diagnostics: [...rule.diagnostics].sort() } : {})
+    })).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  }
+  return JSON.stringify(normalized);
+}
+
+function destinationDedupe(signature, match, ledger, store) {
+  if (ledger.status !== 'verified') {
+    return { status: 'unverified', classIds: [], matchedBy: [], newClassEligible: false };
+  }
+  const matches = new Map();
+  const localMatch = match ? canonicalMatch(match, store) : null;
+  for (const row of ledger.rows) {
+    const methods = [];
+    if (row.signature === signature) methods.push('signature');
+    if (localMatch && row.match && canonicalMatch(row.match, store) === localMatch) methods.push('whole-rule');
+    if (methods.length) matches.set(row.id, new Set([...(matches.get(row.id) || []), ...methods]));
+  }
+  const classIds = [...matches.keys()].sort();
+  const matchedBy = [...new Set([...matches.values()].flatMap(methods => [...methods]))].sort();
+  return {
+    status: classIds.length > 1 ? 'ambiguous' : classIds.length === 1 ? 'existing' : 'none',
+    classIds,
+    matchedBy,
+    newClassEligible: classIds.length === 0
+  };
+}
+
+function localCandidate(title, signature, records, match, ledger, store, destination) {
+  const candidate = makeCandidate({
+    title,
+    signature,
+    sites: [],
+    sources: records.map(record => ({
+      type: 'local-store',
+      kind: record.kind,
+      ref: localStoreRef(record.workspaceKey, record.provisionalId),
+      destination,
+      signature: record.signature,
+      ...(record.kind === 'occurrence' ? { commandClass: record.commandClass } : {})
+    }))
+  });
+  candidate.local = {
+    evidenceReadiness: 'needs-evidence',
+    occurrenceCount: records.filter(record => record.kind === 'occurrence').length,
+    dedupe: destinationDedupe(signature, match, ledger, store)
+  };
+  return candidate;
+}
+
+function collectLocalStore(options, root) {
+  const fallbackWorkspaceRef = workspaceRef(root);
+  let store;
+  try { store = require(path.join(__dirname, '..', '..', 'hooks', 'scripts', 'lib', 'local-errors.js')); }
+  catch (_) {
+    const ledger = { status: 'unverified', reason: 'ledger-not-checked' };
+    return {
+      source: sourceStatus('local-store', 'workspace', 'unavailable', {
+        reason: 'reader-unavailable', workspaceRef: fallbackWorkspaceRef, destination: options.destination,
+        ledgerStatus: ledger.status, ledgerReason: ledger.reason,
+        counts: { workspaceRecords: 0, lessons: 0, occurrences: 0, candidates: 0, destinationMismatch: 0, unknownDestination: 0, malformed: 0, suppressedOccurrences: 0 }
+      }),
+      candidates: []
+    };
+  }
+
+  let workspaceKey;
+  try { workspaceKey = store.resolveWorkspaceKey({ workspaceRoot: root }); }
+  catch (_) {
+    return {
+      source: sourceStatus('local-store', 'workspace', 'unverified', {
+        reason: 'workspace-unavailable', workspaceRef: fallbackWorkspaceRef, destination: options.destination,
+        ledgerStatus: 'unverified', ledgerReason: 'ledger-not-checked',
+        counts: { workspaceRecords: 0, lessons: 0, occurrences: 0, candidates: 0, destinationMismatch: 0, unknownDestination: 0, malformed: 0, suppressedOccurrences: 0 }
+      }),
+      candidates: []
+    };
+  }
+  const ref = workspaceRef(workspaceKey);
+  const hostBinding = ['HARNESS_WORKSPACE_ROOT', 'CLAUDE_PROJECT_DIR', 'CODEX_PROJECT_DIR']
+    .some(name => typeof process.env[name] === 'string' && process.env[name].trim());
+  if (hostBinding) {
+    let hostKey;
+    try { hostKey = store.resolveWorkspaceKey({}, { env: process.env }); }
+    catch (_) {
+      return {
+        source: sourceStatus('local-store', 'workspace', 'unverified', {
+          reason: 'workspace-binding-unavailable', workspaceRef: ref, destination: options.destination,
+          ledgerStatus: 'unverified', ledgerReason: 'ledger-not-checked',
+          counts: { workspaceRecords: 0, lessons: 0, occurrences: 0, candidates: 0, destinationMismatch: 0, unknownDestination: 0, malformed: 0, suppressedOccurrences: 0 }
+        }),
+        candidates: []
+      };
+    }
+    if (hostKey !== workspaceKey) {
+      return {
+        source: sourceStatus('local-store', 'workspace', 'unverified', {
+          reason: 'workspace-binding-mismatch', workspaceRef: ref, destination: options.destination,
+          ledgerStatus: 'unverified', ledgerReason: 'ledger-not-checked',
+          counts: { workspaceRecords: 0, lessons: 0, occurrences: 0, candidates: 0, destinationMismatch: 0, unknownDestination: 0, malformed: 0, suppressedOccurrences: 0 }
+        }),
+        candidates: []
+      };
+    }
+  }
+
+  let storePath;
+  try { storePath = store.getStorePath().file; }
+  catch (_) {
+    return {
+      source: sourceStatus('local-store', 'workspace', 'unverified', {
+        reason: 'store-unreadable', workspaceRef: ref, destination: options.destination,
+        ledgerStatus: 'unverified', ledgerReason: 'ledger-not-checked',
+        counts: { workspaceRecords: 0, lessons: 0, occurrences: 0, candidates: 0, destinationMismatch: 0, unknownDestination: 0, malformed: 0, suppressedOccurrences: 0 }
+      }),
+      candidates: []
+    };
+  }
+  const diagnostic = inspectLocalStore(storePath, store);
+  const ledger = inspectDestinationLedger(root, store);
+  const emptyCounts = { workspaceRecords: 0, lessons: 0, occurrences: 0, candidates: 0, destinationMismatch: 0, unknownDestination: 0, malformed: 0, suppressedOccurrences: 0 };
+  if (diagnostic.status !== 'used') {
+    return {
+      source: sourceStatus('local-store', 'workspace', diagnostic.status, {
+        reason: diagnostic.reason, workspaceRef: ref, destination: options.destination,
+        ledgerStatus: ledger.status, ...(ledger.reason ? { ledgerReason: ledger.reason } : {}), counts: emptyCounts
+      }),
+      candidates: []
+    };
+  }
+
+  let records;
+  try {
+    records = store.listRecords({ workspaceRoot: root, workspaceKey });
+  } catch (_) {
+    return {
+      source: sourceStatus('local-store', 'workspace', 'unverified', {
+        reason: 'reader-failed', workspaceRef: ref, destination: options.destination,
+        ledgerStatus: ledger.status, ...(ledger.reason ? { ledgerReason: ledger.reason } : {}), counts: emptyCounts
+      }),
+      candidates: []
+    };
+  }
+  const scoped = Array.isArray(records) ? records.filter(record => record && record.workspaceKey === workspaceKey) : [];
+  let malformed = Array.isArray(records) ? 0 : 1;
+  const valid = [];
+  const seen = new Set();
+  for (const record of scoped) {
+    const key = `${record.kind}:${record.provisionalId}`;
+    if (!validLocalRecord(record, workspaceKey, store) || seen.has(key)) {
+      malformed += 1;
+      continue;
+    }
+    seen.add(key);
+    valid.push(record);
+  }
+  const counts = { ...emptyCounts, workspaceRecords: valid.length, malformed };
+  const selected = [];
+  for (const record of valid) {
+    if (record.destination === 'unknown') { counts.unknownDestination += 1; continue; }
+    if (record.destination !== options.destination) { counts.destinationMismatch += 1; continue; }
+    selected.push(record);
+    if (record.kind === 'provisional-lesson') counts.lessons += 1;
+    else counts.occurrences += 1;
+  }
+  const lessons = selected.filter(record => record.kind === 'provisional-lesson');
+  const covered = new Set(lessons.map(record => record.signature));
+  const candidates = lessons.map(record => localCandidate(
+    'Local provisional lesson', record.signature, [record], record.match, ledger, store, options.destination
+  ));
+  const occurrences = new Map();
+  for (const record of selected.filter(record => record.kind === 'occurrence')) {
+    if (covered.has(record.signature)) { counts.suppressedOccurrences += 1; continue; }
+    const group = occurrences.get(record.signature) || [];
+    group.push(record);
+    occurrences.set(record.signature, group);
+  }
+  for (const [signature, group] of occurrences) {
+    candidates.push(localCandidate('Local tool-failure lead', signature, group, null, ledger, store, options.destination));
+  }
+  counts.candidates = candidates.length;
+  const status = malformed || scoped.length === 0 ? 'unverified' : 'used';
+  const reason = malformed ? 'malformed-records' : scoped.length === 0 ? 'empty-reader-result' : undefined;
+  return {
+    source: sourceStatus('local-store', 'workspace', status, {
+      ...(reason ? { reason } : {}), workspaceRef: ref, destination: options.destination,
+      ledgerStatus: ledger.status, ...(ledger.reason ? { ledgerReason: ledger.reason } : {}), counts
+    }),
+    candidates
+  };
+}
+
 function addAttachments(candidates, files, root, hideLedger) {
   const testFiles = files.filter(file => {
     const base = path.posix.basename(file);
@@ -498,10 +828,23 @@ function markdownReport(report) {
   for (const source of report.sources) {
     const label = source.ref || (source.refs && source.refs.join(', ')) || source.origin;
     lines.push(`- \`${source.type}\` (${source.origin}) — **${source.status}** — ${label}${source.reason ? ` — ${source.reason}` : ''}${source.verified === undefined ? '' : ` — verified: ${source.verified}`}${source.verificationRef ? ` — verification: ${source.verificationRef}` : ''}`);
+    if (source.type === 'local-store') {
+      lines.push(`  - Workspace ref: \`${source.workspaceRef}\``, `  - Destination: \`${source.destination}\``,
+        `  - Records: ${source.counts.workspaceRecords}; lessons: ${source.counts.lessons}; occurrences: ${source.counts.occurrences}; candidates: ${source.counts.candidates}`,
+        `  - Destination mismatches: ${source.counts.destinationMismatch}; unknown destinations: ${source.counts.unknownDestination}; malformed: ${source.counts.malformed}; suppressed occurrences: ${source.counts.suppressedOccurrences}`,
+        `  - Destination ledger dedupe: **${source.ledgerStatus}**${source.ledgerReason ? ` — ${source.ledgerReason}` : ''}`);
+    }
   }
   lines.push('', '## Candidates', '');
   for (const item of report.candidates) {
     lines.push(`### ${item.title}`, '', `- ID: \`${item.id}\``, `- Kind: \`${item.kind}\``, `- Domain: \`${item.domain}\``, `- Signature: \`${item.signature}\``, `- Status: **${item.status}**`, `- Sites: ${item.sites.length ? item.sites.map(site => `\`${site}\``).join(', ') : 'none'}`, '- Sources:');
+    if (item.local) {
+      lines.push(`- Evidence readiness: **${item.local.evidenceReadiness}**`,
+        `- Occurrence count: ${item.local.occurrenceCount}`,
+        `- Destination dedupe: **${item.local.dedupe.status}**${item.local.dedupe.classIds.length ? ` — ${item.local.dedupe.classIds.map(id => `\`${id}\``).join(', ')}` : ''}`,
+        `- Exact match signals: ${item.local.dedupe.matchedBy.length ? item.local.dedupe.matchedBy.join(', ') : 'none'}`,
+        `- New-class dedupe eligible: ${item.local.dedupe.newClassEligible}`);
+    }
     for (const source of item.sources) {
       lines.push(`  - \`${source.type}\` ${source.ref || source.path || source.sha}${source.path && source.sha ? ` — ${source.sha}` : ''}${source.subject ? ` — ${source.subject}` : ''}`);
     }
@@ -597,6 +940,11 @@ function scan(options) {
   const historyCandidates = parseHistory(root, options.hideLedger);
   const files = repoFiles(root);
   const selected = collectSources(options, root, home, files, historyCandidates);
+  if (options.source === 'local-store') {
+    const local = collectLocalStore(options, root);
+    selected.sources.push(local.source);
+    selected.candidates.push(...local.candidates);
+  }
   const candidates = [...new Map([...historyCandidates, ...selected.candidates].map(item => [item.id, item])).values()];
   addAttachments(candidates, files, root, options.hideLedger);
   for (const item of candidates) {
