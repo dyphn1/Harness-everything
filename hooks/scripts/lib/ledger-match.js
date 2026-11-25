@@ -211,7 +211,12 @@ function literalRedirectTarget(command, start) {
       continue;
     }
     if (char === '"' || char === "'") { quote = char; continue; }
-    if (char === '\\' && index + 1 < command.length) { index += 1; length += 1; continue; }
+    if (char === '\\') {
+      if (index + 1 >= command.length) return null;
+      index += 1;
+      length += 1;
+      continue;
+    }
     if (/\s/.test(char) || ';|&<>'.includes(char)) break;
     if (char === '#' && index === targetStart) return null;
     if ('()$`'.includes(char) || /[*?\[\]{}]/.test(char) || (char === '~' && length === 0)) return null;
@@ -311,7 +316,7 @@ function splitSimpleCommandSegments(command) {
       if (command[index + 1] !== '&' || command[index + 2] === '&') return null;
       separatorLength = 2;
     } else if (char === '|') {
-      if (command[index + 1] === '&' || command[index + 2] === '|') return null;
+      if (command[index + 1] === '&' || (command[index + 1] === '|' && command[index + 2] === '|')) return null;
       separatorLength = command[index + 1] === '|' ? 2 : 1;
     }
     if (separatorLength) {
@@ -597,6 +602,31 @@ function releaseClaim(claimed) {
   try { fs.unlinkSync(claimed.file); return true; } catch (_) { return false; }
 }
 
+// Read-only repo match lookup before delivery claims or reminder caps (#496).
+function peekRepoMatches(input) {
+  try {
+    if (!isObject(input)) return [];
+    const root = canonicalWorkspace(input.workspaceRoot);
+    const event = normalizeEvent(input.event);
+    if (!event) return [];
+    const repo = matchedRepoCandidates(root, event);
+    if (!repo.length) return [];
+    const compare = (left, right) => left < right ? -1 : left > right ? 1 : 0;
+    const ordered = [...repo].sort((a, b) => compare(a.signature, b.signature) || compare(a.id, b.id));
+    const ids = [];
+    const seen = new Set();
+    for (const candidate of ordered) {
+      if (seen.has(candidate.id)) continue;
+      seen.add(candidate.id);
+      ids.push(candidate.id);
+      if (ids.length >= LIMITS.candidates) break;
+    }
+    return ids;
+  } catch (_) {
+    return [];
+  }
+}
+
 // Carriers release a reservation only when the returned context handoff is dropped.
 function releaseLedgerMatch(result) {
   const claims = result && PENDING_HANDOFFS.get(result);
@@ -610,4 +640,10 @@ function releaseLedgerMatch(result) {
   return true;
 }
 
-module.exports = { matchLedgerLessons, normalizeGitCommitCommand, releaseLedgerMatch };
+module.exports = {
+  matchLedgerLessons,
+  normalizeGitCommitCommand,
+  peekRepoMatches,
+  releaseLedgerMatch,
+  validateMatch
+};

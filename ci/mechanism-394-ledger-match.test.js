@@ -696,3 +696,222 @@ test('an unavailable dedupe directory is silent and never falls back', () => {
   fs.writeFileSync(blocker, 'not a directory');
   assert.equal(select(input({ stateDir: path.join(blocker, 'session') })), null);
 });
+
+test('R-518 P2/P3: unspaced single-char middle pipeline members match and trailing unescaped redirect backslashes are rejected', () => {
+  const expected = { tool: 'shell', executable: 'git', subcommand: 'commit' };
+  const supported = [
+    'x|y|git commit -m "A"',
+    'a|b|c|git commit -m "A"',
+    'x | y | git commit -m "A"',
+    'x||y||git commit -m "A"',
+    'git commit -m "A" > out\\\\',
+    'git commit -m "A" > "out\\\\"',
+    "git commit -m \"A\" > 'out\\'",
+    'git commit -m "A" > out\\ file.log'
+  ];
+  const unsupported = [
+    'x|||git commit -m "A"',
+    'git commit ||| echo done',
+    'x| |git commit -m "A"',
+    'git commit -m "A" > out\\',
+    'git commit -m "A" > \\',
+    'git commit -m "A" > out\\\\\\'
+  ];
+  for (const implementation of [matcher, packagedMatcher]) {
+    for (const command of supported) {
+      assert.deepEqual(implementation.normalizeGitCommitCommand(command), expected, command);
+      const result = implementation.matchLedgerLessons(input({
+        event: { phase: 'action', tool: 'shell', command, outcome: { failed: 'unknown' } }
+      }));
+      assert.deepEqual(result?.ids, ['E-0003'], command);
+    }
+    for (const command of unsupported) {
+      assert.equal(implementation.normalizeGitCommitCommand(command), null, command);
+      assert.equal(implementation.matchLedgerLessons(input({
+        event: { phase: 'action', tool: 'shell', command, outcome: { failed: 'unknown' } }
+      })), null, command);
+    }
+  }
+});
+
+test('exports validateMatch and read-only peekRepoMatches without taking claims or applying reminder caps', () => {
+  for (const implementation of [matcher, packagedMatcher]) {
+    assert.equal(typeof implementation.validateMatch, 'function', 'validateMatch is exported');
+    assert.deepEqual(implementation.validateMatch({
+      actions: [{ tool: 'shell', executable: 'git', subcommand: 'commit' }]
+    }), {
+      actions: [{ tool: 'shell', executable: 'git', subcommand: 'commit' }]
+    });
+    assert.throws(() => implementation.validateMatch({ invalidKey: [] }), /invalid match/);
+
+    assert.equal(typeof implementation.peekRepoMatches, 'function', 'peekRepoMatches is exported');
+
+    const freshState = stateDir('peek-no-claim');
+    const actionInput = input({ stateDir: freshState });
+    assert.deepEqual(implementation.peekRepoMatches(actionInput), ['E-0003'], 'first peek returns matching repo id');
+    assert.deepEqual(implementation.peekRepoMatches(actionInput), ['E-0003'], 'second peek still returns matching repo id');
+    assert.equal(fs.existsSync(freshState), false, 'peek does not create stateDir or write claim files');
+
+    const delivered = implementation.matchLedgerLessons(actionInput);
+    assert.deepEqual(delivered?.ids, ['E-0003'], 'matchLedgerLessons still delivers once after two peeks');
+    assert.equal(implementation.matchLedgerLessons(actionInput), null, 'duplicate delivery stays silent');
+    assert.deepEqual(implementation.peekRepoMatches(actionInput), ['E-0003'],
+      'peek still reports repo match after delivery claim is exhausted');
+
+    assert.deepEqual(implementation.peekRepoMatches({
+      workspaceRoot: GENERATED_E3_ROOT,
+      event: {
+        phase: 'failure',
+        tool: 'shell',
+        command: 'git commit -m "Bad Subject"',
+        outcome: { failed: true, output: COMMITLINT_OUTPUT }
+      }
+    }), ['E-0003'], 'peek works for failure phase without sessionIdentity or stateDir');
+
+    for (const command of ['git status', 'echo "git commit"', '']) {
+      assert.deepEqual(implementation.peekRepoMatches({
+        workspaceRoot: GENERATED_E3_ROOT,
+        event: { phase: 'action', tool: 'shell', command, outcome: { failed: 'unknown' } }
+      }), [], `unknown command returns empty: ${command}`);
+    }
+    assert.deepEqual(implementation.peekRepoMatches(null), [], 'null input fails open to []');
+
+    const oversizedCue = E3_TEXT.replace(/(^## Cue\r?\n\r?\n)[\s\S]*?(\r?\n\r?\n## What happened)/m,
+      (_, start, end) => `${start}${'C'.repeat(1500)}${end}`);
+    const oversizedRoot = repoWorkspace('peek oversized repo', { recordText: oversizedCue });
+    assert.equal(implementation.matchLedgerLessons(input({ workspaceRoot: oversizedRoot })), null,
+      'oversized repo excerpt is skipped by reminder cap in matchLedgerLessons');
+    assert.deepEqual(implementation.peekRepoMatches({
+      workspaceRoot: oversizedRoot,
+      event: { phase: 'action', tool: 'shell', command: 'git commit', outcome: { failed: 'unknown' } }
+    }), ['E-0003'], 'peek ignores reminder char cap and still returns repo match');
+
+    assert.deepEqual(implementation.peekRepoMatches({
+      workspaceRoot: workspace('peek no repo'),
+      event: { phase: 'action', tool: 'shell', command: 'git commit', outcome: { failed: 'unknown' } },
+      provisionalSource: localSource([PROVISIONAL_FIXTURE[0]])
+    }), [], 'peek is repo-only and ignores provisionalSource');
+  }
+});
+
+test('peekRepoMatches keeps every matching repo id across shared signatures while preserving delivery collapse and bounds', () => {
+  const syncEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== 'HARNESS_SYSTEM_ONE_MODE'));
+  const buildSameSignatureRepo = (name, count) => {
+    const root = workspace(name);
+    const ledger = path.join(root, '.agents', 'harness-everything', 'errors');
+    for (let index = 1; index <= count; index += 1) {
+      const id = `E-${String(index).padStart(4, '0')}`;
+      const recordText = index === 1
+        ? E3_TEXT.replace(/^id:\s*E-0003$/m, 'id: E-0001')
+        : E3_TEXT
+          .replace(/^id:\s*E-0003$/m, `id: ${id}`)
+          .replace(/^## Lesson\r?\n\r?\n[\s\S]*?(?=\r?\n\r?\n## Evidence)/m,
+            `## Lesson\n\nSAME_SIGNATURE_SECOND_LESSON_SENTINEL_${id}`);
+      write(path.join(ledger, `${id}-commitlint-subject.md`), recordText);
+    }
+    const generated = spawnSync(process.execPath, [ERRORS_SYNC, '--root', root], {
+      cwd: ROOT,
+      env: syncEnv,
+      encoding: 'utf8'
+    });
+    assert.equal(generated.status, 0, generated.stderr);
+    return { root, ledger };
+  };
+
+  const pair = buildSameSignatureRepo('peek-same-sig-pair', 2);
+  const single = buildSameSignatureRepo('peek-same-sig-single', 1);
+  const pairIndexPath = path.join(pair.ledger, 'index.jsonl');
+  const pairRows = fs.readFileSync(pairIndexPath, 'utf8').trim().split('\n');
+
+  const reversedRoot = workspace('peek-same-sig-reversed');
+  const reversedLedger = path.join(reversedRoot, '.agents', 'harness-everything', 'errors');
+  for (const file of fs.readdirSync(pair.ledger)) {
+    if (file.endsWith('.md')) {
+      write(path.join(reversedLedger, file), fs.readFileSync(path.join(pair.ledger, file), 'utf8'));
+    }
+  }
+  write(path.join(reversedLedger, 'index.jsonl'), `${[...pairRows].reverse().join('\n')}\n`);
+
+  const duplicateIdRoot = workspace('peek-same-sig-dup-id');
+  const duplicateIdLedger = path.join(duplicateIdRoot, '.agents', 'harness-everything', 'errors');
+  for (const file of fs.readdirSync(pair.ledger)) {
+    if (file.endsWith('.md')) {
+      write(path.join(duplicateIdLedger, file), fs.readFileSync(path.join(pair.ledger, file), 'utf8'));
+    }
+  }
+  write(path.join(duplicateIdLedger, 'index.jsonl'), `${[pairRows[0], pairRows[0], pairRows[1]].join('\n')}\n`);
+
+  const atCap = buildSameSignatureRepo('peek-same-sig-cap-32', 32);
+  const overCap = buildSameSignatureRepo('peek-same-sig-over-33', 33);
+  const expected32 = Array.from({ length: 32 }, (_, idx) => `E-${String(idx + 1).padStart(4, '0')}`);
+
+  const actionEvent = { phase: 'action', tool: 'shell', command: 'git commit', outcome: { failed: 'unknown' } };
+  const failureEvent = {
+    phase: 'failure',
+    tool: 'shell',
+    command: 'git commit -m "Bad Subject"',
+    outcome: { failed: true, output: COMMITLINT_OUTPUT }
+  };
+
+  for (const implementation of [matcher, packagedMatcher]) {
+    assert.deepEqual(
+      implementation.peekRepoMatches({ workspaceRoot: pair.root, event: actionEvent }),
+      ['E-0001', 'E-0002'],
+      'peek returns both ids for two same-signature repo records at action'
+    );
+    assert.deepEqual(
+      implementation.peekRepoMatches({ workspaceRoot: pair.root, event: failureEvent }),
+      ['E-0001', 'E-0002'],
+      'peek returns both ids for two same-signature repo records at failure'
+    );
+    assert.deepEqual(
+      implementation.peekRepoMatches({ workspaceRoot: reversedRoot, event: actionEvent }),
+      ['E-0001', 'E-0002'],
+      'peek keeps deterministic id order regardless of index order'
+    );
+    assert.deepEqual(
+      implementation.peekRepoMatches({ workspaceRoot: duplicateIdRoot, event: actionEvent }),
+      ['E-0001', 'E-0002'],
+      'peek deduplicates repeated id rows'
+    );
+
+    const baselineDelivery = implementation.matchLedgerLessons(input({
+      workspaceRoot: single.root,
+      stateDir: stateDir('delivery-single'),
+      event: actionEvent
+    }));
+    const pairDelivery = implementation.matchLedgerLessons(input({
+      workspaceRoot: pair.root,
+      stateDir: stateDir('delivery-pair'),
+      event: actionEvent
+    }));
+    assert.deepEqual(pairDelivery?.ids, ['E-0001'], 'delivery still collapses same-signature records to one lesson');
+    assert.equal(pairDelivery?.text, baselineDelivery?.text, 'delivery text for same-signature pair is unchanged');
+    assert.ok(!pairDelivery?.text.includes('SAME_SIGNATURE_SECOND_LESSON_SENTINEL'),
+      'second same-signature lesson is not delivered');
+
+    const pairFailureDelivery = implementation.matchLedgerLessons(input({
+      workspaceRoot: pair.root,
+      stateDir: stateDir('delivery-pair-failure'),
+      event: failureEvent
+    }));
+    const baselineFailureDelivery = implementation.matchLedgerLessons(input({
+      workspaceRoot: single.root,
+      stateDir: stateDir('delivery-single-failure'),
+      event: failureEvent
+    }));
+    assert.deepEqual(pairFailureDelivery?.ids, ['E-0001'], 'failure delivery still collapses same-signature records');
+    assert.equal(pairFailureDelivery?.text, baselineFailureDelivery?.text, 'failure delivery text is unchanged');
+
+    assert.deepEqual(
+      implementation.peekRepoMatches({ workspaceRoot: atCap.root, event: actionEvent }),
+      expected32,
+      'peek returns all 32 unique ids up to the candidate bound'
+    );
+    assert.deepEqual(
+      implementation.peekRepoMatches({ workspaceRoot: overCap.root, event: actionEvent }),
+      [],
+      'peek enforces the 32-candidate bound by failing open above cap'
+    );
+  }
+});
