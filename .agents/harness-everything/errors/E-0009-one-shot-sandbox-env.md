@@ -175,6 +175,15 @@ episodes:
         change: null
         review: coordinator
         result: "A Codex (GPT-6-Luna xhigh) repair packet for #516 (P516-A2) ran 65+ minutes; its own `verify:all -- --fast` inside the sandbox did not finish within the 45-minute packet limit, so it reported `STATUS: BLOCKED` although the fix itself was RED->GREEN. The original P516-A also ran ~65 min. Repeats the existing lesson: packets should not ask sandboxed workers to run the full fast gate when the coordinator re-runs it outside the sandbox anyway."
+  - episode: 498-sandbox-fast-gate
+    feature: "#498 packets P498-A and P498-F (PR #531)"
+    date: 2026-11-25
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "Two packets asked sandboxed Codex workers to run `npm run verify:all -- --fast`; System One tests cannot bind 127.0.0.1 in the sandbox (EPERM). P498-A marked the gate UNCHECKED; P498-F reported `STATUS: BLOCKED` only because of that gate although its fix was RED->GREEN. The coordinator re-ran the gate outside the sandbox (5 PASS / 0 FAIL) in both cases."
 ---
 
 ## Cue
@@ -218,3 +227,4 @@ The default free runners `opencode/glm-5.3-flash-free` (deprecated) and `nvidia/
 - #453 (2026-11-24): coordinator zsh launcher failed with "bad substitution" on bash-only `${p^^}` and silently started no worker.
 - #453 packet P0 attempt 1 (2026-11-24): `agy -p` exited 0 with no report after headless auto-deny on `read_file`; fixed with `--settings '{"permissions":{"allow":["command(*)","read_file(*)"]}}'`.
 - PR #521 (merged as `ae7a0260`, 2026-11-25): #516 packets P516-A and P516-A2 each ran ~65+ min because P516-A2 ran `verify:all -- --fast` inside the sandbox past the 45-minute limit and reported `STATUS: BLOCKED` despite the fix being RED->GREEN.
+- #498 packets P498-A/P498-F (2026-11-25): sandbox fast-gate loopback EPERM again; coordinator re-ran it outside the sandbox, 5 PASS / 0 FAIL in both cases.
