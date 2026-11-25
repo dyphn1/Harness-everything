@@ -61,7 +61,7 @@ npm run test:plugin:submission
 
 OpenAI documents GitHub marketplace import for workspace administrators. The repository provides both `.agents/plugins/marketplace.json` and `.claude-plugin/marketplace.json`; the source entry resolves to `plugins/harness-everything/`.
 
-Use the repository URL as the source, leave Path empty so the marketplace is read from the repository root, and select the intended branch (normally `main`). In ChatGPT, use **Workspace settings > Plugins > Add > Import marketplace**, review the import results, and set the workspace installation policy. OpenAI documents automatic daily synchronization and a **Sync now** action for later refreshes.
+Use the repository URL as the source, leave Path empty so the marketplace is read from the repository root, and select the intended branch (normally `main`). In the OpenAI Admin Console, select the workspace and use **Plugins > Add > Import marketplace**. Save the import report with the source/ref and client version, set the installation policy, then install and invoke a representative skill from a fresh eligible member session. Use **Marketplaces > Sync now** after a branch update and retain the sync report and the updated skill result. OpenAI also documents automatic daily sync.
 
 This repository contains the marketplace/package artifacts and deterministic import-shape checks. It does not contain a managed-workspace import report or a fresh host smoke-test artifact, so those operations remain `Unknown` in the compatibility matrix.
 
@@ -74,7 +74,7 @@ The local package path is distinct from the general `--codex` installer. The gen
 The package tests prove the following repository-side contract:
 
 - the portable root manifest and `.codex-plugin` compatibility manifest agree on identity, version, interface, and hook entry point;
-- the root `skills/` tree contains exactly the 27 canonical skills;
+- the root `skills/` tree contains the canonical skills;
 - Windows and POSIX hook commands resolve through `PLUGIN_ROOT`;
 - session start emits the compact policy and prompt submission invokes invariant-first routing;
 - supported local `Bash` and `apply_patch` calls receive the packaged guards and state tracking;
@@ -93,13 +93,9 @@ Build the final upload from the synchronized package:
 npm run plugin:submission:build
 ```
 
-The generated ZIP contains only `skills/<name>/...` files from `plugins/harness-everything/skills/`. It does **not** include the local `.codex-plugin` lifecycle hooks, MCP definitions, or a fake app wrapper. The generated manifest records every path, byte count, file hash, and final bundle hash; repeated builds from the same revision must match.
+The generated ZIP has a portable root `plugin.json` and the synchronized `skills/<name>/...` tree. It excludes local lifecycle hooks, MCP definitions, and app wrappers. The generated checksum manifest records each file and the ZIP SHA-256. OpenAI documents a supported plugin manifest as an upload requirement. [Submission error reference](https://developers.openai.com/plugins/deploy/submission-errors#plugin-manifest-errors)
 
-The submission source files in [`../submission/openai/`](../submission/openai/) model the official review inputs: listing metadata, starter prompts, release notes, exactly five positive cases, and exactly three negative cases. Positive cases specify the prompt, expected skill/workflow behavior, expected result shape, and fixture/account data. Negative cases specify the prompt/scenario, expected refusal/clarification/safe fallback, and why completion is not appropriate.
-
-The official portal flow is: **Create plugin → Skills only → upload the final skill bundle → provide review cases and listing metadata → complete identity, availability, policy, and access requirements → submit for review → publish after approval**. The repository cannot complete verified identity, logo upload, availability selection, Apps Management write access, review, approval, or public-directory publication.
-
-Official documentation: [Submit a plugin](https://developers.openai.com/plugins/deploy/submission) and [Build plugins](https://developers.openai.com/plugins/build/plugins).
+The [public submission runbook](../submission/openai/README.md) covers the developer identity, ZIP upload, automated scans, and publication. It also links to the project smoke cases for a fresh session. Use the [OpenAI submission guide](https://developers.openai.com/plugins/deploy/submission) to confirm the portal requirements.
 
 ## Evidence boundary
 
@@ -109,10 +105,10 @@ The local plugin and public Skills-only artifact must not be conflated:
 | --- | --- | --- |
 | Portable/root plugin package | Manifest, tree, hook, and routing mechanism tests | Package shape and local mechanism are verified |
 | Managed workspace marketplace | Marketplace JSON and source-path checks | Import-ready repository artifact; live import remains unverified |
-| Public Skills-only ZIP | Deterministic builder and 5+3 review-input checks | Reproducible skills bundle; approval and live public behavior remain unverified |
+| Public Skills-only ZIP | Deterministic builder, portable manifest, and smoke-case inputs | Reproducible skills bundle; approval and live public behavior remain unverified |
 
 See the [platform capability matrix](platform-capabilities.md) for the complete ten-dimension status table and official source URLs.
 
 ## Publication smoke checklist
 
-Before public submission, run `plugin:sync`, both OpenAI package checks, and the platform compatibility check. Confirm all 26 skills are content-identical to canonical sources after EOL normalization, the ZIP is reproducible, public links are current, the publisher identity and Apps Management access are ready, and final reviewer-facing cases run against the exact submitted skills tree.
+Before public submission, run `plugin:sync`, both OpenAI package checks, and the platform compatibility check. Check that the packaged skills match canonical sources after EOL normalization and that the ZIP is reproducible. Confirm the publisher identity and portal permissions, and run the project smoke cases against the exact bundle being submitted.

@@ -18,7 +18,7 @@
     "Route this software task with Harness and use only the skills that help.",
     "Review this change and verify it with objective evidence before claiming completion."
   ],
-  "release_notes": "Initial public skills-only submission of Harness Everything. Includes 26 reusable engineering skills plus invariant-first routing and verification guidance. No remote MCP server, hosted backend, authentication, or external account is required by the plugin package.",
+  "release_notes": "Initial public skills-only submission of Harness Everything. Includes reusable engineering skills plus invariant-first routing and verification guidance. No remote MCP server, hosted backend, authentication, or external account is required by the plugin package.",
   "availability": {
     "selection": "manual_in_portal",
     "guidance": "Select only countries or regions where the publisher, support process, privacy notice, and terms are ready for users."

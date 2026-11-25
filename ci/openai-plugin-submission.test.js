@@ -48,8 +48,8 @@ assert.ok(listing.manual_requirements?.developer_identity, 'developer identity r
 assert.ok(listing.manual_requirements?.logo, 'logo upload reminder missing');
 assert.ok(listing.manual_requirements?.apps_management_write_access, 'Apps Management access reminder missing');
 
-assert.strictEqual(tests.positive.length, 5, 'OpenAI submission requires five positive test cases');
-assert.strictEqual(tests.negative.length, 3, 'OpenAI submission requires three negative test cases');
+assert.strictEqual(tests.positive.length, 5, 'maintain five positive smoke cases');
+assert.strictEqual(tests.negative.length, 3, 'maintain three negative smoke cases');
 const ids = new Set();
 for (const test of tests.positive) {
   assert.ok(test.id && !ids.has(test.id), `duplicate/missing test id: ${test.id}`);
@@ -82,20 +82,38 @@ try {
   assert.strictEqual(sha256(first), sha256(second), 'submission bundle must be deterministic');
 
   const manifest = JSON.parse(fs.readFileSync(first.replace(/\.zip$/, '.manifest.json'), 'utf8'));
-  const expectedFiles = filesUnder(path.join(PLUGIN, 'skills')).map(file => `skills/${file}`);
+  const expectedFiles = ['plugin.json', ...filesUnder(path.join(PLUGIN, 'skills')).map(file => `skills/${file}`)];
   assert.strictEqual(manifest.source, 'plugins/harness-everything/skills');
-  assert.ok(manifest.files.every(file => file.path.startsWith('skills/')), 'public bundle must contain only skills/ paths');
   assert.ok(manifest.files.every(file => !/(^|\/)(hooks|\.codex-plugin)(\/|$)/.test(file.path)), 'public bundle must exclude local hook package paths');
-  assert.ok(manifest.files.every(file => path.basename(file.path) !== 'plugin.json'), 'public bundle must exclude plugin manifests');
-  assert.deepStrictEqual(manifest.files.map(file => file.path), expectedFiles, 'bundle manifest must contain exactly packaged skill files');
+  assert.deepStrictEqual(manifest.files.map(file => file.path), expectedFiles, 'bundle must contain the root manifest and packaged skill files');
   assert.strictEqual(manifest.file_count, expectedFiles.length);
   assert.strictEqual(manifest.bundle_sha256, sha256(first));
 
   const zip = fs.readFileSync(first);
-  assert.strictEqual(zip.readUInt32LE(0), 0x04034b50, 'bundle must start with ZIP local-file signature');
+  let offset = 0;
+  for (const file of manifest.files) {
+    assert.strictEqual(zip.readUInt32LE(offset), 0x04034b50, file.path);
+    const size = zip.readUInt32LE(offset + 18);
+    const nameStart = offset + 30;
+    const nameEnd = nameStart + zip.readUInt16LE(offset + 26);
+    const dataStart = nameEnd + zip.readUInt16LE(offset + 28);
+    const data = zip.subarray(dataStart, dataStart + size);
+    assert.strictEqual(zip.toString('utf8', nameStart, nameEnd), file.path);
+    assert.strictEqual(size, file.bytes);
+    assert.strictEqual(crypto.createHash('sha256').update(data).digest('hex'), file.sha256);
+    if (file.path === 'plugin.json') {
+      const { extensions, ...identity } = portablePlugin;
+      assert.deepStrictEqual(JSON.parse(data), {
+        ...identity,
+        extensions: { 'com.openai': { interface: extensions['com.openai'].interface } },
+      });
+    }
+    offset = dataStart + size;
+  }
+  assert.strictEqual(zip.readUInt32LE(offset), 0x02014b50, 'no extra file entries before the central directory');
   assert.strictEqual(zip.readUInt32LE(zip.length - 22), 0x06054b50, 'bundle must end with ZIP EOCD signature');
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
 }
 
-console.log('OpenAI public submission verified: listing metadata, 5+3 review cases, and deterministic skills bundle.');
+console.log('OpenAI public submission verified: portable manifest, listing metadata, smoke cases, and deterministic skills bundle.');
