@@ -9,6 +9,17 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const entry = path.join(root, 'scripts', 'dispatch.js');
 const fixtureRunner = path.join(__dirname, 'fixtures', '468-dispatch', 'runner.js');
+const quotaFixtureDir = path.join(__dirname, 'fixtures', '468-dispatch');
+const thirdPartyPair = fs.readFileSync(path.join(quotaFixtureDir, 'agy-quota-direct-third-party.stderr'), 'utf8');
+const individualPair = fs.readFileSync(path.join(quotaFixtureDir, 'agy-quota-direct-individual.stderr'), 'utf8');
+const execIndividualLog = fs.readFileSync(path.join(quotaFixtureDir, 'agy-quota-exec-individual.log'), 'utf8');
+const execIndividualPair = execIndividualLog.replace(/^\[stderr\]\r?\n/, '');
+assert.ok(thirdPartyPair.startsWith('error: Third-party quota reached.') && thirdPartyPair.includes('AGY_ERROR: '));
+assert.ok(individualPair.startsWith('error: Individual quota reached.') && individualPair.includes('AGY_ERROR: '));
+assert.ok(execIndividualPair.startsWith('error: Individual quota reached.') && execIndividualPair.includes('AGY_ERROR: '),
+  'the managed execution fixture must retain the live Individual stderr shape');
+const [individualErrorLine, individualJsonLine] = individualPair.trimEnd().split(/\r?\n/);
+const retiredAgyQuotaLine = '429 RESOURCE_EXHAUSTED: Quota exceeded for model claude-sonnet-5-5-medium. Resets in 2h 15m.\n';
 const tempParent = process.env.TMPDIR || os.tmpdir();
 const rootReal = fs.realpathSync.native(root);
 const tempRelative = path.relative(rootReal, fs.realpathSync.native(path.resolve(tempParent)));
@@ -93,8 +104,20 @@ fs.appendFileSync(process.env.DISPATCH_FIXTURE_LOG, JSON.stringify({
   pid: process.pid,
 }) + '\\n');
 const quotaLine = '429 RESOURCE_EXHAUSTED: Quota exceeded for model claude-sonnet-5-5-medium. Resets in 2h 15m.\\n';
+const pairStderr = process.env.DISPATCH_FIXTURE_STDERR || '';
+const pairStdout = process.env.DISPATCH_FIXTURE_STDOUT || '';
 function hang() { setInterval(() => {}, 1000); }
-if (phase === 'readiness') {
+if (scenario === 'agy-quota-pair') {
+  if (pairStdout) process.stdout.write(pairStdout);
+  process.stderr.write(pairStderr);
+  process.exitCode = 3;
+} else if (scenario === 'agy-quota-pair-exit1') {
+  process.stderr.write(pairStderr);
+  process.exitCode = 1;
+} else if (scenario === 'agy-quota-pair-signal') {
+  process.stderr.write(pairStderr);
+  process.kill(process.pid, 'SIGTERM');
+} else if (phase === 'readiness') {
   if (scenario === 'timeout') hang();
   else if (scenario === 'ready') process.stdout.write('READY\\n');
   else if (scenario === 'ready-period') process.stdout.write('READY.\\n');
@@ -1470,29 +1493,129 @@ try {
     assert.equal(actualEvents[0].phase, 'readiness');
   });
 
-  check('A5 agy 429 RESOURCE_EXHAUSTED exit 3 -> RUNNER_QUOTA; other exit-3 shapes are NOT quota', () => {
-    const readyQuota = makeAgyCase('agy a5 ready quota');
-    const rq = jsonResponse(cli([...agyArgsFor(readyQuota, 'claude-sonnet-5-5-medium'), '--json'], readyQuota, { readiness: 'agy-quota' }), 13, 'RUNNER_QUOTA');
+  // I544: the retired single-line `429 RESOURCE_EXHAUSTED … Resets in …` positive is replaced by the
+  // captured diagnostic pair. Live-backed stderr, fixture exit status; see agy-quota-PROVENANCE.md.
+  check('A5 agy captured Third-party pair -> RUNNER_QUOTA at managed readiness with retained evidence', () => {
+    const ready = makeAgyCase('agy a5 third-party readiness');
+    const rq = jsonResponse(cli(
+      [...agyArgsFor(ready), '--assignment', managedAssignment(ready), '--admission-policy', defaultAdmissionPolicy, '--json'],
+      ready,
+      { readiness: 'agy-quota-pair', extraEnv: { DISPATCH_FIXTURE_STDERR: thirdPartyPair } },
+    ), 13, 'RUNNER_QUOTA');
     assert.equal(rq.phase, 'readiness');
-    assert.equal(events(readyQuota).length, 1);
-    assert.ok(fs.existsSync(rq.evidence.readinessLog));
+    assert.equal(events(ready).length, 1, 'readiness quota starts no execution');
+    assert.equal(rq.evidence.runLog, undefined);
+    const readyLog = fs.readFileSync(rq.evidence.readinessLog, 'utf8');
+    assert.ok(readyLog.includes('[stderr]'));
+    assert.ok(readyLog.includes('error: Third-party quota reached.'));
+    assert.ok(readyLog.includes('"status":"RESOURCE_EXHAUSTED"'));
+    assert.ok(readyLog.includes('"error_code":429'));
+    assert.equal(fs.existsSync(path.join(defaultAdmissionDir, 'agy-shared', 'slot-0.json')), false, 'slot released after readiness quota');
+  });
 
-    const execQuota = makeAgyCase('agy a5 exec quota');
-    const eq = jsonResponse(cli([...agyArgsFor(execQuota, 'claude-sonnet-5-5-medium'), '--json'], execQuota, { execution: 'agy-quota' }), 13, 'RUNNER_QUOTA');
+  check('A5 agy captured Individual pair -> RUNNER_QUOTA at managed execution with retained evidence', () => {
+    const exec = makeAgyCase('agy a5 individual execution');
+    managedRoot(exec);
+    const eq = jsonResponse(cli(
+      [...agyArgsFor(exec), '--assignment', managedAssignment(exec), '--admission-policy', defaultAdmissionPolicy, '--json'],
+      exec,
+      { execution: 'agy-quota-pair', extraEnv: { DISPATCH_FIXTURE_STDERR: execIndividualPair } },
+    ), 13, 'RUNNER_QUOTA');
     assert.equal(eq.phase, 'execution');
-    assert.equal(events(execQuota).length, 2);
-    assert.ok(fs.existsSync(eq.evidence.runLog));
+    assert.equal(events(exec).length, 2, 'one readiness and one execution; no retry');
+    const attempt = events(exec)[0].tmpdir;
+    assert.ok(fs.existsSync(attempt), 'attempt dir and evidence kept on quota failure');
+    assert.ok(isInside(attempt, eq.evidence.runLog));
+    const runLog = fs.readFileSync(eq.evidence.runLog, 'utf8');
+    assert.ok(runLog.includes('[stderr]'));
+    assert.ok(runLog.includes('error: Individual quota reached.'));
+    assert.ok(runLog.includes('"status":"RESOURCE_EXHAUSTED"'));
+    assert.equal(fs.existsSync(exec.report), false, 'quota execution created no fresh report');
+    assert.equal(fs.existsSync(path.join(defaultAdmissionDir, 'agy-shared', 'slot-0.json')), false, 'slot released after execution quota');
+  });
+
+  check('A5 agy direct Individual exit-3 pair -> RUNNER_QUOTA at both phases', () => {
+    // Direct Individual exit 3 (live-backed status) is classified at both phases too.
+    const directReady = makeAgyCase('agy a5 direct individual readiness');
+    const dr = jsonResponse(cli([...agyArgsFor(directReady), '--json'], directReady, {
+      readiness: 'agy-quota-pair', extraEnv: { DISPATCH_FIXTURE_STDERR: individualPair },
+    }), 13, 'RUNNER_QUOTA');
+    assert.equal(dr.phase, 'readiness');
+    assert.equal(events(directReady).length, 1);
+    const directExec = makeAgyCase('agy a5 direct individual execution');
+    const de = jsonResponse(cli([...agyArgsFor(directExec), '--json'], directExec, {
+      execution: 'agy-quota-pair', extraEnv: { DISPATCH_FIXTURE_STDERR: individualPair },
+    }), 13, 'RUNNER_QUOTA');
+    assert.equal(de.phase, 'execution');
+    assert.equal(events(directExec).length, 2);
+  });
+
+  check('A5 agy ambiguous, malformed, partial or unsupported diagnostics keep 12/15', () => {
+    const pair = (errorLine, jsonLine) => `${errorLine}\n${jsonLine}\n`;
+    const businessError = individualErrorLine.replace('Individual quota reached', 'Business quota reached');
+    const controls = [
+      ['unsupported pool', pair(businessError, individualJsonLine.replace('Individual quota reached', 'Business quota reached'))],
+      ['contradictory pools', pair(individualErrorLine, individualJsonLine.replace('Individual quota reached', 'Third-party quota reached'))],
+      ['duplicate error line', `${individualErrorLine}\n${individualErrorLine}\n${individualJsonLine}\n`],
+      ['duplicate envelope', `${individualErrorLine}\n${individualJsonLine}\n${individualJsonLine}\n`],
+      ['duplicate malformed envelope', `${individualErrorLine}\nAGY_ERROR: not-json\n${individualJsonLine}\n`],
+      ['malformed JSON', `${individualErrorLine}\nAGY_ERROR: {"status":"RESOURCE_EXHAUSTED"\n`],
+      ['string error_code', pair(individualErrorLine, individualJsonLine.replace('"error_code":429', '"error_code":"429"'))],
+      ['wrong status', pair(individualErrorLine, individualJsonLine.replace('"status":"RESOURCE_EXHAUSTED"', '"status":"QUOTA_EXCEEDED"'))],
+      ['generic 429', pair('429 Too Many Requests', individualJsonLine)],
+      ['quoted 429', pair('Quoted text: 429 RESOURCE_EXHAUSTED: Quota exceeded. Resets in 2h 15m.', individualJsonLine)],
+      ['retired single line', retiredAgyQuotaLine],
+      ['partial error line', `${individualErrorLine}\n`],
+      ['partial envelope', `${individualJsonLine}\n`],
+      ['wrong stream', individualJsonLine + '\n'],
+    ];
+    for (const [label, stderr] of controls) {
+      const readyTc = makeAgyCase(`agy a5 refusal ready ${label}`);
+      const readyRes = jsonResponse(cli([...agyArgsFor(readyTc), '--json'], readyTc, {
+        readiness: 'agy-quota-pair',
+        extraEnv: {
+          DISPATCH_FIXTURE_STDERR: stderr,
+          ...(label === 'wrong stream' ? { DISPATCH_FIXTURE_STDOUT: `${individualErrorLine}\n` } : {}),
+        },
+      }), 12, 'NOT_READY');
+      assert.equal(readyRes.phase, 'readiness', label);
+      assert.equal(events(readyTc).length, 1, label);
+
+      const execTc = makeAgyCase(`agy a5 refusal exec ${label}`);
+      const execRes = jsonResponse(cli([...agyArgsFor(execTc), '--json'], execTc, {
+        execution: 'agy-quota-pair',
+        extraEnv: {
+          DISPATCH_FIXTURE_STDERR: stderr,
+          ...(label === 'wrong stream' ? { DISPATCH_FIXTURE_STDOUT: `${individualErrorLine}\n` } : {}),
+        },
+      }), 15, 'RUN_FAILED');
+      assert.equal(execRes.phase, 'execution', label);
+      assert.equal(events(execTc).length, 2, label);
+    }
+
+    for (const [label, scenario, exitCode, code] of [
+      ['unsupported exit 1', 'agy-quota-pair-exit1', 12, 'NOT_READY'],
+      // Windows has no POSIX signals (E-0028): a self-SIGTERM is exit 1 with signal null there.
+      ...(process.platform === 'win32' ? [] : [['signalled child', 'agy-quota-pair-signal', 12, 'NOT_READY']]),
+    ]) {
+      const tc = makeAgyCase(`agy a5 ${label}`);
+      const res = jsonResponse(cli([...agyArgsFor(tc), '--json'], tc, {
+        readiness: scenario, extraEnv: { DISPATCH_FIXTURE_STDERR: thirdPartyPair },
+      }), exitCode, code);
+      assert.equal(res.phase, 'readiness', label);
+      assert.equal(events(tc).length, 1, label);
+    }
 
     for (const scenario of ['agy-exit3-generic', 'agy-exit3-bare-429', 'agy-exit3-no-reset', 'agy-exit3-quoted', 'agy-exit3-stdout', 'agy-exit1-quota']) {
       const tc = makeAgyCase(`agy a5 ready ${scenario}`);
-      const res = jsonResponse(cli([...agyArgsFor(tc, 'claude-sonnet-5-5-medium'), '--json'], tc, { readiness: scenario }), 12, 'NOT_READY');
+      const res = jsonResponse(cli([...agyArgsFor(tc), '--json'], tc, { readiness: scenario }), 12, 'NOT_READY');
       assert.equal(res.phase, 'readiness');
       assert.equal(events(tc).length, 1);
     }
 
     for (const scenario of ['agy-exit3-generic', 'agy-exit3-no-reset', 'agy-exit3-with-report', 'agy-exit1-quota']) {
       const tc = makeAgyCase(`agy a5 exec ${scenario}`);
-      const res = jsonResponse(cli([...agyArgsFor(tc, 'claude-sonnet-5-5-medium'), '--json'], tc, { execution: scenario }), 15, 'RUN_FAILED');
+      const res = jsonResponse(cli([...agyArgsFor(tc), '--json'], tc, { execution: scenario }), 15, 'RUN_FAILED');
       assert.equal(res.phase, 'execution');
       assert.equal(events(tc).length, 2);
     }

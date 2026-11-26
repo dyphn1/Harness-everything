@@ -14,7 +14,11 @@ const CODEX_EFFORTS = new Set(['low', 'medium', 'high', 'xhigh']);
 const AGY_SETTINGS = '{"permissions":{"allow":["command(*)","read_file(*)"]}}';
 const READINESS_TIMEOUT_MS = 120000;
 const EXECUTION_TIMEOUT_MS = 2700000;
-const AGY_QUOTA_LINE = /^(?:(?:Error|jetski):\s*)?429 RESOURCE_EXHAUSTED\b.+\bResets in [0-9A-Za-z][0-9A-Za-z :.,-]*$/;
+// I544: one diagnostic-pair recognizer shared by readiness and execution. The captured `error:` line
+// and its `AGY_ERROR` JSON companion must both be present, valid and describe the same supported pool.
+// Advice text, reset value and redacted identifier are deliberately not pinned.
+const AGY_QUOTA_ERROR_LINE = /^error: (Third-party|Individual) quota reached\.\s+.+\s+Resets in .+\.$/;
+const AGY_ERROR_LINE = /^AGY_ERROR: (\{.*\})$/;
 
 // #466 D-gate. Managed mode is entered only by --assignment <sidecar JSON>. C8 owns admission
 // (one runner-profile decision + this registry); the assignment owns which actor runs each gate.
@@ -554,9 +558,19 @@ function stripAnsi(text) {
 function agyQuotaDiagnostic(result) {
   if (result.status !== 3 || result.signal || result.error) return null;
   const lines = stripAnsi(result.stderr).split(/\r?\n/);
-  return lines.some(line => AGY_QUOTA_LINE.test(line))
-    ? { code: 'RUNNER_QUOTA', message: 'Select an authorized runner or model with available quota.' }
-    : null;
+  const errors = lines.filter(line => AGY_QUOTA_ERROR_LINE.test(line));
+  const envelopes = lines.filter(line => line.startsWith('AGY_ERROR:'));
+  if (errors.length !== 1 || envelopes.length !== 1) return null;
+  const pool = AGY_QUOTA_ERROR_LINE.exec(errors[0])[1];
+  let payload;
+  try {
+    payload = JSON.parse(AGY_ERROR_LINE.exec(envelopes[0])?.[1] ?? '');
+  } catch {
+    return null;
+  }
+  if (!isPlainObject(payload) || payload.status !== 'RESOURCE_EXHAUSTED' || payload.error_code !== 429) return null;
+  if (typeof payload.short_error !== 'string' || !payload.short_error.includes(`${pool} quota reached.`)) return null;
+  return { code: 'RUNNER_QUOTA', message: 'Select an authorized runner or model with available quota.' };
 }
 
 function readinessDiagnostic(runner, result) {
