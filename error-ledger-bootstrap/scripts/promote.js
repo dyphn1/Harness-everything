@@ -195,17 +195,139 @@ function harnessTool(harnessInput) {
   catch (error) {
     problem(`Harness checkout cannot resolve js-yaml; install its Node dependencies and retry with that checkout (${error.message})`);
   }
-  return script;
+  return { root, syncScript: script };
 }
 
-function durableSources(candidate) {
+function localStoreTool(harnessRoot) {
+  const file = path.join(harnessRoot, 'hooks', 'scripts', 'lib', 'local-errors.js');
+  try {
+    const store = require(file);
+    if (typeof store.resolveWorkspaceKey !== 'function' || typeof store.listRecords !== 'function' ||
+        typeof store.validateMatch !== 'function') throw new Error('local-store reader contract is incomplete');
+    return store;
+  } catch (_) {
+    problem('local-store promotion requires hooks/scripts/lib/local-errors.js in the trusted Harness checkout');
+  }
+}
+
+function workspaceRef(workspaceKey) {
+  return `w-local-${hash(workspaceKey)}`;
+}
+
+function localStoreRef(workspaceKey, provisionalId) {
+  return `p-local-${hash(JSON.stringify([workspaceKey, provisionalId]))}`;
+}
+
+function validateLocalLead(report, candidate, approval, targetRoot, harnessRoot) {
+  const localSources = Array.isArray(candidate.sources)
+    ? candidate.sources.filter(source => source && source.type === 'local-store') : [];
+  if (!localSources.length) return null;
+
+  const bindings = Array.isArray(report.sources)
+    ? report.sources.filter(source => source && source.type === 'local-store') : [];
+  if (bindings.length !== 1 || bindings[0].origin !== 'workspace' || bindings[0].status !== 'used') {
+    problem('local-store report must contain one used workspace binding');
+  }
+  const binding = bindings[0];
+  if (binding.destination === 'unknown' || !['harness', 'project'].includes(binding.destination) ||
+      !['harness', 'project'].includes(approval.destination)) {
+    problem('local-store promotion requires a known harness or project destination');
+  }
+  if (binding.destination !== approval.destination ||
+      localSources.some(source => source.destination !== binding.destination)) {
+    problem('approved destination does not match the local-store report destination');
+  }
+  if (candidate.local?.evidenceReadiness !== 'needs-evidence' ||
+      candidate.local?.dedupe?.status !== 'none' || candidate.local?.dedupe?.newClassEligible !== true ||
+      !Array.isArray(candidate.local?.dedupe?.classIds) || candidate.local.dedupe.classIds.length !== 0) {
+    problem('local-store candidate is not eligible under its scanned exact-dedupe result');
+  }
+
+  const store = localStoreTool(harnessRoot);
+  let workspaceKey;
+  try { workspaceKey = store.resolveWorkspaceKey({ workspaceRoot: targetRoot }); }
+  catch (_) { problem('cannot resolve the local-store workspace for the canonical --target'); }
+  if (!/^w-local-[a-f0-9]{64}$/.test(binding.workspaceRef || '') || binding.workspaceRef !== workspaceRef(workspaceKey)) {
+    problem('local-store report workspace binding does not match the canonical --target');
+  }
+
+  let records;
+  try { records = store.listRecords({ workspaceRoot: targetRoot, workspaceKey }); }
+  catch (_) { problem('cannot read local-store records for the canonical --target'); }
+  const seen = new Set();
+  const matchedRecords = [];
+  for (const source of localSources) {
+    if (typeof source.ref !== 'string' || !/^p-local-[a-f0-9]{64}$/.test(source.ref) ||
+        source.signature !== candidate.signature || seen.has(source.ref)) {
+      problem('local-store candidate contains an invalid or duplicate opaque reference');
+    }
+    seen.add(source.ref);
+    const matches = records.filter(record => localStoreRef(workspaceKey, record.provisionalId) === source.ref);
+    if (matches.length !== 1 || matches[0].workspaceKey !== workspaceKey ||
+        matches[0].destination !== binding.destination || matches[0].signature !== candidate.signature ||
+        matches[0].kind !== source.kind) {
+      problem('local-store candidate reference is unavailable or does not match its report binding');
+    }
+    matchedRecords.push(matches[0]);
+  }
+  return { store, records: matchedRecords };
+}
+
+function hasTargetCommit(targetRoot, sha) {
+  const result = childProcess.spawnSync('git', ['-C', targetRoot, 'cat-file', '-e', `${sha}^{commit}`], {
+    env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1' },
+    stdio: 'ignore'
+  });
+  return !result.error && result.status === 0;
+}
+
+function durableSources(candidate, targetRoot, verifyTarget = false) {
   const sources = new Set();
   for (const source of Array.isArray(candidate.sources) ? candidate.sources : []) {
-    if (source && ['git', 'doc'].includes(source.type) && typeof source.sha === 'string' && COMMIT.test(source.sha)) {
+    if (source && ['git', 'doc'].includes(source.type) && typeof source.sha === 'string' &&
+        COMMIT.test(source.sha) && (!verifyTarget || hasTargetCommit(targetRoot, source.sha))) {
       sources.add(`commit ${source.sha.toLowerCase()}`);
     }
   }
   return [...sources].sort();
+}
+
+function canonicalMatch(match, store) {
+  const validated = store.validateMatch(match);
+  const normalized = {};
+  for (const phase of ['actions', 'failures']) {
+    if (!validated[phase]) continue;
+    normalized[phase] = validated[phase].map(rule => ({
+      ...rule,
+      ...(rule.diagnostics ? { diagnostics: [...rule.diagnostics].sort() } : {})
+    })).sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  }
+  return JSON.stringify(normalized);
+}
+
+function assertFreshDedupe(context) {
+  let rendered;
+  try {
+    const sync = require(context.syncScript);
+    if (typeof sync.render !== 'function') throw new Error('trusted errors-sync does not expose its renderer');
+    rendered = sync.render(context.targetRoot);
+  } catch (_) {
+    problem('destination ledger cannot be read safely for exact dedupe');
+  }
+  const current = indexState(context.index);
+  if (!current.bytes || current.bytes.toString('utf8') !== rendered) {
+    problem('destination ledger index is stale or unavailable; refresh it and rescan before promotion');
+  }
+
+  const signatures = new Set([context.candidate.signature, context.approval.record.signature]);
+  const rules = new Set(context.localLead.records.filter(record => record.match)
+    .map(record => canonicalMatch(record.match, context.localLead.store)));
+  const rows = rendered.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
+  for (const row of rows) {
+    if (signatures.has(row.signature) || (row.match && rules.has(canonicalMatch(row.match, context.localLead.store)))) {
+      problem('destination ledger contains an exact duplicate class; rescan and obtain fresh approval');
+    }
+  }
 }
 
 function assertApprovalUnused(errorsDir, approvalHash) {
@@ -224,10 +346,10 @@ function yaml(value) {
   return JSON.stringify(value);
 }
 
-function recordText(approval, candidate, id, reportHash, approvalHash) {
+function recordText(approval, candidate, id, reportHash, approvalHash, targetRoot, verifyTarget) {
   const record = approval.record;
   const sources = [...new Set([
-    ...durableSources(candidate),
+    ...durableSources(candidate, targetRoot, verifyTarget),
     ...record.sites.map(site => `repo/${site.replace(/\\/g, '/')}`)
   ])].sort();
   return [
@@ -338,9 +460,18 @@ function preflight(options) {
   if (!samePath(targetRoot, approval.targetRoot)) problem('approval targetRoot does not match the resolved --target');
   validateSites(candidate.sites, targetRoot, 'selected report candidate sites');
   validateSites(approval.record.sites, targetRoot, 'approved record sites');
-  if (!durableSources(candidate).length) problem('selected report candidate has no durable source evidence');
+  const hasLocalSource = Array.isArray(candidate.sources) &&
+    candidate.sources.some(source => source && source.type === 'local-store');
+  let harness = hasLocalSource ? harnessTool(options.harness) : null;
+  const localLead = hasLocalSource
+    ? validateLocalLead(report, candidate, approval, targetRoot, harness.root) : null;
+  if (!durableSources(candidate, targetRoot, Boolean(localLead)).length) {
+    problem(localLead
+      ? 'selected report candidate has no verified durable source evidence in the target repository'
+      : 'selected report candidate has no durable source evidence');
+  }
+  if (!harness) harness = harnessTool(options.harness);
   const { errorsDir, index } = directoryInfo(targetRoot);
-  const syncScript = harnessTool(options.harness);
   const lockPath = path.join(errorsDir, LOCK);
   try {
     fs.lstatSync(lockPath);
@@ -354,7 +485,10 @@ function preflight(options) {
   const next = nextId(errorsDir, index);
   const destination = checkDestination(errorsDir, next.id, approval.record.signature, lockPath);
   assertApprovalUnused(errorsDir, approvalHash);
-  return { approval, candidate, targetRoot, errorsDir, index, syncScript, lockPath, destination, reportHash, approvalHash };
+  return {
+    approval, candidate, targetRoot, errorsDir, index, syncScript: harness.syncScript,
+    localLead, lockPath, destination, reportHash, approvalHash
+  };
 }
 
 function runSync(script, targetRoot, check) {
@@ -519,10 +653,12 @@ function promote(context) {
 
     beforeNames = fs.readdirSync(context.errorsDir).filter(name => name !== LOCK).sort();
     saved = savedIndex(context.index);
+    if (context.localLead) assertFreshDedupe(context);
     assertApprovalUnused(context.errorsDir, context.approvalHash);
     const next = nextId(context.errorsDir, context.index);
     destination = checkDestination(context.errorsDir, next.id, context.approval.record.signature, context.lockPath);
-    const text = recordText(context.approval, context.candidate, next.id, context.reportHash, context.approvalHash);
+    const text = recordText(context.approval, context.candidate, next.id, context.reportHash, context.approvalHash,
+      context.targetRoot, Boolean(context.localLead));
     let recordFd;
     try {
       recordFd = fs.openSync(destination.destination, 'wx', 0o644);

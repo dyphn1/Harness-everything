@@ -25,6 +25,19 @@ episodes:
         change: "Merged `origin/main` into PR #520's branch"
         review: "hosted CI doc-governance job on PR #520"
         result: "Next run passed; PR #520 merged as `687909c7`."
+  - episode: 531-release-commit-stale-pr-base
+    feature: "PR #531 (doc-governance check after chore(release): 1.1.1)"
+    date: 2026-11-25
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "hosted CI doc-governance job on PR #531"
+        result: "Release `chore(release): 1.1.1` (`7773f3cb`) landed on main after PR #531's branch was cut from `d2c63df5`. doc-governance returned REVIEW_REQUIRED; the only changed trustSurface path was package.json (the version)."
+      - round: 1
+        change: "Merged `origin/main` into PR #531's branch (`4b08ef10`)"
+        review: "hosted CI doc-governance job on PR #531"
+        result: "Next run passed; PR #531 merged as `c5c36c34`. Episode closed."
 ---
 
 ## Cue
@@ -44,3 +57,4 @@ While PR #520 was open, a `semantic-release` commit (`chore(release): 1.0.0`, `a
 
 - PR #520 (merged as `687909c7`); `chore(release): 1.0.0` (`a4a25194`).
 - Related: E-0030 covers a stale local checkout running a merged CLI tool; this record covers a stale open PR base after a commit lands on `main`.
+- PR #531 (merged as `c5c36c34`): `chore(release): 1.1.1` (`7773f3cb`); base updated in `4b08ef10`.
