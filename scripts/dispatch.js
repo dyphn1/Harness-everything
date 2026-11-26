@@ -26,8 +26,18 @@ const GATE_REGISTRY = new Map([
   ['npm run test:references', 'any'],
   ['npm run test:portability', 'any'],
 ]);
-const FOCUSED_NODE_TEST = /^node --test [A-Za-z0-9_./-]+\.js$/;
+const FOCUSED_NODE_TEST_PREFIX = 'node --test ';
+const FOCUSED_NODE_TEST_SEGMENT = /^[A-Za-z0-9_.-]+$/;
 const GATE_ACTORS = new Set(['worker', 'coordinator']);
+
+function isFocusedNodeTest(id) {
+  if (!id.startsWith(FOCUSED_NODE_TEST_PREFIX)) return false;
+  const operand = id.slice(FOCUSED_NODE_TEST_PREFIX.length);
+  if (!operand.endsWith('.js') || operand.startsWith('/')) return false;
+  const segments = operand.split('/');
+  if (segments.some(seg => !seg || seg === '.' || seg === '..' || !FOCUSED_NODE_TEST_SEGMENT.test(seg))) return false;
+  return segments.at(-1).length > 3;
+}
 
 // The single runner-profile decision: codex runs `-s workspace-write` and agy requests `--sandbox`
 // (not treated as an unsandboxed loopback-capable profile). Only opencode is unsandboxed.
@@ -37,7 +47,7 @@ function runnerProfile(runner) {
 
 function gateRequirement(id) {
   if (GATE_REGISTRY.has(id)) return GATE_REGISTRY.get(id);
-  return FOCUSED_NODE_TEST.test(id) && !id.includes('..') ? 'any' : null;
+  return isFocusedNodeTest(id) ? 'any' : null;
 }
 
 function isPlainObject(value) {
@@ -154,14 +164,25 @@ function isGitRoot(directory) {
 function canonicalFuturePath(file) {
   let ancestor = path.resolve(file);
   const suffix = [];
-  while (!fs.existsSync(ancestor)) {
-    const parent = path.dirname(ancestor);
-    if (parent === ancestor) break;
-    suffix.unshift(path.basename(ancestor));
-    ancestor = parent;
+  while (true) {
+    try {
+      fs.lstatSync(ancestor);
+    } catch (cause) {
+      if (cause?.code === 'ENOENT') {
+        const parent = path.dirname(ancestor);
+        if (parent === ancestor) break;
+        suffix.unshift(path.basename(ancestor));
+        ancestor = parent;
+        continue;
+      }
+      return null;
+    }
+    const canonicalAncestor = realPath(ancestor);
+    if (!canonicalAncestor) return null;
+    return path.resolve(canonicalAncestor, ...suffix);
   }
-  const canonicalAncestor = realPath(ancestor);
-  return canonicalAncestor ? path.resolve(canonicalAncestor, ...suffix) : path.resolve(file);
+  const canonicalRoot = realPath(ancestor);
+  return canonicalRoot ? path.resolve(canonicalRoot, ...suffix) : path.resolve(file);
 }
 
 function gitAncestor(directory) {
@@ -184,6 +205,9 @@ function validateExternalDir(value, onFail, label) {
     onFail(`${label} must be an absolute path outside every Git repository or worktree`);
   }
   const canonical = canonicalFuturePath(value);
+  if (!canonical) {
+    onFail(`${label} cannot be resolved (dangling symlink or unresolved symlink chain)`);
+  }
   if (fs.existsSync(value) && !fs.statSync(value).isDirectory()) {
     onFail(`${label} must be a directory outside every Git repository or worktree`);
   }
@@ -251,28 +275,6 @@ function loadAdmissionPolicy(file, worktree, scratch, runner, model) {
   return { dir: dirInfo.resolved, pool: selectedPool, cap: pools.get(selectedPool) };
 }
 
-function isPidAlive(pid) {
-  if (!Number.isSafeInteger(pid) || pid <= 0) return true; // fail-closed
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (cause) {
-    // Only ESRCH proves absence; EPERM (another user/context) counts as alive.
-    return cause?.code !== 'ESRCH';
-  }
-}
-
-function slotRecordDead(raw) {
-  let parsed;
-  try { parsed = JSON.parse(raw); } catch { return false; } // incomplete/corrupt -> fail-closed
-  if (!isPlainObject(parsed)) return false;
-  if (!Number.isSafeInteger(parsed.holderPid) || parsed.holderPid <= 0) return false;
-  if (parsed.childPid !== null && (!Number.isSafeInteger(parsed.childPid) || parsed.childPid <= 0)) return false;
-  if (isPidAlive(parsed.holderPid)) return false;
-  if (parsed.childPid !== null && isPidAlive(parsed.childPid)) return false;
-  return true;
-}
-
 function createSlotFile(slotPath, pool, slot) {
   const record = {
     schemaVersion: 1,
@@ -286,6 +288,9 @@ function createSlotFile(slotPath, pool, slot) {
   return { ...record, slotPath, released: false };
 }
 
+// #466 F1: automatic stale-slot reclamation is disabled for the pilot. Any existing slot file
+// (live, abandoned, corrupt, or indeterminate) counts as occupied until the normal owner releases
+// it or the coordinator clears it with the pool quiesced and holder/child confirmed absent.
 function acquireAdmissionSlot(admission) {
   const poolDir = path.join(admission.dir, admission.pool);
   fs.mkdirSync(poolDir, { recursive: true });
@@ -296,41 +301,6 @@ function acquireAdmissionSlot(admission) {
   }
   for (let slot = 0; slot < admission.cap; slot += 1) {
     const slotPath = path.join(poolDir, `slot-${slot}.json`);
-    try {
-      return createSlotFile(slotPath, admission.pool, slot);
-    } catch (cause) {
-      if (cause?.code !== 'EEXIST') throw cause;
-    }
-    let raw;
-    try {
-      raw = fs.readFileSync(slotPath, 'utf8');
-    } catch (cause) {
-      if (cause?.code === 'ENOENT') {
-        try { return createSlotFile(slotPath, admission.pool, slot); } catch (retryCause) {
-          if (retryCause?.code !== 'EEXIST') throw retryCause;
-        }
-      }
-      continue;
-    }
-    if (!slotRecordDead(raw)) continue;
-    const reclaimPath = `${slotPath}.reclaim-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-    try {
-      fs.renameSync(slotPath, reclaimPath);
-    } catch (cause) {
-      if (cause?.code === 'ENOENT') {
-        try { return createSlotFile(slotPath, admission.pool, slot); } catch (retryCause) {
-          if (retryCause?.code !== 'EEXIST') throw retryCause;
-        }
-      }
-      continue;
-    }
-    let reclaimedRaw = '';
-    try { reclaimedRaw = fs.readFileSync(reclaimPath, 'utf8'); } catch {}
-    if (!slotRecordDead(reclaimedRaw)) {
-      try { fs.renameSync(reclaimPath, slotPath); } catch {}
-      continue;
-    }
-    try { fs.unlinkSync(reclaimPath); } catch {}
     try {
       return createSlotFile(slotPath, admission.pool, slot);
     } catch (cause) {
@@ -382,6 +352,7 @@ function existsOrSymlink(file) {
 
 function worktreeRelativePath(worktree, target, label) {
   const canonical = canonicalFuturePath(target);
+  if (!canonical) fail(10, 'INVALID_INPUT', 'input', `${label} cannot be resolved inside --worktree for agy`);
   const rel = path.relative(worktree, canonical);
   if (!rel || rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) {
     fail(10, 'INVALID_INPUT', 'input', `${label} must be inside --worktree for agy`);

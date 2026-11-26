@@ -1029,6 +1029,57 @@ try {
     });
   }
 
+  // #466 F4: focused node --test operand must be repo-relative and within the supported lexical path grammar.
+  for (const [label, id] of [
+    ['absolute POSIX', 'node --test /tmp/outside-repo.js'],
+    ['POSIX UNC', 'node --test //server/share/outside.js'],
+    ['Windows drive slash', 'node --test C:/outside/test.js'],
+    ['Windows drive backslash', 'node --test C:\\outside\\test.js'],
+    ['Windows UNC backslash', 'node --test \\\\server\\share\\outside.js'],
+    ['leading traversal', 'node --test ../outside.js'],
+    ['mid-path traversal', 'node --test ci/../outside.js'],
+    ['dot segment', 'node --test ./ci/outside.js'],
+    ['empty segment', 'node --test ci//outside.js'],
+    ['bare extension', 'node --test .js'],
+  ]) {
+    check(`F4 invalid focused node-test operand (${label}) -> GATE_ASSIGNMENT_INVALID on dry-run and normal dispatch`, () => {
+      for (const dryRun of [true, false]) {
+        const testCase = makeCase(`f4 ${label} ${dryRun ? 'dry' : 'live'}`);
+        const admissionDir = path.join(fixtureRoot, `f4-admission-${caseNumber}`);
+        const policy = writeAdmissionPolicy({
+          schemaVersion: 1,
+          dir: admissionDir,
+          pools: { 'codex-f4': { cap: 1 } },
+          routes: [{ runner: 'codex', model: 'fixture/codex-model', pool: 'codex-f4' }],
+        });
+        const assignment = writeAssignment(testCase, { schemaVersion: 1, gates: [{ id, actor: 'worker' }] });
+        const args = [...managedArgs(testCase, assignment, 'codex', policy), ...(dryRun ? ['--dry-run'] : []), '--json'];
+        const response = jsonResponse(cli(args, testCase), 19, 'GATE_ASSIGNMENT_INVALID');
+        assert.equal(response.phase, 'gate');
+        assertRefusedBeforeSpawn(testCase);
+        assert.equal(fs.existsSync(admissionDir), false, 'refusal must precede admission reservation');
+      }
+    });
+  }
+
+  check('F4 positive control: repo-relative focused node-test operands + coordinator verify:all accepted', () => {
+    const testCase = makeCase('f4 positive');
+    const assignment = writeAssignment(testCase, {
+      schemaVersion: 1,
+      gates: [
+        { id: 'node --test ci/mechanism-468-dispatch-cli.test.js', actor: 'worker' },
+        { id: 'node --test root-test.js', actor: 'worker' },
+        { id: 'verify:all', actor: 'coordinator' },
+      ],
+    });
+    const dry = jsonResponse(cli([...managedArgs(testCase, assignment), '--dry-run', '--json'], testCase), 0, 'DRY_RUN_OK');
+    assert.deepEqual(dry.gates, {
+      worker: ['node --test ci/mechanism-468-dispatch-cli.test.js', 'node --test root-test.js'],
+      coordinator: ['verify:all'],
+    });
+    assertRefusedBeforeSpawn(testCase);
+  });
+
   for (const gate of ['verify:all', 'verify:all --fast']) {
     check(`G5 coordinator "${gate}" + focused worker checks -> one C8 attempt, checked report, no coordinator gate run`, () => {
       const testCase = makeCase('gate coordinator');
@@ -1123,6 +1174,82 @@ try {
     direct.scratch = link;
     jsonResponse(runManaged(direct), 11, 'UNSAFE_SCRATCH');
     assertNoRunner(direct);
+  });
+
+  // #466 F3: dangling symlink or unresolved symlink chain at root or ancestor refuses before any writes or slot creation.
+  check('F3 dangling symlink and unresolved chain for --scratch and admission.dir -> refused in dry-run and normal dispatch', () => {
+    const danglingIntoRepo = path.join(fixtureRoot, `f3-dangling-repo-${caseNumber}`);
+    const danglingExternal = path.join(fixtureRoot, `f3-dangling-ext-${caseNumber}`);
+    const chainHop2 = path.join(fixtureRoot, `f3-chain-hop2-${caseNumber}`);
+    const chainHop1 = path.join(fixtureRoot, `f3-chain-hop1-${caseNumber}`);
+    const linkType = process.platform === 'win32' ? 'junction' : 'dir';
+    fs.symlinkSync(path.join(worktree, 'nonexistent-sub'), danglingIntoRepo, linkType);
+    fs.symlinkSync(path.join(fixtureRoot, 'nonexistent-ext-target'), danglingExternal, linkType);
+    fs.symlinkSync(path.join(worktree, 'nonexistent-chain-target'), chainHop2, linkType);
+    fs.symlinkSync(chainHop2, chainHop1, linkType);
+
+    const badRoots = [
+      ['dangling-into-repo root', danglingIntoRepo],
+      ['dangling-into-repo descendant', path.join(danglingIntoRepo, 'child')],
+      ['dangling-external root', danglingExternal],
+      ['dangling-external descendant', path.join(danglingExternal, 'child')],
+      ['unresolved-chain root', chainHop1],
+      ['unresolved-chain descendant', path.join(chainHop1, 'child')],
+    ];
+
+    for (const [label, badPath] of badRoots) {
+      for (const dryRun of [true, false]) {
+        // Scratch refusal: 11 UNSAFE_SCRATCH before admission slot, scratch, report, or child creation.
+        const sc = makeCase(`f3 scratch ${label} ${dryRun ? 'dry' : 'live'}`);
+        sc.scratch = badPath;
+        const freshAdmissionDir = path.join(fixtureRoot, `f3-sc-adm-${caseNumber}`);
+        const policy = writeAdmissionPolicy({
+          schemaVersion: 1,
+          dir: freshAdmissionDir,
+          pools: { 'codex-f3': { cap: 1 } },
+          routes: [{ runner: 'codex', model: 'fixture/codex-model', pool: 'codex-f3' }],
+        });
+        const scArgs = [...managedArgs(sc, managedAssignment(sc), 'codex', policy), ...(dryRun ? ['--dry-run'] : []), '--json'];
+        const scRes = jsonResponse(cli(scArgs, sc), 11, 'UNSAFE_SCRATCH');
+        assert.equal(scRes.phase, 'validation', `scratch ${label} dry=${dryRun}`);
+        assertNoRunner(sc);
+        assert.equal(fs.existsSync(sc.report), false);
+        assert.equal(fs.existsSync(freshAdmissionDir), false, `scratch ${label} dry=${dryRun}: must not create admission dir`);
+
+        // Admission dir refusal: 21 ADMISSION_POLICY_INVALID before slot, scratch, report, or child creation.
+        const ac = makeCase(`f3 admission ${label} ${dryRun ? 'dry' : 'live'}`);
+        const badPolicy = writeAdmissionPolicy({
+          schemaVersion: 1,
+          dir: badPath,
+          pools: { 'codex-f3': { cap: 1 } },
+          routes: [{ runner: 'codex', model: 'fixture/codex-model', pool: 'codex-f3' }],
+        });
+        const acArgs = [...managedArgs(ac, managedAssignment(ac), 'codex', badPolicy), ...(dryRun ? ['--dry-run'] : []), '--json'];
+        const acRes = jsonResponse(cli(acArgs, ac), 21, 'ADMISSION_POLICY_INVALID');
+        assert.equal(acRes.phase, 'admission', `admission ${label} dry=${dryRun}`);
+        assertNoRunner(ac);
+        assertNoScratchOrReport(ac);
+      }
+    }
+
+    // Positive controls: safe external root and non-existing directory under a safe real parent.
+    const safeParent = path.join(fixtureRoot, `f3-safe-parent-${caseNumber}`);
+    fs.mkdirSync(safeParent, { recursive: true });
+    const posCase = makeCase('f3 positive non-existing under safe parent');
+    posCase.scratch = path.join(safeParent, 'new-scratch-child');
+    const posAdmissionDir = path.join(safeParent, 'new-admission-child');
+    const posPolicy = writeAdmissionPolicy({
+      schemaVersion: 1,
+      dir: posAdmissionDir,
+      pools: { 'codex-f3': { cap: 1 } },
+      routes: [{ runner: 'codex', model: 'fixture/codex-model', pool: 'codex-f3' }],
+    });
+    const posDry = jsonResponse(cli([...managedArgs(posCase, managedAssignment(posCase), 'codex', posPolicy), '--dry-run', '--json'], posCase), 0, 'DRY_RUN_OK');
+    assert.deepEqual(posDry.admission, { pool: 'codex-f3', cap: 1 });
+    assert.equal(fs.existsSync(posCase.scratch), false);
+    assert.equal(fs.existsSync(posAdmissionDir), false);
+    const posLive = jsonResponse(cli([...managedArgs(posCase, managedAssignment(posCase), 'codex', posPolicy), '--json'], posCase), 0, 'DONE');
+    assert.deepEqual(posLive.admission, { pool: 'codex-f3', cap: 1, slot: 0 });
   });
 
   check('S4 two concurrent managed attempts on one root -> distinct attempt dirs', () => {
@@ -1626,30 +1753,177 @@ try {
     });
   }
 
-  check('R6 stale slot whose holder and child pids are dead -> reclaimed', () => {
-    const tc = makeCase('admission r6 stale');
+  check('R6 abandoned slot whose holder and child pids are dead -> treated as occupied (not reclaimed); independent pool remains eligible', () => {
+    const tc = makeCase('admission r6 stale occupied');
     const admissionDir = path.join(fixtureRoot, `admission-r6-${caseNumber}`);
     const poolDir = path.join(admissionDir, 'pool-r6');
     fs.mkdirSync(poolDir, { recursive: true });
     const deadHolder = deadPid();
     const deadChild = deadPid();
-    fs.writeFileSync(path.join(poolDir, 'slot-0.json'), JSON.stringify({
+    const slotFile = path.join(poolDir, 'slot-0.json');
+    const abandonedPayload = JSON.stringify({
       schemaVersion: 1,
       pool: 'pool-r6',
       slot: 0,
       holderPid: deadHolder,
       childPid: deadChild,
       startedAt: '2026-11-26T00:00:00.000Z',
-    }) + '\n');
+    }) + '\n';
+    fs.writeFileSync(slotFile, abandonedPayload);
     const policy = writeAdmissionPolicy({
       schemaVersion: 1,
       dir: admissionDir,
-      pools: { 'pool-r6': { cap: 1 } },
-      routes: [{ runner: 'codex', model: 'fixture/codex-model', pool: 'pool-r6' }],
+      pools: {
+        'pool-r6': { cap: 1 },
+        'pool-r6-other': { cap: 1 },
+      },
+      routes: [
+        { runner: 'codex', model: 'fixture/codex-model', pool: 'pool-r6' },
+        { runner: 'opencode', model: 'fixture/opencode-model', pool: 'pool-r6-other' },
+      ],
     });
-    const res = jsonResponse(cli([...managedArgs(tc, managedAssignment(tc), 'codex', policy), '--json'], tc), 0, 'DONE');
-    assert.deepEqual(res.admission, { pool: 'pool-r6', cap: 1, slot: 0 });
-    assert.deepEqual(poolSlotFiles(admissionDir, 'pool-r6'), [], 'reclaimed slot released after DONE');
+    const res = jsonResponse(cli([...managedArgs(tc, managedAssignment(tc), 'codex', policy), '--json'], tc), 22, 'ADMISSION_CAP_REACHED');
+    assert.equal(res.phase, 'admission');
+    assertRefusedBeforeSpawn(tc);
+    assert.equal(fs.readFileSync(slotFile, 'utf8'), abandonedPayload, 'abandoned slot must remain intact and occupied');
+
+    // Independent pool remains eligible while pool-r6 has an abandoned slot.
+    const otherTc = makeCase('admission r6 independent pool');
+    const otherRes = jsonResponse(cli([...managedArgs(otherTc, managedAssignment(otherTc), 'opencode', policy), '--json'], otherTc), 0, 'DONE');
+    assert.deepEqual(otherRes.admission, { pool: 'pool-r6-other', cap: 1, slot: 0 });
+    assert.deepEqual(poolSlotFiles(admissionDir, 'pool-r6-other'), [], 'independent pool slot released after DONE');
+    assert.equal(fs.readFileSync(slotFile, 'utf8'), abandonedPayload, 'abandoned slot in pool-r6 still untouched');
+  });
+
+  // #466 F1: cap-1 stale-slot contention witness + free cap-1 contention + normal release/reuse positive controls.
+  check('F1 cap-1 stale-slot witness under 3 concurrent contenders -> none displaces slot or reaches readiness', () => {
+    const admissionDir = path.join(fixtureRoot, `admission-f1-stale-${caseNumber}`);
+    const poolDir = path.join(admissionDir, 'pool-race');
+    fs.mkdirSync(poolDir, { recursive: true });
+    const deadHolder = deadPid();
+    const slotFile = path.join(poolDir, 'slot-0.json');
+    const stalePayload = JSON.stringify({
+      schemaVersion: 1,
+      pool: 'pool-race',
+      slot: 0,
+      holderPid: deadHolder,
+      childPid: null,
+      startedAt: '2026-11-26T00:00:00.000Z',
+    }) + '\n';
+    fs.writeFileSync(slotFile, stalePayload);
+    const policy = writeAdmissionPolicy({
+      schemaVersion: 1,
+      dir: admissionDir,
+      pools: { 'pool-race': { cap: 1 } },
+      routes: [
+        { runner: 'opencode', model: 'fixture/opencode-alias-a', pool: 'pool-race' },
+        { runner: 'opencode', model: 'fixture/opencode-alias-b', pool: 'pool-race' },
+        { runner: 'opencode', model: 'fixture/opencode-alias-c', pool: 'pool-race' },
+      ],
+    });
+    const aliases = ['fixture/opencode-alias-a', 'fixture/opencode-alias-b', 'fixture/opencode-alias-c'];
+    const runs = aliases.map((model, idx) => {
+      const tc = makeCase(`f1 stale race ${idx}`);
+      const assignment = managedAssignment(tc);
+      const outFile = path.join(fixtureRoot, `f1-stale-out-${caseNumber}-${idx}.json`);
+      const fd = fs.openSync(outFile, 'w');
+      const args = [...argsFor(tc, 'opencode', model), '--assignment', assignment, '--admission-policy', policy, '--json'];
+      const child = spawn(process.execPath, [entry, ...args], {
+        cwd: root,
+        env: cliEnv(tc),
+        stdio: ['ignore', fd, fd],
+      });
+      return { tc, outFile, child, fd };
+    });
+    const wait = new Int32Array(new SharedArrayBuffer(4));
+    const readJson = file => {
+      const text = fs.readFileSync(file, 'utf8');
+      return text.endsWith('\n') ? JSON.parse(text) : null;
+    };
+    const deadline = Date.now() + 15000;
+    while (runs.some(r => !readJson(r.outFile)) && Date.now() < deadline) Atomics.wait(wait, 0, 0, 25);
+    for (const r of runs) {
+      fs.closeSync(r.fd);
+      try { r.child.kill('SIGKILL'); } catch {}
+    }
+    const results = runs.map(r => readJson(r.outFile));
+    assert.equal(results.filter(r => r?.code === 'ADMISSION_CAP_REACHED').length, 3, JSON.stringify(results));
+    for (const r of runs) {
+      assertNoRunner(r.tc);
+      assertNoScratchOrReport(r.tc);
+    }
+    assert.equal(fs.readFileSync(slotFile, 'utf8'), stalePayload, 'stale slot must not be displaced by any contender');
+  });
+
+  check('F1 free cap-1 slot under contention admits at most 1 holder across model aliases and scratch roots, releases after child ends, and allows later reuse', () => {
+    const admissionDir = path.join(fixtureRoot, `admission-f1-free-${caseNumber}`);
+    const policy = writeAdmissionPolicy({
+      schemaVersion: 1,
+      dir: admissionDir,
+      pools: { 'pool-cap1': { cap: 1 } },
+      routes: [
+        { runner: 'opencode', model: 'fixture/opencode-alias-a', pool: 'pool-cap1' },
+        { runner: 'opencode', model: 'fixture/opencode-alias-b', pool: 'pool-cap1' },
+        { runner: 'opencode', model: 'fixture/opencode-alias-c', pool: 'pool-cap1' },
+      ],
+    });
+    const gateFile = path.join(fixtureRoot, `f1-free-gate-${caseNumber}`);
+    const aliases = ['fixture/opencode-alias-a', 'fixture/opencode-alias-b', 'fixture/opencode-alias-c'];
+    const runs = aliases.map((model, idx) => {
+      const tc = makeCase(`f1 free cap1 ${idx}`);
+      const assignment = managedAssignment(tc);
+      const outFile = path.join(fixtureRoot, `f1-free-out-${caseNumber}-${idx}.json`);
+      const enteredFile = path.join(fixtureRoot, `f1-free-entered-${caseNumber}-${idx}`);
+      const fd = fs.openSync(outFile, 'w');
+      const args = [...argsFor(tc, 'opencode', model), '--assignment', assignment, '--admission-policy', policy, '--json'];
+      const child = spawn(process.execPath, [entry, ...args], {
+        cwd: root,
+        env: cliEnv(tc, { admissionHook: { enteredFile, gateFile } }),
+        stdio: ['ignore', fd, fd],
+      });
+      return { tc, outFile, enteredFile, child, fd };
+    });
+    const wait = new Int32Array(new SharedArrayBuffer(4));
+    const readJson = file => {
+      const text = fs.readFileSync(file, 'utf8');
+      return text.endsWith('\n') ? JSON.parse(text) : null;
+    };
+    const deadline1 = Date.now() + 15000;
+    while (
+      (runs.filter(r => fs.existsSync(r.enteredFile)).length < 1 || runs.filter(r => readJson(r.outFile)?.code === 'ADMISSION_CAP_REACHED').length < 2)
+      && Date.now() < deadline1
+    ) {
+      Atomics.wait(wait, 0, 0, 25);
+    }
+    assert.equal(runs.filter(r => fs.existsSync(r.enteredFile)).length, 1, 'at most 1 holder admitted on free cap-1 pool');
+    const refused = runs.filter(r => readJson(r.outFile)?.code === 'ADMISSION_CAP_REACHED');
+    assert.equal(refused.length, 2, '2 excess contenders refused before spawn');
+    for (const r of refused) {
+      assertNoRunner(r.tc);
+      assertNoScratchOrReport(r.tc);
+    }
+    assert.equal(poolSlotFiles(admissionDir, 'pool-cap1').length, 1);
+
+    fs.writeFileSync(gateFile, 'go\n');
+    const deadline2 = Date.now() + 15000;
+    while (runs.some(r => !readJson(r.outFile)) && Date.now() < deadline2) Atomics.wait(wait, 0, 0, 25);
+    for (const r of runs) {
+      fs.closeSync(r.fd);
+      try { r.child.kill('SIGKILL'); } catch {}
+    }
+    const results = runs.map(r => readJson(r.outFile));
+    assert.equal(results.filter(r => r?.code === 'DONE').length, 1, JSON.stringify(results));
+    assert.equal(results.filter(r => r?.code === 'ADMISSION_CAP_REACHED').length, 2, JSON.stringify(results));
+    assert.deepEqual(poolSlotFiles(admissionDir, 'pool-cap1'), [], 'normal owner released slot after child ended');
+
+    // Later compatible attempt can reuse the released slot.
+    const reuseTc = makeCase('f1 free cap1 reuse');
+    const reuseRes = jsonResponse(cli(
+      [...argsFor(reuseTc, 'opencode', 'fixture/opencode-alias-b'), '--assignment', managedAssignment(reuseTc), '--admission-policy', policy, '--json'],
+      reuseTc,
+    ), 0, 'DONE');
+    assert.deepEqual(reuseRes.admission, { pool: 'pool-cap1', cap: 1, slot: 0 });
+    assert.deepEqual(poolSlotFiles(admissionDir, 'pool-cap1'), [], 'reused slot released after DONE');
   });
 
   check('R7 live holder pid, dead holder with live child pid, EPERM pid, and corrupt slot -> NOT reclaimed; refused if cap reached', () => {
