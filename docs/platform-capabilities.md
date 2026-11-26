@@ -44,6 +44,14 @@ can therefore coexist with unresolved changes. The coordinator owns
 even when the hook is silent. The source and package fixtures cover these
 behaviors. Windows host delivery remains to be verified.
 
+### Antigravity Windows shell handoff
+
+[AGY CLI 1.5.17 evidence](../benchmarks/results/live-host/agy-2026-11-26-516-read-only/README.md)
+records live delivery of two read-only Windows shell probes to the packaged
+AGY hooks. Both probes left edit and verification timestamps unset, and the
+patched Stop hook allowed termination. These payloads omitted structured exit
+status, so they could not grant automatic verification credit.
+
 ### Routing contract vs. host evidence
 
 The workflow plan controller rejects present non-array required/optional binding declarations before recording a requirement plan. This input-validation contract is covered by deterministic mechanism tests and does not change live-host evidence status.
