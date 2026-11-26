@@ -6,9 +6,76 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const REPORT_WRITER = path.join(__dirname, 'report-writer.js');
-const USAGE = 'Usage: dispatch --runner <codex|opencode> --model <id> --packet <path> --worktree <path> --scratch <absolute-path> --report <path> [--effort <low|medium|high|xhigh>] [--dry-run] [--json] [--help]';
-const VALUE_OPTIONS = new Set(['--runner', '--model', '--packet', '--worktree', '--scratch', '--report', '--effort']);
+const USAGE = 'Usage: dispatch --runner <codex|opencode> --model <id> --packet <path> --worktree <path> --scratch <absolute-path> --report <path> [--effort <low|medium|high|xhigh>] [--assignment <path>] [--dry-run] [--json] [--help]';
+const VALUE_OPTIONS = new Set(['--runner', '--model', '--packet', '--worktree', '--scratch', '--report', '--effort', '--assignment']);
 const CODEX_EFFORTS = new Set(['low', 'medium', 'high', 'xhigh']);
+
+// #466 D-gate. Managed mode is entered only by --assignment <sidecar JSON>. C8 owns admission
+// (one runner-profile decision + this registry); the assignment owns which actor runs each gate.
+// `unsandboxed` gates need a loopback-capable profile; `any` gates are worker-compatible everywhere.
+const GATE_REGISTRY = new Map([
+  ['verify:all', 'unsandboxed'],
+  ['verify:all --fast', 'unsandboxed'],
+  ['npm run test:consistency', 'any'],
+  ['npm run test:references', 'any'],
+  ['npm run test:portability', 'any'],
+]);
+const FOCUSED_NODE_TEST = /^node --test [A-Za-z0-9_./-]+\.js$/;
+const GATE_ACTORS = new Set(['worker', 'coordinator']);
+
+// The single runner-profile decision: codex runs `-s workspace-write` (see runnerArgs) = sandboxed.
+function runnerProfile(runner) {
+  return { sandboxed: runner === 'codex' };
+}
+
+function gateRequirement(id) {
+  if (GATE_REGISTRY.has(id)) return GATE_REGISTRY.get(id);
+  return FOCUSED_NODE_TEST.test(id) && !id.includes('..') ? 'any' : null;
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function assignmentInvalid(message) {
+  fail(19, 'GATE_ASSIGNMENT_INVALID', 'gate', message);
+}
+
+function loadGateAssignment(file, worktree, runner) {
+  const resolved = pathFrom(worktree, file);
+  let parsed;
+  try {
+    if (!fs.statSync(resolved).isFile()) assignmentInvalid('--assignment must name an existing file');
+    parsed = JSON.parse(fs.readFileSync(resolved, 'utf8'));
+  } catch (cause) {
+    if (cause instanceof DispatchFailure) throw cause;
+    assignmentInvalid(`--assignment is unreadable or not JSON: ${cause.code || 'parse error'}`);
+  }
+  if (!isPlainObject(parsed) || Object.keys(parsed).sort().join() !== 'gates,schemaVersion') {
+    assignmentInvalid('assignment must be an object with exactly schemaVersion and gates');
+  }
+  if (parsed.schemaVersion !== 1) assignmentInvalid('assignment schemaVersion must be 1');
+  if (!Array.isArray(parsed.gates)) assignmentInvalid('assignment gates must be an array');
+  const seen = new Set();
+  const gates = { worker: [], coordinator: [] };
+  const entries = [];
+  for (const gate of parsed.gates) {
+    if (!isPlainObject(gate) || Object.keys(gate).sort().join() !== 'actor,id') assignmentInvalid('each gate must be an object with exactly id and actor');
+    if (typeof gate.id !== 'string' || !GATE_ACTORS.has(gate.actor)) assignmentInvalid('gate id must be a string and actor must be worker or coordinator');
+    if (seen.has(gate.id)) assignmentInvalid(`duplicate gate id: ${gate.id}`);
+    seen.add(gate.id);
+    if (!gateRequirement(gate.id)) assignmentInvalid(`unknown gate id: ${gate.id}`);
+    entries.push(gate);
+  }
+  // Admission is decided only after the whole assignment validates, so a bad entry is never masked by a refusal.
+  for (const gate of entries) {
+    if (gate.actor === 'worker' && gateRequirement(gate.id) === 'unsandboxed' && runnerProfile(runner).sandboxed) {
+      fail(18, 'GATE_REFUSED', 'gate', `worker gate "${gate.id}" needs an unsandboxed profile; ${runner} runs sandboxed. Assign it to the coordinator.`);
+    }
+    gates[gate.actor].push(gate.id);
+  }
+  return gates;
+}
 let evidencePaths = {};
 
 class DispatchFailure extends Error {
@@ -137,7 +204,8 @@ function validateInput(options) {
   }
   if (fs.existsSync(report)) fail(10, 'INVALID_INPUT', 'input', '--report already exists; choose a fresh report path');
   const scratch = validateScratch(options['--scratch']);
-  return { runner, model: model.trim(), effort, packet, worktree, scratch, report };
+  const gates = options['--assignment'] === undefined ? undefined : loadGateAssignment(options['--assignment'], worktree, runner);
+  return { runner, model: model.trim(), effort, packet, worktree, scratch, report, gates };
 }
 
 function response(options, outcome, evidence = evidencePaths, input) {
@@ -153,6 +221,7 @@ function response(options, outcome, evidence = evidencePaths, input) {
   if (runner === 'codex' || runner === 'opencode') result.runner = runner;
   if (model) result.model = model;
   if (input?.effort) result.effort = input.effort;
+  if (input?.gates) result.gates = input.gates;
   if (outcome.argv) result.argv = outcome.argv;
   if (outcome.cwd) result.cwd = outcome.cwd;
   const paths = Object.fromEntries(Object.entries(evidence).filter(([, value]) => value && fs.existsSync(value)));

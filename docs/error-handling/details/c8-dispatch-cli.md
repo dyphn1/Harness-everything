@@ -7,7 +7,7 @@ This detail implements the C8 action map for one coordinator-selected runner att
 ```sh
 npm run --silent dispatch -- --runner <codex|opencode> --model <id> \
   --packet <path> --worktree <git-root> --scratch <absolute-external-path> \
-  --report <path> [--effort <low|medium|high|xhigh>] [--dry-run] [--json]
+  --report <path> [--effort <low|medium|high|xhigh>] [--assignment <path>] [--dry-run] [--json]
 ```
 
 `node scripts/dispatch.js` accepts the same options. `--help` prints this short synopsis. The coordinator supplies every value; packet and report paths may be relative to the worktree or absolute. The worktree must be an existing Git root. Scratch must be absolute and outside every Git repository/worktree. A pre-existing report path is rejected as invalid input.
@@ -21,6 +21,7 @@ npm run --silent dispatch -- --runner <codex|opencode> --model <id> \
 | `--scratch` | Required absolute path outside all Git repository/worktree roots; child `TMPDIR`. |
 | `--report` | Required fresh report path, resolved from the worktree when relative. |
 | `--effort` | Optional Codex reasoning effort: `low`, `medium`, `high`, or `xhigh`. It passes a Codex `-c model_reasoning_effort="…"` override; omission leaves Codex configuration unchanged. Rejected for OpenCode. |
+| `--assignment` | Optional managed-mode gate assignment sidecar JSON; see [Managed mode](#managed-mode-and-gate-assignment-466-d-gate). |
 | `--dry-run` | Validate inputs and return planned argv/cwd; no child or filesystem writes. |
 | `--json` | Return one JSON object on stdout, including refusals. |
 | `--help` | Return the short usage synopsis with exit 0. |
@@ -74,6 +75,30 @@ Codex writes raw output with `codex exec -o`; it must contain an explicit termin
 | Live dispatch (2026-11-21, #497) | One full `npm run --silent dispatch` per runner on this Mac: OpenCode `opencode/hy4-flash-free` and Codex `gpt-6-luna --effort medium`, a two-line probe packet, both `0 DONE` with a validated report. The readiness replies carried a trailing host label; the Codex raw output had a blank line before it. | Effort is recorded as requested; provider-side application of the effort is not observed. One run each, not a reliability claim. |
 | Live (channel probe only) | `opencode run --auto -m <model>`, the exact C8 OpenCode readiness argv, against failing nvidia models on OpenCode 2.1.4 (2026-11-21): provider errors reach stderr as one ANSI `Error: <message>` line, exit 1, empty stdout. | Not a C8 dispatch: no live 429 or quota reproduction (the 429 and quota bodies come from the retained OpenCode log), no Codex provider call, no host dispatch or live report delivery. |
 
+## Managed mode and gate assignment (#466 D-gate)
+
+Managed mode is entered only by `--assignment <path>` (resolved from the worktree when relative): a sidecar JSON file next to the packet. Without the option, behavior, output, and JSON shape are unchanged. A sidecar was chosen over packet frontmatter so the C6 packet format stays untouched and C8 reads one strict, machine-checkable file; packet metadata owns which actor runs each gate, C8 owns admission.
+
+```json
+{ "schemaVersion": 1, "gates": [ { "id": "verify:all", "actor": "coordinator" }, { "id": "npm run test:consistency", "actor": "worker" } ] }
+```
+
+Validation is strict: the root has exactly `schemaVersion` (`1`) and `gates`; each gate has exactly `id` and `actor` (`worker` or `coordinator`); ids are unique and must be in the registry. Any unknown key, value, shape, unreadable file, or unknown id returns `19 GATE_ASSIGNMENT_INVALID`.
+
+| Gate id | Requirement for a worker |
+| --- | --- |
+| `verify:all`, `verify:all --fast` | Unsandboxed, loopback-capable profile |
+| `npm run test:consistency`, `npm run test:references`, `npm run test:portability`, `node --test <repo-relative .js file>` | Any profile (focused) |
+
+One decision function maps the selected runner to a profile: `codex` runs `-s workspace-write` and is sandboxed; `opencode` is not. A sandboxed profile with a worker assignment of either full or fast `verify:all` returns `18 GATE_REFUSED` ("assign it to the coordinator"). Both refusals happen after input validation and before readiness or any file creation, so no child starts and no scratch, report, or evidence exists; `--dry-run` applies the same refusals. An accepted managed run returns `gates: {worker: [...], coordinator: [...]}` in JSON (also on dry run). C8 never runs a gate itself: coordinator gates are only recorded, and the attempt is the same single readiness plus execution.
+
+| Exit | JSON `code` | Meaning |
+| --- | --- | --- |
+| `18` | `GATE_REFUSED` | Managed worker gate needs a profile the selected runner does not provide. |
+| `19` | `GATE_ASSIGNMENT_INVALID` | Managed assignment is missing, malformed, or names an unknown gate. |
+
+Evidence: fixture rows G1–G7 in `ci/mechanism-468-dispatch-cli.test.js` (real entry, stubbed runners). The registry is a v1 list of gates C8 can assess; gates outside it are refused rather than assumed.
+
 ## #466 boundary
 
-#466 owns automatic `TMPDIR` selection and lifecycle, enforcement across launch paths, per-key admission/reservation, and refusing packets that declare worker `gh`/network needs. This CLI accepts coordinator-supplied inputs for one attempt and cannot certify those launcher guarantees. It also does not add a distributed plugin command or run a live provider.
+#466 still owns automatic `TMPDIR` selection and lifecycle, enforcement across launch paths, per-key admission/reservation, an agy runner, and refusing packets that declare worker `gh`/network needs (no network capability is assessed here). Managed gate assignment above is the only #466 policy implemented in C8. This CLI otherwise accepts coordinator-supplied inputs for one attempt and cannot certify those launcher guarantees. It also does not add a distributed plugin command or run a live provider.

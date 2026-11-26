@@ -750,9 +750,120 @@ try {
   check('entry usage mentions every option used by the CLI contract', () => {
     const testCase = makeCase('usage options');
     const response = jsonResponse(cli(['--help', '--json'], testCase), 0, 'HELP');
-    for (const option of ['--runner', '--model', '--packet', '--worktree', '--scratch', '--report', '--effort', '--dry-run', '--json', '--help']) {
+    for (const option of ['--runner', '--model', '--packet', '--worktree', '--scratch', '--report', '--effort', '--assignment', '--dry-run', '--json', '--help']) {
       assert.ok(response.message.includes(option), `usage is missing ${option}`);
     }
+  });
+
+  // #466 D-gate: managed C8 structured gate assignment (rows G1-G7).
+  function writeAssignment(testCase, value, raw) {
+    const file = path.join(fixtureRoot, `assignment ${caseNumber}.json`);
+    fs.writeFileSync(file, raw !== undefined ? raw : JSON.stringify(value));
+    return file;
+  }
+  function managedArgs(testCase, assignment, runner = 'codex') {
+    return [...argsFor(testCase, runner), '--assignment', assignment];
+  }
+  function assertRefusedBeforeSpawn(testCase) {
+    assertNoRunner(testCase);
+    assertNoScratchOrReport(testCase);
+  }
+  const focused = [
+    { id: 'node --test ci/mechanism-468-dispatch-cli.test.js', actor: 'worker' },
+    { id: 'npm run test:consistency', actor: 'worker' },
+  ];
+
+  for (const gate of ['verify:all', 'verify:all --fast']) {
+    check(`G1/G2 sandboxed codex worker gate "${gate}" -> GATE_REFUSED before probe/spawn`, () => {
+      const testCase = makeCase('gate sandboxed refusal');
+      const assignment = writeAssignment(testCase, { schemaVersion: 1, gates: [...focused, { id: gate, actor: 'worker' }] });
+      const response = jsonResponse(cli([...managedArgs(testCase, assignment), '--json'], testCase), 18, 'GATE_REFUSED');
+      assert.equal(response.phase, 'gate');
+      assert.equal(response.evidence, undefined);
+      assert.ok(response.message.includes(gate));
+      assertRefusedBeforeSpawn(testCase);
+      const dry = jsonResponse(cli([...managedArgs(testCase, assignment), '--dry-run', '--json'], testCase), 18, 'GATE_REFUSED');
+      assert.equal(dry.phase, 'gate');
+      assertRefusedBeforeSpawn(testCase);
+    });
+    check(`G1/G2 opencode (unsandboxed) worker gate "${gate}" is accepted by the profile`, () => {
+      const testCase = makeCase('gate opencode accepted');
+      const assignment = writeAssignment(testCase, { schemaVersion: 1, gates: [{ id: gate, actor: 'worker' }] });
+      const response = jsonResponse(cli([...managedArgs(testCase, assignment, 'opencode'), '--dry-run', '--json'], testCase), 0, 'DRY_RUN_OK');
+      assert.deepEqual(response.gates, { worker: [gate], coordinator: [] });
+      assertRefusedBeforeSpawn(testCase);
+    });
+  }
+
+  for (const [label, value, raw] of [
+    ['not JSON', undefined, '{not json'],
+    ['array root', [], undefined],
+    ['wrong schemaVersion', { schemaVersion: 2, gates: [] }, undefined],
+    ['unknown top-level key', { schemaVersion: 1, gates: [], extra: true }, undefined],
+    ['missing gates', { schemaVersion: 1 }, undefined],
+    ['gates not an array', { schemaVersion: 1, gates: 'verify:all' }, undefined],
+    ['gate not an object', { schemaVersion: 1, gates: ['verify:all'] }, undefined],
+    ['unknown gate key', { schemaVersion: 1, gates: [{ id: 'npm run test:consistency', actor: 'worker', note: 'x' }] }, undefined],
+    ['unknown actor', { schemaVersion: 1, gates: [{ id: 'npm run test:consistency', actor: 'reviewer' }] }, undefined],
+    ['duplicate gate id', { schemaVersion: 1, gates: [{ id: 'npm run test:consistency', actor: 'worker' }, { id: 'npm run test:consistency', actor: 'coordinator' }] }, undefined],
+  ]) {
+    check(`G3 malformed assignment (${label}) -> GATE_ASSIGNMENT_INVALID before spawn`, () => {
+      const testCase = makeCase('gate malformed');
+      const assignment = writeAssignment(testCase, value, raw);
+      const response = jsonResponse(cli([...managedArgs(testCase, assignment), '--json'], testCase), 19, 'GATE_ASSIGNMENT_INVALID');
+      assert.equal(response.phase, 'gate');
+      assertRefusedBeforeSpawn(testCase);
+    });
+  }
+  check('G3 missing assignment file -> GATE_ASSIGNMENT_INVALID before spawn', () => {
+    const testCase = makeCase('gate missing file');
+    const response = jsonResponse(cli([...managedArgs(testCase, path.join(fixtureRoot, 'no-such-assignment.json')), '--json'], testCase), 19, 'GATE_ASSIGNMENT_INVALID');
+    assert.equal(response.phase, 'gate');
+    assertRefusedBeforeSpawn(testCase);
+  });
+
+  for (const id of ['npm run verify:all', 'verify:all --slow', 'gh pr checks', 'npm run test:unknown', 'node --test']) {
+    check(`G4 unknown gate id "${id}" -> GATE_ASSIGNMENT_INVALID before spawn (either actor)`, () => {
+      for (const actor of ['worker', 'coordinator']) {
+        const testCase = makeCase('gate unknown id');
+        const assignment = writeAssignment(testCase, { schemaVersion: 1, gates: [{ id, actor }] });
+        const response = jsonResponse(cli([...managedArgs(testCase, assignment), '--json'], testCase), 19, 'GATE_ASSIGNMENT_INVALID');
+        assert.ok(response.message.includes(id));
+        assertRefusedBeforeSpawn(testCase);
+      }
+    });
+  }
+
+  for (const gate of ['verify:all', 'verify:all --fast']) {
+    check(`G5 coordinator "${gate}" + focused worker checks -> one C8 attempt, checked report, no coordinator gate run`, () => {
+      const testCase = makeCase('gate coordinator');
+      const assignment = writeAssignment(testCase, { schemaVersion: 1, gates: [...focused, { id: gate, actor: 'coordinator' }] });
+      const result = jsonResponse(cli([...managedArgs(testCase, assignment), '--json'], testCase), 0, 'DONE');
+      assert.deepEqual(result.gates, { worker: focused.map(item => item.id), coordinator: [gate] });
+      assert.equal(fs.readFileSync(result.evidence.report, 'utf8'), 'Fixture completed the packet.\nSTATUS: DONE\n');
+      assert.match(fs.readFileSync(result.evidence.reportWriterLog, 'utf8'), /valid \(STATUS: DONE\)/);
+      assert.ok(result.evidence.readinessLog && result.evidence.runLog && result.evidence.rawOutput);
+      const actualEvents = events(testCase);
+      assert.equal(actualEvents.length, 2, 'one readiness and one execution; the coordinator gate is never run');
+      assert.deepEqual(actualEvents.map(event => event.phase), ['readiness', 'execution']);
+      for (const event of actualEvents) assert.notEqual(event.runner, 'npm');
+    });
+  }
+
+  check('G6 managed --dry-run creates no files and spawns no child', () => {
+    const testCase = makeCase('gate dry run');
+    const assignment = writeAssignment(testCase, { schemaVersion: 1, gates: [...focused, { id: 'verify:all', actor: 'coordinator' }] });
+    const response = jsonResponse(cli([...managedArgs(testCase, assignment), '--dry-run', '--json'], testCase), 0, 'DRY_RUN_OK');
+    assert.deepEqual(response.gates, { worker: focused.map(item => item.id), coordinator: ['verify:all'] });
+    assert.equal(response.evidence, undefined);
+    assertRefusedBeforeSpawn(testCase);
+  });
+
+  check('G7 unmanaged invocation carries no gate fields', () => {
+    const testCase = makeCase('gate unmanaged');
+    const dry = jsonResponse(cli([...argsFor(testCase), '--dry-run', '--json'], testCase), 0, 'DRY_RUN_OK');
+    assert.equal(dry.gates, undefined);
+    assertRefusedBeforeSpawn(testCase);
   });
 } finally {
   try { run('git', ['-C', worktree, 'worktree', 'remove', '--force', linkedWorktree]); } catch {}
