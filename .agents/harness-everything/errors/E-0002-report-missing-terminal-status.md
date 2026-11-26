@@ -124,6 +124,15 @@ episodes:
         change: null
         review: "report-writer via dispatch"
         result: "The reviewer quoted a harness-label line inside the report body as a witness; the writer rejected the report (label marker only once at EOF) and dispatch returned 16 REPORT_INVALID although the review was complete. Packets now say not to quote a label line."
+  - episode: 498-f-report-status-trailing-spaces
+    feature: "#498 packet P498-F report through npm run report --from-codex-output"
+    date: 2026-11-25
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: "report writer / coordinator"
+        result: "`npm run report -- write --from-codex-output <raw> --status BLOCKED --reason <text>` refused with 'raw terminal STATUS does not match the requested status': the worker's raw `STATUS: BLOCKED: ...` line ended with two trailing spaces though the reason text was otherwise identical. The coordinator could not produce a checked report for that packet."
 ---
 
 ## Cue
@@ -172,3 +181,4 @@ Owner, verbatim: "我是覺得應該用腳本化 / 回報的時候 / 用腳本 /
 Treatment: replace hand-written terminal lines with a script that writes and checks the report (agent supplies body and status; the script adds the single terminal STATUS line, rejects labels or conflicting STATUS lines, and routes `codex exec -o` raw output through the same writer). The proposed contract is drafted in the #437 discussion branch (`docs/discussions/error-handling/details/e0002-report-writer.md` on `discussion/437-e0002-capture-level2`); implementation belongs to #402 / #441.
 - #394 / #468 (2026-11-20): sed took the label as STATUS; writer rejected a blank line before the host label (R2, staged-copy workaround).
 - PR #499 review (2026-11-21): a quoted label in the body made the writer reject a valid review.
+- #498 packet P498-F (2026-11-25): two trailing spaces on the raw STATUS line blocked `--from-codex-output`.

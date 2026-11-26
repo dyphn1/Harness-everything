@@ -214,8 +214,96 @@ test('per-workspace and total retention/size bounds are enforced', () => {
     }, { env: s.env, limits });
     assert.strictEqual(r.status, 'appended');
   }
-  const all = localErrors.listRecords({ env: s.env });
+  const all = [
+    ...localErrors.listRecords({ env: s.env, workspaceRoot: s.repoA }),
+    ...localErrors.listRecords({ env: s.env, workspaceRoot: s.repoB }),
+  ];
   assert.strictEqual(all.length, 3, 'total cap keeps at most 3 records across workspaces');
+});
+
+test('same-workspace cross-kind IDs reject the lesson and preserve retries', () => {
+  const s = makeSandbox();
+  const occurrenceInput = {
+    workspaceRoot: s.repoA,
+    host: 'claude',
+    sessionKey: 'cross-kind-session',
+    toolUseId: 'cross-kind-tool-use',
+    command: 'npm test',
+    exitCode: 1,
+    output: 'npm ERR! code 1',
+  };
+  const occurrence = localErrors.appendOccurrence(occurrenceInput, { env: s.env });
+  assert.strictEqual(occurrence.status, 'appended');
+
+  const indexPath = path.join(s.store, localErrors.INDEX_FILE);
+  const before = fs.readFileSync(indexPath);
+  assert.throws(() => localErrors.addProvisionalLesson({
+    workspaceRoot: s.repoA,
+    provisionalId: occurrence.record.provisionalId,
+    signature: 'v1-git-cross-kind-lesson',
+    match: { actions: [{ tool: 'shell', executable: 'git', subcommand: 'commit' }] },
+    lesson: 'Keep failure IDs unique within their workspace.',
+  }, { env: s.env }), /invalid provisionalId: already in use in this workspace/);
+  assert.deepStrictEqual(fs.readFileSync(indexPath), before,
+    'rejecting a lesson collision leaves the store bytes unchanged');
+
+  const occurrenceRetry = localErrors.appendOccurrence(occurrenceInput, { env: s.env });
+  assert.strictEqual(occurrenceRetry.status, 'duplicate', 'same-kind occurrence retries still dedupe');
+  const lessonInput = {
+    workspaceRoot: s.repoA,
+    provisionalId: 'same-kind-lesson',
+    signature: 'v1-git-same-kind-lesson',
+    match: { actions: [{ tool: 'shell', executable: 'git', subcommand: 'commit' }] },
+    lesson: 'A same-kind lesson retry stays idempotent.',
+  };
+  assert.strictEqual(localErrors.addProvisionalLesson(lessonInput, { env: s.env }).status, 'appended');
+  assert.strictEqual(localErrors.addProvisionalLesson(lessonInput, { env: s.env }).status, 'duplicate',
+    'same-kind lesson retries still dedupe');
+
+  const sameIdOtherWorkspace = localErrors.addProvisionalLesson({
+    ...lessonInput,
+    workspaceRoot: s.repoB,
+    provisionalId: occurrence.record.provisionalId,
+  }, { env: s.env });
+  assert.strictEqual(sameIdOtherWorkspace.status, 'appended',
+    'the same raw ID remains available in another workspace');
+});
+
+test('same-workspace cross-kind IDs reject the occurrence using its deterministic writer ID', () => {
+  const s = makeSandbox();
+  const occurrenceInput = {
+    workspaceRoot: s.repoA,
+    host: 'claude',
+    sessionKey: 'reverse-cross-kind-session',
+    toolUseId: 'reverse-cross-kind-tool-use',
+    command: 'npm test',
+    exitCode: 1,
+    output: 'npm ERR! code 1',
+  };
+  const probeStore = path.join(s.dir, 'probe-store');
+  fs.mkdirSync(probeStore);
+  const deterministicOccurrence = localErrors.appendOccurrence(occurrenceInput, {
+    env: s.env,
+    root: probeStore,
+  });
+  assert.strictEqual(deterministicOccurrence.status, 'appended');
+
+  const lesson = localErrors.addProvisionalLesson({
+    workspaceRoot: s.repoA,
+    provisionalId: deterministicOccurrence.record.provisionalId,
+    signature: 'v1-git-reverse-cross-kind-lesson',
+    match: { actions: [{ tool: 'shell', executable: 'git', subcommand: 'commit' }] },
+    lesson: 'A lesson may not claim a future occurrence ID.',
+  }, { env: s.env });
+  assert.strictEqual(lesson.status, 'appended');
+
+  const indexPath = path.join(s.store, localErrors.INDEX_FILE);
+  const before = fs.readFileSync(indexPath);
+  const rejected = localErrors.appendOccurrence(occurrenceInput, { env: s.env });
+  assert.strictEqual(rejected.status, 'invalid');
+  assert.strictEqual(rejected.error, 'provisional-id-in-use');
+  assert.deepStrictEqual(fs.readFileSync(indexPath), before,
+    'rejecting an occurrence collision leaves the store bytes unchanged');
 });
 
 test('lock contention returns fail-open without throwing and leaves index untouched', () => {
@@ -441,6 +529,82 @@ test('real failure signature fixtures are stable across volatile details and div
   });
   assert.strictEqual(multiA, multiB, 'multi-family signature must be order-independent');
   assert.notStrictEqual(multiA, npm1, 'multi-family output must not collapse to first single-family match');
+});
+
+test('Claude exit-code wrapper preserves the shared v1 signature and stored excerpts', () => {
+  const s = makeSandbox();
+  const captureDir = path.join(ROOT, 'benchmarks/results/live-host/multi-host-2026-11-25-496-capture');
+  const claudeCapture = JSON.parse(fs.readFileSync(path.join(captureDir, 'claude-records.json'), 'utf8'))[0];
+  const opencodeCapture = JSON.parse(fs.readFileSync(path.join(captureDir, 'opencode-records.json'), 'utf8'))[0];
+  const expected = 'v1-shell-generic-b6246d9928fe';
+
+  const appendCapture = (capture, id) => localErrors.appendOccurrence({
+    workspaceRoot: s.repoA,
+    host: capture.host,
+    sessionKey: `session-${id}`,
+    toolUseId: `tool-${id}`,
+    commandClass: capture.commandClass,
+    exitCode: capture.exitCode,
+    output: capture.outputExcerpt,
+  }, { env: s.env });
+
+  const claude = appendCapture(claudeCapture, 'claude');
+  const opencode = appendCapture(opencodeCapture, 'opencode');
+  assert.strictEqual(claude.status, 'appended');
+  assert.strictEqual(opencode.status, 'appended');
+  assert.strictEqual(claude.record.signature, expected, 'Claude and OpenCode share the existing OpenCode v1 key');
+  assert.strictEqual(opencode.record.signature, expected);
+  assert.strictEqual(claude.record.outputExcerpt, claudeCapture.outputExcerpt, 'Claude excerpt keeps its wrapper line');
+  assert.strictEqual(claude.record.exitCode, null, 'text does not supply a structured exit code');
+  assert.strictEqual(opencode.record.outputExcerpt, opencodeCapture.outputExcerpt);
+
+  const signature = (output, host = 'claude') => localErrors.normalizeSignature(
+    { commandClass: 'shell', output },
+    { host }
+  );
+  const failure = opencodeCapture.outputExcerpt;
+  assert.strictEqual(signature(`Exit code 1\r\n${failure}`), expected, 'CRLF wrapper is removed for Claude');
+  assert.notStrictEqual(
+    signature(`Exit code 1\nExit code 2\n${failure}`),
+    signature(`Exit code 2\n${failure}`),
+    'only one leading wrapper line is removed'
+  );
+  assert.notStrictEqual(
+    signature(`${failure}Exit code 2\npermission denied`),
+    signature(`${failure}permission denied`),
+    'an interior header-like line remains part of the fallback signature'
+  );
+
+  const wrapped = `Exit code 1\n${failure}`;
+  assert.strictEqual(
+    signature(wrapped, 'opencode'),
+    localErrors.normalizeSignature({ commandClass: 'shell', output: wrapped }),
+    'non-Claude behavior is unchanged'
+  );
+  assert.notStrictEqual(signature('command not found: jq'), expected, 'unrelated generic failures stay distinct');
+  assert.strictEqual(
+    localErrors.normalizeSignature({
+      command: 'git commit',
+      output: 'Exit code 1\r\n✖   subject must be lower-case [subject-case]',
+    }, { host: 'claude' }),
+    'v1-git-commitlint-subject-case',
+    'named diagnostics are classified before fallback normalization'
+  );
+
+  const legacyInput = {
+    workspaceRoot: s.repoA,
+    host: 'claude',
+    sessionKey: 'legacy-session',
+    toolUseId: 'legacy-tool',
+    commandClass: 'shell',
+    exitCode: null,
+    output: claudeCapture.outputExcerpt,
+  };
+  const legacy = localErrors.appendOccurrence({ ...legacyInput, signature: claudeCapture.signature }, { env: s.env });
+  const replay = localErrors.appendOccurrence(legacyInput, { env: s.env });
+  assert.strictEqual(legacy.status, 'appended');
+  assert.strictEqual(replay.status, 'duplicate');
+  assert.strictEqual(replay.record.signature, claudeCapture.signature, 'replay retains the previously stored signature');
 });
 
 test('D1b row 1: issueUrl with userinfo is rejected and leaves index bytes unchanged', () => {
@@ -671,16 +835,35 @@ test('D1b row 6: workspace-scoped reads and matcher-supplied bounded reader look
 
   const keyA = addedA.record.workspaceKey;
   const keyB = addedB.record.workspaceKey;
+  const signatures = (records) => records.map(record => record.signature).sort();
+
+  // Missing or unrecognized selectors never enumerate the shared store.
+  assert.deepStrictEqual(localErrors.listRecords({ env: s.env }), []);
+  assert.deepStrictEqual(localErrors.listRecords({ env: s.env, workspacePath: s.repoA }), []);
+  assert.deepStrictEqual(localErrors.listRecords({ env: s.env, root: s.store }), []);
+  assert.deepStrictEqual(localErrors.listRecords({
+    env: { ...s.env, HARNESS_WORKSPACE_ROOT: s.repoA },
+  }), [], 'environment-only workspace identity is not a read scope');
 
   // Normal workspace-scoped read works.
   const byRoot = localErrors.listRecords({ env: s.env, workspaceRoot: s.repoA });
-  assert.strictEqual(byRoot.length, 1);
-  assert.strictEqual(byRoot[0].signature, 'v1-git-read-a');
+  assert.deepStrictEqual(signatures(byRoot), ['v1-git-read-a']);
 
   // Matcher-supplied key works for bounded read lookup.
   const byKey = localErrors.listRecords({ env: s.env, workspaceKey: keyA });
-  assert.strictEqual(byKey.length, 1);
-  assert.strictEqual(byKey[0].signature, 'v1-git-read-a');
+  assert.deepStrictEqual(signatures(byKey), ['v1-git-read-a']);
+
+  // Matching explicit root plus key works; the top-level root remains the store location.
+  assert.deepStrictEqual(signatures(localErrors.listRecords({
+    env: s.env,
+    workspaceRoot: s.repoA,
+    workspaceKey: keyA,
+  })), ['v1-git-read-a']);
+  assert.deepStrictEqual(signatures(localErrors.listRecords({
+    env: s.env,
+    root: s.store,
+    workspaceKey: keyA,
+  })), ['v1-git-read-a']);
 
   // Disagreeing root + key on read returns empty.
   assert.deepStrictEqual(localErrors.listRecords({ env: s.env, workspaceRoot: s.repoA, workspaceKey: keyB }), []);
