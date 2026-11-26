@@ -150,6 +150,11 @@ function processState(payload) {
     const command = (payload.tool_input && payload.tool_input.command) || '';
     if (isShell) {
       const commandClass = classifyShell(command);
+      // These narrow AGY probes affect handoff tracking only.
+      const agyReadOnlyProbe = agy && (
+        command === '$PSVersionTable.PSVersion; Get-Command pwsh -ErrorAction SilentlyContinue'
+        || /^git grep (?:-n )?(?:"[\w][\w.-]*"|'[\w][\w.-]*'|[\w][\w.-]*)(?: --(?: [\w.][\w./-]*)+)?$/.test(command)
+      );
       const pilotEnabled = process.env.HARNESS_DOC_RECONCILIATION_PILOT === '1';
       const docCheck = pilotEnabled ? require('./lib/doc-reconciliation-provider') : null;
       stateOnlyCandidate = Boolean(docCheck && typeof payload.cwd === 'string' && payload.cwd
@@ -171,7 +176,7 @@ function processState(payload) {
       // On AGY hosts that omit shell error/exitCode, an unconfirmed verification-only command must not advance lastEditAt
       // and defeat agy-stop.js's bounded continuation fingerprint.
       const agyUnknownOutcomeVerify = agy && !verifiedSuccess && !isFailed && verifies;
-      if (!metadataStep && !agyUnknownOutcomeVerify && commandClass !== 'read-only' && commandClass !== 'worktree-setup') {
+      if (!metadataStep && !agyUnknownOutcomeVerify && !agyReadOnlyProbe && commandClass !== 'read-only' && commandClass !== 'worktree-setup') {
         if (stateOnlyCandidate) editAfterCapture = true;
         else state.lastEditAt = Date.now();
       }

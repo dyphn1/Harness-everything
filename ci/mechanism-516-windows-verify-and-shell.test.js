@@ -53,10 +53,20 @@ function runScript(scriptPath, payload) {
   return JSON.parse(res.stdout.trim());
 }
 
-function runPowerShell(cwd, command) {
+function hasPwsh(cwd) {
+  const result = spawnSync('pwsh', ['-NoProfile', '-NonInteractive', '-Command', 'exit 0'], {
+    cwd, timeout: 20000,
+  });
+  if (result.error?.code === 'ENOENT' && process.env.HARNESS_TEST_PWSH !== '1') return false;
+  assert.strictEqual(result.error?.code, undefined, 'PowerShell 7 runtime requires pwsh on PATH');
+  assert.strictEqual(result.status, 0, 'PowerShell 7 prerequisite probe failed');
+  return true;
+}
+
+function runPowerShell(cwd, command, executable = 'pwsh') {
   const env = { ...process.env };
   delete env.NODE_TEST_CONTEXT;
-  const res = spawnSync('pwsh', ['-NoProfile', '-NonInteractive', '-Command', command], {
+  const res = spawnSync(executable, ['-NoProfile', '-NonInteractive', '-Command', command], {
     cwd,
     encoding: 'utf8',
     env,
@@ -192,10 +202,28 @@ try {
     assert.strictEqual(isVerificationCommand(`${changeLocation('.\\pkg')} && ${testCommand}`, { cwd: repo, root: repo }), true);
   }
 
+  const pkg = path.join(repo, 'pkg');
+  if (process.platform === 'win32') {
+    const fixture = path.join(pkg, 'verify.test.js');
+    fs.writeFileSync(fixture, 'require("node:test")("failing verifier", () => { throw Error("fixture failure"); });\n');
+    const failure = runPowerShell(pkg, testCommand, 'powershell.exe');
+    assert.strictEqual(failure.status, 1, failure.stderr);
+    assert.match(failure.stdout, /fixture failure/);
+    assert.ok(!postShell(repo, 'winps-plain', testCommand, failure.status, pkg).lastVerifyAt);
+
+    fs.writeFileSync(fixture, 'require("node:test")("passing verifier", () => {});\n');
+    const success = runPowerShell(pkg, testCommand, 'powershell.exe');
+    assert.strictEqual(success.status, 0, success.stderr);
+    assert.match(success.stdout, /passing verifier/);
+    assert.ok(postShell(repo, 'winps-plain', testCommand, success.status, pkg).lastVerifyAt);
+    console.log('Windows PowerShell plain verifier: real exit 0 and 1 propagated through packaged PostToolUse.');
+  }
+
   let successfulExit = 0;
   let failedExit = 1;
   let wildcardExit = 0;
-  if (process.platform === 'win32' || process.env.HARNESS_TEST_PWSH === '1') {
+  const wantsPwsh = process.platform === 'win32' || process.env.HARNESS_TEST_PWSH === '1';
+  if (wantsPwsh && hasPwsh(repo)) {
     fs.writeFileSync(path.join(repo, 'verify.test.js'), 'require("node:test")("root verifier", () => {});\n');
     fs.writeFileSync(path.join(repo, 'pkg', 'verify.test.js'), 'require("node:test")("package verifier", () => {});\n');
     fs.writeFileSync(path.join(repo, 'pkg1', 'verify.test.js'), 'require("node:test")("wildcard verifier", () => {});\n');
@@ -223,6 +251,8 @@ try {
     const literal = runPowerShell(repo, literalBracketsPrelude);
     assert.strictEqual(literal.status, 0, literal.stderr);
     assert.match(literal.stdout, /literal verifier/);
+  } else {
+    console.log('Skipped 5 PowerShell 7 runtime cases: ' + (wantsPwsh ? 'pwsh unavailable' : 'pwsh runtime lane not requested'));
   }
 
   for (const cmd of [
@@ -280,23 +310,41 @@ try {
 
   // 5. End-to-end packaged AGY hooks: read-only PowerShell doesn't trigger false Stop;
   //    A successful, contained Set-Location verifier allows Stop.
-  const convReadOnly = 'win-readonly-' + Date.now();
-  runScript(PACKAGED_POST_TOOL, {
-    conversationId: convReadOnly,
-    workspacePaths: [repo],
-    toolCall: { name: 'run_command', args: { CommandLine: 'Get-ChildItem | Select-Object Name', Cwd: repo } },
+  git(repo, ['add', '.']);
+  git(repo, ['commit', '-m', 'seed verifier fixtures']);
+  const liveReadOnly = [
+    'git grep -n "mechanism-516"',
+    '$PSVersionTable.PSVersion; Get-Command pwsh -ErrorAction SilentlyContinue',
+  ];
+  const stop = conversationId => runScript(PACKAGED_STOP, {
+    conversationId, workspacePaths: [repo], terminationReason: 'NO_TOOL_CALL',
   });
-  runScript(PACKAGED_POST_TOOL, {
-    conversationId: convReadOnly,
-    workspacePaths: [repo],
-    toolCall: { name: 'run_command', args: { CommandLine: 'agy plugin list --json', Cwd: repo } },
-  });
-  const handoffReadOnly = JSON.parse(fs.readFileSync(path.join(getSessionDir(repo, convReadOnly), 'handoff-state.json'), 'utf8'));
-  assert.ok(!handoffReadOnly.lastEditAt, `read-only PowerShell/agy commands must not set lastEditAt: ${JSON.stringify(handoffReadOnly)}`);
-  assert.deepStrictEqual(
-    runScript(PACKAGED_STOP, { conversationId: convReadOnly, workspacePaths: [repo], terminationReason: 'NO_TOOL_CALL' }),
-    { decision: 'allow' }
-  );
+  for (const [index, command] of [
+    'Get-ChildItem | Select-Object Name', 'agy plugin list --json', ...liveReadOnly,
+  ].entries()) {
+    const conversationId = 'win-readonly-' + index;
+    assert.ok(!git(repo, ['status', '--short']), 'read-only fixture requires a clean workspace');
+    const handoff = postShell(repo, conversationId, command);
+    assert.ok(!handoff.lastEditAt, command);
+    assert.ok(!handoff.lastVerifyAt, command);
+    assert.deepStrictEqual(stop(conversationId), { decision: 'allow' });
+  }
+
+  for (const [index, command] of [
+    'git grep -O "mechanism-516"',
+    'git grep --open-files-in-pager "mechanism-516"',
+    'git grep --textconv "mechanism-516"',
+    'git grep -n "mechanism-516" > output.txt',
+    'git grep -n "$(Get-Content file)"',
+    'git grep -n "mechanism-516"; git status',
+    'Get-ChildItem | ForEach-Object { Remove-Item $_.FullName }',
+    liveReadOnly[1] + '; git status',
+  ].entries()) {
+    assert.notStrictEqual(classifyShell(command), 'read-only', command);
+    const handoff = postShell(repo, 'win-unknown-' + index, command);
+    assert.ok(handoff.lastEditAt, command);
+    assert.ok(!handoff.lastVerifyAt, command);
+  }
 
   const convEditVerify = 'win-edit-verify-' + Date.now();
   const target = path.join(repo, 'README.md');
@@ -307,6 +355,13 @@ try {
     toolCall: { name: 'write_file', args: { Path: target, Content: 'edited\n' } },
   });
   const afterEdit = readHandoff(repo, convEditVerify);
+  for (const command of liveReadOnly) {
+    const pending = postShell(repo, convEditVerify, command);
+    assert.strictEqual(pending.lastEditAt, afterEdit.lastEditAt, command);
+    assert.strictEqual(pending.lastVerifyAt, afterEdit.lastVerifyAt, command);
+  }
+  assert.strictEqual(stop(convEditVerify).decision, 'continue');
+  assert.deepStrictEqual(stop(convEditVerify), { decision: 'allow' });
   for (const exitCode of [undefined, '0']) {
     const unverified = postShell(repo, convEditVerify, verifyInPkg, exitCode);
     assert.strictEqual(unverified.lastEditAt, afterEdit.lastEditAt);
