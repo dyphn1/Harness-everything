@@ -6,10 +6,20 @@ const fs = require('node:fs');
 const path = require('node:path');
 const yaml = require('js-yaml');
 
-const USAGE = 'usage: node scripts/error-ledger-oracle.js --report <scan-report.json> --ledger <errors dir> [--labels <labels.json>] [--json] [--out <file>] [--platform <platform>]';
+const USAGE = 'usage: node scripts/error-ledger-oracle.js --report <scan-report.json> --ledger <errors dir> [--labels <labels.json>] [--process-view] [--json] [--out <file>] [--platform <platform>]';
 const METRIC_NOTE = 'Path overlap is a proxy and may link distinct lessons. Both recall rates are path-linked proxies: recall (all) = linked records / all records; recall (comparable) = linked records / comparable records.';
+const PROCESS_METRIC_NOTE = 'All process-view coverage rates are structural coverage proxies and may link distinct lessons. The conservative syntax-only site classifier is a proxy; unsupported or ambiguous site strings are treated as non-comparable for path overlap. Path-comparable coverage uses only path-comparable records as its denominator; overall coverage uses all records. Multi-record signature matches are disclosed as ambiguous and are not counted as resolved or as unique-link credit.';
 const SHA256_HEX = /^[0-9a-f]{64}$/i;
 const REPO_SHA_HEX = /^[0-9a-f]{40}$/i;
+const LOCAL_IDENTIFIER = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+const GENERIC_SIGNATURES = new Set([
+  'local-memory-lead',
+  'local-instruction-lead',
+  'local-tool-failure-lead',
+  'local-provisional-lesson',
+  'lesson',
+  'unverified-lesson'
+]);
 const LABEL_OUTCOMES = new Set([
   'true-positive-existing',
   'true-positive-new',
@@ -24,15 +34,16 @@ function failure(message) {
 }
 
 function parseArgs(args) {
-  const options = { json: false, platform: process.platform };
+  const options = { json: false, processView: false, platform: process.platform };
   const values = new Set(['--report', '--ledger', '--labels', '--out', '--platform']);
   const seen = new Set();
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    if (arg === '--json') {
+    if (arg === '--json' || arg === '--process-view') {
       if (seen.has(arg)) failure(`duplicate option: ${arg}`);
       seen.add(arg);
-      options.json = true;
+      if (arg === '--json') options.json = true;
+      if (arg === '--process-view') options.processView = true;
       continue;
     }
     if (!values.has(arg)) failure(`unknown option: ${arg}`);
@@ -59,6 +70,56 @@ function normalizedSites(sites, platform) {
   return new Set(sites.map(site => normalizeSite(site, platform)).filter(Boolean));
 }
 
+function normalizeProcessSite(value, platform) {
+  if (typeof value !== 'string') return null;
+  const raw = value.trim().replace(/\s+\(.*\)\s*$/, '').trim();
+  if (!raw) return null;
+  if (/^[a-z][a-z\d+.-]*:\/\//i.test(raw) || /^[a-z]:/i.test(raw) || /^[/\\]/.test(raw) || /^~(?:[/\\]|$)/.test(raw)) {
+    return null;
+  }
+  const slashed = raw.replace(/\\/g, '/');
+  if (slashed.includes('//') || /[*?[\]{}]/.test(slashed) || /[\x00-\x1f\x7f\t\r\n"'`<>|:;#=$!,]/.test(slashed)) {
+    return null;
+  }
+  const parts = slashed.split('/');
+  while (parts.length && parts[0] === '.') parts.shift();
+  if (parts.length > 1 && parts[parts.length - 1] === '') parts.pop();
+  if (!parts.length) return null;
+  for (const segment of parts) {
+    if (!segment || segment === '.' || segment === '..') return null;
+    if (/^\s|\s$|\s{2,}/.test(segment)) return null;
+    if (!/^[A-Za-z0-9._+@()-]+(?: [A-Za-z0-9._+@()-]+)*$/.test(segment)) return null;
+  }
+  const last = parts[parts.length - 1];
+  const hasSpace = parts.some(segment => segment.includes(' '));
+  const hasExtension = /^.+?\.[A-Za-z0-9]{1,12}$/.test(last) && !last.startsWith('.');
+  const isDotfile = parts.length === 1 && /^\.[A-Za-z0-9][A-Za-z0-9._-]*$/.test(last) && !hasSpace;
+  if (!hasExtension && !(parts.length >= 2 && !hasSpace) && !isDotfile) {
+    return null;
+  }
+  const normalized = parts.join('/');
+  return platform === 'win32' ? normalized.toLowerCase() : normalized;
+}
+
+function normalizedProcessSites(sites, platform) {
+  return new Set(sites.map(site => normalizeProcessSite(site, platform)).filter(Boolean));
+}
+
+function extractLocalStoreSignature(candidate) {
+  if (!Array.isArray(candidate.sources) || candidate.sources.length === 0) return null;
+  if (!candidate.sources.every(source => source && typeof source === 'object' && source.type === 'local-store')) {
+    return null;
+  }
+  if (typeof candidate.signature !== 'string' || !LOCAL_IDENTIFIER.test(candidate.signature)) {
+    return null;
+  }
+  if (GENERIC_SIGNATURES.has(candidate.signature)) return null;
+  if (!candidate.sources.every(source => source.signature === undefined || source.signature === candidate.signature)) {
+    return null;
+  }
+  return candidate.signature;
+}
+
 function readReport(file, platform) {
   let rawBytes;
   let report;
@@ -78,7 +139,12 @@ function readReport(file, platform) {
     }
     if (ids.has(candidate.id)) failure(`duplicate candidate id: ${candidate.id}`);
     ids.add(candidate.id);
-    return { id: candidate.id, sites: normalizedSites(candidate.sites, platform) };
+    return {
+      id: candidate.id,
+      sites: normalizedSites(candidate.sites, platform),
+      processSites: normalizedProcessSites(candidate.sites, platform),
+      localStoreSignature: extractLocalStoreSignature(candidate)
+    };
   });
   return { candidates, reportSha256 };
 }
@@ -114,7 +180,12 @@ function readLedger(dir, platform) {
     }
     if (ids.has(metadata.id)) failure(`duplicate ledger id: ${metadata.id}`);
     ids.add(metadata.id);
-    return { id: metadata.id, sites: normalizedSites(metadata.sites, platform) };
+    return {
+      id: metadata.id,
+      sites: normalizedSites(metadata.sites, platform),
+      processSites: normalizedProcessSites(metadata.sites, platform),
+      signature: typeof metadata.signature === 'string' && metadata.signature.trim() ? metadata.signature.trim() : null
+    };
   });
 }
 
@@ -183,6 +254,177 @@ function compare(records, candidates) {
     linked,
     unlinked: records.filter(record => !linkedIds.has(record.id)).map(record => record.id).sort(),
     sharedPathHits
+  };
+}
+
+function compareProcessView(records, candidates) {
+  const pathLinked = [];
+  for (const record of records) {
+    const candidateIds = candidates.filter(candidate =>
+      [...record.processSites].some(recordSite =>
+        [...candidate.processSites].some(candidateSite => overlaps(recordSite, candidateSite))
+      )
+    ).map(candidate => candidate.id).sort();
+    if (candidateIds.length) {
+      pathLinked.push({ id: record.id, candidateIds });
+    }
+  }
+  pathLinked.sort((a, b) => a.id.localeCompare(b.id));
+
+  const recordSites = new Map();
+  const candidateSites = new Map();
+  for (const record of records) for (const site of record.processSites) {
+    const ids = recordSites.get(site) || new Set();
+    ids.add(record.id);
+    recordSites.set(site, ids);
+  }
+  for (const candidate of candidates) for (const site of candidate.processSites) {
+    const ids = candidateSites.get(site) || new Set();
+    ids.add(candidate.id);
+    candidateSites.set(site, ids);
+  }
+  const sharedPathHits = [...recordSites.entries()]
+    .filter(([site, recordIds]) => recordIds.size > 1 && candidateSites.has(site))
+    .map(([site, recordIds]) => ({
+      site,
+      recordIds: [...recordIds].sort(),
+      candidateIds: [...candidateSites.get(site)].sort()
+    }))
+    .sort((a, b) => a.site.localeCompare(b.site));
+
+  const recordsBySignature = new Map();
+  for (const record of records) {
+    if (!record.signature) continue;
+    const ids = recordsBySignature.get(record.signature) || [];
+    ids.push(record.id);
+    recordsBySignature.set(record.signature, ids);
+  }
+  for (const ids of recordsBySignature.values()) ids.sort();
+
+  const uniqueSigByRecord = new Map();
+  const ambiguousBySignature = new Map();
+  for (const candidate of candidates) {
+    if (!candidate.localStoreSignature) continue;
+    const matchedIds = recordsBySignature.get(candidate.localStoreSignature);
+    if (!matchedIds || matchedIds.length === 0) continue;
+    if (matchedIds.length === 1) {
+      const recordId = matchedIds[0];
+      const entry = uniqueSigByRecord.get(recordId) || { signature: candidate.localStoreSignature, candidateIds: new Set() };
+      entry.candidateIds.add(candidate.id);
+      uniqueSigByRecord.set(recordId, entry);
+    } else {
+      const entry = ambiguousBySignature.get(candidate.localStoreSignature) || {
+        signature: candidate.localStoreSignature,
+        recordIds: [...matchedIds],
+        candidateIds: new Set()
+      };
+      entry.candidateIds.add(candidate.id);
+      ambiguousBySignature.set(candidate.localStoreSignature, entry);
+    }
+  }
+
+  const uniqueSignatureLinked = [...uniqueSigByRecord.entries()]
+    .map(([id, entry]) => ({ id, signature: entry.signature, candidateIds: [...entry.candidateIds].sort() }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+
+  const ambiguousSignatureMatches = [...ambiguousBySignature.values()]
+    .map(entry => ({
+      signature: entry.signature,
+      recordIds: entry.recordIds,
+      candidateIds: [...entry.candidateIds].sort()
+    }))
+    .sort((a, b) => a.signature.localeCompare(b.signature));
+
+  const pathByRecordId = new Map(pathLinked.map(item => [item.id, item.candidateIds]));
+  const sigByRecordId = new Map(uniqueSignatureLinked.map(item => [item.id, item.candidateIds]));
+  const unionLinked = [];
+  const pathOnlyRecords = [];
+  const uniqueSignatureOnlyRecords = [];
+  const bothPathAndUniqueSignatureRecords = [];
+  const unlinkedRecords = [];
+
+  for (const record of [...records].sort((a, b) => a.id.localeCompare(b.id))) {
+    const pathCands = pathByRecordId.get(record.id);
+    const sigCands = sigByRecordId.get(record.id);
+    if (pathCands && sigCands) {
+      bothPathAndUniqueSignatureRecords.push(record.id);
+      unionLinked.push({
+        id: record.id,
+        channels: ['path', 'unique-signature'],
+        candidateIds: [...new Set([...pathCands, ...sigCands])].sort()
+      });
+    } else if (pathCands) {
+      pathOnlyRecords.push(record.id);
+      unionLinked.push({ id: record.id, channels: ['path'], candidateIds: pathCands });
+    } else if (sigCands) {
+      uniqueSignatureOnlyRecords.push(record.id);
+      unionLinked.push({ id: record.id, channels: ['unique-signature'], candidateIds: sigCands });
+    } else {
+      unlinkedRecords.push(record.id);
+    }
+  }
+
+  const pathNonComparable = records.filter(record => record.processSites.size === 0).map(record => record.id).sort();
+  const pathComparableRecords = records.length - pathNonComparable.length;
+  const ambiguousSignatureRecords = new Set(ambiguousSignatureMatches.flatMap(item => item.recordIds)).size;
+  const ambiguousSignatureCandidates = new Set(ambiguousSignatureMatches.flatMap(item => item.candidateIds)).size;
+  const rate = (numerator, denominator) => denominator ? numerator / denominator : null;
+
+  return {
+    counts: {
+      records: records.length,
+      pathComparableRecords,
+      pathNonComparableRecords: pathNonComparable.length,
+      signatureEligibleRecords: records.filter(record => Boolean(record.signature)).length,
+      pathLinkedRecords: pathLinked.length,
+      uniqueSignatureLinkedRecords: uniqueSignatureLinked.length,
+      unionLinkedRecords: unionLinked.length,
+      candidates: candidates.length,
+      pathComparableCandidates: candidates.filter(candidate => candidate.processSites.size > 0).length,
+      signatureEligibleCandidates: candidates.filter(candidate => Boolean(candidate.localStoreSignature)).length
+    },
+    coverage: {
+      path: {
+        linkedRecords: pathLinked.length,
+        pathComparableDenominator: pathComparableRecords,
+        allRecordsDenominator: records.length,
+        ratePathComparable: rate(pathLinked.length, pathComparableRecords),
+        rateAll: rate(pathLinked.length, records.length)
+      },
+      uniqueSignature: {
+        linkedRecords: uniqueSignatureLinked.length,
+        allRecordsDenominator: records.length,
+        rateAll: rate(uniqueSignatureLinked.length, records.length)
+      },
+      union: {
+        linkedRecords: unionLinked.length,
+        allRecordsDenominator: records.length,
+        rateAll: rate(unionLinked.length, records.length)
+      }
+    },
+    breakdown: {
+      counts: {
+        pathOnly: pathOnlyRecords.length,
+        uniqueSignatureOnly: uniqueSignatureOnlyRecords.length,
+        bothPathAndUniqueSignature: bothPathAndUniqueSignatureRecords.length,
+        unlinked: unlinkedRecords.length,
+        sharedPathHits: sharedPathHits.length,
+        ambiguousSignatureMatches: ambiguousSignatureMatches.length,
+        ambiguousSignatureRecords,
+        ambiguousSignatureCandidates
+      },
+      pathOnlyRecords,
+      uniqueSignatureOnlyRecords,
+      bothPathAndUniqueSignatureRecords,
+      unlinkedRecords
+    },
+    metricNote: PROCESS_METRIC_NOTE,
+    pathNonComparable,
+    pathLinked,
+    uniqueSignatureLinked,
+    unionLinked,
+    sharedPathHits,
+    ambiguousSignatureMatches
   };
 }
 
@@ -458,6 +700,30 @@ function markdown(result) {
     ];
     out += `\n## Labelled Evaluation\n\n| Metric | Value |\n| --- | ---: |\n${labelledRows.map(([label, value]) => `| ${label} | ${value} |`).join('\n')}\n`;
   }
+  if (result.processView) {
+    const pv = result.processView;
+    const processRows = [
+      ['records (all denominator)', pv.counts.records],
+      ['path-comparable records (path-comparable denominator)', pv.counts.pathComparableRecords],
+      ['path-non-comparable records', pv.counts.pathNonComparableRecords],
+      ['path-linked records', pv.counts.pathLinkedRecords],
+      ['unique-signature-linked records', pv.counts.uniqueSignatureLinkedRecords],
+      ['union-linked records', pv.counts.unionLinkedRecords],
+      ['path coverage (path-comparable)', rate(pv.coverage.path.ratePathComparable)],
+      ['path coverage (all records)', rate(pv.coverage.path.rateAll)],
+      ['unique-signature coverage (all records)', rate(pv.coverage.uniqueSignature.rateAll)],
+      ['union coverage (all records)', rate(pv.coverage.union.rateAll)],
+      ['overlap: path only', pv.breakdown.counts.pathOnly],
+      ['overlap: unique-signature only', pv.breakdown.counts.uniqueSignatureOnly],
+      ['overlap: both path and unique-signature', pv.breakdown.counts.bothPathAndUniqueSignature],
+      ['unlinked records', pv.breakdown.counts.unlinked],
+      ['shared path hits (ambiguous paths)', pv.breakdown.counts.sharedPathHits],
+      ['ambiguous signature matches (unresolved)', pv.breakdown.counts.ambiguousSignatureMatches],
+      ['ambiguous signature records (unresolved)', pv.breakdown.counts.ambiguousSignatureRecords],
+      ['ambiguous signature candidates (unresolved)', pv.breakdown.counts.ambiguousSignatureCandidates]
+    ];
+    out += `\n## Process View\n\n${pv.metricNote}\n\n| Metric | Value |\n| --- | ---: |\n${processRows.map(([label, value]) => `| ${label} | ${value} |`).join('\n')}\n`;
+  }
   return out;
 }
 
@@ -471,6 +737,7 @@ function main() {
   const labelsData = labelsFile ? readLabels(labelsFile, reportSha256, candidates, records) : null;
   const result = compare(records, candidates);
   if (labelsData) result.labelled = evaluateLabels(result, candidates, labelsData);
+  if (options.processView) result.processView = compareProcessView(records, candidates);
   const output = options.json ? `${JSON.stringify(result, null, 2)}\n` : markdown(result);
   if (options.out) fs.writeFileSync(safeOutput(options.out, ledgerDir, reportFile, labelsFile), output);
   process.stdout.write(output);

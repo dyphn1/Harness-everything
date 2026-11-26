@@ -7,6 +7,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+const localErrors = require('../hooks/scripts/lib/local-errors');
+
 const ROOT = path.resolve(__dirname, '..');
 const SCRIPT = path.join(ROOT, 'scripts', 'error-ledger-oracle.js');
 const TMP = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'harness-error-ledger-oracle-')));
@@ -23,9 +25,16 @@ function makeFixture(name, records, candidates) {
   const report = path.join(root, 'scan-report.json');
   fs.mkdirSync(ledger, { recursive: true });
   for (const record of records) {
-    const sites = record.sites.map(site => `  - ${JSON.stringify(site)}`).join('\n');
+    const sites = record.sites.length ? record.sites.map(site => `  - ${JSON.stringify(site)}`).join('\n') : '';
+    const frontmatter = [
+      '---',
+      `id: ${record.id}`,
+      ...(record.signature !== undefined ? [`signature: ${JSON.stringify(record.signature)}`] : []),
+      ...(record.sites.length ? ['sites:', sites] : ['sites: []']),
+      '---'
+    ];
     write(path.join(ledger, `${record.id}-fixture.md`), [
-      '---', `id: ${record.id}`, 'sites:', sites, '---',
+      ...frontmatter,
       '', record.lesson || `PRIVATE_RECORD_BODY_${record.id}`, ''
     ].join('\n'));
   }
@@ -35,8 +44,10 @@ function makeFixture(name, records, candidates) {
       kind: 'error-candidate',
       id: candidate.id,
       title: candidate.title || `PRIVATE_CANDIDATE_TITLE_${candidate.id}`,
+      ...(candidate.signature !== undefined ? { signature: candidate.signature } : {}),
       sites: candidate.sites,
-      sources: [{ type: 'memory', title: 'PRIVATE_MEMORY_SOURCE_TITLE' }]
+      sources: candidate.sources || [{ type: 'memory', title: 'PRIVATE_MEMORY_SOURCE_TITLE' }],
+      ...(candidate.local !== undefined ? { local: candidate.local } : {})
     }))
   }, null, 2)}\n`);
   return { root, ledger, report };
@@ -661,6 +672,330 @@ write(malformedLabelsFile, '{ not valid json');
 const malformedRun = run(fixture, ['--labels', malformedLabelsFile, '--json', '--out', sentinelOut]);
 assert.strictEqual(malformedRun.status, 2, 'malformed JSON labels file must exit 2');
 assert.deepStrictEqual(fs.readFileSync(sentinelOut), sentinelBefore, 'malformed JSON labels must not mutate --out');
+
+// --- I485-process-oracle: opt-in process measurement view ---
+
+// 1. Conservative site classification (both sides), exact local-store signature linking,
+//    ignoring local.dedupe and generic memory signatures, multi-record signature ambiguity,
+//    separate path / unique-signature / union coverage and overlap breakdown.
+const procFixture = makeFixture('process-view-core', [
+  // Path-only (historical concrete path with parenthetical note)
+  { id: 'E-0101', signature: 'sig-path-only', sites: ['parser/parser.js (PR #448 branch; not on main)'] },
+  // Path-only with space in plausible repository-relative path
+  { id: 'E-0102', signature: 'sig-spaced-path', sites: ['docs/my guide.md'] },
+  // Unique-signature only (prose-only site -> path non-comparable)
+  { id: 'E-0103', signature: 'git-stash-in-active-worker-worktree', sites: ['coordinator base-control testing (git stash / git stash pop)'] },
+  // Both path AND unique-signature (overlap)
+  { id: 'E-0104', signature: 'both-channels-sig', sites: ['scripts/shared-both.js'] },
+  // Prose-only unlinked (even though a candidate carries the exact same prose string!)
+  { id: 'E-0105', signature: 'prose-unlinked', sites: ['F4-I2b report', 'Harness workspace boundary guard'] },
+  // Glob-only unlinked (even though a candidate carries the exact same glob string!)
+  { id: 'E-0106', signature: 'glob-unlinked', sites: ['.agents/harness-everything/errors/E-*.md', 'src/{a,b}.js', 'src/a?.js', 'src/[ab].js'] }, // portability-lint: allow glob site strings in YAML data, not filesystem paths
+  // Ambiguous multi-record signature pair (E-0107 and E-0108 share duplicate-sig)
+  { id: 'E-0107', signature: 'duplicate-sig', sites: ['coordinator packet construction (D1 packet)'] },
+  { id: 'E-0108', signature: 'duplicate-sig', sites: ['shared git stash stack across worktrees'] },
+  // Generic memory signature sentinel (must NOT link to memory or local-store generic signature)
+  { id: 'E-0109', signature: 'local-memory-lead', sites: ['coordinator briefing of ledger-writing workers'] },
+  // Absolute / UNC / traversal / URL -> path non-comparable
+  { id: 'E-0110', signature: 'non-path-forms', sites: ['/abs/file.js', 'C:\\repo\\file.js', '\\\\server\\share\\file.js', '//server/share/file.js', '../outside.js', 'a/../b.js', 'https://example.invalid/a.js'] },
+  // Shared path hits (E-0111 and E-0112 both use shared/hit.js)
+  { id: 'E-0111', signature: 'shared-path-a', sites: ['shared/hit.js'] },
+  { id: 'E-0112', signature: 'shared-path-b', sites: ['shared/hit.js'] }
+], [
+  // Links E-0101 by path
+  { id: 'cand-path-exact', sites: ['./parser/parser.js'], sources: [{ type: 'git', sha: 'a'.repeat(40) }] },
+  // Links E-0102 by spaced concrete path
+  { id: 'cand-spaced-path', sites: ['docs/my guide.md'], sources: [{ type: 'doc', path: 'docs/my guide.md' }] },
+  // Links E-0103 by exact local-store signature (pathless)
+  {
+    id: 'cand-sig-unique',
+    signature: 'git-stash-in-active-worker-worktree',
+    sites: [],
+    sources: [{ type: 'local-store', kind: 'provisional-lesson', ref: 'p-local-1', destination: 'harness', signature: 'git-stash-in-active-worker-worktree' }],
+    local: { evidenceReadiness: 'needs-evidence', occurrenceCount: 0, dedupe: { status: 'none', classIds: [], matchedBy: [], newClassEligible: true } }
+  },
+  // Links E-0104 by path AND cand-sig-both links E-0104 by signature
+  { id: 'cand-both-path', sites: ['scripts/shared-both.js'], sources: [{ type: 'git', sha: 'b'.repeat(40) }] },
+  {
+    id: 'cand-both-sig',
+    signature: 'both-channels-sig',
+    sites: [],
+    sources: [{ type: 'local-store', kind: 'provisional-lesson', ref: 'p-local-2', destination: 'harness', signature: 'both-channels-sig' }]
+  },
+  // Same prose & glob strings on candidate side -> must NOT link E-0105 or E-0106
+  { id: 'cand-prose-glob', sites: ['F4-I2b report', '.agents/harness-everything/errors/E-*.md'], sources: [{ type: 'doc', path: 'docs/notes.md' }] }, // portability-lint: allow glob site string in report JSON, not filesystem path
+  // Local-store candidate with ambiguous signature matching E-0107 and E-0108 -> disclosed, 0 unique-link / union credit
+  {
+    id: 'cand-sig-ambig',
+    signature: 'duplicate-sig',
+    sites: [],
+    sources: [{ type: 'local-store', kind: 'provisional-lesson', ref: 'p-local-3', destination: 'harness', signature: 'duplicate-sig' }]
+  },
+  // Local-store candidate with DIFFERENT signature but lying local.dedupe claiming E-0105 -> must NOT link!
+  {
+    id: 'cand-dedupe-lie',
+    signature: 'unrelated-local-sig',
+    sites: [],
+    sources: [{ type: 'local-store', kind: 'provisional-lesson', ref: 'p-local-4', destination: 'harness', signature: 'unrelated-local-sig' }],
+    local: { evidenceReadiness: 'needs-evidence', occurrenceCount: 0, dedupe: { status: 'existing', classIds: ['E-0105'], matchedBy: ['whole-rule'], newClassEligible: false } }
+  },
+  // Generic memory candidate with signature 'local-memory-lead' -> must NOT link E-0109!
+  {
+    id: 'cand-generic-memory',
+    signature: 'local-memory-lead',
+    sites: [],
+    sources: [{ type: 'memory', ref: 'local/abc123' }]
+  },
+  // Non-local-store candidate whose signature matches E-0105 -> must NOT link via signature!
+  {
+    id: 'cand-git-sig',
+    signature: 'prose-unlinked',
+    sites: [],
+    sources: [{ type: 'git', sha: 'c'.repeat(40) }]
+  },
+  // Shared path hit linking E-0111 and E-0112
+  { id: 'cand-shared-hit', sites: ['shared/hit.js'], sources: [{ type: 'git', sha: 'd'.repeat(40) }] }
+]);
+
+const procLedgerBefore = snapshot(procFixture.ledger);
+const procReportBefore = fs.readFileSync(procFixture.report);
+const procJsonRun = run(procFixture, ['--process-view', '--json']);
+const procPayload = jsonResult(procJsonRun);
+
+assert.ok(procPayload.processView, '--process-view must add processView object to JSON output');
+const pv = procPayload.processView;
+// Total records: 12. Path-comparable: E-0101, E-0102, E-0104, E-0111, E-0112 (5).
+// Path-non-comparable: E-0103, E-0105, E-0106, E-0107, E-0108, E-0109, E-0110 (7).
+assert.deepStrictEqual(pv.pathNonComparable, ['E-0103', 'E-0105', 'E-0106', 'E-0107', 'E-0108', 'E-0109', 'E-0110']);
+assert.strictEqual(pv.counts.records, 12);
+assert.strictEqual(pv.counts.pathComparableRecords, 5);
+assert.strictEqual(pv.counts.pathNonComparableRecords, 7);
+assert.strictEqual(pv.counts.pathLinkedRecords, 5);
+assert.strictEqual(pv.counts.uniqueSignatureLinkedRecords, 2);
+assert.strictEqual(pv.counts.unionLinkedRecords, 6);
+
+assert.deepStrictEqual(pv.coverage.path, {
+  linkedRecords: 5,
+  pathComparableDenominator: 5,
+  allRecordsDenominator: 12,
+  ratePathComparable: 5 / 5,
+  rateAll: 5 / 12
+});
+assert.deepStrictEqual(pv.coverage.uniqueSignature, {
+  linkedRecords: 2,
+  allRecordsDenominator: 12,
+  rateAll: 2 / 12
+});
+assert.deepStrictEqual(pv.coverage.union, {
+  linkedRecords: 6,
+  allRecordsDenominator: 12,
+  rateAll: 6 / 12
+});
+assert.deepStrictEqual(pv.breakdown.pathOnlyRecords, ['E-0101', 'E-0102', 'E-0111', 'E-0112']);
+assert.deepStrictEqual(pv.breakdown.uniqueSignatureOnlyRecords, ['E-0103']);
+assert.deepStrictEqual(pv.breakdown.bothPathAndUniqueSignatureRecords, ['E-0104']);
+assert.deepStrictEqual(pv.breakdown.unlinkedRecords, ['E-0105', 'E-0106', 'E-0107', 'E-0108', 'E-0109', 'E-0110']);
+assert.deepStrictEqual(pv.ambiguousSignatureMatches, [{
+  signature: 'duplicate-sig',
+  recordIds: ['E-0107', 'E-0108'],
+  candidateIds: ['cand-sig-ambig']
+}]);
+assert.deepStrictEqual(pv.sharedPathHits, [{
+  site: 'shared/hit.js',
+  recordIds: ['E-0111', 'E-0112'],
+  candidateIds: ['cand-shared-hit']
+}]);
+assert.strictEqual(pv.breakdown.counts.ambiguousSignatureMatches, 1);
+assert.strictEqual(pv.breakdown.counts.ambiguousSignatureRecords, 2);
+assert.strictEqual(pv.breakdown.counts.ambiguousSignatureCandidates, 1);
+assert.match(pv.metricNote, /structural coverage prox/i);
+assert.match(pv.metricNote, /non-comparable/i);
+assert.ok(!procJsonRun.stdout.includes('PRIVATE_RECORD_BODY_') &&
+  !procJsonRun.stdout.includes('PRIVATE_CANDIDATE_TITLE_') &&
+  !procJsonRun.stdout.includes('PRIVATE_MEMORY_SOURCE_TITLE'),
+'processView JSON must not leak private record bodies, titles, or memory refs');
+assert.deepStrictEqual(snapshot(procFixture.ledger), procLedgerBefore, 'process-view leaves ledger byte-identical');
+assert.deepStrictEqual(fs.readFileSync(procFixture.report), procReportBefore, 'process-view leaves report byte-identical');
+
+// Markdown output for --process-view
+const procMdRun = run(procFixture, ['--process-view']);
+assert.strictEqual(procMdRun.status, 0, `process-view Markdown failed: ${procMdRun.stderr}`);
+assert.match(procMdRun.stdout, /## Process View/);
+assert.match(procMdRun.stdout, /structural coverage prox/i);
+assert.match(procMdRun.stdout, /\| path coverage \(path-comparable\) \| 100\.0% \|/);
+assert.match(procMdRun.stdout, /\| path coverage \(all records\) \| 41\.7% \|/);
+assert.match(procMdRun.stdout, /\| unique-signature coverage \(all records\) \| 16\.7% \|/);
+assert.match(procMdRun.stdout, /\| union coverage \(all records\) \| 50\.0% \|/);
+assert.match(procMdRun.stdout, /\| ambiguous signature matches \(unresolved\) \| 1 \|/);
+assert.ok(!procMdRun.stdout.includes('PRIVATE_RECORD_BODY_') && !procMdRun.stdout.includes('PRIVATE_CANDIDATE_TITLE_'));
+
+// 2. Zero-denominator cases in --process-view:
+//    (a) Prose/glob-only ledger -> pathComparableDenominator === 0 -> ratePathComparable === null / n/a
+const proseOnlyFixture = makeFixture('process-view-prose-only', [
+  { id: 'E-0201', signature: 'prose-only-sig', sites: ['F4-I2b report'] },
+  { id: 'E-0202', signature: 'glob-only-sig', sites: ['.agents/harness-everything/errors/E-*.md'] } // portability-lint: allow glob site string in YAML data, not filesystem path
+], []);
+const proseOnlyJson = jsonResult(run(proseOnlyFixture, ['--process-view', '--json']));
+assert.strictEqual(proseOnlyJson.processView.counts.pathComparableRecords, 0);
+assert.strictEqual(proseOnlyJson.processView.coverage.path.ratePathComparable, null);
+assert.strictEqual(proseOnlyJson.processView.coverage.path.rateAll, 0);
+const proseOnlyMd = run(proseOnlyFixture, ['--process-view']);
+assert.strictEqual(proseOnlyMd.status, 0);
+assert.match(proseOnlyMd.stdout, /\| path coverage \(path-comparable\) \| n\/a \|/);
+
+//    (b) Empty ledger (0 records) -> all rates null / n/a
+const emptyLedgerFixture = makeFixture('process-view-empty-ledger', [], []);
+const emptyLedgerJson = jsonResult(run(emptyLedgerFixture, ['--process-view', '--json']));
+assert.strictEqual(emptyLedgerJson.processView.coverage.path.ratePathComparable, null);
+assert.strictEqual(emptyLedgerJson.processView.coverage.path.rateAll, null);
+assert.strictEqual(emptyLedgerJson.processView.coverage.uniqueSignature.rateAll, null);
+assert.strictEqual(emptyLedgerJson.processView.coverage.union.rateAll, null);
+const emptyLedgerMd = run(emptyLedgerFixture, ['--process-view']);
+assert.strictEqual(emptyLedgerMd.status, 0);
+assert.match(emptyLedgerMd.stdout, /\| union coverage \(all records\) \| n\/a \|/);
+assert.match(emptyLedgerMd.stdout, /\| unique-signature coverage \(all records\) \| n\/a \|/);
+
+// 3. Windows platform normalization control under --process-view
+const winProcFixture = makeFixture('process-view-windows', [
+  { id: 'E-0301', sites: ['Src\\My Parser.JS'] },
+  { id: 'E-0302', sites: ['C:\\repo\\src\\file.js', '\\\\server\\share\\file.js'] }
+], [
+  { id: 'cand-win-space', sites: ['src/my parser.js'], sources: [{ type: 'git', sha: 'e'.repeat(40) }] },
+  { id: 'cand-win-drive', sites: ['D:/repo/src/file.js'], sources: [{ type: 'git', sha: 'f'.repeat(40) }] }
+]);
+const winProcPayload = jsonResult(run(winProcFixture, ['--process-view', '--platform', 'win32', '--json']));
+assert.deepStrictEqual(winProcPayload.processView.pathLinked, [{ id: 'E-0301', candidateIds: ['cand-win-space'] }]);
+assert.deepStrictEqual(winProcPayload.processView.pathNonComparable, ['E-0302']);
+
+// 4. Preservation control: --process-view off keeps legacy and #484 outputs byte-identical;
+//    --process-view + --labels composes without altering #484 labelled results.
+const legacyOffCheck = run(fixture, ['--json']);
+assert.strictEqual(legacyOffCheck.stdout, expectedLegacyJson, 'legacy JSON unchanged when --process-view is off');
+const labelledOffCheck = run(fixture, ['--labels', mainLabelsFile, '--json']);
+assert.strictEqual(labelledOffCheck.stdout, labelledJsonRun.stdout, '#484 labelled JSON unchanged when --process-view is off');
+const composedRun = jsonResult(run(fixture, ['--labels', mainLabelsFile, '--process-view', '--json']));
+assert.deepStrictEqual(composedRun.labelled, labelledPayload.labelled, '--process-view preserves #484 labelled section');
+assert.ok(composedRun.processView, 'composed run includes processView');
+
+// 5. Real scanner-to-oracle local-store controls (pathless positive, different-signature negative, same-signature ambiguity)
+const lsRoot = path.join(TMP, 'real-local-store-oracle');
+const lsRepo = path.join(lsRoot, 'repo');
+const lsHome = path.join(lsRoot, 'home');
+const lsStore = path.join(lsRoot, 'store');
+const lsLedger = path.join(lsRoot, 'errors');
+fs.mkdirSync(lsRepo, { recursive: true });
+fs.mkdirSync(lsHome, { recursive: true });
+fs.mkdirSync(lsStore, { recursive: true });
+fs.mkdirSync(lsLedger, { recursive: true });
+
+function gitLs(args, extraEnv = {}) {
+  return childProcess.execFileSync('git', ['-C', lsRepo, ...args], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      GIT_CONFIG_NOSYSTEM: '1',
+      HOME: lsHome,
+      USERPROFILE: lsHome,
+      GIT_AUTHOR_NAME: 'Oracle LS Fixture',
+      GIT_AUTHOR_EMAIL: 'oracle-ls@example.invalid',
+      GIT_COMMITTER_NAME: 'Oracle LS Fixture',
+      GIT_COMMITTER_EMAIL: 'oracle-ls@example.invalid',
+      GIT_AUTHOR_DATE: '2026-11-25T12:00:00Z',
+      GIT_COMMITTER_DATE: '2026-11-25T12:00:00Z',
+      ...extraEnv
+    },
+    stdio: ['ignore', 'pipe', 'pipe']
+  }).trim();
+}
+gitLs(['init', '-q']);
+write(path.join(lsRepo, 'README.md'), '# Synthetic Local Store Fixture\n');
+gitLs(['add', '-A']);
+gitLs(['commit', '-q', '-m', 'chore: init local-store fixture']);
+
+const lsEnv = { ...process.env, HARNESS_OBSERVATIONS_DIR: lsStore, HOME: lsHome, USERPROFILE: lsHome };
+for (const key of ['HARNESS_WORKSPACE_ROOT', 'CLAUDE_PROJECT_DIR', 'CODEX_PROJECT_DIR', 'HARNESS_SYSTEM_ONE_MODE']) delete lsEnv[key];
+
+const addLsLesson = (provisionalId, signature, subcommand) => {
+  const res = localErrors.addProvisionalLesson({
+    workspaceRoot: lsRepo,
+    destination: 'harness',
+    provisionalId,
+    signature,
+    match: { actions: [{ tool: 'shell', executable: 'git', subcommand }] },
+    lesson: `PRIVATE_LS_LESSON_${provisionalId}`,
+    cue: `PRIVATE_LS_CUE_${provisionalId}`,
+    issueUrl: null
+  }, { env: lsEnv });
+  assert.ok(['appended', 'duplicate'].includes(res.status), `failed to seed local-store lesson ${provisionalId}: ${res.status}`);
+};
+
+// Seed three pathless local-store lessons:
+//   1) pathless positive: matches E-0034 by exact signature
+//   2) different-signature negative: has a different signature from every ledger record
+//   3) same-signature ambiguity: matches BOTH E-0091 and E-0092
+addLsLesson('prov-positive-1', 'git-stash-in-active-worker-worktree', 'stash');
+addLsLesson('prov-negative-1', 'different-signature-negative', 'push');
+addLsLesson('prov-ambig-1', 'ambiguous-process-signature', 'pull');
+
+const lsScanOutDir = path.join(lsRoot, 'scan-out');
+const lsScan = childProcess.spawnSync(process.execPath, [
+  SCANNER, '--root', lsRepo, '--out', lsScanOutDir, '--no-memory', '--hide-ledger',
+  '--source', 'local-store', '--destination', 'harness', '--home', lsHome, '--json'
+], { cwd: ROOT, encoding: 'utf8', env: lsEnv });
+assert.ifError(lsScan.error);
+assert.strictEqual(lsScan.status, 0, `real local-store scan.js failed: ${lsScan.stderr}`);
+const lsScanSummary = JSON.parse(lsScan.stdout);
+assert.strictEqual(lsScanSummary.ok, true);
+const lsReportFile = lsScanSummary.reportJson;
+
+// Ledger with prose-only sites: 1 exact match (E-0034), 1 different-signature target (E-0090), 2 ambiguous-signature records (E-0091, E-0092)
+write(path.join(lsLedger, 'E-0034-git-stash.md'), [
+  '---', 'id: E-0034', 'signature: git-stash-in-active-worker-worktree',
+  'sites:', '  - "coordinator base-control testing (git stash / git stash pop in a worker worktree)"',
+  '---', '', 'PRIVATE_LS_LEDGER_BODY_34', ''
+].join('\n'));
+write(path.join(lsLedger, 'E-0090-other-sig.md'), [
+  '---', 'id: E-0090', 'signature: expected-other-signature',
+  'sites:', '  - "coordinator packet construction"',
+  '---', '', 'PRIVATE_LS_LEDGER_BODY_90', ''
+].join('\n'));
+write(path.join(lsLedger, 'E-0091-ambig-a.md'), [
+  '---', 'id: E-0091', 'signature: ambiguous-process-signature',
+  'sites:', '  - "shared coordinator workflow"',
+  '---', '', 'PRIVATE_LS_LEDGER_BODY_91', ''
+].join('\n'));
+write(path.join(lsLedger, 'E-0092-ambig-b.md'), [
+  '---', 'id: E-0092', 'signature: ambiguous-process-signature',
+  'sites:', '  - "another coordinator workflow"',
+  '---', '', 'PRIVATE_LS_LEDGER_BODY_92', ''
+].join('\n'));
+
+const lsOracleFixture = { root: lsRoot, ledger: lsLedger, report: lsReportFile };
+const lsOracleRun = run(lsOracleFixture, ['--process-view', '--json']);
+const lsOraclePayload = jsonResult(lsOracleRun);
+const lspv = lsOraclePayload.processView;
+
+assert.strictEqual(lspv.counts.records, 4);
+assert.strictEqual(lspv.counts.pathComparableRecords, 0);
+assert.strictEqual(lspv.coverage.path.ratePathComparable, null);
+assert.strictEqual(lspv.coverage.path.rateAll, 0);
+assert.strictEqual(lspv.counts.uniqueSignatureLinkedRecords, 1, 'only E-0034 links uniquely via scanner local-store signature');
+assert.strictEqual(lspv.uniqueSignatureLinked.length, 1);
+assert.strictEqual(lspv.uniqueSignatureLinked[0].id, 'E-0034');
+assert.strictEqual(lspv.uniqueSignatureLinked[0].signature, 'git-stash-in-active-worker-worktree');
+assert.strictEqual(lspv.counts.unionLinkedRecords, 1);
+assert.strictEqual(lspv.coverage.uniqueSignature.rateAll, 1 / 4);
+assert.strictEqual(lspv.coverage.union.rateAll, 1 / 4);
+assert.deepStrictEqual(lspv.breakdown.unlinkedRecords, ['E-0090', 'E-0091', 'E-0092']);
+assert.strictEqual(lspv.ambiguousSignatureMatches.length, 1);
+assert.strictEqual(lspv.ambiguousSignatureMatches[0].signature, 'ambiguous-process-signature');
+assert.deepStrictEqual(lspv.ambiguousSignatureMatches[0].recordIds, ['E-0091', 'E-0092']);
+assert.strictEqual(lspv.ambiguousSignatureMatches[0].candidateIds.length, 1);
+assert.ok(!lsOracleRun.stdout.includes('PRIVATE_LS_LESSON_') &&
+  !lsOracleRun.stdout.includes('PRIVATE_LS_CUE_') &&
+  !lsOracleRun.stdout.includes('PRIVATE_LS_LEDGER_BODY_') &&
+  !lsOracleRun.stdout.includes('prov-positive-1'),
+'scanner-to-oracle processView must not leak private local-store text or raw provisional IDs');
 
 try {
   fs.rmSync(TMP, { recursive: true, force: true });
