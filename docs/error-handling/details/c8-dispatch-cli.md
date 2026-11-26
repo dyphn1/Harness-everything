@@ -7,7 +7,8 @@ This detail implements the C8 action map for one coordinator-selected runner att
 ```sh
 npm run --silent dispatch -- --runner <codex|opencode|agy> --model <id> \
   --packet <path> --worktree <git-root> --scratch <absolute-external-path> \
-  --report <path> [--effort <low|medium|high|xhigh>] [--assignment <path>] [--dry-run] [--json]
+  --report <path> [--effort <low|medium|high|xhigh>] [--assignment <path>] \
+  [--admission-policy <path>] [--dry-run] [--json]
 ```
 
 `node scripts/dispatch.js` accepts the same options. `--help` prints this short synopsis. The coordinator supplies every value; packet and report paths may be relative to the worktree or absolute (for `agy`, both must resolve inside `--worktree` so the prompt passes cwd-relative worker paths only). The worktree must be an existing Git root. Scratch must be absolute and outside every Git repository/worktree. A pre-existing report path is rejected as invalid input.
@@ -22,6 +23,7 @@ npm run --silent dispatch -- --runner <codex|opencode|agy> --model <id> \
 | `--report` | Required fresh report path, resolved from the worktree when relative (must resolve inside `--worktree` for `agy`). |
 | `--effort` | Optional Codex reasoning effort: `low`, `medium`, `high`, or `xhigh`. It passes a Codex `-c model_reasoning_effort="…"` override; omission leaves Codex configuration unchanged. Rejected for OpenCode and `agy`. |
 | `--assignment` | Optional managed-mode gate assignment sidecar JSON; see [Managed mode](#managed-mode-and-gate-assignment-466-d-gate). |
+| `--admission-policy` | Required in managed mode (`--assignment`); host-level per-pool reservation policy JSON, see [Managed admission](#managed-per-pool-admission-466-d-admission). Rejected in unmanaged mode (`10 INVALID_INPUT`). |
 | `--dry-run` | Validate inputs and return planned argv/cwd; no child or filesystem writes. |
 | `--json` | Return one JSON object on stdout, including refusals. |
 | `--help` | Return the short usage synopsis with exit 0. |
@@ -134,6 +136,40 @@ This is #466 policy within C8, entered only with `--assignment`. In managed mode
 
 Scratch and evidence have different lifetimes: scratch is disposable only after a checked DONE has usable retained evidence. Evidence: fixture rows S1–S8 in `ci/mechanism-468-dispatch-cli.test.js`.
 
+## Managed per-pool admission (#466 D-admission)
+
+In managed mode (`--assignment`), C8 requires `--admission-policy <path>` (resolved from the worktree when relative) and atomically reserves one slot for the selected credential or shared quota pool before readiness. Without `--assignment`, unmanaged invocations are unchanged and take no reservation (`--admission-policy` without `--assignment` returns `10 INVALID_INPUT`).
+
+```json
+{
+  "schemaVersion": 1,
+  "dir": "/abs/external/admission-dir",
+  "pools": {
+    "opencode-pilot-key": { "cap": 2 },
+    "agy-shared-pool": { "cap": 1 }
+  },
+  "routes": [
+    { "runner": "opencode", "model": "fixture/opencode-model", "pool": "opencode-pilot-key" },
+    { "runner": "opencode", "model": "fixture/opencode-alias", "pool": "opencode-pilot-key" },
+    { "runner": "agy", "model": "gemini-4-neon-medium", "pool": "agy-shared-pool" }
+  ]
+}
+```
+
+- **Strict validation (`21 ADMISSION_POLICY_INVALID`, phase `admission`):** exact root keys (`schemaVersion: 1`, `dir`, `pools`, `routes`); `dir` must be an absolute directory outside every Git repository/worktree (reusing the canonical path check from D-scratch) and disjoint from `--scratch`; `pools` maps opaque pool ids (`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`) to `{ "cap": <integer >= 1> }`; `routes` maps unique `(runner, model)` pairs to defined pools; the selected `(runner, model)` must have a route. Missing, malformed, or unknown policies refuse before spawn.
+- **Opaque identity, no credentials:** pool ids are operator-supplied opaque names. C8 never derives identity from environment secrets and never emits credential values in JSON, slot files, or evidence. Aliases sharing a pool consume the same cap even across different scratch roots.
+- **Atomic bounded slots:** `<dir>/<pool>/slot-<0..cap-1>.json` created with `O_EXCL` (`wx`). Each slot records `{ schemaVersion: 1, pool, slot, holderPid, childPid, startedAt }`, updating `childPid` when a child spawns and clearing it after the child exits.
+- **Over-cap refusal (`22 ADMISSION_CAP_REACHED`, phase `admission`):** no queueing. If all `cap` slots are occupied by live or non-reclaimable holders, the excess attempt refuses before spawn and creates no scratch attempt dir; independent pools remain eligible.
+- **Release and stale reclamation:** DONE, BLOCKED, readiness failure, runner failure, timeout, and report/retention errors release the owned slot in `finally` after the child has ended (verifying ownership before unlink). An abandoned slot is reclaimed only after verifying both `holderPid` and `childPid` (if set) return `ESRCH` from `process.kill(pid, 0)`. `EPERM`, live PIDs, or incomplete/corrupt slot files count as active and are never reclaimed.
+- **`--dry-run`:** validates the policy and route and returns `admission: { pool, cap }` without creating `dir` or taking any reservation.
+
+| Exit | JSON `code` | Meaning |
+| --- | --- | --- |
+| `21` | `ADMISSION_POLICY_INVALID` | Managed admission policy is missing, malformed, unsafe, or has no route for the selected runner/model. |
+| `22` | `ADMISSION_CAP_REACHED` | Selected admission pool is at cap; excess attempt refused before spawn (no queueing). |
+
+Admission bounds concurrency; a provider can still return quota exhaustion at concurrency one. Evidence: fixture rows R1–R10 in `ci/mechanism-468-dispatch-cli.test.js`.
+
 ## #466 boundary
 
-#466 still owns enforcement across launch paths, per-key admission/reservation, refusing packets that declare worker `gh`/network needs (no network capability is assessed here), and any live `agy` pilot after admission is in place. Managed gate assignment, managed scratch, and the `agy` headless runner adapter above are the only #466 policy implemented in C8. This CLI otherwise accepts coordinator-supplied inputs for one attempt and cannot certify those launcher guarantees. It also does not add a distributed plugin command or run a live provider.
+#466 still owns enforcement across launch paths, refusing packets that declare worker `gh`/network needs (no network capability is assessed here), and any live `agy` pilot. Managed gate assignment, managed scratch, the `agy` headless runner adapter, and managed per-pool admission above are the #466 policy implemented in C8. This CLI otherwise accepts coordinator-supplied inputs for one attempt and cannot certify launcher guarantees outside C8. It also does not add a distributed plugin command or run a live provider.

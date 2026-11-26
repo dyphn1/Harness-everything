@@ -32,6 +32,7 @@ const reports = path.join(fixtureRoot, 'reports with spaces');
 const runnerBin = path.join(fixtureRoot, 'runner bin');
 const openCodeOnlyBin = path.join(fixtureRoot, 'opencode only bin');
 const rawOverridePreload = path.join(fixtureRoot, 'raw-override.cjs');
+const admissionPreload = path.join(fixtureRoot, 'admission-preload.cjs');
 const agyStubScript = path.join(fixtureRoot, 'agy-stub.cjs');
 const agyWinPreload = path.join(fixtureRoot, 'agy-win-preload.cjs');
 const packet = path.join(worktree, 'packet with spaces.md');
@@ -167,15 +168,24 @@ const cp = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const origSpawnSync = cp.spawnSync;
+const origSpawn = cp.spawn;
+function isAgyFixture(command, options) {
+  if (command !== 'agy') return false;
+  const pathEnv = (options && options.env && (options.env.PATH || options.env.Path)) || '';
+  const dirs = pathEnv.split(path.delimiter).filter(Boolean);
+  return dirs.some(dir => fs.existsSync(path.join(dir, 'agy.cmd')));
+}
 cp.spawnSync = function (command, args, options) {
-  if (command === 'agy') {
-    const pathEnv = (options && options.env && (options.env.PATH || options.env.Path)) || '';
-    const dirs = pathEnv.split(path.delimiter).filter(Boolean);
-    if (dirs.some(dir => fs.existsSync(path.join(dir, 'agy.cmd')))) {
-      return origSpawnSync.call(this, process.execPath, [${JSON.stringify(agyStubScript)}, ...(args || [])], options);
-    }
+  if (isAgyFixture(command, options)) {
+    return origSpawnSync.call(this, process.execPath, [${JSON.stringify(agyStubScript)}, ...(args || [])], options);
   }
   return origSpawnSync.call(this, command, args, options);
+};
+cp.spawn = function (command, args, options) {
+  if (isAgyFixture(command, options)) {
+    return origSpawn.call(this, process.execPath, [${JSON.stringify(agyStubScript)}, ...(args || [])], options);
+  }
+  return origSpawn.call(this, command, args, options);
 };
 `);
   } else {
@@ -223,6 +233,15 @@ function cliEnv(testCase, config = {}) {
     env.DISPATCH_FIXTURE_RAW_OVERRIDE = config.rawOverride;
     preloads.push(`--require "${rawOverridePreload.replace(/\\/g, '/')}"`);
   }
+  if (config.admissionHook) {
+    if (config.admissionHook.snapshotFile) env.DISPATCH_FIXTURE_SNAPSHOT_FILE = config.admissionHook.snapshotFile;
+    if (config.admissionHook.snapshotDir) env.DISPATCH_FIXTURE_SNAPSHOT_DIR = config.admissionHook.snapshotDir;
+    if (config.admissionHook.enteredFile) env.DISPATCH_FIXTURE_ENTERED_FILE = config.admissionHook.enteredFile;
+    if (config.admissionHook.gateFile) env.DISPATCH_FIXTURE_GATE_FILE = config.admissionHook.gateFile;
+    if (config.admissionHook.epermPid !== undefined) env.DISPATCH_FIXTURE_EPERM_PID = String(config.admissionHook.epermPid);
+    preloads.push(`--require "${admissionPreload.replace(/\\/g, '/')}"`);
+  }
+  if (config.extraEnv) Object.assign(env, config.extraEnv);
   if (preloads.length) env.NODE_OPTIONS = `${process.env.NODE_OPTIONS || ''} ${preloads.join(' ')}`.trim();
   delete env.HARNESS_SYSTEM_ONE_MODE;
   return env;
@@ -414,6 +433,45 @@ if (
     }
     return writeFileSync.call(this, file, data, ...rest);
   };
+}
+`);
+fs.writeFileSync(admissionPreload, `'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
+const epermPid = process.env.DISPATCH_FIXTURE_EPERM_PID ? Number(process.env.DISPATCH_FIXTURE_EPERM_PID) : null;
+if (Number.isSafeInteger(epermPid)) {
+  const origKill = process.kill;
+  process.kill = function (pid, signal) {
+    if (Number(pid) === epermPid && (signal === 0 || signal === undefined)) {
+      const err = new Error('operation not permitted');
+      err.code = 'EPERM';
+      throw err;
+    }
+    return origKill.call(this, pid, signal);
+  };
+}
+const scriptBase = path.basename(process.argv[1] || '');
+const isRunnerChild = scriptBase === 'exec' || scriptBase === 'run' || scriptBase === 'agy-stub.cjs';
+const isReadiness = process.argv.at(-1) === 'Reply with the single word READY' || process.argv.includes('Reply with the single word READY');
+if (isRunnerChild && isReadiness) {
+  const snapDir = process.env.DISPATCH_FIXTURE_SNAPSHOT_DIR;
+  const snapFile = process.env.DISPATCH_FIXTURE_SNAPSHOT_FILE;
+  if (snapDir && snapFile && fs.existsSync(snapDir)) {
+    const slots = fs.readdirSync(snapDir).sort().map(name => ({
+      name,
+      content: fs.readFileSync(path.join(snapDir, name), 'utf8'),
+    }));
+    fs.writeFileSync(snapFile, JSON.stringify({ childPid: process.pid, slots }));
+  }
+  if (process.env.DISPATCH_FIXTURE_ENTERED_FILE) {
+    fs.writeFileSync(process.env.DISPATCH_FIXTURE_ENTERED_FILE, String(process.pid));
+  }
+  const gateFile = process.env.DISPATCH_FIXTURE_GATE_FILE;
+  if (gateFile) {
+    const wait = new Int32Array(new SharedArrayBuffer(4));
+    const deadline = Date.now() + 10000;
+    while (!fs.existsSync(gateFile) && Date.now() < deadline) Atomics.wait(wait, 0, 0, 20);
+  }
 }
 `);
 fs.mkdirSync(reports);
@@ -871,19 +929,35 @@ try {
   check('entry usage mentions every option used by the CLI contract', () => {
     const testCase = makeCase('usage options');
     const response = jsonResponse(cli(['--help', '--json'], testCase), 0, 'HELP');
-    for (const option of ['--runner', '--model', '--packet', '--worktree', '--scratch', '--report', '--effort', '--assignment', '--dry-run', '--json', '--help']) {
+    for (const option of ['--runner', '--model', '--packet', '--worktree', '--scratch', '--report', '--effort', '--assignment', '--admission-policy', '--dry-run', '--json', '--help']) {
       assert.ok(response.message.includes(option), `usage is missing ${option}`);
     }
   });
 
   // #466 D-gate: managed C8 structured gate assignment (rows G1-G7).
+  const defaultAdmissionDir = path.join(fixtureRoot, 'shared-admission-default');
+  const defaultAdmissionPolicy = path.join(fixtureRoot, 'default-admission-policy.json');
+  fs.writeFileSync(defaultAdmissionPolicy, JSON.stringify({
+    schemaVersion: 1,
+    dir: defaultAdmissionDir,
+    pools: {
+      'codex-pilot': { cap: 2 },
+      'opencode-pilot': { cap: 2 },
+      'agy-shared': { cap: 2 },
+    },
+    routes: [
+      { runner: 'codex', model: 'fixture/codex-model', pool: 'codex-pilot' },
+      { runner: 'opencode', model: 'fixture/opencode-model', pool: 'opencode-pilot' },
+      { runner: 'agy', model: 'gemini-4-neon-medium', pool: 'agy-shared' },
+    ],
+  }));
   function writeAssignment(testCase, value, raw) {
     const file = path.join(fixtureRoot, `assignment ${caseNumber}.json`);
     fs.writeFileSync(file, raw !== undefined ? raw : JSON.stringify(value));
     return file;
   }
-  function managedArgs(testCase, assignment, runner = 'codex') {
-    return [...argsFor(testCase, runner), '--assignment', assignment];
+  function managedArgs(testCase, assignment, runner = 'codex', admissionPolicy = defaultAdmissionPolicy) {
+    return [...argsFor(testCase, runner), '--assignment', assignment, ...(admissionPolicy === null ? [] : ['--admission-policy', admissionPolicy])];
   }
   function assertRefusedBeforeSpawn(testCase) {
     assertNoRunner(testCase);
@@ -1211,7 +1285,7 @@ try {
     assertNoScratchOrReport(testCase);
 
     const assignment = managedAssignment(testCase);
-    const response = jsonResponse(cli([...args, '--assignment', assignment, '--json'], testCase, { readiness: 'ready-host-label' }), 0, 'DONE');
+    const response = jsonResponse(cli([...args, '--assignment', assignment, '--admission-policy', defaultAdmissionPolicy, '--json'], testCase, { readiness: 'ready-host-label' }), 0, 'DONE');
     assert.equal(response.runner, 'agy');
     assert.equal(response.model, 'gemini-4-neon-medium');
     assert.equal(response.sandbox, 'requested');
@@ -1239,7 +1313,7 @@ try {
   check('A2 agy valid BLOCKED report -> WORKER_BLOCKED with reason and kept evidence', () => {
     const testCase = makeAgyCase('agy a2');
     const assignment = managedAssignment(testCase);
-    const response = jsonResponse(cli([...agyArgsFor(testCase), '--assignment', assignment, '--json'], testCase, { execution: 'blocked' }), 17, 'WORKER_BLOCKED');
+    const response = jsonResponse(cli([...agyArgsFor(testCase), '--assignment', assignment, '--admission-policy', defaultAdmissionPolicy, '--json'], testCase, { execution: 'blocked' }), 17, 'WORKER_BLOCKED');
     assert.equal(response.runner, 'agy');
     assert.equal(response.sandbox, 'requested');
     assert.match(response.message, /missing evidence/);
@@ -1337,18 +1411,359 @@ try {
     for (const gate of ['verify:all', 'verify:all --fast']) {
       const testCase = makeAgyCase(`agy a9 ${gate}`);
       const assignment = writeAssignment(testCase, { schemaVersion: 1, gates: [...focused, { id: gate, actor: 'worker' }] });
-      const res = jsonResponse(cli([...agyArgsFor(testCase), '--assignment', assignment, '--json'], testCase), 18, 'GATE_REFUSED');
+      const res = jsonResponse(cli([...agyArgsFor(testCase), '--assignment', assignment, '--admission-policy', defaultAdmissionPolicy, '--json'], testCase), 18, 'GATE_REFUSED');
       assert.equal(res.phase, 'gate');
       assert.ok(res.message.includes(gate));
       assertRefusedBeforeSpawn(testCase);
-      const dry = jsonResponse(cli([...agyArgsFor(testCase), '--assignment', assignment, '--dry-run', '--json'], testCase), 18, 'GATE_REFUSED');
+      const dry = jsonResponse(cli([...agyArgsFor(testCase), '--assignment', assignment, '--admission-policy', defaultAdmissionPolicy, '--dry-run', '--json'], testCase), 18, 'GATE_REFUSED');
       assert.equal(dry.phase, 'gate');
       assertRefusedBeforeSpawn(testCase);
     }
     const okCase = makeAgyCase('agy a9 coord');
     const okAssignment = writeAssignment(okCase, { schemaVersion: 1, gates: [...focused, { id: 'verify:all', actor: 'coordinator' }] });
-    const ok = jsonResponse(cli([...agyArgsFor(okCase), '--assignment', okAssignment, '--json'], okCase), 0, 'DONE');
+    const ok = jsonResponse(cli([...agyArgsFor(okCase), '--assignment', okAssignment, '--admission-policy', defaultAdmissionPolicy, '--json'], okCase), 0, 'DONE');
     assert.deepEqual(ok.gates, { worker: focused.map(item => item.id), coordinator: ['verify:all'] });
+  });
+
+  // #466 D-admission: managed C8 per-pool reservation cap (rows R1-R10).
+  function writeAdmissionPolicy(value, raw) {
+    const file = path.join(fixtureRoot, `admission-policy-${caseNumber}-${Math.random().toString(16).slice(2, 8)}.json`);
+    fs.writeFileSync(file, raw !== undefined ? raw : JSON.stringify(value));
+    return file;
+  }
+  function poolSlotFiles(admissionDir, pool) {
+    const dir = path.join(admissionDir, pool);
+    if (!fs.existsSync(dir)) return [];
+    return fs.readdirSync(dir).filter(name => /^slot-\d+\.json$/.test(name)).sort();
+  }
+  function deadPid() {
+    const exited = spawnSync(process.execPath, ['-e', 'process.exit(0)'], { encoding: 'utf8' });
+    assert.ok(Number.isSafeInteger(exited.pid) && exited.pid > 0);
+    assertProcessExited(exited.pid);
+    return exited.pid;
+  }
+
+  check('R1 managed attempt reserves 1 slot before readiness (with holder+child pid) and releases after DONE', () => {
+    const testCase = makeCase('admission r1');
+    const admissionDir = path.join(fixtureRoot, `admission-r1-${caseNumber}`);
+    const policy = writeAdmissionPolicy({
+      schemaVersion: 1,
+      dir: admissionDir,
+      pools: { 'opencode-pilot-key': { cap: 2 } },
+      routes: [{ runner: 'opencode', model: 'fixture/opencode-model', pool: 'opencode-pilot-key' }],
+    });
+    const assignment = managedAssignment(testCase);
+    const snapshotFile = path.join(fixtureRoot, `r1-snapshot-${caseNumber}.json`);
+    const response = jsonResponse(cli(
+      [...managedArgs(testCase, assignment, 'opencode', policy), '--json'],
+      testCase,
+      { admissionHook: { snapshotDir: path.join(admissionDir, 'opencode-pilot-key'), snapshotFile } },
+    ), 0, 'DONE');
+    assert.deepEqual(response.admission, { pool: 'opencode-pilot-key', cap: 2, slot: 0 });
+    assert.ok(fs.existsSync(snapshotFile), 'readiness child must observe the reserved slot');
+    const snap = JSON.parse(fs.readFileSync(snapshotFile, 'utf8'));
+    assert.equal(snap.slots.length, 1, 'exactly 1 slot reserved during readiness');
+    assert.equal(snap.slots[0].name, 'slot-0.json');
+    const slotMeta = JSON.parse(snap.slots[0].content);
+    assert.equal(slotMeta.pool, 'opencode-pilot-key');
+    assert.equal(slotMeta.slot, 0);
+    assert.ok(Number.isSafeInteger(slotMeta.holderPid) && slotMeta.holderPid > 0);
+    assert.equal(slotMeta.childPid, snap.childPid, 'slot records live childPid during readiness');
+    assert.ok(typeof slotMeta.startedAt === 'string' && slotMeta.startedAt.length > 0);
+    assert.deepEqual(poolSlotFiles(admissionDir, 'opencode-pilot-key'), [], 'slot released after child ends');
+  });
+
+  check('R2 missing or invalid admission policy or unknown runner+model pool -> refused before spawn', () => {
+    const missingFlag = makeCase('admission r2 missing flag');
+    const rMissingFlag = jsonResponse(cli([...managedArgs(missingFlag, managedAssignment(missingFlag), 'codex', null), '--json'], missingFlag), 21, 'ADMISSION_POLICY_INVALID');
+    assert.equal(rMissingFlag.phase, 'admission');
+    assertRefusedBeforeSpawn(missingFlag);
+
+    const missingFile = makeCase('admission r2 missing file');
+    const rMissingFile = jsonResponse(cli([...managedArgs(missingFile, managedAssignment(missingFile), 'codex', path.join(fixtureRoot, 'no-policy.json')), '--json'], missingFile), 21, 'ADMISSION_POLICY_INVALID');
+    assert.equal(rMissingFile.phase, 'admission');
+    assertRefusedBeforeSpawn(missingFile);
+
+    const extDir = path.join(fixtureRoot, `admission-r2-valid-${caseNumber}`);
+    const linkToRepo = path.join(fixtureRoot, `admission-r2-link-${caseNumber}`);
+    fs.symlinkSync(worktree, linkToRepo, process.platform === 'win32' ? 'junction' : 'dir');
+    const badPolicies = [
+      ['not json', undefined, '{bad'],
+      ['wrong schemaVersion', { schemaVersion: 2, dir: extDir, pools: { p: { cap: 1 } }, routes: [] }, undefined],
+      ['unknown top-level key', { schemaVersion: 1, dir: extDir, pools: { p: { cap: 1 } }, routes: [], extra: 1 }, undefined],
+      ['relative dir', { schemaVersion: 1, dir: 'relative/admission', pools: { p: { cap: 1 } }, routes: [{ runner: 'codex', model: 'fixture/codex-model', pool: 'p' }] }, undefined],
+      ['dir inside git repo', { schemaVersion: 1, dir: path.join(worktree, 'admission'), pools: { p: { cap: 1 } }, routes: [{ runner: 'codex', model: 'fixture/codex-model', pool: 'p' }] }, undefined],
+      ['dir inside linked worktree', { schemaVersion: 1, dir: path.join(linkedWorktree, 'admission'), pools: { p: { cap: 1 } }, routes: [{ runner: 'codex', model: 'fixture/codex-model', pool: 'p' }] }, undefined],
+      ['dir symlink into repo', { schemaVersion: 1, dir: path.join(linkToRepo, 'admission'), pools: { p: { cap: 1 } }, routes: [{ runner: 'codex', model: 'fixture/codex-model', pool: 'p' }] }, undefined],
+      ['cap zero', { schemaVersion: 1, dir: extDir, pools: { p: { cap: 0 } }, routes: [{ runner: 'codex', model: 'fixture/codex-model', pool: 'p' }] }, undefined],
+      ['invalid pool id', { schemaVersion: 1, dir: extDir, pools: { '../escape': { cap: 1 } }, routes: [{ runner: 'codex', model: 'fixture/codex-model', pool: '../escape' }] }, undefined],
+      ['route to unknown pool', { schemaVersion: 1, dir: extDir, pools: { p: { cap: 1 } }, routes: [{ runner: 'codex', model: 'fixture/codex-model', pool: 'missing-pool' }] }, undefined],
+      ['duplicate route', { schemaVersion: 1, dir: extDir, pools: { p: { cap: 1 } }, routes: [{ runner: 'codex', model: 'fixture/codex-model', pool: 'p' }, { runner: 'codex', model: 'fixture/codex-model', pool: 'p' }] }, undefined],
+      ['unmapped runner+model', { schemaVersion: 1, dir: extDir, pools: { p: { cap: 2 } }, routes: [{ runner: 'opencode', model: 'fixture/opencode-model', pool: 'p' }] }, undefined],
+    ];
+    for (const [label, value, raw] of badPolicies) {
+      const tc = makeCase(`admission r2 ${label}`);
+      const policy = writeAdmissionPolicy(value, raw);
+      const res = jsonResponse(cli([...managedArgs(tc, managedAssignment(tc), 'codex', policy), '--json'], tc), 21, 'ADMISSION_POLICY_INVALID');
+      assert.equal(res.phase, 'admission', label);
+      assertRefusedBeforeSpawn(tc);
+    }
+
+    const overlapCase = makeCase('admission r2 scratch overlap');
+    const overlapPolicy = writeAdmissionPolicy({
+      schemaVersion: 1,
+      dir: path.join(overlapCase.scratch, 'admission'),
+      pools: { p: { cap: 2 } },
+      routes: [{ runner: 'codex', model: 'fixture/codex-model', pool: 'p' }],
+    });
+    const rOverlap = jsonResponse(cli([...managedArgs(overlapCase, managedAssignment(overlapCase), 'codex', overlapPolicy), '--json'], overlapCase), 21, 'ADMISSION_POLICY_INVALID');
+    assert.equal(rOverlap.phase, 'admission');
+    assertRefusedBeforeSpawn(overlapCase);
+
+    const unmanagedWithPolicy = makeCase('admission r2 unmanaged flag');
+    const rUnmanaged = jsonResponse(cli([...argsFor(unmanagedWithPolicy), '--admission-policy', defaultAdmissionPolicy, '--json'], unmanagedWithPolicy), 10, 'INVALID_INPUT');
+    assert.equal(rUnmanaged.phase, 'input');
+    assertRefusedBeforeSpawn(unmanagedWithPolicy);
+  });
+
+  check('R3 & R4 3 real concurrent processes on cap-2 pool (different model aliases & scratch roots) admit at most 2; excess refused before spawn; independent pool B remains eligible', () => {
+    const admissionDir = path.join(fixtureRoot, `admission-r3-${caseNumber}`);
+    const policy = writeAdmissionPolicy({
+      schemaVersion: 1,
+      dir: admissionDir,
+      pools: {
+        'opencode-pilot-key': { cap: 2 },
+        'agy-shared-pool': { cap: 1 },
+      },
+      routes: [
+        { runner: 'opencode', model: 'fixture/opencode-alias-a', pool: 'opencode-pilot-key' },
+        { runner: 'opencode', model: 'fixture/opencode-alias-b', pool: 'opencode-pilot-key' },
+        { runner: 'opencode', model: 'fixture/opencode-alias-c', pool: 'opencode-pilot-key' },
+        { runner: 'agy', model: 'gemini-4-neon-medium', pool: 'agy-shared-pool' },
+      ],
+    });
+    const gateFile = path.join(fixtureRoot, `r3-gate-${caseNumber}`);
+    const aliases = ['fixture/opencode-alias-a', 'fixture/opencode-alias-b', 'fixture/opencode-alias-c'];
+    const runs = aliases.map((model, idx) => {
+      const tc = makeCase(`admission r3 ${idx}`);
+      const assignment = managedAssignment(tc);
+      const outFile = path.join(fixtureRoot, `r3-out-${caseNumber}-${idx}.json`);
+      const enteredFile = path.join(fixtureRoot, `r3-entered-${caseNumber}-${idx}`);
+      const fd = fs.openSync(outFile, 'w');
+      const args = [...argsFor(tc, 'opencode', model), '--assignment', assignment, '--admission-policy', policy, '--json'];
+      const child = spawn(process.execPath, [entry, ...args], {
+        cwd: root,
+        env: cliEnv(tc, { admissionHook: { enteredFile, gateFile } }),
+        stdio: ['ignore', fd, fd],
+      });
+      return { tc, model, outFile, enteredFile, child, fd };
+    });
+    const wait = new Int32Array(new SharedArrayBuffer(4));
+    const readJson = file => {
+      const text = fs.readFileSync(file, 'utf8');
+      return text.endsWith('\n') ? JSON.parse(text) : null;
+    };
+    const deadline1 = Date.now() + 15000;
+    while (
+      (runs.filter(r => fs.existsSync(r.enteredFile)).length < 2 || runs.filter(r => readJson(r.outFile)?.code === 'ADMISSION_CAP_REACHED').length < 1)
+      && Date.now() < deadline1
+    ) {
+      Atomics.wait(wait, 0, 0, 25);
+    }
+    const admittedWhileHeld = runs.filter(r => fs.existsSync(r.enteredFile));
+    const refusedWhileHeld = runs.filter(r => readJson(r.outFile)?.code === 'ADMISSION_CAP_REACHED');
+    assert.equal(admittedWhileHeld.length, 2, 'at most 2 concurrent holders admitted on cap-2 pool');
+    assert.equal(refusedWhileHeld.length, 1, 'excess 3rd attempt refused immediately while 2 hold slots');
+    assert.equal(events(refusedWhileHeld[0].tc).length, 0, 'excess attempt refused before spawn');
+    assert.equal(fs.existsSync(refusedWhileHeld[0].tc.scratch), false, 'excess attempt created no scratch dir');
+    assert.equal(poolSlotFiles(admissionDir, 'opencode-pilot-key').length, 2, 'pool A holds 2 slots');
+
+    // R4: while pool A is full, independent pool B remains eligible and succeeds.
+    const poolBCase = makeAgyCase('admission r4 pool b');
+    const poolBRes = jsonResponse(cli(
+      [...agyArgsFor(poolBCase, 'gemini-4-neon-medium'), '--assignment', managedAssignment(poolBCase), '--admission-policy', policy, '--json'],
+      poolBCase,
+    ), 0, 'DONE');
+    assert.deepEqual(poolBRes.admission, { pool: 'agy-shared-pool', cap: 1, slot: 0 });
+    assert.deepEqual(poolSlotFiles(admissionDir, 'agy-shared-pool'), [], 'pool B slot released after DONE');
+    assert.equal(poolSlotFiles(admissionDir, 'opencode-pilot-key').length, 2, 'pool A slots untouched by pool B');
+
+    // Release gate for the 2 admitted pool A holders.
+    fs.writeFileSync(gateFile, 'go\n');
+    const deadline2 = Date.now() + 15000;
+    while (runs.some(r => !readJson(r.outFile)) && Date.now() < deadline2) Atomics.wait(wait, 0, 0, 25);
+    for (const r of runs) {
+      fs.closeSync(r.fd);
+      try { r.child.kill('SIGKILL'); } catch {}
+    }
+    const results = runs.map(r => readJson(r.outFile));
+    assert.equal(results.filter(r => r?.code === 'DONE').length, 2, JSON.stringify(results));
+    assert.equal(results.filter(r => r?.code === 'ADMISSION_CAP_REACHED').length, 1, JSON.stringify(results));
+    assert.deepEqual(poolSlotFiles(admissionDir, 'opencode-pilot-key'), [], 'all pool A slots released after children end');
+  });
+
+  for (const [label, runner, config, exitCode, code] of [
+    ['readiness failure', 'codex', { readiness: 'ready-failed' }, 12, 'NOT_READY'],
+    ['readiness quota', 'opencode', { readiness: 'quota-exhausted' }, 13, 'RUNNER_QUOTA'],
+    ['runner failure', 'codex', { execution: 'exit-failure' }, 15, 'RUN_FAILED'],
+    ['runner timeout', 'codex', { execution: 'timeout', testTimeoutMs: 300, outerTimeoutMs: 5000 }, 15, 'RUN_TIMEOUT'],
+    ['WORKER_BLOCKED', 'codex', { execution: 'blocked' }, 17, 'WORKER_BLOCKED'],
+    ['REPORT_INVALID', 'opencode', { execution: 'missing-report' }, 16, 'REPORT_INVALID'],
+  ]) {
+    check(`R5 ${label} releases admission slot after child ends`, () => {
+      const tc = makeCase(`admission r5 ${label}`);
+      const admissionDir = path.join(fixtureRoot, `admission-r5-${caseNumber}`);
+      const policy = writeAdmissionPolicy({
+        schemaVersion: 1,
+        dir: admissionDir,
+        pools: { 'pool-r5': { cap: 1 } },
+        routes: [{ runner, model: runner === 'codex' ? 'fixture/codex-model' : 'fixture/opencode-model', pool: 'pool-r5' }],
+      });
+      const res = jsonResponse(cli([...managedArgs(tc, managedAssignment(tc), runner, policy), '--json'], tc, config), exitCode, code);
+      assert.equal(res.admission?.pool, 'pool-r5');
+      for (const ev of events(tc)) assertProcessExited(ev.pid);
+      assert.deepEqual(poolSlotFiles(admissionDir, 'pool-r5'), [], `slot must be released after ${label}`);
+    });
+  }
+
+  check('R6 stale slot whose holder and child pids are dead -> reclaimed', () => {
+    const tc = makeCase('admission r6 stale');
+    const admissionDir = path.join(fixtureRoot, `admission-r6-${caseNumber}`);
+    const poolDir = path.join(admissionDir, 'pool-r6');
+    fs.mkdirSync(poolDir, { recursive: true });
+    const deadHolder = deadPid();
+    const deadChild = deadPid();
+    fs.writeFileSync(path.join(poolDir, 'slot-0.json'), JSON.stringify({
+      schemaVersion: 1,
+      pool: 'pool-r6',
+      slot: 0,
+      holderPid: deadHolder,
+      childPid: deadChild,
+      startedAt: '2026-11-26T00:00:00.000Z',
+    }) + '\n');
+    const policy = writeAdmissionPolicy({
+      schemaVersion: 1,
+      dir: admissionDir,
+      pools: { 'pool-r6': { cap: 1 } },
+      routes: [{ runner: 'codex', model: 'fixture/codex-model', pool: 'pool-r6' }],
+    });
+    const res = jsonResponse(cli([...managedArgs(tc, managedAssignment(tc), 'codex', policy), '--json'], tc), 0, 'DONE');
+    assert.deepEqual(res.admission, { pool: 'pool-r6', cap: 1, slot: 0 });
+    assert.deepEqual(poolSlotFiles(admissionDir, 'pool-r6'), [], 'reclaimed slot released after DONE');
+  });
+
+  check('R7 live holder pid, dead holder with live child pid, EPERM pid, and corrupt slot -> NOT reclaimed; refused if cap reached', () => {
+    const admissionDir = path.join(fixtureRoot, `admission-r7-${caseNumber}`);
+    const poolDir = path.join(admissionDir, 'pool-r7');
+    fs.mkdirSync(poolDir, { recursive: true });
+    const policy = writeAdmissionPolicy({
+      schemaVersion: 1,
+      dir: admissionDir,
+      pools: { 'pool-r7': { cap: 1 } },
+      routes: [{ runner: 'codex', model: 'fixture/codex-model', pool: 'pool-r7' }],
+    });
+    const slotFile = path.join(poolDir, 'slot-0.json');
+
+    // (a) live holderPid (this test runner process.pid)
+    const liveHolderPayload = JSON.stringify({ schemaVersion: 1, pool: 'pool-r7', slot: 0, holderPid: process.pid, childPid: null, startedAt: '2026-11-26T00:00:00.000Z' }) + '\n';
+    fs.writeFileSync(slotFile, liveHolderPayload);
+    const tcHolder = makeCase('admission r7 live holder');
+    const resHolder = jsonResponse(cli([...managedArgs(tcHolder, managedAssignment(tcHolder), 'codex', policy), '--json'], tcHolder), 22, 'ADMISSION_CAP_REACHED');
+    assert.equal(resHolder.phase, 'admission');
+    assertRefusedBeforeSpawn(tcHolder);
+    assert.equal(fs.readFileSync(slotFile, 'utf8'), liveHolderPayload, 'live holder slot must not be reclaimed');
+
+    // (b) dead holderPid, but live childPid
+    const deadHolder = deadPid();
+    const liveChild = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+    try {
+      const liveChildPayload = JSON.stringify({ schemaVersion: 1, pool: 'pool-r7', slot: 0, holderPid: deadHolder, childPid: liveChild.pid, startedAt: '2026-11-26T00:00:00.000Z' }) + '\n';
+      fs.writeFileSync(slotFile, liveChildPayload);
+      const tcChild = makeCase('admission r7 live child');
+      const resChild = jsonResponse(cli([...managedArgs(tcChild, managedAssignment(tcChild), 'codex', policy), '--json'], tcChild), 22, 'ADMISSION_CAP_REACHED');
+      assert.equal(resChild.phase, 'admission');
+      assertRefusedBeforeSpawn(tcChild);
+      assert.equal(fs.readFileSync(slotFile, 'utf8'), liveChildPayload, 'abandoned holder with live child must not be reclaimed');
+    } finally {
+      liveChild.kill('SIGKILL');
+    }
+
+    // (c) EPERM from process.kill(pid, 0) counts as alive
+    const fakeEpermPid = 999991;
+    const epermPayload = JSON.stringify({ schemaVersion: 1, pool: 'pool-r7', slot: 0, holderPid: fakeEpermPid, childPid: null, startedAt: '2026-11-26T00:00:00.000Z' }) + '\n';
+    fs.writeFileSync(slotFile, epermPayload);
+    const tcEperm = makeCase('admission r7 eperm');
+    const resEperm = jsonResponse(cli(
+      [...managedArgs(tcEperm, managedAssignment(tcEperm), 'codex', policy), '--json'],
+      tcEperm,
+      { admissionHook: { epermPid: fakeEpermPid } },
+    ), 22, 'ADMISSION_CAP_REACHED');
+    assert.equal(resEperm.phase, 'admission');
+    assertRefusedBeforeSpawn(tcEperm);
+    assert.equal(fs.readFileSync(slotFile, 'utf8'), epermPayload, 'EPERM slot must count as alive and not be reclaimed');
+
+    // (d) corrupt/incomplete slot file fails closed (not reclaimed)
+    fs.writeFileSync(slotFile, '{incomplete');
+    const tcCorrupt = makeCase('admission r7 corrupt');
+    const resCorrupt = jsonResponse(cli([...managedArgs(tcCorrupt, managedAssignment(tcCorrupt), 'codex', policy), '--json'], tcCorrupt), 22, 'ADMISSION_CAP_REACHED');
+    assert.equal(resCorrupt.phase, 'admission');
+    assertRefusedBeforeSpawn(tcCorrupt);
+    assert.equal(fs.readFileSync(slotFile, 'utf8'), '{incomplete');
+  });
+
+  check('R8 managed --dry-run takes no reservation and creates no admission dir', () => {
+    const tc = makeCase('admission r8 dry run');
+    const admissionDir = path.join(fixtureRoot, `admission-r8-${caseNumber}`);
+    const policy = writeAdmissionPolicy({
+      schemaVersion: 1,
+      dir: admissionDir,
+      pools: { 'opencode-pilot-key': { cap: 2 } },
+      routes: [{ runner: 'opencode', model: 'fixture/opencode-model', pool: 'opencode-pilot-key' }],
+    });
+    const res = jsonResponse(cli([...managedArgs(tc, managedAssignment(tc), 'opencode', policy), '--dry-run', '--json'], tc), 0, 'DRY_RUN_OK');
+    assert.deepEqual(res.admission, { pool: 'opencode-pilot-key', cap: 2 });
+    assert.equal(fs.existsSync(admissionDir), false, 'dry-run must not create admission dir or slots');
+    assertRefusedBeforeSpawn(tc);
+  });
+
+  check('R9 emitted JSON, slot file, and evidence contain no credential values', () => {
+    const tc = makeCase('admission r9 no secrets');
+    const admissionDir = path.join(fixtureRoot, `admission-r9-${caseNumber}`);
+    const policy = writeAdmissionPolicy({
+      schemaVersion: 1,
+      dir: admissionDir,
+      pools: { 'opaque-pilot-pool': { cap: 2 } },
+      routes: [{ runner: 'opencode', model: 'fixture/opencode-model', pool: 'opaque-pilot-pool' }],
+    });
+    const secretA = 'nvapi-SUPER-SECRET-TEST-KEY-98765';
+    const secretB = 'sk-OPENAI-SECRET-TEST-KEY-54321';
+    const snapshotFile = path.join(fixtureRoot, `r9-snapshot-${caseNumber}.json`);
+    const rawResult = cli(
+      [...managedArgs(tc, managedAssignment(tc), 'opencode', policy), '--json'],
+      tc,
+      {
+        admissionHook: { snapshotDir: path.join(admissionDir, 'opaque-pilot-pool'), snapshotFile },
+        extraEnv: { NVIDIA_API_KEY: secretA, OPENAI_API_KEY: secretB },
+      },
+    );
+    const res = jsonResponse(rawResult, 0, 'DONE');
+    const surfaces = [
+      rawResult.stdout,
+      fs.readFileSync(snapshotFile, 'utf8'),
+      ...Object.values(res.evidence).map(file => fs.readFileSync(file, 'utf8')),
+    ];
+    for (const text of surfaces) {
+      assert.equal(text.includes(secretA), false, 'secret A must not appear in emitted JSON/slot/evidence');
+      assert.equal(text.includes(secretB), false, 'secret B must not appear in emitted JSON/slot/evidence');
+    }
+  });
+
+  check('R10 unmanaged rows remain unchanged with no admission fields', () => {
+    const tc = makeCase('admission r10 unmanaged');
+    const dry = jsonResponse(cli([...argsFor(tc), '--dry-run', '--json'], tc), 0, 'DRY_RUN_OK');
+    assert.equal(dry.admission, undefined);
+    const done = jsonResponse(cli([...argsFor(tc), '--json'], tc), 0, 'DONE');
+    assert.equal(done.admission, undefined);
   });
 } finally {
   try { run('git', ['-C', worktree, 'worktree', 'remove', '--force', linkedWorktree]); } catch {}

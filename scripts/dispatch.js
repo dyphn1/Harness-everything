@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 'use strict';
 
-const { spawnSync } = require('node:child_process');
+const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
 const REPORT_WRITER = path.join(__dirname, 'report-writer.js');
-const USAGE = 'Usage: dispatch --runner <codex|opencode|agy> --model <id> --packet <path> --worktree <path> --scratch <absolute-path> --report <path> [--effort <low|medium|high|xhigh>] [--assignment <path>] [--dry-run] [--json] [--help]';
-const VALUE_OPTIONS = new Set(['--runner', '--model', '--packet', '--worktree', '--scratch', '--report', '--effort', '--assignment']);
+const USAGE = 'Usage: dispatch --runner <codex|opencode|agy> --model <id> --packet <path> --worktree <path> --scratch <absolute-path> --report <path> [--effort <low|medium|high|xhigh>] [--assignment <path>] [--admission-policy <path>] [--dry-run] [--json] [--help]';
+const VALUE_OPTIONS = new Set(['--runner', '--model', '--packet', '--worktree', '--scratch', '--report', '--effort', '--assignment', '--admission-policy']);
+const POOL_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+const SUPPORTED_RUNNERS = new Set(['codex', 'opencode', 'agy']);
 const CODEX_EFFORTS = new Set(['low', 'medium', 'high', 'xhigh']);
 const AGY_SETTINGS = '{"permissions":{"allow":["command(*)","read_file(*)"]}}';
 const READINESS_TIMEOUT_MS = 120000;
@@ -172,15 +174,202 @@ function gitAncestor(directory) {
   }
 }
 
-function validateScratch(value) {
-  if (!path.isAbsolute(value)) fail(11, 'UNSAFE_SCRATCH', 'validation', 'scratch must be an absolute path outside every Git repository or worktree');
-  const scratch = canonicalFuturePath(value);
-  if (fs.existsSync(value) && !fs.statSync(value).isDirectory()) {
-    fail(11, 'UNSAFE_SCRATCH', 'validation', 'scratch must be a directory outside every Git repository or worktree');
+function isPathInsideOrEqual(parent, child) {
+  const rel = path.relative(parent, child);
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel));
+}
+
+function validateExternalDir(value, onFail, label) {
+  if (typeof value !== 'string' || !value.trim() || !path.isAbsolute(value)) {
+    onFail(`${label} must be an absolute path outside every Git repository or worktree`);
   }
-  const repository = gitAncestor(scratch);
-  if (repository) fail(11, 'UNSAFE_SCRATCH', 'validation', `scratch is inside a Git repository or worktree: ${repository}`);
-  return path.resolve(value);
+  const canonical = canonicalFuturePath(value);
+  if (fs.existsSync(value) && !fs.statSync(value).isDirectory()) {
+    onFail(`${label} must be a directory outside every Git repository or worktree`);
+  }
+  const repository = gitAncestor(canonical);
+  if (repository) onFail(`${label} is inside a Git repository or worktree: ${repository}`);
+  return { resolved: path.resolve(value), canonical };
+}
+
+function validateScratch(value) {
+  return validateExternalDir(value, message => fail(11, 'UNSAFE_SCRATCH', 'validation', message), 'scratch').resolved;
+}
+
+// #466 D-admission. Managed mode requires --admission-policy <path>, mapping opaque pool ids to
+// positive integer caps and (runner, model) routes to a pool id, plus one shared external dir.
+function admissionInvalid(message) {
+  fail(21, 'ADMISSION_POLICY_INVALID', 'admission', message);
+}
+
+function loadAdmissionPolicy(file, worktree, scratch, runner, model) {
+  if (file === undefined) admissionInvalid('managed mode requires --admission-policy <path>');
+  const resolved = pathFrom(worktree, file);
+  let parsed;
+  try {
+    if (!fs.statSync(resolved).isFile()) admissionInvalid('--admission-policy must name an existing file');
+    parsed = JSON.parse(fs.readFileSync(resolved, 'utf8'));
+  } catch (cause) {
+    if (cause instanceof DispatchFailure) throw cause;
+    admissionInvalid(`--admission-policy is unreadable or not JSON: ${cause.code || 'parse error'}`);
+  }
+  if (!isPlainObject(parsed) || Object.keys(parsed).sort().join() !== 'dir,pools,routes,schemaVersion') {
+    admissionInvalid('admission policy must be an object with exactly schemaVersion, dir, pools, and routes');
+  }
+  if (parsed.schemaVersion !== 1) admissionInvalid('admission policy schemaVersion must be 1');
+  const dirInfo = validateExternalDir(parsed.dir, admissionInvalid, 'admission dir');
+  const scratchCanonical = canonicalFuturePath(scratch);
+  if (isPathInsideOrEqual(scratchCanonical, dirInfo.canonical) || isPathInsideOrEqual(dirInfo.canonical, scratchCanonical)) {
+    admissionInvalid('admission dir must be outside --scratch so per-run cleanup cannot touch reservations');
+  }
+  if (!isPlainObject(parsed.pools) || Object.keys(parsed.pools).length === 0) {
+    admissionInvalid('admission policy pools must be a non-empty object');
+  }
+  const pools = new Map();
+  for (const [poolId, spec] of Object.entries(parsed.pools)) {
+    if (!POOL_ID_PATTERN.test(poolId)) admissionInvalid(`invalid opaque pool id: ${poolId}`);
+    if (!isPlainObject(spec) || Object.keys(spec).join() !== 'cap' || !Number.isSafeInteger(spec.cap) || spec.cap < 1) {
+      admissionInvalid(`pool "${poolId}" must be an object with positive integer cap`);
+    }
+    pools.set(poolId, spec.cap);
+  }
+  if (!Array.isArray(parsed.routes)) admissionInvalid('admission policy routes must be an array');
+  const routeMap = new Map();
+  for (const route of parsed.routes) {
+    if (!isPlainObject(route) || Object.keys(route).sort().join() !== 'model,pool,runner') {
+      admissionInvalid('each admission route must be an object with exactly runner, model, and pool');
+    }
+    if (!SUPPORTED_RUNNERS.has(route.runner)) admissionInvalid(`unknown runner in admission route: ${route.runner}`);
+    if (typeof route.model !== 'string' || !route.model.trim()) admissionInvalid('admission route model must be a non-empty string');
+    if (typeof route.pool !== 'string' || !pools.has(route.pool)) admissionInvalid(`admission route references unknown pool: ${route.pool}`);
+    const routeKey = `${route.runner}\0${route.model.trim()}`;
+    if (routeMap.has(routeKey)) admissionInvalid(`duplicate admission route for ${route.runner} model "${route.model.trim()}"`);
+    routeMap.set(routeKey, route.pool);
+  }
+  const selectedPool = routeMap.get(`${runner}\0${model}`);
+  if (!selectedPool) admissionInvalid(`no admission pool configured for ${runner} model "${model}"`);
+  return { dir: dirInfo.resolved, pool: selectedPool, cap: pools.get(selectedPool) };
+}
+
+function isPidAlive(pid) {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return true; // fail-closed
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (cause) {
+    // Only ESRCH proves absence; EPERM (another user/context) counts as alive.
+    return cause?.code !== 'ESRCH';
+  }
+}
+
+function slotRecordDead(raw) {
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch { return false; } // incomplete/corrupt -> fail-closed
+  if (!isPlainObject(parsed)) return false;
+  if (!Number.isSafeInteger(parsed.holderPid) || parsed.holderPid <= 0) return false;
+  if (parsed.childPid !== null && (!Number.isSafeInteger(parsed.childPid) || parsed.childPid <= 0)) return false;
+  if (isPidAlive(parsed.holderPid)) return false;
+  if (parsed.childPid !== null && isPidAlive(parsed.childPid)) return false;
+  return true;
+}
+
+function createSlotFile(slotPath, pool, slot) {
+  const record = {
+    schemaVersion: 1,
+    pool,
+    slot,
+    holderPid: process.pid,
+    childPid: null,
+    startedAt: new Date().toISOString(),
+  };
+  fs.writeFileSync(slotPath, `${JSON.stringify(record)}\n`, { flag: 'wx' });
+  return { ...record, slotPath, released: false };
+}
+
+function acquireAdmissionSlot(admission) {
+  const poolDir = path.join(admission.dir, admission.pool);
+  fs.mkdirSync(poolDir, { recursive: true });
+  const resolvedPoolDir = realPath(poolDir);
+  const repository = resolvedPoolDir && gitAncestor(resolvedPoolDir);
+  if (!resolvedPoolDir || repository) {
+    admissionInvalid(`admission dir resolves inside a Git repository or worktree: ${repository || poolDir}`);
+  }
+  for (let slot = 0; slot < admission.cap; slot += 1) {
+    const slotPath = path.join(poolDir, `slot-${slot}.json`);
+    try {
+      return createSlotFile(slotPath, admission.pool, slot);
+    } catch (cause) {
+      if (cause?.code !== 'EEXIST') throw cause;
+    }
+    let raw;
+    try {
+      raw = fs.readFileSync(slotPath, 'utf8');
+    } catch (cause) {
+      if (cause?.code === 'ENOENT') {
+        try { return createSlotFile(slotPath, admission.pool, slot); } catch (retryCause) {
+          if (retryCause?.code !== 'EEXIST') throw retryCause;
+        }
+      }
+      continue;
+    }
+    if (!slotRecordDead(raw)) continue;
+    const reclaimPath = `${slotPath}.reclaim-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    try {
+      fs.renameSync(slotPath, reclaimPath);
+    } catch (cause) {
+      if (cause?.code === 'ENOENT') {
+        try { return createSlotFile(slotPath, admission.pool, slot); } catch (retryCause) {
+          if (retryCause?.code !== 'EEXIST') throw retryCause;
+        }
+      }
+      continue;
+    }
+    let reclaimedRaw = '';
+    try { reclaimedRaw = fs.readFileSync(reclaimPath, 'utf8'); } catch {}
+    if (!slotRecordDead(reclaimedRaw)) {
+      try { fs.renameSync(reclaimPath, slotPath); } catch {}
+      continue;
+    }
+    try { fs.unlinkSync(reclaimPath); } catch {}
+    try {
+      return createSlotFile(slotPath, admission.pool, slot);
+    } catch (cause) {
+      if (cause?.code !== 'EEXIST') throw cause;
+    }
+  }
+  fail(22, 'ADMISSION_CAP_REACHED', 'admission', `admission pool "${admission.pool}" is at cap ${admission.cap}; refusing before spawn`);
+}
+
+function updateReservationChild(reservation, childPid) {
+  if (!reservation || reservation.released) return;
+  reservation.childPid = childPid;
+  const payload = `${JSON.stringify({
+    schemaVersion: 1,
+    pool: reservation.pool,
+    slot: reservation.slot,
+    holderPid: reservation.holderPid,
+    childPid: reservation.childPid,
+    startedAt: reservation.startedAt,
+  })}\n`;
+  const tmpPath = `${reservation.slotPath}.tmp-${process.pid}-${Date.now()}`;
+  try {
+    fs.writeFileSync(tmpPath, payload);
+    fs.renameSync(tmpPath, reservation.slotPath);
+  } catch {
+    try { fs.unlinkSync(tmpPath); } catch {}
+    try { fs.writeFileSync(reservation.slotPath, payload); } catch {}
+  }
+}
+
+function releaseAdmissionSlot(reservation) {
+  if (!reservation || reservation.released) return;
+  reservation.released = true;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(reservation.slotPath, 'utf8'));
+    if (parsed.holderPid === reservation.holderPid && parsed.startedAt === reservation.startedAt) {
+      fs.unlinkSync(reservation.slotPath);
+    }
+  } catch {}
 }
 
 function pathFrom(base, value) {
@@ -227,8 +416,14 @@ function validateInput(options) {
   const packetRelative = runner === 'agy' ? worktreeRelativePath(worktree, packet, '--packet') : undefined;
   const reportRelative = runner === 'agy' ? worktreeRelativePath(worktree, report, '--report') : undefined;
   const scratch = validateScratch(options['--scratch']);
-  const gates = options['--assignment'] === undefined ? undefined : loadGateAssignment(options['--assignment'], worktree, runner);
-  return { runner, model: model.trim(), effort, packet, packetRelative, worktree, scratch, report, reportRelative, gates };
+  const trimmedModel = model.trim();
+  const managed = options['--assignment'] !== undefined;
+  if (!managed && options['--admission-policy'] !== undefined) {
+    fail(10, 'INVALID_INPUT', 'input', '--admission-policy is only supported in managed mode (--assignment)');
+  }
+  const gates = managed ? loadGateAssignment(options['--assignment'], worktree, runner) : undefined;
+  const admission = managed ? loadAdmissionPolicy(options['--admission-policy'], worktree, scratch, runner, trimmedModel) : undefined;
+  return { runner, model: trimmedModel, effort, packet, packetRelative, worktree, scratch, report, reportRelative, gates, admission };
 }
 
 function response(options, outcome, evidence = evidencePaths, input) {
@@ -246,6 +441,11 @@ function response(options, outcome, evidence = evidencePaths, input) {
   if (input?.effort) result.effort = input.effort;
   if (runner === 'agy') result.sandbox = 'requested';
   if (input?.gates) result.gates = input.gates;
+  if (input?.admission) {
+    result.admission = input.admission.slot !== undefined
+      ? { pool: input.admission.pool, cap: input.admission.cap, slot: input.admission.slot }
+      : { pool: input.admission.pool, cap: input.admission.cap };
+  }
   if (outcome.argv) result.argv = outcome.argv;
   if (outcome.cwd) result.cwd = outcome.cwd;
   const paths = Object.fromEntries(Object.entries(evidence).filter(([, value]) => value && fs.existsSync(value)));
@@ -264,21 +464,80 @@ function childTimeout(timeout) {
     : timeout;
 }
 
-function runChild(command, args, worktree, scratch, logPath, timeout, appendLog = false) {
-  const result = spawnSync(command, args, {
-    cwd: worktree,
-    env: { ...process.env, TMPDIR: scratch },
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    timeout: childTimeout(timeout),
-    maxBuffer: 16 * 1024 * 1024,
+function runChild(command, args, worktree, scratch, logPath, timeout, appendLog = false, reservation = null) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let timedOut = false;
+    let childError;
+    const stdoutChunks = [];
+    const stderrChunks = [];
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
+    const maxBuffer = 16 * 1024 * 1024;
+
+    const child = spawn(command, args, {
+      cwd: worktree,
+      env: { ...process.env, TMPDIR: scratch },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    if (reservation && Number.isSafeInteger(child.pid) && child.pid > 0) {
+      updateReservationChild(reservation, child.pid);
+    }
+
+    const limit = childTimeout(timeout);
+    let killTimer = null;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      try { child.kill('SIGTERM'); } catch {}
+      killTimer = setTimeout(() => {
+        try { child.kill('SIGKILL'); } catch {}
+      }, 100);
+      killTimer.unref();
+    }, limit);
+    timer.unref();
+
+    function finish(status, signal) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (killTimer) clearTimeout(killTimer);
+      if (reservation) updateReservationChild(reservation, null);
+      try {
+        const stdout = Buffer.concat(stdoutChunks).toString('utf8');
+        const stderr = Buffer.concat(stderrChunks).toString('utf8');
+        const log = `${stdout}${stderr ? `${stdout ? '\n' : ''}[stderr]\n${stderr}` : ''}`;
+        if (appendLog) fs.appendFileSync(logPath, log);
+        else fs.writeFileSync(logPath, log);
+        const error = timedOut
+          ? Object.assign(new Error(`spawn ${command} ETIMEDOUT`), { code: 'ETIMEDOUT' })
+          : childError;
+        resolve({ status: timedOut ? null : status, signal, error, stdout, stderr });
+      } catch (cause) {
+        reject(cause);
+      }
+    }
+
+    child.stdout?.on('data', chunk => {
+      if (stdoutBytes < maxBuffer) {
+        stdoutChunks.push(chunk);
+        stdoutBytes += chunk.length;
+      }
+    });
+    child.stderr?.on('data', chunk => {
+      if (stderrBytes < maxBuffer) {
+        stderrChunks.push(chunk);
+        stderrBytes += chunk.length;
+      }
+    });
+    child.on('error', err => {
+      childError = err;
+      finish(null, null);
+    });
+    child.on('close', (status, signal) => {
+      finish(status, signal);
+    });
   });
-  const stdout = result.stdout || '';
-  const stderr = result.stderr || '';
-  const log = `${stdout}${stderr ? `${stdout ? '\n' : ''}[stderr]\n${stderr}` : ''}`;
-  if (appendLog) fs.appendFileSync(logPath, log);
-  else fs.writeFileSync(logPath, log);
-  return { ...result, stdout, stderr };
 }
 
 function runnerArgs(input, prompt, outputPath, timeoutMs = EXECUTION_TIMEOUT_MS) {
@@ -337,10 +596,10 @@ function readinessDiagnostic(runner, result) {
   return matches.length === 1 ? matches[0] : null;
 }
 
-function readiness(input, paths) {
+async function readiness(input, paths, reservation = null) {
   const outputPath = input.runner === 'codex' ? paths.readinessOutput : null;
   const prompt = 'Reply with the single word READY';
-  const result = runChild(input.runner, runnerArgs(input, prompt, outputPath, READINESS_TIMEOUT_MS), input.worktree, input.scratch, paths.readinessLog, READINESS_TIMEOUT_MS);
+  const result = await runChild(input.runner, runnerArgs(input, prompt, outputPath, READINESS_TIMEOUT_MS), input.worktree, input.scratch, paths.readinessLog, READINESS_TIMEOUT_MS, false, reservation);
   if (result.status !== 0) {
     const diagnostic = Number.isInteger(result.status) && result.status !== 0 && !result.signal && !result.error
       ? readinessDiagnostic(input.runner, result)
@@ -369,8 +628,8 @@ function reportedStatus(raw) {
   fail(16, 'REPORT_INVALID', 'report', 'Codex output must end with STATUS: DONE or STATUS: BLOCKED: <reason>');
 }
 
-function reportWriter(input, paths, command, args) {
-  const result = runChild(process.execPath, [REPORT_WRITER, ...args], input.worktree, input.scratch, paths.writerLog, 120000, true);
+async function reportWriter(input, paths, command, args) {
+  const result = await runChild(process.execPath, [REPORT_WRITER, ...args], input.worktree, input.scratch, paths.writerLog, 120000, true);
   if (result.status !== 0) fail(16, 'REPORT_INVALID', 'report', result.stderr.trim() || `${command} rejected the report`);
   return result;
 }
@@ -421,60 +680,69 @@ function retainAndClean(input, attempt, paths) {
   }
 }
 
-function execute(input, options) {
+async function execute(input, options) {
   const managed = input.gates !== undefined;
-  let attempt = null;
+  let reservation = null;
   if (managed) {
-    attempt = createAttemptDir(input);
-    input = { ...input, scratchRoot: input.scratch, scratch: attempt };
-  } else fs.mkdirSync(input.scratch, { recursive: true });
-  const runId = `${process.pid}-${Date.now()}`;
-  const paths = {
-    readinessOutput: path.join(input.scratch, `${runId}.readiness.txt`),
-    readinessLog: path.join(input.scratch, `${runId}.readiness.log`),
-    rawOutput: path.join(input.scratch, `${runId}.raw.txt`),
-    runLog: path.join(input.scratch, `${runId}.run.log`),
-    writerLog: path.join(input.scratch, `${runId}.report-writer.log`),
-  };
-  evidencePaths = {
-    readinessOutput: input.runner === 'codex' ? paths.readinessOutput : null,
-    readinessLog: paths.readinessLog,
-    rawOutput: input.runner === 'codex' ? paths.rawOutput : null,
-    runLog: paths.runLog,
-    reportWriterLog: paths.writerLog,
-    report: input.report,
-  };
+    reservation = acquireAdmissionSlot(input.admission);
+    input = { ...input, admission: { ...input.admission, slot: reservation.slot } };
+  }
+  let attempt = null;
+  try {
+    if (managed) {
+      attempt = createAttemptDir(input);
+      input = { ...input, scratchRoot: input.scratch, scratch: attempt };
+    } else fs.mkdirSync(input.scratch, { recursive: true });
+    const runId = `${process.pid}-${Date.now()}`;
+    const paths = {
+      readinessOutput: path.join(input.scratch, `${runId}.readiness.txt`),
+      readinessLog: path.join(input.scratch, `${runId}.readiness.log`),
+      rawOutput: path.join(input.scratch, `${runId}.raw.txt`),
+      runLog: path.join(input.scratch, `${runId}.run.log`),
+      writerLog: path.join(input.scratch, `${runId}.report-writer.log`),
+    };
+    evidencePaths = {
+      readinessOutput: input.runner === 'codex' ? paths.readinessOutput : null,
+      readinessLog: paths.readinessLog,
+      rawOutput: input.runner === 'codex' ? paths.rawOutput : null,
+      runLog: paths.runLog,
+      reportWriterLog: paths.writerLog,
+      report: input.report,
+    };
 
-  readiness(input, paths);
-  if (existsOrSymlink(input.report)) fail(16, 'REPORT_INVALID', 'report', 'report path was populated before execution; refusing stale delivery');
-  const prompt = executionPrompt(input);
-  const outputPath = input.runner === 'codex' ? paths.rawOutput : null;
-  const run = runChild(input.runner, runnerArgs(input, prompt, outputPath, EXECUTION_TIMEOUT_MS), input.worktree, input.scratch, paths.runLog, EXECUTION_TIMEOUT_MS);
-  if (run.status !== 0) {
-    if (input.runner === 'agy' && !existsOrSymlink(input.report)) {
-      const diagnostic = agyQuotaDiagnostic(run);
-      if (diagnostic) fail(13, diagnostic.code, 'execution', diagnostic.message);
+    await readiness(input, paths, reservation);
+    if (existsOrSymlink(input.report)) fail(16, 'REPORT_INVALID', 'report', 'report path was populated before execution; refusing stale delivery');
+    const prompt = executionPrompt(input);
+    const outputPath = input.runner === 'codex' ? paths.rawOutput : null;
+    const run = await runChild(input.runner, runnerArgs(input, prompt, outputPath, EXECUTION_TIMEOUT_MS), input.worktree, input.scratch, paths.runLog, EXECUTION_TIMEOUT_MS, false, reservation);
+    if (run.status !== 0) {
+      if (input.runner === 'agy' && !existsOrSymlink(input.report)) {
+        const diagnostic = agyQuotaDiagnostic(run);
+        if (diagnostic) fail(13, diagnostic.code, 'execution', diagnostic.message);
+      }
+      const timedOut = run.error?.code === 'ETIMEDOUT';
+      fail(15, timedOut ? 'RUN_TIMEOUT' : 'RUN_FAILED', 'execution', timedOut ? 'runner execution timed out' : `runner execution failed${run.error ? `: ${run.error.message}` : ''}`);
     }
-    const timedOut = run.error?.code === 'ETIMEDOUT';
-    fail(15, timedOut ? 'RUN_TIMEOUT' : 'RUN_FAILED', 'execution', timedOut ? 'runner execution timed out' : `runner execution failed${run.error ? `: ${run.error.message}` : ''}`);
-  }
 
-  if (input.runner === 'codex') {
-    if (!fs.existsSync(paths.rawOutput) || existsOrSymlink(input.report)) fail(16, 'REPORT_INVALID', 'report', 'fresh Codex output or report path is missing');
-    const status = reportedStatus(fs.readFileSync(paths.rawOutput, 'utf8'));
-    const writeArgs = ['write', '--from-codex-output', paths.rawOutput, '--output', input.report, '--status', status.status];
-    if (status.reason) writeArgs.push('--reason', status.reason);
-    reportWriter(input, paths, 'write', writeArgs);
-  } else if (!existsOrSymlink(input.report) || !fs.lstatSync(input.report).isFile()) {
-    fail(16, 'REPORT_INVALID', 'report', 'runner did not create a fresh report');
-  }
+    if (input.runner === 'codex') {
+      if (!fs.existsSync(paths.rawOutput) || existsOrSymlink(input.report)) fail(16, 'REPORT_INVALID', 'report', 'fresh Codex output or report path is missing');
+      const status = reportedStatus(fs.readFileSync(paths.rawOutput, 'utf8'));
+      const writeArgs = ['write', '--from-codex-output', paths.rawOutput, '--output', input.report, '--status', status.status];
+      if (status.reason) writeArgs.push('--reason', status.reason);
+      await reportWriter(input, paths, 'write', writeArgs);
+    } else if (!existsOrSymlink(input.report) || !fs.lstatSync(input.report).isFile()) {
+      fail(16, 'REPORT_INVALID', 'report', 'runner did not create a fresh report');
+    }
 
-  const checked = reportWriter(input, paths, 'check', ['check', '--file', input.report]);
-  if (/valid \(STATUS: BLOCKED: (.+)\)/.test(checked.stdout)) {
-    const reason = /valid \(STATUS: BLOCKED: (.+)\)/.exec(checked.stdout)[1];
-    fail(17, 'WORKER_BLOCKED', 'report', `worker delivered a valid BLOCKED report: ${reason}`);
+    const checked = await reportWriter(input, paths, 'check', ['check', '--file', input.report]);
+    if (/valid \(STATUS: BLOCKED: (.+)\)/.test(checked.stdout)) {
+      const reason = /valid \(STATUS: BLOCKED: (.+)\)/.exec(checked.stdout)[1];
+      fail(17, 'WORKER_BLOCKED', 'report', `worker delivered a valid BLOCKED report: ${reason}`);
+    }
+    if (managed) retainAndClean(input, attempt, paths);
+  } finally {
+    releaseAdmissionSlot(reservation);
   }
-  if (managed) retainAndClean(input, attempt, paths);
   response(options, {
     exitCode: 0,
     code: 'DONE',
@@ -483,7 +751,7 @@ function execute(input, options) {
   }, evidencePaths, input);
 }
 
-function main() {
+async function main() {
   const argv = process.argv.slice(2);
   const jsonRequested = argv.includes('--json');
   let options = { '--json': jsonRequested };
@@ -510,7 +778,7 @@ function main() {
       }, evidencePaths, input);
       return;
     }
-    execute(input, options);
+    await execute(input, options);
   } catch (cause) {
     if (cause instanceof DispatchFailure) {
       response(options, cause, evidencePaths, input);
