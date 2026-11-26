@@ -30,6 +30,12 @@ recovery state intact and is audited as `unknown` for observed gated actions.
 Edits are still tracked when the outcome is unknown because side effects may
 already have occurred.
 
+[Windows CLI 0.172.0 evidence](../benchmarks/results/live-host/codex-2026-11-26-488-post-tool-use/README.md)
+shows that UnifiedExec with PowerShell and Git Bash delivers only a string in
+`PostToolUse.tool_response`. Structured exit status appears in the separate CLI
+event stream. Automatic verification credit through the hook depends on Codex
+exposing structured status in the hook payload.
+
 Codex `SubagentStop` uses the documented JSON `systemMessage` field for a UI-only
 warning when the scope audit detects a new violation. Each audit advances the
 Git status baseline and replaces `subagent-scope-last.json`. A later silent stop
