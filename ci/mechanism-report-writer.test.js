@@ -182,6 +182,40 @@ test('497 accepts the live codex -o shape: STATUS, one blank line, then the EOF 
   assertOk(run(['check', '--file', output]));
 });
 
+test('441-A accepts trailing ASCII spaces or tabs on raw Codex STATUS and writes canonical report bytes', t => {
+  const dir = tempDir(t);
+  const raw = path.join(dir, 'raw.txt');
+  const output = path.join(dir, 'report.md');
+
+  // P498-F shape: raw STATUS: BLOCKED: <reason> followed by two trailing ASCII spaces.
+  const blockedRaw = Buffer.from('Summary\nSTATUS: BLOCKED: verification unavailable  \n');
+  fs.writeFileSync(raw, blockedRaw);
+  const blockedResult = run(writeArgs(output, 'BLOCKED', ['--from-codex-output', raw], '--reason', 'verification unavailable'));
+  assertOk(blockedResult);
+  assert.deepEqual(fs.readFileSync(raw), blockedRaw);
+  assert.deepEqual(fs.readFileSync(output), Buffer.from('Summary\nSTATUS: BLOCKED: verification unavailable\n'));
+  assertOk(run(['check', '--file', output]));
+
+  // Padded STATUS: DONE with a trailing ASCII tab.
+  const doneTabRaw = Buffer.from('Summary\nSTATUS: DONE\t\n');
+  fs.writeFileSync(raw, doneTabRaw);
+  const doneTabResult = run(writeArgs(output, 'DONE', ['--from-codex-output', raw]));
+  assertOk(doneTabResult);
+  assert.deepEqual(fs.readFileSync(raw), doneTabRaw);
+  assert.deepEqual(fs.readFileSync(output), Buffer.from('Summary\nSTATUS: DONE\n'));
+  assertOk(run(['check', '--file', output]));
+
+  // Padded STATUS: BLOCKED followed by a blank line and an EOF host label.
+  const labeledRaw = Buffer.from(`Summary\nSTATUS: BLOCKED: verification unavailable \t\n\n${VALID_LABEL}\n`);
+  fs.writeFileSync(raw, labeledRaw);
+  const labeledResult = run(writeArgs(output, 'BLOCKED', ['--from-codex-output', raw], '--reason', 'verification unavailable'));
+  assertOk(labeledResult);
+  assert.match(labeledResult.stderr, /stripped.*host label/i);
+  assert.deepEqual(fs.readFileSync(raw), labeledRaw);
+  assert.deepEqual(fs.readFileSync(output), Buffer.from('Summary\nSTATUS: BLOCKED: verification unavailable\n'));
+  assertOk(run(['check', '--file', output]));
+});
+
 test('rejects embedded STATUS in body without changing an existing target', t => {
   const dir = tempDir(t);
   const output = path.join(dir, 'report.md');
@@ -266,11 +300,20 @@ test('rejects mismatched, malformed, duplicate, or trailing Codex controls and p
   const invalidRaw = [
     ['Summary\nSTATUS: BLOCKED: wrong reason\n', 'DONE'],
     ['Summary\nSTATUS: BLOCKED: wrong reason\n', 'BLOCKED', '--reason', 'expected reason'],
+    ['Summary\nSTATUS: BLOCKED: wrong reason  \n', 'BLOCKED', '--reason', 'expected reason'],
+    ['Summary\nSTATUS: BLOCKED:   expected reason  \n', 'BLOCKED', '--reason', 'expected reason'],
+    ['Summary\nSTATUS: DONE\u00a0\n', 'DONE'],
+    ['Summary\nSTATUS: BLOCKED: expected reason\u00a0\n', 'BLOCKED', '--reason', 'expected reason'],
+    ['Summary\nSTATUS:  DONE  \n', 'DONE'],
     ['Summary\nSTATUS: FINISHED\n', 'DONE'],
     ['Summary\nSTATUS: malformed\nSTATUS: DONE\n', 'DONE'],
+    ['Summary\nSTATUS: DONE  \nSTATUS: DONE\n', 'DONE'],
     ['Summary\nSTATUS: DONE\nSTATUS: DONE\n', 'DONE'],
+    ['Summary\nSTATUS: DONE  \n\n', 'DONE'],
     ['Summary\nSTATUS: DONE\n\n', 'DONE'],
+    ['Summary\nSTATUS: DONE  \ntext after status\n', 'DONE'],
     ['Summary\nSTATUS: DONE\ntext after status\n', 'DONE'],
+    [`Summary\nSTATUS: DONE  ${VALID_LABEL}`, 'DONE'],
     [`Summary\nSTATUS: DONE\ntext\n${VALID_LABEL}`, 'DONE'],
     [`Summary\nSTATUS: DONE\n${VALID_LABEL}\n${VALID_LABEL}\n`, 'DONE'],
     [`Summary\nSTATUS: DONE\n${VALID_LABEL}\ntrailing text`, 'DONE'],
@@ -327,6 +370,8 @@ test('check accepts one terminal status with LF or CRLF and rejects other contro
   }
   for (const invalid of [
     'Summary',
+    'Summary\nSTATUS: DONE  ',
+    'Summary\n STATUS: DONE',
     'Summary\nSTATUS: DONE\n\n',
     'Summary\nSTATUS: DONE\ntrailing',
     'Summary\nSTATUS: DONE\nSTATUS: DONE',
