@@ -6,9 +6,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const REPORT_WRITER = path.join(__dirname, 'report-writer.js');
-const USAGE = 'Usage: dispatch --runner <codex|opencode> --model <id> --packet <path> --worktree <path> --scratch <absolute-path> --report <path> [--effort <low|medium|high|xhigh>] [--assignment <path>] [--dry-run] [--json] [--help]';
+const USAGE = 'Usage: dispatch --runner <codex|opencode|agy> --model <id> --packet <path> --worktree <path> --scratch <absolute-path> --report <path> [--effort <low|medium|high|xhigh>] [--assignment <path>] [--dry-run] [--json] [--help]';
 const VALUE_OPTIONS = new Set(['--runner', '--model', '--packet', '--worktree', '--scratch', '--report', '--effort', '--assignment']);
 const CODEX_EFFORTS = new Set(['low', 'medium', 'high', 'xhigh']);
+const AGY_SETTINGS = '{"permissions":{"allow":["command(*)","read_file(*)"]}}';
+const READINESS_TIMEOUT_MS = 120000;
+const EXECUTION_TIMEOUT_MS = 2700000;
+const AGY_QUOTA_LINE = /^(?:(?:Error|jetski):\s*)?429 RESOURCE_EXHAUSTED\b.+\bResets in [0-9A-Za-z][0-9A-Za-z :.,-]*$/;
 
 // #466 D-gate. Managed mode is entered only by --assignment <sidecar JSON>. C8 owns admission
 // (one runner-profile decision + this registry); the assignment owns which actor runs each gate.
@@ -23,9 +27,10 @@ const GATE_REGISTRY = new Map([
 const FOCUSED_NODE_TEST = /^node --test [A-Za-z0-9_./-]+\.js$/;
 const GATE_ACTORS = new Set(['worker', 'coordinator']);
 
-// The single runner-profile decision: codex runs `-s workspace-write` (see runnerArgs) = sandboxed.
+// The single runner-profile decision: codex runs `-s workspace-write` and agy requests `--sandbox`
+// (not treated as an unsandboxed loopback-capable profile). Only opencode is unsandboxed.
 function runnerProfile(runner) {
-  return { sandboxed: runner === 'codex' };
+  return { sandboxed: runner === 'codex' || runner === 'agy' };
 }
 
 function gateRequirement(id) {
@@ -70,7 +75,10 @@ function loadGateAssignment(file, worktree, runner) {
   // Admission is decided only after the whole assignment validates, so a bad entry is never masked by a refusal.
   for (const gate of entries) {
     if (gate.actor === 'worker' && gateRequirement(gate.id) === 'unsandboxed' && runnerProfile(runner).sandboxed) {
-      fail(18, 'GATE_REFUSED', 'gate', `worker gate "${gate.id}" needs an unsandboxed profile; ${runner} runs sandboxed. Assign it to the coordinator.`);
+      const reason = runner === 'agy'
+        ? 'agy requests --sandbox and is not treated as an unsandboxed loopback-capable profile'
+        : `${runner} runs sandboxed`;
+      fail(18, 'GATE_REFUSED', 'gate', `worker gate "${gate.id}" needs an unsandboxed profile; ${reason}. Assign it to the coordinator.`);
     }
     gates[gate.actor].push(gate.id);
   }
@@ -179,10 +187,23 @@ function pathFrom(base, value) {
   return path.resolve(base, value);
 }
 
+function existsOrSymlink(file) {
+  try { fs.lstatSync(file); return true; } catch { return false; }
+}
+
+function worktreeRelativePath(worktree, target, label) {
+  const canonical = canonicalFuturePath(target);
+  const rel = path.relative(worktree, canonical);
+  if (!rel || rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) {
+    fail(10, 'INVALID_INPUT', 'input', `${label} must be inside --worktree for agy`);
+  }
+  return rel.replace(/\\/g, '/');
+}
+
 function validateInput(options) {
   const runner = options['--runner'];
   const model = options['--model'];
-  if (!['codex', 'opencode'].includes(runner)) fail(10, 'INVALID_INPUT', 'input', '--runner must be codex or opencode');
+  if (!['codex', 'opencode', 'agy'].includes(runner)) fail(10, 'INVALID_INPUT', 'input', '--runner must be codex, opencode, or agy');
   if (!model || !model.trim()) fail(10, 'INVALID_INPUT', 'input', '--model must be a nonempty id');
   const effort = options['--effort'];
   if (effort !== undefined && runner !== 'codex') fail(10, 'INVALID_INPUT', 'input', '--effort is only supported for codex');
@@ -202,10 +223,12 @@ function validateInput(options) {
   if (!fs.existsSync(path.dirname(report)) || !fs.statSync(path.dirname(report)).isDirectory()) {
     fail(10, 'INVALID_INPUT', 'input', '--report parent directory must already exist');
   }
-  if (fs.existsSync(report)) fail(10, 'INVALID_INPUT', 'input', '--report already exists; choose a fresh report path');
+  if (existsOrSymlink(report)) fail(10, 'INVALID_INPUT', 'input', '--report already exists; choose a fresh report path');
+  const packetRelative = runner === 'agy' ? worktreeRelativePath(worktree, packet, '--packet') : undefined;
+  const reportRelative = runner === 'agy' ? worktreeRelativePath(worktree, report, '--report') : undefined;
   const scratch = validateScratch(options['--scratch']);
   const gates = options['--assignment'] === undefined ? undefined : loadGateAssignment(options['--assignment'], worktree, runner);
-  return { runner, model: model.trim(), effort, packet, worktree, scratch, report, gates };
+  return { runner, model: model.trim(), effort, packet, packetRelative, worktree, scratch, report, reportRelative, gates };
 }
 
 function response(options, outcome, evidence = evidencePaths, input) {
@@ -218,9 +241,10 @@ function response(options, outcome, evidence = evidencePaths, input) {
   };
   const runner = input?.runner ?? options['--runner'];
   const model = input?.model ?? options['--model'];
-  if (runner === 'codex' || runner === 'opencode') result.runner = runner;
+  if (runner === 'codex' || runner === 'opencode' || runner === 'agy') result.runner = runner;
   if (model) result.model = model;
   if (input?.effort) result.effort = input.effort;
+  if (runner === 'agy') result.sandbox = 'requested';
   if (input?.gates) result.gates = input.gates;
   if (outcome.argv) result.argv = outcome.argv;
   if (outcome.cwd) result.cwd = outcome.cwd;
@@ -257,9 +281,12 @@ function runChild(command, args, worktree, scratch, logPath, timeout, appendLog 
   return { ...result, stdout, stderr };
 }
 
-function runnerArgs(input, prompt, outputPath) {
+function runnerArgs(input, prompt, outputPath, timeoutMs = EXECUTION_TIMEOUT_MS) {
   if (input.runner === 'codex') {
     return ['exec', '-m', input.model, ...(input.effort ? ['-c', `model_reasoning_effort="${input.effort}"`] : []), '-s', 'workspace-write', '-C', input.worktree, '-o', outputPath, prompt];
+  }
+  if (input.runner === 'agy') {
+    return ['-p', prompt, '--model', input.model, '--mode', 'accept-edits', '--sandbox', '--settings', AGY_SETTINGS, '--print-timeout', `${Math.ceil(timeoutMs / 1000)}s`];
   }
   return ['run', '--auto', '-m', input.model, prompt];
 }
@@ -290,8 +317,21 @@ function withoutHostLabel(text) {
   return lines.slice(0, -1).join('\n').trim();
 }
 
-function readinessDiagnostic(runner, stderr) {
-  const output = stderr.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '');
+function stripAnsi(text) {
+  return text.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '');
+}
+
+function agyQuotaDiagnostic(result) {
+  if (result.status !== 3 || result.signal || result.error) return null;
+  const lines = stripAnsi(result.stderr).split(/\r?\n/);
+  return lines.some(line => AGY_QUOTA_LINE.test(line))
+    ? { code: 'RUNNER_QUOTA', message: 'Select an authorized runner or model with available quota.' }
+    : null;
+}
+
+function readinessDiagnostic(runner, result) {
+  if (runner === 'agy') return agyQuotaDiagnostic(result);
+  const output = stripAnsi(result.stderr);
   const lines = output.split(/\r?\n/);
   const matches = READINESS_DIAGNOSTICS[runner].filter(diagnostic => lines.includes(diagnostic.line));
   return matches.length === 1 ? matches[0] : null;
@@ -300,10 +340,10 @@ function readinessDiagnostic(runner, stderr) {
 function readiness(input, paths) {
   const outputPath = input.runner === 'codex' ? paths.readinessOutput : null;
   const prompt = 'Reply with the single word READY';
-  const result = runChild(input.runner, runnerArgs(input, prompt, outputPath), input.worktree, input.scratch, paths.readinessLog, 120000);
+  const result = runChild(input.runner, runnerArgs(input, prompt, outputPath, READINESS_TIMEOUT_MS), input.worktree, input.scratch, paths.readinessLog, READINESS_TIMEOUT_MS);
   if (result.status !== 0) {
     const diagnostic = Number.isInteger(result.status) && result.status !== 0 && !result.signal && !result.error
-      ? readinessDiagnostic(input.runner, result.stderr)
+      ? readinessDiagnostic(input.runner, result)
       : null;
     if (diagnostic) fail(13, diagnostic.code, 'readiness', diagnostic.message);
     fail(12, 'NOT_READY', 'readiness', 'Readiness failed. Keep the available child evidence.');
@@ -336,9 +376,13 @@ function reportWriter(input, paths, command, args) {
 }
 
 function executionPrompt(input) {
-  return input.runner === 'codex'
-    ? `Execute the packet at ${input.packet} and return the complete report body.`
-    : `Execute the packet at ${input.packet} and write the complete report to ${input.report}.`;
+  if (input.runner === 'codex') {
+    return `Execute the packet at ${input.packet} and return the complete report body.`;
+  }
+  if (input.runner === 'agy') {
+    return `Execute the packet at ${input.packetRelative} and write the complete report to ${input.reportRelative}. Use only paths relative to the current directory.`;
+  }
+  return `Execute the packet at ${input.packet} and write the complete report to ${input.report}.`;
 }
 
 // #466 D-scratch. In managed mode --scratch is the canonical external ROOT; every attempt gets its own
@@ -402,22 +446,26 @@ function execute(input, options) {
   };
 
   readiness(input, paths);
-  if (fs.existsSync(input.report)) fail(16, 'REPORT_INVALID', 'report', 'report path was populated before execution; refusing stale delivery');
+  if (existsOrSymlink(input.report)) fail(16, 'REPORT_INVALID', 'report', 'report path was populated before execution; refusing stale delivery');
   const prompt = executionPrompt(input);
   const outputPath = input.runner === 'codex' ? paths.rawOutput : null;
-  const run = runChild(input.runner, runnerArgs(input, prompt, outputPath), input.worktree, input.scratch, paths.runLog, 2700000);
+  const run = runChild(input.runner, runnerArgs(input, prompt, outputPath, EXECUTION_TIMEOUT_MS), input.worktree, input.scratch, paths.runLog, EXECUTION_TIMEOUT_MS);
   if (run.status !== 0) {
+    if (input.runner === 'agy' && !existsOrSymlink(input.report)) {
+      const diagnostic = agyQuotaDiagnostic(run);
+      if (diagnostic) fail(13, diagnostic.code, 'execution', diagnostic.message);
+    }
     const timedOut = run.error?.code === 'ETIMEDOUT';
     fail(15, timedOut ? 'RUN_TIMEOUT' : 'RUN_FAILED', 'execution', timedOut ? 'runner execution timed out' : `runner execution failed${run.error ? `: ${run.error.message}` : ''}`);
   }
 
   if (input.runner === 'codex') {
-    if (!fs.existsSync(paths.rawOutput) || fs.existsSync(input.report)) fail(16, 'REPORT_INVALID', 'report', 'fresh Codex output or report path is missing');
+    if (!fs.existsSync(paths.rawOutput) || existsOrSymlink(input.report)) fail(16, 'REPORT_INVALID', 'report', 'fresh Codex output or report path is missing');
     const status = reportedStatus(fs.readFileSync(paths.rawOutput, 'utf8'));
     const writeArgs = ['write', '--from-codex-output', paths.rawOutput, '--output', input.report, '--status', status.status];
     if (status.reason) writeArgs.push('--reason', status.reason);
     reportWriter(input, paths, 'write', writeArgs);
-  } else if (!fs.existsSync(input.report)) {
+  } else if (!existsOrSymlink(input.report) || !fs.lstatSync(input.report).isFile()) {
     fail(16, 'REPORT_INVALID', 'report', 'runner did not create a fresh report');
   }
 

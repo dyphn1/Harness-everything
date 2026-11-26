@@ -5,28 +5,28 @@ This detail implements the C8 action map for one coordinator-selected runner att
 ## Invocation
 
 ```sh
-npm run --silent dispatch -- --runner <codex|opencode> --model <id> \
+npm run --silent dispatch -- --runner <codex|opencode|agy> --model <id> \
   --packet <path> --worktree <git-root> --scratch <absolute-external-path> \
   --report <path> [--effort <low|medium|high|xhigh>] [--assignment <path>] [--dry-run] [--json]
 ```
 
-`node scripts/dispatch.js` accepts the same options. `--help` prints this short synopsis. The coordinator supplies every value; packet and report paths may be relative to the worktree or absolute. The worktree must be an existing Git root. Scratch must be absolute and outside every Git repository/worktree. A pre-existing report path is rejected as invalid input.
+`node scripts/dispatch.js` accepts the same options. `--help` prints this short synopsis. The coordinator supplies every value; packet and report paths may be relative to the worktree or absolute (for `agy`, both must resolve inside `--worktree` so the prompt passes cwd-relative worker paths only). The worktree must be an existing Git root. Scratch must be absolute and outside every Git repository/worktree. A pre-existing report path is rejected as invalid input.
 
 | Option | Meaning |
 | --- | --- |
-| `--runner` | Required explicit selection: `codex` or `opencode`. |
+| `--runner` | Required explicit selection: `codex`, `opencode`, or `agy`. |
 | `--model` | Required model id for that runner. |
-| `--packet` | Required existing packet file, resolved from the worktree when relative. |
+| `--packet` | Required existing packet file, resolved from the worktree when relative (must resolve inside `--worktree` for `agy`). |
 | `--worktree` | Required existing Git repository or worktree root; child cwd. |
 | `--scratch` | Required absolute path outside all Git repository/worktree roots; child `TMPDIR` (in managed mode: the external root of per-attempt directories, see [Managed scratch](#managed-scratch-and-lifecycle-466-d-scratch)). |
-| `--report` | Required fresh report path, resolved from the worktree when relative. |
-| `--effort` | Optional Codex reasoning effort: `low`, `medium`, `high`, or `xhigh`. It passes a Codex `-c model_reasoning_effort="…"` override; omission leaves Codex configuration unchanged. Rejected for OpenCode. |
+| `--report` | Required fresh report path, resolved from the worktree when relative (must resolve inside `--worktree` for `agy`). |
+| `--effort` | Optional Codex reasoning effort: `low`, `medium`, `high`, or `xhigh`. It passes a Codex `-c model_reasoning_effort="…"` override; omission leaves Codex configuration unchanged. Rejected for OpenCode and `agy`. |
 | `--assignment` | Optional managed-mode gate assignment sidecar JSON; see [Managed mode](#managed-mode-and-gate-assignment-466-d-gate). |
 | `--dry-run` | Validate inputs and return planned argv/cwd; no child or filesystem writes. |
 | `--json` | Return one JSON object on stdout, including refusals. |
 | `--help` | Return the short usage synopsis with exit 0. |
 
-In JSON mode the common shape is `{ok, code, phase, message}` with resolved `runner`, `model`, and existing `evidence` paths when available. A validated requested Codex `--effort` is also returned as `effort`; it records the request and does not claim the provider applied it. Dry run also returns `argv` and `cwd`; Codex's generated raw-output argument uses a `<run-id>` placeholder. Human-mode refusals go to stderr. Child logs and raw output stay in evidence files, not in the JSON result.
+In JSON mode the common shape is `{ok, code, phase, message}` with resolved `runner`, `model`, and existing `evidence` paths when available. A validated requested Codex `--effort` is also returned as `effort`; it records the request and does not claim the provider applied it. For `agy`, JSON also returns `sandbox: "requested"`; it records the requested `--sandbox` flag only and does not claim proven isolation (scope any isolation claim to separately executed evidence). Dry run also returns `argv` and `cwd`; Codex's generated raw-output argument uses a `<run-id>` placeholder. Human-mode refusals go to stderr. Child logs and raw output stay in evidence files, not in the JSON result.
 
 ## Exit and JSON codes
 
@@ -61,10 +61,26 @@ Classification requires a full runner-specific diagnostic line on the failed rea
 | OpenCode usage/quota exhaustion | `Error: Free usage limit reached. Free models work in OpenCode (https://opencode.ai); subscribe to OpenCode Go to keep going: https://opencode.ai/go` | The stderr envelope is live-traced; the cause is from the retained OpenCode log. |
 | Codex provider rate limit | `ERROR: Provider request failed with HTTP 429: {"status":429,"title":"Too Many Requests"}` | Fixture-only; no retained live Codex 429 trace. |
 | Codex usage/quota exhaustion | `ERROR: Free usage limit reached. Free models work in OpenCode (https://opencode.ai); subscribe to OpenCode Go to keep going: https://opencode.ai/go` | Fixture-only; no retained live Codex usage-limit trace. |
+| `agy` usage/quota exhaustion | Exit `3` (no signal, no timeout, no report) with ANSI-stripped stderr line matching `^(?:(?:Error\|jetski):\s*)?429 RESOURCE_EXHAUSTED\b.+\bResets in [0-9A-Za-z][0-9A-Za-z :.,-]*$` | Fixture-only in C8 (rows A5); matches the probed `agy` Claude-model exit-3 `429 RESOURCE_EXHAUSTED … Resets in <time>` shape. Other exit-3 shapes, non-3 exits, stdout-only lines, or runs that wrote a report are not classified as quota. |
 
 Each invocation uses one selected runner and one readiness attempt. A `12` or `13` refusal starts no execution, report writer, fallback, or retry; available child evidence remains available to the coordinator.
 
-Codex writes raw output with `codex exec -o`; it must contain an explicit terminal DONE or BLOCKED status. `report-writer --from-codex-output` strips an optional valid terminal host label (blank lines between STATUS and the label are allowed; live codex output has one), writes the final report, and `report-writer check` validates it. OpenCode is asked to write the report path directly; the path must remain absent through readiness and the resulting file must pass `report-writer check`. A valid BLOCKED report returns 17. Failed execution returns 15 and preserves its logs/raw output; it may have changed the worktree.
+Codex writes raw output with `codex exec -o`; it must contain an explicit terminal DONE or BLOCKED status. `report-writer --from-codex-output` strips an optional valid terminal host label (blank lines between STATUS and the label are allowed; live codex output has one), writes the final report, and `report-writer check` validates it. OpenCode and `agy` follow the direct-delivery contract: the worker writes the report path directly, the path must remain absent through readiness (pre-existing returns `10 INVALID_INPUT`, populated during readiness returns `16 REPORT_INVALID`), exit 0 without a fresh regular report file fails delivery (`16 REPORT_INVALID`) with logs retained, and the resulting file must pass `report-writer check`. A valid BLOCKED report returns 17. Failed execution returns 15 and preserves its logs/raw output (for `agy`, an execution exit `3` with no report and the validated `429 RESOURCE_EXHAUSTED … Resets in <time>` stderr diagnostic returns `13 RUNNER_QUOTA` with `phase: "execution"` and logs retained); a failed execution may have changed the worktree.
+
+## `agy` headless runner adapter (#466 D-agy)
+
+`agy` is invoked with the pinned headless argv, `cwd` set to `--worktree`, closed stdin (`stdio: ['ignore', 'pipe', 'pipe']`), and child execution bounded by C8 (`120s` readiness, `2700s` execution) in addition to `--print-timeout`:
+
+```sh
+agy -p "<prompt>" --model <id> --mode accept-edits --sandbox \
+  --settings '{"permissions":{"allow":["command(*)","read_file(*)"]}}' --print-timeout <N>s
+```
+
+- **Cwd-relative worker paths:** `--packet` and `--report` must resolve inside `--worktree` (otherwise `10 INVALID_INPUT`), and the execution prompt points only at cwd-relative paths (`<packet-rel>`, `<report-rel>`).
+- **Readiness:** runs the same pinned argv with `Reply with the single word READY` and `--print-timeout 120s`; accepts `READY` or `READY.` after dropping an optional trailing Harness host label. A failed readiness check starts no execution.
+- **Sandbox configuration:** `--sandbox` is recorded as requested configuration (`sandbox: "requested"` in JSON). No isolation is claimed; scope any isolation claim to separately executed evidence.
+- **Gate profile:** `runnerProfile('agy')` returns `{ sandboxed: true }` conservatively because `agy` requests `--sandbox` and is not treated as an unsandboxed loopback-capable profile. Assigning `verify:all` or `verify:all --fast` to the worker returns `18 GATE_REFUSED` ("assign it to the coordinator").
+- **Evidence:** fixture rows A1–A10 in `ci/mechanism-468-dispatch-cli.test.js` (real Node entry, stubbed `agy` fixture). Live `agy` runs remain out of scope here until admission is in place.
 
 ## Evidence boundary
 
@@ -90,7 +106,7 @@ Validation is strict: the root has exactly `schemaVersion` (`1`) and `gates`; ea
 | `verify:all`, `verify:all --fast` | Unsandboxed, loopback-capable profile |
 | `npm run test:consistency`, `npm run test:references`, `npm run test:portability`, `node --test <repo-relative .js file>` | Any profile (focused) |
 
-One decision function maps the selected runner to a profile: `codex` runs `-s workspace-write` and is sandboxed; `opencode` is not. A sandboxed profile with a worker assignment of either full or fast `verify:all` returns `18 GATE_REFUSED` ("assign it to the coordinator"). Both refusals happen after input validation and before readiness or any file creation, so no child starts and no scratch, report, or evidence exists; `--dry-run` applies the same refusals. An accepted managed run returns `gates: {worker: [...], coordinator: [...]}` in JSON (also on dry run). C8 never runs a gate itself: coordinator gates are only recorded, and the attempt is the same single readiness plus execution.
+One decision function maps the selected runner to a profile: `codex` runs `-s workspace-write` and `agy` requests `--sandbox` (not treated as an unsandboxed loopback-capable profile), so both are conservatively `sandboxed: true`; `opencode` is not. A sandboxed profile with a worker assignment of either full or fast `verify:all` returns `18 GATE_REFUSED` ("assign it to the coordinator"). Both refusals happen after input validation and before readiness or any file creation, so no child starts and no scratch, report, or evidence exists; `--dry-run` applies the same refusals. An accepted managed run returns `gates: {worker: [...], coordinator: [...]}` in JSON (also on dry run). C8 never runs a gate itself: coordinator gates are only recorded, and the attempt is the same single readiness plus execution.
 
 | Exit | JSON `code` | Meaning |
 | --- | --- | --- |
@@ -120,4 +136,4 @@ Scratch and evidence have different lifetimes: scratch is disposable only after 
 
 ## #466 boundary
 
-#466 still owns enforcement across launch paths, per-key admission/reservation, an agy runner, and refusing packets that declare worker `gh`/network needs (no network capability is assessed here). Managed gate assignment and managed scratch above are the only #466 policy implemented in C8. This CLI otherwise accepts coordinator-supplied inputs for one attempt and cannot certify those launcher guarantees. It also does not add a distributed plugin command or run a live provider.
+#466 still owns enforcement across launch paths, per-key admission/reservation, refusing packets that declare worker `gh`/network needs (no network capability is assessed here), and any live `agy` pilot after admission is in place. Managed gate assignment, managed scratch, and the `agy` headless runner adapter above are the only #466 policy implemented in C8. This CLI otherwise accepts coordinator-supplied inputs for one attempt and cannot certify those launcher guarantees. It also does not add a distributed plugin command or run a live provider.

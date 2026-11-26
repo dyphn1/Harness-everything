@@ -32,6 +32,8 @@ const reports = path.join(fixtureRoot, 'reports with spaces');
 const runnerBin = path.join(fixtureRoot, 'runner bin');
 const openCodeOnlyBin = path.join(fixtureRoot, 'opencode only bin');
 const rawOverridePreload = path.join(fixtureRoot, 'raw-override.cjs');
+const agyStubScript = path.join(fixtureRoot, 'agy-stub.cjs');
+const agyWinPreload = path.join(fixtureRoot, 'agy-win-preload.cjs');
 const packet = path.join(worktree, 'packet with spaces.md');
 const failures = [];
 const passed = [];
@@ -70,6 +72,117 @@ function makeRunnerPath() {
   linkNodeExecutable(openCodeOnlyBin, 'opencode');
   fs.copyFileSync(fixtureRunner, path.join(worktree, 'exec'));
   fs.copyFileSync(fixtureRunner, path.join(worktree, 'run'));
+  fs.writeFileSync(agyStubScript, `'use strict';
+const fs = require('node:fs');
+const args = process.argv.slice(2);
+const pIndex = args.indexOf('-p');
+const prompt = pIndex >= 0 ? (args[pIndex + 1] || '') : '';
+const phase = prompt === 'Reply with the single word READY' ? 'readiness' : 'execution';
+const scenario = process.env['DISPATCH_FIXTURE_' + phase.toUpperCase()] || (phase === 'readiness' ? 'ready' : 'done');
+const input = fs.readFileSync(0, 'utf8');
+fs.appendFileSync(process.env.DISPATCH_FIXTURE_LOG, JSON.stringify({
+  runner: 'agy',
+  phase,
+  scenario,
+  args,
+  cwd: process.cwd(),
+  tmpdir: process.env.TMPDIR,
+  stdin: input,
+  stdinIsCharacterDevice: fs.fstatSync(0).isCharacterDevice(),
+  pid: process.pid,
+}) + '\\n');
+const quotaLine = '429 RESOURCE_EXHAUSTED: Quota exceeded for model claude-sonnet-5-5-medium. Resets in 2h 15m.\\n';
+function hang() { setInterval(() => {}, 1000); }
+if (phase === 'readiness') {
+  if (scenario === 'timeout') hang();
+  else if (scenario === 'ready') process.stdout.write('READY\\n');
+  else if (scenario === 'ready-period') process.stdout.write('READY.\\n');
+  else if (scenario === 'ready-host-label') process.stdout.write('READY\\n<!-- harness-label {"v":1,"validity":"actionable","tier":"tier1","intents":[],"workflow":null,"skills":[]} -->\\n');
+  else if (scenario === 'create-stale-report') {
+    fs.writeFileSync(process.env.DISPATCH_FIXTURE_REPORT_PATH, 'Stale report.\\nSTATUS: DONE\\n');
+    process.stdout.write('READY\\n');
+  } else if (scenario === 'ready-failed') {
+    process.stdout.write('READY\\n');
+    process.exitCode = 1;
+  } else if (scenario === 'agy-quota') {
+    process.stderr.write('\\u001b[91m' + quotaLine + '\\u001b[0m');
+    process.exitCode = 3;
+  } else if (scenario === 'agy-exit3-generic') {
+    process.stderr.write('Error: generic exit 3 failure\\n');
+    process.exitCode = 3;
+  } else if (scenario === 'agy-exit3-bare-429') {
+    process.stderr.write('429 Too Many Requests\\n');
+    process.exitCode = 3;
+  } else if (scenario === 'agy-exit3-no-reset') {
+    process.stderr.write('429 RESOURCE_EXHAUSTED: Quota exceeded.\\n');
+    process.exitCode = 3;
+  } else if (scenario === 'agy-exit3-quoted') {
+    process.stderr.write('Quoted text: ' + quotaLine);
+    process.exitCode = 3;
+  } else if (scenario === 'agy-exit3-stdout') {
+    process.stdout.write(quotaLine);
+    process.exitCode = 3;
+  } else if (scenario === 'agy-exit1-quota') {
+    process.stderr.write(quotaLine);
+    process.exitCode = 1;
+  }
+} else {
+  if (scenario === 'timeout') {
+    process.stdout.write('agy partial output before timeout\\n');
+    hang();
+  } else if (scenario === 'done') {
+    fs.writeFileSync(process.env.DISPATCH_FIXTURE_REPORT_PATH, 'Fixture completed the packet.\\nSTATUS: DONE\\n');
+    process.stdout.write('agy fixture child output\\n');
+  } else if (scenario === 'blocked') {
+    fs.writeFileSync(process.env.DISPATCH_FIXTURE_REPORT_PATH, 'Fixture could not verify the packet.\\nSTATUS: BLOCKED: missing evidence\\n');
+    process.stdout.write('agy fixture child output\\n');
+  } else if (scenario === 'permission-denied') {
+    process.stderr.write('jetski: no output produced — a tool required the "read_file" permission that headless mode cannot prompt for, so it was auto-denied.\\n');
+  } else if (scenario === 'agy-quota') {
+    process.stderr.write(quotaLine);
+    process.exitCode = 3;
+  } else if (scenario === 'agy-exit3-generic') {
+    process.stderr.write('Error: generic exit 3 failure\\n');
+    process.exitCode = 3;
+  } else if (scenario === 'agy-exit3-no-reset') {
+    process.stderr.write('429 RESOURCE_EXHAUSTED: Quota exceeded.\\n');
+    process.exitCode = 3;
+  } else if (scenario === 'agy-exit3-with-report') {
+    fs.writeFileSync(process.env.DISPATCH_FIXTURE_REPORT_PATH, 'Fixture completed the packet.\\nSTATUS: DONE\\n');
+    process.stderr.write(quotaLine);
+    process.exitCode = 3;
+  } else if (scenario === 'agy-exit1-quota') {
+    process.stderr.write(quotaLine);
+    process.exitCode = 1;
+  } else if (scenario === 'exit-failure') {
+    process.stderr.write('agy execution error\\n');
+    process.exitCode = 7;
+  }
+}
+`);
+  if (process.platform === 'win32') {
+    fs.writeFileSync(path.join(runnerBin, 'agy.cmd'), '@echo off\r\n');
+    fs.writeFileSync(agyWinPreload, `'use strict';
+const cp = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
+const origSpawnSync = cp.spawnSync;
+cp.spawnSync = function (command, args, options) {
+  if (command === 'agy') {
+    const pathEnv = (options && options.env && (options.env.PATH || options.env.Path)) || '';
+    const dirs = pathEnv.split(path.delimiter).filter(Boolean);
+    if (dirs.some(dir => fs.existsSync(path.join(dir, 'agy.cmd')))) {
+      return origSpawnSync.call(this, process.execPath, [${JSON.stringify(agyStubScript)}, ...(args || [])], options);
+    }
+  }
+  return origSpawnSync.call(this, command, args, options);
+};
+`);
+  } else {
+    const agyBin = path.join(runnerBin, 'agy');
+    fs.writeFileSync(agyBin, `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(agyStubScript)} "$@"\n`);
+    fs.chmodSync(agyBin, 0o755);
+  }
 }
 
 function makeCase(label) {
@@ -104,10 +217,13 @@ function cliEnv(testCase, config = {}) {
     DISPATCH_FIXTURE_READINESS: config.readiness || 'ready',
     DISPATCH_FIXTURE_EXECUTION: config.execution || 'done',
   };
+  const preloads = [];
+  if (process.platform === 'win32') preloads.push(`--require "${agyWinPreload.replace(/\\/g, '/')}"`);
   if (config.rawOverride !== undefined) {
     env.DISPATCH_FIXTURE_RAW_OVERRIDE = config.rawOverride;
-    env.NODE_OPTIONS = `${process.env.NODE_OPTIONS || ''} --require "${rawOverridePreload.replace(/\\/g, '/')}"`.trim();
+    preloads.push(`--require "${rawOverridePreload.replace(/\\/g, '/')}"`);
   }
+  if (preloads.length) env.NODE_OPTIONS = `${process.env.NODE_OPTIONS || ''} ${preloads.join(' ')}`.trim();
   delete env.HARNESS_SYSTEM_ONE_MODE;
   return env;
 }
@@ -312,7 +428,7 @@ try {
     assert.match(human.stdout, /Usage:.*dispatch/);
     assert.equal(human.stderr, '');
     const json = jsonResponse(cli(['--json', '--help'], testCase), 0, 'HELP');
-    assert.match(json.message, /--runner <codex\|opencode>/);
+    assert.match(json.message, /--runner <codex\|opencode\|agy>/);
     assertNoRunner(testCase);
     assertNoScratchOrReport(testCase);
   });
@@ -1028,6 +1144,211 @@ try {
     const failed = makeCase('scratch s8 failed');
     jsonResponse(cli([...argsFor(failed), '--json'], failed, { execution: 'blocked' }), 17, 'WORKER_BLOCKED');
     assert.equal(fs.existsSync(failed.scratch), true);
+  });
+
+  // #466 D-agy: managed C8 agy runner adapter (rows A1-A10).
+  const agyWorkDir = path.join(worktree, '.w');
+  fs.mkdirSync(agyWorkDir, { recursive: true });
+  const agySettings = '{"permissions":{"allow":["command(*)","read_file(*)"]}}';
+  function makeAgyCase(label) {
+    caseNumber += 1;
+    const reportRel = `.w/report-${caseNumber}-${label.replace(/[^A-Za-z0-9_-]+/g, '-')}.md`;
+    return {
+      scratch: path.join(fixtureRoot, `scratch ${caseNumber} ${label}`),
+      report: path.join(worktree, reportRel),
+      reportRel,
+      packetRel: 'packet with spaces.md',
+      log: path.join(fixtureRoot, `runner events ${caseNumber}.jsonl`),
+    };
+  }
+  function agyArgsFor(testCase, model = 'gemini-4-neon-medium') {
+    return [
+      '--runner', 'agy',
+      '--model', model,
+      '--packet', testCase.packetRel,
+      '--worktree', worktree,
+      '--scratch', testCase.scratch,
+      '--report', testCase.reportRel,
+    ];
+  }
+  function assertAgyArgv(argv, model, prompt, timeoutSeconds) {
+    assert.deepEqual(argv, [
+      '-p', prompt,
+      '--model', model,
+      '--mode', 'accept-edits',
+      '--sandbox',
+      '--settings', agySettings,
+      '--print-timeout', `${timeoutSeconds}s`,
+    ]);
+  }
+  function assertAgyEvent(event, testCase, phase, model = 'gemini-4-neon-medium') {
+    assert.equal(event.runner, 'agy');
+    assert.equal(event.phase, phase);
+    assertSameCanonicalPath(event.cwd, worktree, 'agy child cwd must resolve to the selected clone');
+    assert.equal(event.stdin, '');
+    assert.equal(event.stdinIsCharacterDevice, true);
+    const expectedPrompt = phase === 'readiness'
+      ? 'Reply with the single word READY'
+      : `Execute the packet at ${testCase.packetRel} and write the complete report to ${testCase.reportRel}. Use only paths relative to the current directory.`;
+    assertAgyArgv(event.args, model, expectedPrompt, phase === 'readiness' ? 120 : 2700);
+    if (phase === 'execution') {
+      assert.equal(expectedPrompt.includes(worktree), false, 'agy prompt must use cwd-relative paths');
+    }
+  }
+
+  check('A1 agy DONE -> pinned headless argv, cwd = clone, stdin closed, cwd-relative paths, sandbox requested', () => {
+    const testCase = makeAgyCase('agy a1');
+    const args = agyArgsFor(testCase, 'gemini-4-neon-medium');
+    const dryRun = jsonResponse(cli([...args, '--dry-run', '--json'], testCase), 0, 'DRY_RUN_OK');
+    assert.equal(dryRun.runner, 'agy');
+    assert.equal(dryRun.model, 'gemini-4-neon-medium');
+    assert.equal(dryRun.sandbox, 'requested');
+    assertSameCanonicalPath(dryRun.cwd, worktree);
+    assert.equal(dryRun.argv[0], 'agy');
+    const expectedPrompt = `Execute the packet at ${testCase.packetRel} and write the complete report to ${testCase.reportRel}. Use only paths relative to the current directory.`;
+    assertAgyArgv(dryRun.argv.slice(1), 'gemini-4-neon-medium', expectedPrompt, 2700);
+    assertNoRunner(testCase);
+    assertNoScratchOrReport(testCase);
+
+    const assignment = managedAssignment(testCase);
+    const response = jsonResponse(cli([...args, '--assignment', assignment, '--json'], testCase, { readiness: 'ready-host-label' }), 0, 'DONE');
+    assert.equal(response.runner, 'agy');
+    assert.equal(response.model, 'gemini-4-neon-medium');
+    assert.equal(response.sandbox, 'requested');
+    assert.equal(fs.readFileSync(response.evidence.report, 'utf8'), 'Fixture completed the packet.\nSTATUS: DONE\n');
+    const actualEvents = events(testCase);
+    assert.equal(actualEvents.length, 2, 'one readiness and one execution');
+    assertAgyEvent(actualEvents[0], testCase, 'readiness', 'gemini-4-neon-medium');
+    assertAgyEvent(actualEvents[1], testCase, 'execution', 'gemini-4-neon-medium');
+    assert.deepEqual(dryRun.argv, ['agy', ...actualEvents[1].args]);
+    assert.ok(fs.existsSync(response.evidence.runLog));
+    assert.ok(fs.existsSync(response.evidence.readinessLog));
+  });
+
+  check('A1 agy rejects packet or report outside worktree (cwd-relative worker path guard)', () => {
+    const testCase = makeAgyCase('agy outside report');
+    const outsideReport = path.join(reports, `agy-outside-${caseNumber}.md`);
+    const args = agyArgsFor(testCase);
+    args[args.indexOf('--report') + 1] = outsideReport;
+    const response = jsonResponse(cli([...args, '--json'], testCase), 10, 'INVALID_INPUT');
+    assert.equal(response.phase, 'input');
+    assert.match(response.message, /must be inside --worktree for agy/);
+    assertNoRunner(testCase);
+  });
+
+  check('A2 agy valid BLOCKED report -> WORKER_BLOCKED with reason and kept evidence', () => {
+    const testCase = makeAgyCase('agy a2');
+    const assignment = managedAssignment(testCase);
+    const response = jsonResponse(cli([...agyArgsFor(testCase), '--assignment', assignment, '--json'], testCase, { execution: 'blocked' }), 17, 'WORKER_BLOCKED');
+    assert.equal(response.runner, 'agy');
+    assert.equal(response.sandbox, 'requested');
+    assert.match(response.message, /missing evidence/);
+    assert.match(fs.readFileSync(testCase.report, 'utf8'), /STATUS: BLOCKED: missing evidence/);
+    assert.ok(fs.existsSync(response.evidence.runLog));
+  });
+
+  check('A3 agy exit 0 without report (permission-denied log line) -> REPORT_INVALID, log retained', () => {
+    const testCase = makeAgyCase('agy a3');
+    const response = jsonResponse(cli([...agyArgsFor(testCase), '--json'], testCase, { execution: 'permission-denied' }), 16, 'REPORT_INVALID');
+    assert.equal(events(testCase).length, 2);
+    assert.equal(fs.existsSync(testCase.report), false);
+    assert.ok(response.evidence.runLog && fs.existsSync(response.evidence.runLog));
+    assert.match(fs.readFileSync(response.evidence.runLog, 'utf8'), /jetski: no output produced/);
+  });
+
+  check('A4 agy stale/pre-existing report -> delivery failure (pre-existing and created-during-readiness)', () => {
+    const pre = makeAgyCase('agy a4 pre');
+    fs.writeFileSync(pre.report, 'Old report.\nSTATUS: DONE\n');
+    jsonResponse(cli([...agyArgsFor(pre), '--json'], pre), 10, 'INVALID_INPUT');
+    assertNoRunner(pre);
+
+    const during = makeAgyCase('agy a4 readiness');
+    jsonResponse(cli([...agyArgsFor(during), '--json'], during, { readiness: 'create-stale-report' }), 16, 'REPORT_INVALID');
+    const actualEvents = events(during);
+    assert.equal(actualEvents.length, 1, 'stale report during readiness must block execution');
+    assert.equal(actualEvents[0].phase, 'readiness');
+  });
+
+  check('A5 agy 429 RESOURCE_EXHAUSTED exit 3 -> RUNNER_QUOTA; other exit-3 shapes are NOT quota', () => {
+    const readyQuota = makeAgyCase('agy a5 ready quota');
+    const rq = jsonResponse(cli([...agyArgsFor(readyQuota, 'claude-sonnet-5-5-medium'), '--json'], readyQuota, { readiness: 'agy-quota' }), 13, 'RUNNER_QUOTA');
+    assert.equal(rq.phase, 'readiness');
+    assert.equal(events(readyQuota).length, 1);
+    assert.ok(fs.existsSync(rq.evidence.readinessLog));
+
+    const execQuota = makeAgyCase('agy a5 exec quota');
+    const eq = jsonResponse(cli([...agyArgsFor(execQuota, 'claude-sonnet-5-5-medium'), '--json'], execQuota, { execution: 'agy-quota' }), 13, 'RUNNER_QUOTA');
+    assert.equal(eq.phase, 'execution');
+    assert.equal(events(execQuota).length, 2);
+    assert.ok(fs.existsSync(eq.evidence.runLog));
+
+    for (const scenario of ['agy-exit3-generic', 'agy-exit3-bare-429', 'agy-exit3-no-reset', 'agy-exit3-quoted', 'agy-exit3-stdout', 'agy-exit1-quota']) {
+      const tc = makeAgyCase(`agy a5 ready ${scenario}`);
+      const res = jsonResponse(cli([...agyArgsFor(tc, 'claude-sonnet-5-5-medium'), '--json'], tc, { readiness: scenario }), 12, 'NOT_READY');
+      assert.equal(res.phase, 'readiness');
+      assert.equal(events(tc).length, 1);
+    }
+
+    for (const scenario of ['agy-exit3-generic', 'agy-exit3-no-reset', 'agy-exit3-with-report', 'agy-exit1-quota']) {
+      const tc = makeAgyCase(`agy a5 exec ${scenario}`);
+      const res = jsonResponse(cli([...agyArgsFor(tc, 'claude-sonnet-5-5-medium'), '--json'], tc, { execution: scenario }), 15, 'RUN_FAILED');
+      assert.equal(res.phase, 'execution');
+      assert.equal(events(tc).length, 2);
+    }
+  });
+
+  check('A6 agy readiness failure -> NOT_READY, no execution started', () => {
+    for (const scenario of ['no-ready', 'ready-failed']) {
+      const tc = makeAgyCase(`agy a6 ${scenario}`);
+      const res = jsonResponse(cli([...agyArgsFor(tc), '--json'], tc, { readiness: scenario }), 12, 'NOT_READY');
+      assert.equal(res.phase, 'readiness');
+      assert.equal(events(tc).length, 1, 'no execution after readiness failure');
+      assert.ok(res.evidence.readinessLog && fs.existsSync(res.evidence.readinessLog));
+      assert.equal(res.evidence.runLog, undefined);
+    }
+    const missing = makeAgyCase('agy a6 missing bin');
+    const res = jsonResponse(cli([...agyArgsFor(missing), '--json'], missing, { path: openCodeOnlyBin }), 12, 'NOT_READY');
+    assert.equal(res.phase, 'readiness');
+    assertNoRunner(missing);
+  });
+
+  check('A7 agy child exceeds bound -> killed, RUN_TIMEOUT, evidence retained', () => {
+    const testCase = makeAgyCase('agy a7');
+    const response = jsonResponse(cli([...agyArgsFor(testCase), '--json'], testCase, {
+      execution: 'timeout', testTimeoutMs: 300, outerTimeoutMs: 5000,
+    }), 15, 'RUN_TIMEOUT');
+    const actualEvents = events(testCase);
+    assert.equal(actualEvents.length, 2);
+    assertProcessExited(actualEvents[1].pid);
+    assert.ok(response.evidence.runLog && fs.existsSync(response.evidence.runLog));
+    assert.ok(response.evidence.readinessLog && fs.existsSync(response.evidence.readinessLog));
+  });
+
+  check('A8 agy --effort is refused before spawn or writes', () => {
+    const testCase = makeAgyCase('agy a8');
+    const response = jsonResponse(cli([...agyArgsFor(testCase), '--effort', 'medium', '--json'], testCase), 10, 'INVALID_INPUT');
+    assert.equal(response.phase, 'input');
+    assert.match(response.message, /--effort is only supported for codex/);
+    assertNoRunner(testCase);
+    assertNoScratchOrReport(testCase);
+  });
+
+  check('A9 managed agy + worker verify:all -> GATE_REFUSED (conservative sandboxed profile); coordinator verify:all accepted', () => {
+    for (const gate of ['verify:all', 'verify:all --fast']) {
+      const testCase = makeAgyCase(`agy a9 ${gate}`);
+      const assignment = writeAssignment(testCase, { schemaVersion: 1, gates: [...focused, { id: gate, actor: 'worker' }] });
+      const res = jsonResponse(cli([...agyArgsFor(testCase), '--assignment', assignment, '--json'], testCase), 18, 'GATE_REFUSED');
+      assert.equal(res.phase, 'gate');
+      assert.ok(res.message.includes(gate));
+      assertRefusedBeforeSpawn(testCase);
+      const dry = jsonResponse(cli([...agyArgsFor(testCase), '--assignment', assignment, '--dry-run', '--json'], testCase), 18, 'GATE_REFUSED');
+      assert.equal(dry.phase, 'gate');
+      assertRefusedBeforeSpawn(testCase);
+    }
+    const okCase = makeAgyCase('agy a9 coord');
+    const okAssignment = writeAssignment(okCase, { schemaVersion: 1, gates: [...focused, { id: 'verify:all', actor: 'coordinator' }] });
+    const ok = jsonResponse(cli([...agyArgsFor(okCase), '--assignment', okAssignment, '--json'], okCase), 0, 'DONE');
+    assert.deepEqual(ok.gates, { worker: focused.map(item => item.id), coordinator: ['verify:all'] });
   });
 } finally {
   try { run('git', ['-C', worktree, 'worktree', 'remove', '--force', linkedWorktree]); } catch {}
