@@ -515,10 +515,11 @@ function savedIndex(index) {
 function indexState(index) {
   let fd;
   try {
-    const current = fs.lstatSync(index);
+    // Keep 64-bit device/file IDs exact (Windows IDs can exceed Number's safe integer range).
+    const current = fs.lstatSync(index, { bigint: true });
     if (current.isSymbolicLink() || !current.isFile()) throw new Error('index was replaced with a non-regular file');
     fd = fs.openSync(index, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0));
-    const opened = fs.fstatSync(fd);
+    const opened = fs.fstatSync(fd, { bigint: true });
     if (!opened.isFile() || opened.dev !== current.dev || opened.ino !== current.ino) {
       throw new Error('index changed while it was being read');
     }
@@ -544,13 +545,14 @@ function writePreviousIndex(index, saved, current, expected) {
   }
 
   const dir = path.dirname(index);
+  const mode = Number(saved.stat.mode) & 0o777;
   let temporary;
   let fd;
   try {
     for (let attempt = 0; attempt < 5; attempt++) {
       temporary = path.join(dir, `.${INDEX}.${process.pid}.${crypto.randomBytes(8).toString('hex')}.tmp`);
       try {
-        fd = fs.openSync(temporary, 'wx', saved.stat.mode & 0o777);
+        fd = fs.openSync(temporary, 'wx', mode);
         break;
       } catch (error) {
         temporary = undefined;
@@ -558,7 +560,7 @@ function writePreviousIndex(index, saved, current, expected) {
       }
     }
     if (fd === undefined) throw new Error('could not allocate a temporary rollback index');
-    fs.fchmodSync(fd, saved.stat.mode & 0o777);
+    fs.fchmodSync(fd, mode);
     fs.writeFileSync(fd, saved.bytes);
     const openFd = fd;
     fd = undefined;
@@ -615,7 +617,7 @@ function rollback(context, saved, destination, identity, beforeNames) {
   }
   if (identity) {
     try {
-      const current = fs.lstatSync(destination);
+      const current = fs.lstatSync(destination, { bigint: true });
       if (current.dev !== identity.dev || current.ino !== identity.ino || current.isSymbolicLink()) {
         problems.push('new record was replaced by another writer');
       } else fs.unlinkSync(destination);
@@ -662,7 +664,7 @@ function promote(context) {
     let recordFd;
     try {
       recordFd = fs.openSync(destination.destination, 'wx', 0o644);
-      identity = fs.fstatSync(recordFd);
+      identity = fs.fstatSync(recordFd, { bigint: true });
       fs.writeFileSync(recordFd, text, 'utf8');
       fs.closeSync(recordFd);
       recordFd = undefined;

@@ -171,7 +171,8 @@ function render(root = ROOT) {
 
 function inspectIndex(index) {
   try {
-    const stat = fs.lstatSync(index);
+    // Keep 64-bit device/file IDs exact (Windows IDs can exceed Number's safe integer range).
+    const stat = fs.lstatSync(index, { bigint: true });
     if (stat.isSymbolicLink() || !stat.isFile()) {
       throw new Error('target index must be a regular file inside the errors directory');
     }
@@ -189,7 +190,7 @@ function readIndex(index) {
   try {
     const noFollow = fs.constants.O_NOFOLLOW || 0;
     fd = fs.openSync(index, fs.constants.O_RDONLY | noFollow);
-    const opened = fs.fstatSync(fd);
+    const opened = fs.fstatSync(fd, { bigint: true });
     if (!opened.isFile() || opened.dev !== before.dev || opened.ino !== before.ino) {
       throw new Error('target index changed while it was being read');
     }
@@ -206,7 +207,7 @@ function writeIndex(index, content, root) {
   }
   const previous = inspectIndex(index);
   const previousBytes = previous ? readIndex(index) : null;
-  const mode = previous ? previous.mode & 0o777 : 0o666;
+  const mode = previous ? Number(previous.mode) & 0o777 : 0o666;
   let temporary;
   let fd;
   try {

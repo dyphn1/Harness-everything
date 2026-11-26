@@ -149,10 +149,11 @@ function assertDistinctFiles(input, output) {
   const outputPath = path.resolve(output);
   if (inputPath === outputPath) error('output aliases an input file');
 
-  const inputStat = fs.statSync(inputPath);
+  // Keep 64-bit device/file IDs exact (Windows IDs can exceed Number's safe integer range).
+  const inputStat = fs.statSync(inputPath, { bigint: true });
   try {
-    const outputStat = fs.statSync(outputPath);
-    if (inputStat.dev === outputStat.dev && inputStat.ino === outputStat.ino) error('output aliases an input file');
+    const outputStat = fs.statSync(outputPath, { bigint: true });
+    if (inputStat.ino > 0n && inputStat.dev === outputStat.dev && inputStat.ino === outputStat.ino) error('output aliases an input file');
   } catch (cause) {
     if (cause.code !== 'ENOENT') throw cause;
     try {
