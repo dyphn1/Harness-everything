@@ -32,9 +32,10 @@ already have occurred.
 
 [Windows CLI 0.172.0 evidence](../benchmarks/results/live-host/codex-2026-11-26-488-post-tool-use/README.md)
 shows that UnifiedExec with PowerShell and Git Bash delivers only a string in
-`PostToolUse.tool_response`. Structured exit status appears in the separate CLI
-event stream. Automatic verification credit through the hook depends on Codex
-exposing structured status in the hook payload.
+`PostToolUse.tool_response`. A command that yielded and then completed through
+`write_stdin` delivered an empty string response on both shells. Structured exit
+status appears in the separate CLI event stream. Automatic verification credit
+through the hook depends on Codex exposing structured status in the hook payload.
 
 Codex `SubagentStop` uses the documented JSON `systemMessage` field for a UI-only
 warning when the scope audit detects a new violation. Each audit advances the
