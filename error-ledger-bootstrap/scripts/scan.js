@@ -304,19 +304,79 @@ function lessonSites(text, knownFiles) {
   return [...sites].sort();
 }
 
+const MEMORY_WRAPPER_PAIRS = [
+  ['(', ')'],
+  ['[', ']'],
+  ['{', '}'],
+  ['<', '>'],
+  ['"', '"'],
+  ["'", "'"],
+  ['`', '`'],
+  ['|', '|']
+];
+
+function isForbiddenMemoryToken(value) {
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(value) ||
+    /^file:\//i.test(value) ||
+    value.startsWith('/') ||
+    value.startsWith('\\') ||
+    value.startsWith('./') ||
+    /^[A-Za-z]:/.test(value) ||
+    value.includes('\\') ||
+    /(?:^|\/)\.\.(?:\/|$)/.test(value);
+}
+
+function stripMemoryPunctuation(value) {
+  return value.replace(/[,;:!?]+$/, '').replace(/\.$/, '');
+}
+
+function resolveMemorySiteToken(token, trackedFiles) {
+  let current = token;
+  while (current) {
+    if (isForbiddenMemoryToken(current)) return null;
+    if (trackedFiles.has(current)) return current;
+
+    const depunct = stripMemoryPunctuation(current);
+    if (depunct !== current) {
+      current = depunct;
+      continue;
+    }
+
+    const linkSep = current.indexOf('](');
+    if (linkSep !== -1 && current.endsWith(')')) {
+      return resolveMemorySiteToken(current.slice(linkSep + 2, -1), trackedFiles);
+    }
+
+    let peeled = false;
+    for (const [open, close] of MEMORY_WRAPPER_PAIRS) {
+      if (current.length >= 2 && current.startsWith(open) && current.endsWith(close)) {
+        current = current.slice(1, -1);
+        peeled = true;
+        break;
+      }
+    }
+    if (peeled) continue;
+
+    if (/^["'`<>(\[{|]/.test(current)) {
+      current = current.slice(1);
+      continue;
+    }
+    if (/["'`<>)\]}|]$/.test(current)) {
+      current = current.slice(0, -1);
+      continue;
+    }
+    break;
+  }
+  return null;
+}
+
 function memorySites(text, trackedFiles) {
   if (!trackedFiles || !trackedFiles.size) return [];
   const sites = new Set();
-  for (const raw of String(text || '').split(/[\s"'`<>()\[\]{}|]+/)) {
+  for (const raw of String(text || '').split(/\s+/)) {
     if (!raw) continue;
-    if (trackedFiles.has(raw)) {
-      sites.add(raw);
-      continue;
-    }
-    const trimmed = raw.replace(/[,;:!?]+$/, '').replace(/\.$/, '');
-    if (trimmed && trimmed !== raw && trackedFiles.has(trimmed)) {
-      sites.add(trimmed);
-    }
+    const site = resolveMemorySiteToken(raw, trackedFiles);
+    if (site) sites.add(site);
   }
   return [...sites].sort();
 }
@@ -362,7 +422,7 @@ function parseTypeScalar(rawValue) {
   if (!trimmed || trimmed.startsWith('#')) return { ok: false };
   if (trimmed[0] === '"' || trimmed[0] === "'") {
     const quoted = consumeQuotedScalar([trimmed], 0, 0);
-    if (!quoted.ok || quoted.multiline) return { ok: false };
+    if (!quoted.ok || quoted.multiline || !quoted.value.trim()) return { ok: false };
     return { ok: true, value: quoted.value };
   }
   if (/^[[\]{}|>&*!]/.test(trimmed)) return { ok: false };
@@ -552,7 +612,7 @@ function parseMemoryFrontmatter(text) {
     if (topTypes[0] !== metaTypes[0]) return { state: 'conflicting', body };
     return { state: topTypes[0] === 'feedback' ? 'feedback' : 'explicit-other', body };
   }
-  const single = topTypes[0] || metaTypes[0];
+  const single = topTypes[0] ?? metaTypes[0];
   if (single !== undefined) {
     return { state: single === 'feedback' ? 'feedback' : 'explicit-other', body };
   }

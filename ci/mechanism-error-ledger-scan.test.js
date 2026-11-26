@@ -1042,6 +1042,41 @@ try {
       content: '---\ntype: # missing value\n---\n## Cue\nEmpty type.\n'
     },
     {
+      name: 'lesson-empty-double-quote.md',
+      expected: false,
+      content: '---\ntype: ""\n---\n## Cue\nEmpty double-quoted top-level type.\n'
+    },
+    {
+      name: 'feedback-empty-single-quote.md',
+      expected: false,
+      content: "---\ntype: ''\n---\n**Why:** Empty single-quoted top-level type.\n**How to apply:** Reject.\n"
+    },
+    {
+      name: 'lesson-whitespace-double-quote.md',
+      expected: false,
+      content: '---\ntype: "   "\n---\n## Cue\nWhitespace double-quoted top-level type.\n'
+    },
+    {
+      name: 'feedback-whitespace-single-quote.md',
+      expected: false,
+      content: "---\ntype: '\t '\n---\n**Why:** Whitespace single-quoted top-level type.\n**How to apply:** Reject.\n"
+    },
+    {
+      name: 'lesson-meta-empty-double-quote.md',
+      expected: false,
+      content: '---\nmetadata:\n  type: ""\n---\n## Cue\nEmpty double-quoted metadata type.\n'
+    },
+    {
+      name: 'feedback-meta-empty-single-quote.md',
+      expected: false,
+      content: "---\nmetadata:\n  type: ''\n---\n**Why:** Empty single-quoted metadata type.\n**How to apply:** Reject.\n"
+    },
+    {
+      name: 'lesson-meta-whitespace-quoted.md',
+      expected: false,
+      content: '---\nmetadata:\n  type: "   "\n---\n## Lesson\nWhitespace quoted metadata type.\n'
+    },
+    {
       name: 'lesson-malformed-block-type.md',
       expected: false,
       content: '---\ntype: |\n  feedback\n---\n## Cue\nBlock scalar type.\n'
@@ -1281,6 +1316,52 @@ try {
         'Escaped dir target: `escaped-dir/escaped-target.js`.',
         'Nonexistent: `does/not/exist.js`.',
         ...(fileSymlinksCreated ? ['Symlinks: `links/symlink-out.js` and `links/symlink-in.js`.'] : []),
+        ''
+      ].join('\n')
+    },
+    {
+      name: 'positive-parens-and-relative-links.md',
+      expectedSites: ['.husky/commit-msg', 'AGENTS.md', 'src/parser.js'],
+      content: [
+        '---',
+        'metadata:',
+        '  type: feedback',
+        '---',
+        'Check (AGENTS.md) and [link](src/parser.js) and ([hook](.husky/commit-msg)).',
+        ''
+      ].join('\n')
+    },
+    {
+      name: 'negative-url-parenthesized-suffixes.md',
+      expectedSites: [],
+      content: [
+        '---',
+        'metadata:',
+        '  type: feedback',
+        '---',
+        'https://example.com/wiki/Foo_(AGENTS.md)',
+        'https://example.com/wiki/Foo_(src/parser.js)',
+        '(https://example.com/wiki/Foo_(AGENTS.md))', // portability-lint: allow wrapped URL fixture content, not a filename
+        '[external](https://example.com/wiki/Foo_(AGENTS.md))',
+        'https://example.com/wiki/Foo_[Makefile]',
+        ''
+      ].join('\n')
+    },
+    {
+      name: 'negative-abs-and-traversal-parenthesized-suffixes.md',
+      expectedSites: [],
+      content: [
+        '---',
+        'metadata:',
+        '  type: feedback',
+        '---',
+        '/opt/build(AGENTS.md)',
+        'C:\\build(Makefile)',
+        '../other(AGENTS.md)',
+        '(/opt/build(AGENTS.md))',
+        '[abs](/opt/build(AGENTS.md))',
+        '[trav](../other(src/parser.js))',
+        'a/../other(Makefile)',
         ''
       ].join('\n')
     }
