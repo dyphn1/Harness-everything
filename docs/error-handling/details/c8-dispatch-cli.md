@@ -18,7 +18,7 @@ npm run --silent dispatch -- --runner <codex|opencode> --model <id> \
 | `--model` | Required model id for that runner. |
 | `--packet` | Required existing packet file, resolved from the worktree when relative. |
 | `--worktree` | Required existing Git repository or worktree root; child cwd. |
-| `--scratch` | Required absolute path outside all Git repository/worktree roots; child `TMPDIR`. |
+| `--scratch` | Required absolute path outside all Git repository/worktree roots; child `TMPDIR` (in managed mode: the external root of per-attempt directories, see [Managed scratch](#managed-scratch-and-lifecycle-466-d-scratch)). |
 | `--report` | Required fresh report path, resolved from the worktree when relative. |
 | `--effort` | Optional Codex reasoning effort: `low`, `medium`, `high`, or `xhigh`. It passes a Codex `-c model_reasoning_effort="…"` override; omission leaves Codex configuration unchanged. Rejected for OpenCode. |
 | `--assignment` | Optional managed-mode gate assignment sidecar JSON; see [Managed mode](#managed-mode-and-gate-assignment-466-d-gate). |
@@ -99,6 +99,25 @@ One decision function maps the selected runner to a profile: `codex` runs `-s wo
 
 Evidence: fixture rows G1–G7 in `ci/mechanism-468-dispatch-cli.test.js` (real entry, stubbed runners). The registry is a v1 list of gates C8 can assess; gates outside it are refused rather than assumed.
 
+## Managed scratch and lifecycle (#466 D-scratch)
+
+This is #466 policy within C8, entered only with `--assignment`. In managed mode `--scratch` names the canonical external **root**, not the child `TMPDIR`. Unmanaged invocations (no `--assignment`) are unchanged: `--scratch` is used directly and nothing is removed.
+
+| Step | Behavior |
+| --- | --- |
+| Root check | Same `UNSAFE_SCRATCH` (`11`) validation as before, on the canonical path: a root inside any repository or linked worktree, including through a symlink or a symlinked ancestor, is refused before any directory or child exists. |
+| Attempt dir | After validation and admission, C8 creates `<root>/attempt-<random>` with `mkdtemp` (distinct for concurrent attempts, even on one root). It is re-resolved after creation; one that lands inside a repository is removed and refused. It is the child `TMPDIR` and holds readiness/run/report-writer logs and Codex raw output. |
+| Checked DONE | Report validated and not BLOCKED: the logs and raw output are copied to `<root>/retained/<attempt>/` (outside the run dir), each copy is size-verified, and only then this attempt's own directory is removed. The JSON `evidence` paths point at the retained copies. Other attempt dirs are never touched. The report stays at `--report`. |
+| BLOCKED (`17`), failure (`12`/`13`/`15`/`16`) | The attempt dir and all available evidence are kept. |
+| Retention failure | Returns `20 EVIDENCE_RETENTION_FAILED` (phase `retention`) although the report was valid; the attempt dir and evidence are kept, and `evidence` points at them. |
+| `--dry-run` | Creates no root, attempt dir, or child. |
+
+| Exit | JSON `code` | Meaning |
+| --- | --- | --- |
+| `20` | `EVIDENCE_RETENTION_FAILED` | Managed DONE could not copy and verify its evidence outside the run dir; nothing was deleted. |
+
+Scratch and evidence have different lifetimes: scratch is disposable only after a checked DONE has usable retained evidence. Evidence: fixture rows S1–S8 in `ci/mechanism-468-dispatch-cli.test.js`.
+
 ## #466 boundary
 
-#466 still owns automatic `TMPDIR` selection and lifecycle, enforcement across launch paths, per-key admission/reservation, an agy runner, and refusing packets that declare worker `gh`/network needs (no network capability is assessed here). Managed gate assignment above is the only #466 policy implemented in C8. This CLI otherwise accepts coordinator-supplied inputs for one attempt and cannot certify those launcher guarantees. It also does not add a distributed plugin command or run a live provider.
+#466 still owns enforcement across launch paths, per-key admission/reservation, an agy runner, and refusing packets that declare worker `gh`/network needs (no network capability is assessed here). Managed gate assignment and managed scratch above are the only #466 policy implemented in C8. This CLI otherwise accepts coordinator-supplied inputs for one attempt and cannot certify those launcher guarantees. It also does not add a distributed plugin command or run a live provider.

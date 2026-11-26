@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { spawnSync } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -92,7 +92,7 @@ function argsFor(testCase, runner = 'codex', model = runner === 'codex' ? 'fixtu
   ];
 }
 
-function cli(args, testCase, config = {}) {
+function cliEnv(testCase, config = {}) {
   const env = {
     ...process.env,
     PATH: config.path || runnerBin,
@@ -109,6 +109,11 @@ function cli(args, testCase, config = {}) {
     env.NODE_OPTIONS = `${process.env.NODE_OPTIONS || ''} --require "${rawOverridePreload.replace(/\\/g, '/')}"`.trim();
   }
   delete env.HARNESS_SYSTEM_ONE_MODE;
+  return env;
+}
+
+function cli(args, testCase, config = {}) {
+  const env = cliEnv(testCase, config);
   const result = spawnSync(process.execPath, [entry, ...args], {
     cwd: root,
     env,
@@ -864,6 +869,165 @@ try {
     const dry = jsonResponse(cli([...argsFor(testCase), '--dry-run', '--json'], testCase), 0, 'DRY_RUN_OK');
     assert.equal(dry.gates, undefined);
     assertRefusedBeforeSpawn(testCase);
+  });
+
+  // #466 D-scratch: managed C8 per-attempt TMPDIR + lifecycle (rows S1-S8).
+  // In managed mode --scratch names the canonical external ROOT; each attempt gets attempt-* below it.
+  function managedRoot(testCase) {
+    fs.mkdirSync(testCase.scratch, { recursive: true });
+    return testCase.scratch;
+  }
+  function attemptDirs(rootDir) {
+    return fs.readdirSync(rootDir).filter(name => name.startsWith('attempt-'));
+  }
+  function managedAssignment(testCase) {
+    return writeAssignment(testCase, { schemaVersion: 1, gates: [{ id: 'npm run test:consistency', actor: 'worker' }] });
+  }
+  function isInside(parent, child) {
+    const parentReal = path.join(canonicalPath(path.dirname(parent)), path.basename(parent)); // parent may be removed already
+    const rel = path.relative(parentReal, canonicalPath(child));
+    return rel !== '' && !(rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel));
+  }
+  function runManaged(testCase, config = {}, runner = 'codex') {
+    return cli([...managedArgs(testCase, managedAssignment(testCase), runner), '--json'], testCase, config);
+  }
+
+  check('S1 managed attempt -> unique attempt dir under external root; child TMPDIR is that dir', () => {
+    const testCase = makeCase('scratch s1');
+    const rootDir = managedRoot(testCase);
+    const response = jsonResponse(runManaged(testCase), 0, 'DONE');
+    const tmpdirs = events(testCase).map(event => event.tmpdir);
+    assert.equal(tmpdirs.length, 2);
+    assert.equal(tmpdirs[0], tmpdirs[1], 'readiness and execution share the attempt dir');
+    assert.notEqual(path.resolve(tmpdirs[0]), path.resolve(rootDir), 'TMPDIR must not be the bare root');
+    assert.equal(path.dirname(tmpdirs[0]), path.resolve(rootDir));
+    assert.match(path.basename(tmpdirs[0]), /^attempt-/);
+    assert.ok(response.evidence.report);
+  });
+
+  for (const [label, rootFor] of [
+    ['git repo', () => path.join(worktree, 'managed-root')],
+    ['linked worktree', () => path.join(linkedWorktree, 'managed-root')],
+  ]) {
+    check(`S2 managed root inside ${label} -> refused before child start; no directory`, () => {
+      const testCase = makeCase('scratch s2');
+      testCase.scratch = rootFor();
+      const response = jsonResponse(runManaged(testCase), 11, 'UNSAFE_SCRATCH');
+      assert.equal(response.phase, 'validation');
+      assertNoRunner(testCase);
+      assert.equal(fs.existsSync(testCase.scratch), false);
+      assert.equal(fs.existsSync(testCase.report), false);
+    });
+  }
+
+  check('S3 managed root symlink resolving into a repo -> refused before child start', () => {
+    const testCase = makeCase('scratch s3');
+    const link = path.join(fixtureRoot, `root link ${caseNumber}`);
+    fs.symlinkSync(worktree, link, process.platform === 'win32' ? 'junction' : 'dir');
+    testCase.scratch = path.join(link, 'managed-root');
+    const response = jsonResponse(runManaged(testCase), 11, 'UNSAFE_SCRATCH');
+    assert.equal(response.phase, 'validation');
+    assertNoRunner(testCase);
+    assert.equal(fs.existsSync(path.join(worktree, 'managed-root')), false);
+    const direct = makeCase('scratch s3 link root');
+    direct.scratch = link;
+    jsonResponse(runManaged(direct), 11, 'UNSAFE_SCRATCH');
+    assertNoRunner(direct);
+  });
+
+  check('S4 two concurrent managed attempts on one root -> distinct attempt dirs', () => {
+    const first = makeCase('scratch s4 a');
+    const second = makeCase('scratch s4 b');
+    second.scratch = first.scratch;
+    const rootDir = managedRoot(first);
+    const assignment = managedAssignment(first);
+    const outputs = [first, second].map((testCase, index) => {
+      const file = path.join(fixtureRoot, `s4 out ${caseNumber} ${index}.json`);
+      const fd = fs.openSync(file, 'w');
+      const child = spawn(process.execPath, [entry, ...managedArgs(testCase, assignment), '--json'], { cwd: root, env: cliEnv(testCase), stdio: ['ignore', fd, fd] });
+      return { testCase, file, child, fd };
+    });
+    const deadline = Date.now() + 20000;
+    const wait = new Int32Array(new SharedArrayBuffer(4));
+    const done = item => { const text = fs.readFileSync(item.file, 'utf8'); return text.endsWith('\n') ? JSON.parse(text) : null; };
+    while (outputs.some(item => !done(item)) && Date.now() < deadline) Atomics.wait(wait, 0, 0, 25);
+    for (const item of outputs) { fs.closeSync(item.fd); item.child.kill('SIGKILL'); }
+    for (const item of outputs) assert.equal(done(item)?.code, 'DONE', fs.readFileSync(item.file, 'utf8'));
+    const dirs = outputs.flatMap(item => events(item.testCase).map(event => event.tmpdir));
+    assert.equal(dirs.length, 4);
+    assert.equal(new Set(dirs).size, 2, `attempts must not share a TMPDIR: ${dirs.join(', ')}`);
+    for (const dir of dirs) assert.equal(path.dirname(dir), path.resolve(rootDir));
+  });
+
+  check('S5 checked DONE -> evidence retained at stable paths outside the run dir, then only its own dir removed', () => {
+    const testCase = makeCase('scratch s5');
+    const rootDir = managedRoot(testCase);
+    const sibling = path.join(rootDir, 'attempt-someone-else');
+    fs.mkdirSync(sibling);
+    fs.writeFileSync(path.join(sibling, 'keep.txt'), 'another attempt\n');
+    const response = jsonResponse(runManaged(testCase), 0, 'DONE');
+    const attempt = events(testCase)[0].tmpdir;
+    assert.equal(fs.existsSync(attempt), false, 'own attempt dir is removed');
+    assert.equal(fs.readFileSync(path.join(sibling, 'keep.txt'), 'utf8'), 'another attempt\n', 'foreign attempt dir is untouched');
+    assert.deepEqual(attemptDirs(rootDir), ['attempt-someone-else']);
+    for (const key of ['readinessOutput', 'readinessLog', 'rawOutput', 'runLog', 'reportWriterLog', 'report']) {
+      assert.ok(response.evidence[key], `evidence.${key} must be reported`);
+      assert.ok(fs.existsSync(response.evidence[key]), `evidence.${key} must exist after cleanup`);
+      assert.equal(isInside(attempt, response.evidence[key]), false, `evidence.${key} must be outside the removed dir`);
+    }
+    assert.match(fs.readFileSync(response.evidence.reportWriterLog, 'utf8'), /valid \(STATUS: DONE\)/);
+    assert.match(fs.readFileSync(response.evidence.rawOutput, 'utf8'), /STATUS: DONE/);
+    assert.equal(fs.readFileSync(response.evidence.report, 'utf8'), 'Fixture completed the packet.\nSTATUS: DONE\n');
+  });
+
+  for (const [label, config, exitCode, code, runner] of [
+    ['BLOCKED report', { execution: 'blocked' }, 17, 'WORKER_BLOCKED', 'codex'],
+    ['runner failure', { execution: 'exit-failure' }, 15, 'RUN_FAILED', 'codex'],
+    ['invalid report', { execution: 'no-status' }, 16, 'REPORT_INVALID', 'codex'],
+    ['readiness failure', { readiness: 'ready-failed' }, 12, 'NOT_READY', 'codex'],
+    ['opencode BLOCKED report', { execution: 'blocked' }, 17, 'WORKER_BLOCKED', 'opencode'],
+  ]) {
+    check(`S6 ${label} -> attempt dir and evidence kept`, () => {
+      const testCase = makeCase('scratch s6');
+      const rootDir = managedRoot(testCase);
+      const response = jsonResponse(runManaged(testCase, config, runner), exitCode, code);
+      const dirs = attemptDirs(rootDir);
+      assert.equal(dirs.length, 1, 'attempt dir is preserved');
+      assert.ok(response.evidence.readinessLog, 'evidence reported');
+      for (const value of Object.values(response.evidence)) assert.ok(fs.existsSync(value));
+      assert.ok(isInside(path.join(rootDir, dirs[0]), response.evidence.readinessLog), 'evidence stays in the kept dir');
+    });
+  }
+
+  check('S6 evidence-retention failure on a checked DONE -> attempt dir and evidence kept, nonzero exit', () => {
+    const testCase = makeCase('scratch s6 retention');
+    const rootDir = managedRoot(testCase);
+    fs.writeFileSync(path.join(rootDir, 'retained'), 'a file blocks the retention directory\n');
+    const response = jsonResponse(runManaged(testCase), 20, 'EVIDENCE_RETENTION_FAILED');
+    assert.equal(response.phase, 'retention');
+    const dirs = attemptDirs(rootDir);
+    assert.equal(dirs.length, 1);
+    assert.ok(isInside(path.join(rootDir, dirs[0]), response.evidence.runLog));
+    assert.ok(isInside(path.join(rootDir, dirs[0]), response.evidence.rawOutput));
+    assert.equal(fs.readFileSync(response.evidence.report, 'utf8'), 'Fixture completed the packet.\nSTATUS: DONE\n');
+  });
+
+  check('S7 managed --dry-run -> no root, no attempt dir, no child', () => {
+    const testCase = makeCase('scratch s7');
+    const response = jsonResponse(cli([...managedArgs(testCase, managedAssignment(testCase)), '--dry-run', '--json'], testCase), 0, 'DRY_RUN_OK');
+    assert.equal(response.evidence, undefined);
+    assertRefusedBeforeSpawn(testCase);
+  });
+
+  check('S8 unmanaged DONE is unchanged: TMPDIR is --scratch itself, evidence stays in it, nothing removed', () => {
+    const testCase = makeCase('scratch s8');
+    const response = jsonResponse(cli([...argsFor(testCase), '--json'], testCase), 0, 'DONE');
+    for (const event of events(testCase)) assert.equal(event.tmpdir, testCase.scratch);
+    assert.deepEqual(fs.readdirSync(testCase.scratch).filter(name => name.startsWith('attempt-') || name === 'retained'), []);
+    for (const key of ['readinessLog', 'rawOutput', 'runLog', 'reportWriterLog']) assert.equal(path.dirname(response.evidence[key]), testCase.scratch);
+    const failed = makeCase('scratch s8 failed');
+    jsonResponse(cli([...argsFor(failed), '--json'], failed, { execution: 'blocked' }), 17, 'WORKER_BLOCKED');
+    assert.equal(fs.existsSync(failed.scratch), true);
   });
 } finally {
   try { run('git', ['-C', worktree, 'worktree', 'remove', '--force', linkedWorktree]); } catch {}

@@ -341,8 +341,49 @@ function executionPrompt(input) {
     : `Execute the packet at ${input.packet} and write the complete report to ${input.report}.`;
 }
 
-function execute(input, options) {
+// #466 D-scratch. In managed mode --scratch is the canonical external ROOT; every attempt gets its own
+// unique directory below it (the child TMPDIR). The root was validated outside every repository, and the
+// created directory is re-checked after realpath so a swapped symlink cannot redirect it into one.
+function createAttemptDir(input) {
   fs.mkdirSync(input.scratch, { recursive: true });
+  const attempt = fs.mkdtempSync(path.join(input.scratch, 'attempt-'));
+  const resolved = realPath(attempt);
+  const repository = resolved && gitAncestor(resolved);
+  if (!resolved || repository) {
+    try { fs.rmSync(attempt, { recursive: true, force: true }); } catch {}
+    fail(11, 'UNSAFE_SCRATCH', 'validation', `attempt directory resolves inside a Git repository or worktree: ${repository || attempt}`);
+  }
+  return attempt;
+}
+
+// A checked DONE copies its evidence to <root>/retained/<attempt>/ (outside the disposable run dir), verifies
+// every copy, and only then removes its own attempt dir. Any failure keeps the run dir and its evidence.
+function retainAndClean(input, attempt, paths) {
+  const retained = path.join(input.scratchRoot, 'retained', path.basename(attempt));
+  try {
+    fs.mkdirSync(retained, { recursive: true });
+    const moved = {};
+    for (const [key, source] of Object.entries(evidencePaths)) {
+      if (!source || source === input.report || !fs.existsSync(source)) continue;
+      const target = path.join(retained, path.basename(source));
+      fs.copyFileSync(source, target);
+      if (fs.statSync(target).size !== fs.statSync(source).size) throw new Error(`copy of ${path.basename(source)} is incomplete`);
+      moved[key] = target;
+    }
+    fs.rmSync(attempt, { recursive: true, force: true });
+    evidencePaths = { ...evidencePaths, ...moved };
+  } catch (cause) {
+    fail(20, 'EVIDENCE_RETENTION_FAILED', 'retention', `evidence retention failed; the attempt directory and its evidence were kept: ${cause.message}`);
+  }
+}
+
+function execute(input, options) {
+  const managed = input.gates !== undefined;
+  let attempt = null;
+  if (managed) {
+    attempt = createAttemptDir(input);
+    input = { ...input, scratchRoot: input.scratch, scratch: attempt };
+  } else fs.mkdirSync(input.scratch, { recursive: true });
   const runId = `${process.pid}-${Date.now()}`;
   const paths = {
     readinessOutput: path.join(input.scratch, `${runId}.readiness.txt`),
@@ -385,6 +426,7 @@ function execute(input, options) {
     const reason = /valid \(STATUS: BLOCKED: (.+)\)/.exec(checked.stdout)[1];
     fail(17, 'WORKER_BLOCKED', 'report', `worker delivered a valid BLOCKED report: ${reason}`);
   }
+  if (managed) retainAndClean(input, attempt, paths);
   response(options, {
     exitCode: 0,
     code: 'DONE',
