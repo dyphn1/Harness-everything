@@ -1,12 +1,21 @@
 #!/usr/bin/env node
 'use strict';
 
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const yaml = require('js-yaml');
 
-const USAGE = 'usage: node scripts/error-ledger-oracle.js --report <scan-report.json> --ledger <errors dir> [--json] [--out <file>] [--platform <platform>]';
+const USAGE = 'usage: node scripts/error-ledger-oracle.js --report <scan-report.json> --ledger <errors dir> [--labels <labels.json>] [--json] [--out <file>] [--platform <platform>]';
 const METRIC_NOTE = 'Path overlap is a proxy and may link distinct lessons. Both recall rates are path-linked proxies: recall (all) = linked records / all records; recall (comparable) = linked records / comparable records.';
+const SHA256_HEX = /^[0-9a-f]{64}$/i;
+const REPO_SHA_HEX = /^[0-9a-f]{40}$/i;
+const LABEL_OUTCOMES = new Set([
+  'true-positive-existing',
+  'true-positive-new',
+  'false-positive',
+  'uncertain'
+]);
 
 function failure(message) {
   const error = new Error(message);
@@ -16,7 +25,7 @@ function failure(message) {
 
 function parseArgs(args) {
   const options = { json: false, platform: process.platform };
-  const values = new Set(['--report', '--ledger', '--out', '--platform']);
+  const values = new Set(['--report', '--ledger', '--labels', '--out', '--platform']);
   const seen = new Set();
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -51,15 +60,18 @@ function normalizedSites(sites, platform) {
 }
 
 function readReport(file, platform) {
+  let rawBytes;
   let report;
   try {
-    report = JSON.parse(fs.readFileSync(file, 'utf8'));
+    rawBytes = fs.readFileSync(file);
+    report = JSON.parse(rawBytes.toString('utf8'));
   } catch (error) {
     failure(`could not read scan report: ${error.message}`);
   }
+  const reportSha256 = crypto.createHash('sha256').update(rawBytes).digest('hex');
   if (!report || !Array.isArray(report.candidates)) failure('scan report must contain a candidates array');
   const ids = new Set();
-  return report.candidates.map((candidate, index) => {
+  const candidates = report.candidates.map((candidate, index) => {
     if (!candidate || typeof candidate.id !== 'string' || !candidate.id || !Array.isArray(candidate.sites) ||
         !candidate.sites.every(site => typeof site === 'string')) {
       failure(`scan report candidate ${index + 1} must have a string id and sites array`);
@@ -68,6 +80,7 @@ function readReport(file, platform) {
     ids.add(candidate.id);
     return { id: candidate.id, sites: normalizedSites(candidate.sites, platform) };
   });
+  return { candidates, reportSha256 };
 }
 
 function readLedger(dir, platform) {
@@ -173,10 +186,159 @@ function compare(records, candidates) {
   };
 }
 
-function isWithin(root, candidate) {
-  const relative = path.relative(root, candidate);
-  const comparable = process.platform === 'win32' ? relative.toLowerCase() : relative;
-  return comparable === '' || (!path.isAbsolute(relative) && comparable !== '..' && !comparable.startsWith(`..${path.sep}`));
+function readLabels(file, reportSha256, candidates, records) {
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (error) {
+    failure(`could not read labels file: ${error.message}`);
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    failure('labels file must contain a JSON object');
+  }
+  if (parsed.schemaVersion !== 1) {
+    failure('labels schemaVersion must be 1');
+  }
+  if (typeof parsed.reportSha256 !== 'string' || !SHA256_HEX.test(parsed.reportSha256)) {
+    failure('labels reportSha256 must be a 64-character hex SHA-256 digest');
+  }
+  if (parsed.reportSha256.toLowerCase() !== reportSha256) {
+    failure(`labels reportSha256 mismatch: expected ${reportSha256}`);
+  }
+  if (typeof parsed.repoSha !== 'string' || !REPO_SHA_HEX.test(parsed.repoSha)) {
+    failure('labels repoSha must be a 40-character hex commit SHA');
+  }
+  if (!Array.isArray(parsed.labels)) {
+    failure('labels file must contain a labels array');
+  }
+
+  const candidateIds = new Set(candidates.map(candidate => candidate.id));
+  const recordIds = new Set(records.map(record => record.id));
+  const byCandidate = new Map();
+
+  for (let index = 0; index < parsed.labels.length; index++) {
+    const entry = parsed.labels[index];
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      failure(`label entry ${index + 1} must be an object`);
+    }
+    if (typeof entry.candidateId !== 'string' || !entry.candidateId) {
+      failure(`label entry ${index + 1} must have a non-empty string candidateId`);
+    }
+    if (!candidateIds.has(entry.candidateId)) {
+      failure(`unknown label candidateId: ${entry.candidateId}`);
+    }
+    if (byCandidate.has(entry.candidateId)) {
+      failure(`duplicate label candidateId: ${entry.candidateId}`);
+    }
+    if (typeof entry.outcome !== 'string' || !LABEL_OUTCOMES.has(entry.outcome)) {
+      failure(`invalid label outcome for ${entry.candidateId}: ${String(entry.outcome)}`);
+    }
+    const hasLinkedRecordId = Object.prototype.hasOwnProperty.call(entry, 'linkedRecordId');
+    if (entry.outcome === 'true-positive-existing') {
+      if (!hasLinkedRecordId || typeof entry.linkedRecordId !== 'string' || !entry.linkedRecordId) {
+        failure(`linkedRecordId is required for true-positive-existing candidate: ${entry.candidateId}`);
+      }
+      if (!recordIds.has(entry.linkedRecordId)) {
+        failure(`unknown linkedRecordId for ${entry.candidateId}: ${entry.linkedRecordId}`);
+      }
+      byCandidate.set(entry.candidateId, { outcome: entry.outcome, linkedRecordId: entry.linkedRecordId });
+    } else {
+      if (hasLinkedRecordId) {
+        failure(`linkedRecordId is only allowed for true-positive-existing candidate: ${entry.candidateId}`);
+      }
+      byCandidate.set(entry.candidateId, { outcome: entry.outcome });
+    }
+  }
+
+  return {
+    schemaVersion: 1,
+    reportSha256,
+    repoSha: parsed.repoSha.toLowerCase(),
+    byCandidate
+  };
+}
+
+function evaluateLabels(result, candidates, labelsData) {
+  let truePositiveExisting = 0;
+  let truePositiveNew = 0;
+  let falsePositive = 0;
+  let uncertain = 0;
+  for (const label of labelsData.byCandidate.values()) {
+    if (label.outcome === 'true-positive-existing') truePositiveExisting += 1;
+    else if (label.outcome === 'true-positive-new') truePositiveNew += 1;
+    else if (label.outcome === 'false-positive') falsePositive += 1;
+    else if (label.outcome === 'uncertain') uncertain += 1;
+  }
+
+  const labelled = labelsData.byCandidate.size;
+  const decided = truePositiveExisting + truePositiveNew + falsePositive;
+  const unlabelled = candidates.length - labelled;
+
+  let totalPathPairs = 0;
+  let auditedPairs = 0;
+  let truePairs = 0;
+  let falsePairs = 0;
+  let uncertainPairs = 0;
+  let unlabelledPairs = 0;
+  for (const record of result.linked) {
+    for (const candidateId of record.candidateIds) {
+      totalPathPairs += 1;
+      const label = labelsData.byCandidate.get(candidateId);
+      if (!label) {
+        unlabelledPairs += 1;
+      } else if (label.outcome === 'uncertain') {
+        uncertainPairs += 1;
+      } else {
+        auditedPairs += 1;
+        if (label.outcome === 'true-positive-existing' && label.linkedRecordId === record.id) {
+          truePairs += 1;
+        } else {
+          falsePairs += 1;
+        }
+      }
+    }
+  }
+
+  const rate = (numerator, denominator) => denominator ? numerator / denominator : null;
+  const falseLinkShare = rate(falsePairs, auditedPairs);
+  return {
+    schemaVersion: labelsData.schemaVersion,
+    reportSha256: labelsData.reportSha256,
+    repoSha: labelsData.repoSha,
+    counts: {
+      labelled,
+      decided,
+      truePositiveExisting,
+      truePositiveNew,
+      falsePositive,
+      uncertain,
+      unlabelled
+    },
+    rates: {
+      coverage: rate(labelled, candidates.length),
+      precision: rate(truePositiveExisting + truePositiveNew, decided),
+      falsePositiveShare: rate(falsePositive, decided),
+      falseLinkShare
+    },
+    pathLinkAudit: {
+      totalPathPairs,
+      auditedPairs,
+      truePairs,
+      falsePairs,
+      uncertainPairs,
+      unlabelledPairs,
+      falseLinkShare
+    }
+  };
+}
+
+function isWithin(root, candidate, pathApi) {
+  const api = pathApi || (process.platform === 'win32' ? path.win32 : path);
+  const windows = api === path.win32 || (!pathApi && process.platform === 'win32');
+  const comparisonRoot = windows ? root.toLowerCase() : root;
+  const comparisonCandidate = windows ? candidate.toLowerCase() : candidate;
+  const relative = api.relative(comparisonRoot, comparisonCandidate);
+  return relative === '' || (!api.isAbsolute(relative) && relative !== '..' && !relative.startsWith(`..${api.sep}`));
 }
 
 function canonicalTarget(file) {
@@ -194,30 +356,71 @@ function canonicalTarget(file) {
     return fs.realpathSync.native(target);
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
-    return path.join(fs.realpathSync.native(path.dirname(target)), path.basename(target));
+    let current = path.dirname(target);
+    const suffix = [path.basename(target)];
+    while (true) {
+      try {
+        fs.lstatSync(current);
+        return path.join(fs.realpathSync.native(current), ...suffix);
+      } catch (inner) {
+        if (inner.code !== 'ENOENT' && inner.code !== 'ENOTDIR') throw inner;
+        const parent = path.dirname(current);
+        if (parent === current) throw inner;
+        suffix.unshift(path.basename(current));
+        current = parent;
+      }
+    }
   }
 }
 
-function safeOutput(file, ledgerDir, reportFile) {
+function listFilesRecursive(dir) {
+  const files = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) files.push(...listFilesRecursive(full));
+    else if (entry.isFile()) files.push(full);
+  }
+  return files;
+}
+
+function samePath(left, right) {
+  return left === right || (process.platform === 'win32' && left.toLowerCase() === right.toLowerCase());
+}
+
+function safeOutput(file, ledgerDir, reportFile, labelsFile) {
   const output = path.resolve(file);
   const canonicalOutput = canonicalTarget(output);
   const canonicalLedger = fs.realpathSync.native(ledgerDir);
   if (isWithin(canonicalLedger, output) || isWithin(canonicalLedger, canonicalOutput)) {
     failure('--out path is inside the ledger directory');
   }
-  const canonicalReport = fs.realpathSync.native(reportFile);
-  if (canonicalOutput === canonicalReport ||
-      (process.platform === 'win32' && canonicalOutput.toLowerCase() === canonicalReport.toLowerCase())) {
-    failure('--out path cannot replace the scan report');
-  }
-  try {
-    const outputStat = fs.statSync(output);
-    const reportStat = fs.statSync(reportFile);
-    if (outputStat.dev === reportStat.dev && outputStat.ino === reportStat.ino) {
-      failure('--out path cannot replace the scan report');
+  const protectedFiles = [{ file: reportFile, label: 'the scan report' }];
+  if (labelsFile) protectedFiles.push({ file: labelsFile, label: 'the labels file' });
+  for (const item of protectedFiles) {
+    const canonicalProtected = fs.realpathSync.native(item.file);
+    if (samePath(canonicalOutput, canonicalProtected)) {
+      failure(`--out path cannot replace ${item.label}`);
     }
+  }
+  let outputStat = null;
+  try {
+    outputStat = fs.statSync(output, { bigint: true });
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
+  }
+  if (outputStat) {
+    for (const item of protectedFiles) {
+      const protectedStat = fs.statSync(item.file, { bigint: true });
+      if (outputStat.dev === protectedStat.dev && outputStat.ino === protectedStat.ino) {
+        failure(`--out path cannot replace ${item.label}`);
+      }
+    }
+    for (const ledgerFile of listFilesRecursive(canonicalLedger)) {
+      const ledgerStat = fs.statSync(ledgerFile, { bigint: true });
+      if (outputStat.dev === ledgerStat.dev && outputStat.ino === ledgerStat.ino) {
+        failure('--out path cannot replace a ledger file');
+      }
+    }
   }
   return output;
 }
@@ -234,18 +437,42 @@ function markdown(result) {
     ['recall (comparable)', rate(result.rates.recallComparable)],
     ['unmatched candidate share (path overlap)', rate(result.rates.unmatchedShare)]
   ];
-  return `${result.metricNote}\n\n| Metric | Value |\n| --- | ---: |\n${rows.map(([label, value]) => `| ${label} | ${value} |`).join('\n')}\n`;
+  let out = `${result.metricNote}\n\n| Metric | Value |\n| --- | ---: |\n${rows.map(([label, value]) => `| ${label} | ${value} |`).join('\n')}\n`;
+  if (result.labelled) {
+    const { counts, rates, pathLinkAudit } = result.labelled;
+    const labelledRows = [
+      ['labelled candidates', counts.labelled],
+      ['decided candidates', counts.decided],
+      ['true-positive-existing', counts.truePositiveExisting],
+      ['true-positive-new', counts.truePositiveNew],
+      ['false-positive', counts.falsePositive],
+      ['uncertain', counts.uncertain],
+      ['unlabelled candidates', counts.unlabelled],
+      ['label coverage', rate(rates.coverage)],
+      ['candidate precision (decided candidates)', rate(rates.precision)],
+      ['false-positive share among decided candidates', rate(rates.falsePositiveShare)],
+      ['audited path pairs (decided)', pathLinkAudit.auditedPairs],
+      ['true path pairs', pathLinkAudit.truePairs],
+      ['false path pairs', pathLinkAudit.falsePairs],
+      ['path-link false-link share (audited pairs)', rate(rates.falseLinkShare)]
+    ];
+    out += `\n## Labelled Evaluation\n\n| Metric | Value |\n| --- | ---: |\n${labelledRows.map(([label, value]) => `| ${label} | ${value} |`).join('\n')}\n`;
+  }
+  return out;
 }
 
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const reportFile = path.resolve(options.report);
   const ledgerDir = path.resolve(options.ledger);
-  const candidates = readReport(reportFile, options.platform);
+  const labelsFile = options.labels ? path.resolve(options.labels) : null;
+  const { candidates, reportSha256 } = readReport(reportFile, options.platform);
   const records = readLedger(ledgerDir, options.platform);
+  const labelsData = labelsFile ? readLabels(labelsFile, reportSha256, candidates, records) : null;
   const result = compare(records, candidates);
+  if (labelsData) result.labelled = evaluateLabels(result, candidates, labelsData);
   const output = options.json ? `${JSON.stringify(result, null, 2)}\n` : markdown(result);
-  if (options.out) fs.writeFileSync(safeOutput(options.out, ledgerDir, reportFile), output);
+  if (options.out) fs.writeFileSync(safeOutput(options.out, ledgerDir, reportFile, labelsFile), output);
   process.stdout.write(output);
 }
 

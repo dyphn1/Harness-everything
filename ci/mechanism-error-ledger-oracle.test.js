@@ -214,6 +214,454 @@ assert.deepStrictEqual(windowsPayload.linked, [
 ], 'win32 matching ignores case and never treats C: and D: paths as contained');
 assert.deepStrictEqual(windowsPayload.nonComparable, ['E-0011']);
 
+// --- I484-labels: opt-in digest-bound labelled evaluation ---
+
+const REPO_SHA = 'd164d2aeab518fb5e90d59b59c0bb868a16d4ce1';
+const SCANNER = path.join(ROOT, 'error-ledger-bootstrap', 'scripts', 'scan.js');
+
+function sha256File(file) {
+  return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+}
+
+function writeLabels(file, payload) {
+  write(file, `${JSON.stringify(payload, null, 2)}\n`);
+  return file;
+}
+
+// 1. Legacy byte-identity without --labels (exact JSON and Markdown bytes)
+const expectedLegacyJson = `${JSON.stringify({
+  counts: {
+    records: 8,
+    comparableRecords: 7,
+    linkedRecords: 5,
+    candidates: 5,
+    unmatchedCandidates: 1
+  },
+  rates: {
+    recallAll: 5 / 8,
+    recallComparable: 5 / 7,
+    unmatchedShare: 1 / 5
+  },
+  metricNote: 'Path overlap is a proxy and may link distinct lessons. Both recall rates are path-linked proxies: recall (all) = linked records / all records; recall (comparable) = linked records / comparable records.',
+  nonComparable: ['E-0004'],
+  linked: [
+    { id: 'E-0001', candidateIds: ['candidate-exact'] },
+    { id: 'E-0002', candidateIds: ['candidate-child'] },
+    { id: 'E-0005', candidateIds: ['candidate-shared'] },
+    { id: 'E-0006', candidateIds: ['candidate-shared'] },
+    { id: 'E-0008', candidateIds: ['candidate-parent'] }
+  ],
+  unlinked: ['E-0003', 'E-0004', 'E-0007'],
+  sharedPathHits: [{
+    site: 'shared/file.js',
+    recordIds: ['E-0005', 'E-0006'],
+    candidateIds: ['candidate-shared']
+  }]
+}, null, 2)}\n`;
+const expectedLegacyMd = [
+  'Path overlap is a proxy and may link distinct lessons. Both recall rates are path-linked proxies: recall (all) = linked records / all records; recall (comparable) = linked records / comparable records.',
+  '',
+  '| Metric | Value |',
+  '| --- | ---: |',
+  '| records | 8 |',
+  '| comparable records | 7 |',
+  '| linked records | 5 |',
+  '| candidates | 5 |',
+  '| unmatched candidates | 1 |',
+  '| recall (all) | 62.5% |',
+  '| recall (comparable) | 71.4% |',
+  '| unmatched candidate share (path overlap) | 20.0% |',
+  ''
+].join('\n');
+assert.strictEqual(result.stdout, expectedLegacyJson, 'legacy JSON without --labels must remain byte-identical');
+assert.strictEqual(markdown.stdout, expectedLegacyMd, 'legacy Markdown without --labels must remain byte-identical');
+
+// 2. Valid --labels with all four outcomes, unlabelled tail, multi-record shared path audit, and privacy sentinel
+// On fixture 'main':
+// Path-linked pairs: (candidate-exact, E-0001), (candidate-child, E-0002),
+//                    (candidate-shared, E-0005), (candidate-shared, E-0006),
+//                    (candidate-parent, E-0008)  -> 5 total path pairs
+// Labels:
+//   candidate-shared   -> true-positive-existing (E-0005): pair E-0005 TRUE, pair E-0006 FALSE
+//   candidate-child    -> true-positive-new:               pair E-0002 FALSE
+//   candidate-exact    -> false-positive:                  pair E-0001 FALSE
+//   candidate-parent   -> uncertain:                       pair E-0008 excluded (uncertainPairs: 1)
+//   candidate-boundary -> unlabelled (not path-linked)
+// Candidate counts: labelled=4, decided=3, tpE=1, tpN=1, fp=1, uncertain=1, unlabelled=1
+// Candidate rates: coverage=4/5, precision=2/3, falsePositiveShare=1/3
+// Path pairs: total=5, audited=4, true=1, false=3, uncertain=1, unlabelled=0, falseLinkShare=3/4
+const mainLabelsFile = writeLabels(path.join(fixture.root, 'labels.json'), {
+  schemaVersion: 1,
+  reportSha256: sha256File(fixture.report),
+  repoSha: REPO_SHA,
+  labels: [
+    { candidateId: 'candidate-shared', outcome: 'true-positive-existing', linkedRecordId: 'E-0005', note: 'PRIVATE_LABEL_NOTE_SENTINEL_1' },
+    { candidateId: 'candidate-child', outcome: 'true-positive-new', note: 'PRIVATE_LABEL_NOTE_SENTINEL_2' },
+    { candidateId: 'candidate-exact', outcome: 'false-positive', note: 'PRIVATE_LABEL_NOTE_SENTINEL_3' },
+    { candidateId: 'candidate-parent', outcome: 'uncertain', note: 'PRIVATE_LABEL_NOTE_SENTINEL_4' }
+  ]
+});
+const mainLabelsBefore = fs.readFileSync(mainLabelsFile);
+const labelledJsonRun = run(fixture, ['--labels', mainLabelsFile, '--json']);
+const labelledPayload = jsonResult(labelledJsonRun);
+assert.deepStrictEqual(labelledPayload.labelled, {
+  schemaVersion: 1,
+  reportSha256: sha256File(fixture.report),
+  repoSha: REPO_SHA,
+  counts: {
+    labelled: 4,
+    decided: 3,
+    truePositiveExisting: 1,
+    truePositiveNew: 1,
+    falsePositive: 1,
+    uncertain: 1,
+    unlabelled: 1
+  },
+  rates: {
+    coverage: 4 / 5,
+    precision: 2 / 3,
+    falsePositiveShare: 1 / 3,
+    falseLinkShare: 3 / 4
+  },
+  pathLinkAudit: {
+    totalPathPairs: 5,
+    auditedPairs: 4,
+    truePairs: 1,
+    falsePairs: 3,
+    uncertainPairs: 1,
+    unlabelledPairs: 0,
+    falseLinkShare: 3 / 4
+  }
+});
+assert.strictEqual(Object.prototype.hasOwnProperty.call(labelledPayload.labelled, 'labels'), false,
+  'raw labels array must not appear in JSON output');
+assert.ok(!labelledJsonRun.stdout.includes('PRIVATE_LABEL_NOTE_SENTINEL') &&
+  !labelledJsonRun.stdout.includes('PRIVATE_RECORD_BODY_') &&
+  !labelledJsonRun.stdout.includes('PRIVATE_CANDIDATE_TITLE_') &&
+  !labelledJsonRun.stdout.includes('PRIVATE_MEMORY_SOURCE_TITLE'),
+'JSON output must not leak label notes, candidate text, record bodies, or memory refs');
+
+const labelledMdRun = run(fixture, ['--labels', mainLabelsFile]);
+assert.strictEqual(labelledMdRun.status, 0, `labelled Markdown failed: ${labelledMdRun.stderr}`);
+assert.ok(labelledMdRun.stdout.startsWith(expectedLegacyMd), 'labelled Markdown keeps legacy table intact at top');
+assert.match(labelledMdRun.stdout, /\| label coverage \| 80\.0% \|/);
+assert.match(labelledMdRun.stdout, /\| candidate precision \(decided candidates\) \| 66\.7% \|/);
+assert.match(labelledMdRun.stdout, /\| false-positive share among decided candidates \| 33\.3% \|/);
+assert.match(labelledMdRun.stdout, /\| audited path pairs \(decided\) \| 4 \|/);
+assert.match(labelledMdRun.stdout, /\| path-link false-link share \(audited pairs\) \| 75\.0% \|/);
+assert.ok(!labelledMdRun.stdout.includes('PRIVATE_LABEL_NOTE_SENTINEL') &&
+  !labelledMdRun.stdout.includes('PRIVATE_RECORD_BODY_') &&
+  !labelledMdRun.stdout.includes('PRIVATE_CANDIDATE_TITLE_') &&
+  !labelledMdRun.stdout.includes('PRIVATE_MEMORY_SOURCE_TITLE'),
+'Markdown output must not leak label notes, candidate text, record bodies, or memory refs');
+
+// 3. Zero-denominator cases: all uncertain, empty labels, zero candidates, and decided-but-unlinked (auditedPairs === 0)
+const allUncertainFile = writeLabels(path.join(fixture.root, 'labels-uncertain.json'), {
+  schemaVersion: 1,
+  reportSha256: sha256File(fixture.report),
+  repoSha: REPO_SHA,
+  labels: [{ candidateId: 'candidate-exact', outcome: 'uncertain' }]
+});
+const allUncertainPayload = jsonResult(run(fixture, ['--labels', allUncertainFile, '--json']));
+assert.strictEqual(allUncertainPayload.labelled.rates.coverage, 1 / 5);
+assert.strictEqual(allUncertainPayload.labelled.rates.precision, null);
+assert.strictEqual(allUncertainPayload.labelled.rates.falsePositiveShare, null);
+assert.strictEqual(allUncertainPayload.labelled.rates.falseLinkShare, null);
+assert.strictEqual(allUncertainPayload.labelled.pathLinkAudit.auditedPairs, 0);
+assert.strictEqual(allUncertainPayload.labelled.pathLinkAudit.uncertainPairs, 1);
+assert.strictEqual(allUncertainPayload.labelled.pathLinkAudit.unlabelledPairs, 4);
+const allUncertainMd = run(fixture, ['--labels', allUncertainFile]);
+assert.strictEqual(allUncertainMd.status, 0);
+assert.match(allUncertainMd.stdout, /\| candidate precision \(decided candidates\) \| n\/a \|/);
+assert.match(allUncertainMd.stdout, /\| false-positive share among decided candidates \| n\/a \|/);
+assert.match(allUncertainMd.stdout, /\| path-link false-link share \(audited pairs\) \| n\/a \|/);
+
+const decidedUnlinkedFile = writeLabels(path.join(fixture.root, 'labels-decided-unlinked.json'), {
+  schemaVersion: 1,
+  reportSha256: sha256File(fixture.report),
+  repoSha: REPO_SHA,
+  labels: [{ candidateId: 'candidate-boundary', outcome: 'true-positive-new' }]
+});
+const decidedUnlinkedPayload = jsonResult(run(fixture, ['--labels', decidedUnlinkedFile, '--json']));
+assert.strictEqual(decidedUnlinkedPayload.labelled.rates.precision, 1);
+assert.strictEqual(decidedUnlinkedPayload.labelled.rates.falsePositiveShare, 0);
+assert.strictEqual(decidedUnlinkedPayload.labelled.pathLinkAudit.auditedPairs, 0);
+assert.strictEqual(decidedUnlinkedPayload.labelled.rates.falseLinkShare, null,
+  'path-pair denominator is separate from candidate denominator');
+
+const zeroLabelsFile = writeLabels(path.join(zero.root, 'labels-empty.json'), {
+  schemaVersion: 1,
+  reportSha256: sha256File(zero.report),
+  repoSha: REPO_SHA,
+  labels: []
+});
+const zeroLabelledPayload = jsonResult(run(zero, ['--labels', zeroLabelsFile, '--json']));
+assert.strictEqual(zeroLabelledPayload.labelled.rates.coverage, null);
+assert.strictEqual(zeroLabelledPayload.labelled.rates.precision, null);
+assert.strictEqual(zeroLabelledPayload.labelled.rates.falsePositiveShare, null);
+assert.strictEqual(zeroLabelledPayload.labelled.rates.falseLinkShare, null);
+const zeroLabelledMd = run(zero, ['--labels', zeroLabelsFile]);
+assert.strictEqual(zeroLabelledMd.status, 0);
+assert.match(zeroLabelledMd.stdout, /\| label coverage \| n\/a \|/);
+
+// 4. Strict validation failures (exit 2, zero mutation to pre-existing --out)
+const sentinelOut = path.join(fixture.root, 'preexisting-out.json');
+write(sentinelOut, '{"sentinel":"unchanged"}\n');
+const sentinelBefore = fs.readFileSync(sentinelOut);
+
+const invalidLabelCases = [
+  ['wrong schemaVersion', { schemaVersion: 2, reportSha256: sha256File(fixture.report), repoSha: REPO_SHA, labels: [] }, /schemaVersion/],
+  ['stale reportSha256', { schemaVersion: 1, reportSha256: '0'.repeat(64), repoSha: REPO_SHA, labels: [] }, /reportSha256/],
+  ['missing repoSha', { schemaVersion: 1, reportSha256: sha256File(fixture.report), labels: [] }, /repoSha/],
+  ['invalid repoSha', { schemaVersion: 1, reportSha256: sha256File(fixture.report), repoSha: 'not-a-sha', labels: [] }, /repoSha/],
+  ['duplicate candidateId', {
+    schemaVersion: 1,
+    reportSha256: sha256File(fixture.report),
+    repoSha: REPO_SHA,
+    labels: [
+      { candidateId: 'candidate-exact', outcome: 'false-positive' },
+      { candidateId: 'candidate-exact', outcome: 'false-positive' }
+    ]
+  }, /duplicate/i],
+  ['unknown candidateId', {
+    schemaVersion: 1,
+    reportSha256: sha256File(fixture.report),
+    repoSha: REPO_SHA,
+    labels: [{ candidateId: 'candidate-does-not-exist', outcome: 'false-positive' }]
+  }, /unknown.*candidate/i],
+  ['invalid outcome enum', {
+    schemaVersion: 1,
+    reportSha256: sha256File(fixture.report),
+    repoSha: REPO_SHA,
+    labels: [{ candidateId: 'candidate-exact', outcome: 'true-positive' }]
+  }, /outcome/i],
+  ['true-positive-existing missing linkedRecordId', {
+    schemaVersion: 1,
+    reportSha256: sha256File(fixture.report),
+    repoSha: REPO_SHA,
+    labels: [{ candidateId: 'candidate-exact', outcome: 'true-positive-existing' }]
+  }, /linkedRecordId/],
+  ['true-positive-existing unknown linkedRecordId', {
+    schemaVersion: 1,
+    reportSha256: sha256File(fixture.report),
+    repoSha: REPO_SHA,
+    labels: [{ candidateId: 'candidate-exact', outcome: 'true-positive-existing', linkedRecordId: 'E-9999' }]
+  }, /linkedRecordId/],
+  ['true-positive-new with linkedRecordId', {
+    schemaVersion: 1,
+    reportSha256: sha256File(fixture.report),
+    repoSha: REPO_SHA,
+    labels: [{ candidateId: 'candidate-exact', outcome: 'true-positive-new', linkedRecordId: 'E-0001' }]
+  }, /linkedRecordId/],
+  ['false-positive with null linkedRecordId', {
+    schemaVersion: 1,
+    reportSha256: sha256File(fixture.report),
+    repoSha: REPO_SHA,
+    labels: [{ candidateId: 'candidate-exact', outcome: 'false-positive', linkedRecordId: null }]
+  }, /linkedRecordId/],
+  ['uncertain with linkedRecordId', {
+    schemaVersion: 1,
+    reportSha256: sha256File(fixture.report),
+    repoSha: REPO_SHA,
+    labels: [{ candidateId: 'candidate-exact', outcome: 'uncertain', linkedRecordId: 'E-0001' }]
+  }, /linkedRecordId/]
+];
+
+for (let i = 0; i < invalidLabelCases.length; i++) {
+  const [name, badPayload, expectedError] = invalidLabelCases[i];
+  const badFile = writeLabels(path.join(fixture.root, `bad-labels-${i}.json`), badPayload);
+  const badRun = run(fixture, ['--labels', badFile, '--json', '--out', sentinelOut]);
+  assert.strictEqual(badRun.status, 2, `invalid case "${name}" must exit 2; got ${badRun.status}`);
+  assert.match(badRun.stderr, expectedError, `invalid case "${name}" stderr: ${badRun.stderr}`);
+  assert.deepStrictEqual(fs.readFileSync(sentinelOut), sentinelBefore,
+    `invalid case "${name}" must not mutate --out`);
+}
+
+// 5. Protected --out aliases: --labels direct/symlink/hardlink, --report symlink, ledger file symlink/hardlink
+const labelsDirectOut = run(fixture, ['--labels', mainLabelsFile, '--json', '--out', mainLabelsFile]);
+assert.strictEqual(labelsDirectOut.status, 2, '--out cannot overwrite --labels');
+assert.deepStrictEqual(fs.readFileSync(mainLabelsFile), mainLabelsBefore);
+
+const labelsSymlink = path.join(fixture.root, 'labels-symlink.json');
+try {
+  fs.symlinkSync(mainLabelsFile, labelsSymlink);
+  const res = run(fixture, ['--labels', mainLabelsFile, '--json', '--out', labelsSymlink]);
+  assert.strictEqual(res.status, 2, 'symlink to --labels cannot be used as --out');
+  assert.deepStrictEqual(fs.readFileSync(mainLabelsFile), mainLabelsBefore);
+} catch (error) {
+  if (!['EPERM', 'EACCES', 'ENOTSUP', 'ENOSYS', 'EINVAL'].includes(error.code)) throw error;
+}
+
+const labelsHardlink = path.join(fixture.root, 'labels-hardlink.json');
+try {
+  fs.linkSync(mainLabelsFile, labelsHardlink);
+  const res = run(fixture, ['--labels', mainLabelsFile, '--json', '--out', labelsHardlink]);
+  assert.strictEqual(res.status, 2, 'hardlink to --labels cannot be used as --out');
+  assert.deepStrictEqual(fs.readFileSync(mainLabelsFile), mainLabelsBefore);
+} catch (error) {
+  if (!['EPERM', 'EACCES', 'ENOTSUP', 'ENOSYS', 'EINVAL'].includes(error.code)) throw error;
+}
+
+const reportSymlink = path.join(fixture.root, 'report-symlink.json');
+try {
+  fs.symlinkSync(fixture.report, reportSymlink);
+  const res = run(fixture, ['--labels', mainLabelsFile, '--json', '--out', reportSymlink]);
+  assert.strictEqual(res.status, 2, 'symlink to --report cannot be used as --out');
+  assert.deepStrictEqual(fs.readFileSync(fixture.report), reportBefore);
+} catch (error) {
+  if (!['EPERM', 'EACCES', 'ENOTSUP', 'ENOSYS', 'EINVAL'].includes(error.code)) throw error;
+}
+
+const ledgerFileTarget = path.join(fixture.ledger, 'E-0001-fixture.md');
+const ledgerFileSymlink = path.join(fixture.root, 'ledger-file-symlink.md');
+try {
+  fs.symlinkSync(ledgerFileTarget, ledgerFileSymlink);
+  const res = run(fixture, ['--labels', mainLabelsFile, '--json', '--out', ledgerFileSymlink]);
+  assert.strictEqual(res.status, 2, 'symlink to a ledger file cannot be used as --out');
+  assert.deepStrictEqual(snapshot(fixture.ledger), ledgerBefore);
+} catch (error) {
+  if (!['EPERM', 'EACCES', 'ENOTSUP', 'ENOSYS', 'EINVAL'].includes(error.code)) throw error;
+}
+
+const ledgerFileHardlink = path.join(fixture.root, 'ledger-file-hardlink.md');
+try {
+  fs.linkSync(ledgerFileTarget, ledgerFileHardlink);
+  const res = run(fixture, ['--labels', mainLabelsFile, '--json', '--out', ledgerFileHardlink]);
+  assert.strictEqual(res.status, 2, 'hardlink to a ledger file cannot be used as --out');
+  assert.deepStrictEqual(snapshot(fixture.ledger), ledgerBefore);
+} catch (error) {
+  if (!['EPERM', 'EACCES', 'ENOTSUP', 'ENOSYS', 'EINVAL'].includes(error.code)) throw error;
+}
+
+// 6. Real scanner-shaped fixture through the CLI (scan.js -> oracle) with same-path wrong-record case and no-label control
+const scanRoot = path.join(TMP, 'real-scan-fixture');
+const scanRepo = path.join(scanRoot, 'repo');
+const scanHome = path.join(scanRoot, 'home');
+const scanLedger = path.join(scanRoot, 'errors');
+fs.mkdirSync(scanRepo, { recursive: true });
+fs.mkdirSync(scanHome, { recursive: true });
+fs.mkdirSync(scanLedger, { recursive: true });
+
+function gitExec(repo, args, extraEnv = {}) {
+  return childProcess.execFileSync('git', ['-C', repo, ...args], {
+    encoding: 'utf8',
+    env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', HOME: scanHome, USERPROFILE: scanHome, ...extraEnv },
+    stdio: ['ignore', 'pipe', 'pipe']
+  }).trim();
+}
+
+gitExec(scanRepo, ['init', '-q']);
+const commitFiles = (subject, files, offsetSec) => {
+  for (const [rel, content] of Object.entries(files)) write(path.join(scanRepo, rel), content);
+  gitExec(scanRepo, ['add', '-A']);
+  const date = new Date(Date.parse('2025-01-01T00:00:00Z') + offsetSec * 1000).toISOString();
+  gitExec(scanRepo, ['commit', '-q', '-m', subject], {
+    GIT_AUTHOR_NAME: 'Oracle Fixture',
+    GIT_AUTHOR_EMAIL: 'oracle-fixture@example.invalid',
+    GIT_COMMITTER_NAME: 'Oracle Fixture',
+    GIT_COMMITTER_EMAIL: 'oracle-fixture@example.invalid',
+    GIT_AUTHOR_DATE: date,
+    GIT_COMMITTER_DATE: date
+  });
+};
+commitFiles('feat: init synthetic modules', {
+  'src/shared.js': 'module.exports = 1;\n',
+  'src/exact.js': 'module.exports = 1;\n',
+  'src/unmatched.js': 'module.exports = 1;\n'
+}, 0);
+commitFiles('fix: first bug on shared and exact', {
+  'src/shared.js': 'module.exports = 2;\n',
+  'src/exact.js': 'module.exports = 2;\n',
+  'src/unmatched.js': 'module.exports = 2;\n'
+}, 60);
+commitFiles('fix: second bug on shared and exact', {
+  'src/shared.js': 'module.exports = 3;\n',
+  'src/exact.js': 'module.exports = 3;\n',
+  'src/unmatched.js': 'module.exports = 3;\n'
+}, 120);
+const scanRepoSha = gitExec(scanRepo, ['rev-parse', 'HEAD']);
+
+const scanOutDir = path.join(scanRoot, 'scan-out');
+const scanOut = childProcess.spawnSync(process.execPath, [
+  SCANNER, '--root', scanRepo, '--out', scanOutDir, '--no-memory', '--hide-ledger', '--home', scanHome, '--json'
+], {
+  cwd: ROOT,
+  encoding: 'utf8',
+  env: { ...process.env, HOME: scanHome, USERPROFILE: scanHome }
+});
+assert.ifError(scanOut.error);
+assert.strictEqual(scanOut.status, 0, `real scan.js failed: ${scanOut.stderr}`);
+const scanSummary = JSON.parse(scanOut.stdout);
+assert.strictEqual(scanSummary.ok, true, 'real scan.js must report ok: true');
+const scanReportFile = scanSummary.reportJson;
+const parsedScanReport = JSON.parse(fs.readFileSync(scanReportFile, 'utf8'));
+const sharedCand = parsedScanReport.candidates.find(c => c.sites.includes('src/shared.js'));
+const exactCand = parsedScanReport.candidates.find(c => c.sites.includes('src/exact.js'));
+const unmatchedCand = parsedScanReport.candidates.find(c => c.sites.includes('src/unmatched.js'));
+assert.ok(sharedCand && exactCand && unmatchedCand, 'real scan.js fixture must emit all three synthetic candidates');
+
+write(path.join(scanLedger, 'E-0001-shared.md'), '---\nid: E-0001\nsites:\n  - "src/shared.js"\n---\n\nPRIVATE_SCAN_BODY_1\n');
+write(path.join(scanLedger, 'E-0002-other.md'), '---\nid: E-0002\nsites:\n  - "src/other.js"\n---\n\nPRIVATE_SCAN_BODY_2\n');
+write(path.join(scanLedger, 'E-0003-exact.md'), '---\nid: E-0003\nsites:\n  - "src/exact.js"\n---\n\nPRIVATE_SCAN_BODY_3\n');
+
+const scanFixture = { root: scanRoot, ledger: scanLedger, report: scanReportFile };
+// No-label control
+const scanControlJson = run(scanFixture, ['--json']);
+const scanControlPayload = jsonResult(scanControlJson);
+assert.deepStrictEqual(Object.keys(scanControlPayload).sort(),
+  ['counts', 'rates', 'metricNote', 'nonComparable', 'linked', 'unlinked', 'sharedPathHits'].sort());
+const scanControlMd = run(scanFixture);
+assert.strictEqual(scanControlMd.status, 0);
+assert.ok(!scanControlMd.stdout.includes('Labelled Evaluation'));
+const scanControlJsonRepeat = run(scanFixture, ['--json']);
+assert.strictEqual(scanControlJsonRepeat.stdout, scanControlJson.stdout, 'no-label control JSON is byte-identical');
+const scanControlMdRepeat = run(scanFixture);
+assert.strictEqual(scanControlMdRepeat.stdout, scanControlMd.stdout, 'no-label control Markdown is byte-identical');
+
+// Labelled run: sharedCand path-links to E-0001, but is actually E-0002 (same-path wrong-record case!)
+const scanLabelsFile = writeLabels(path.join(scanRoot, 'scan-labels.json'), {
+  schemaVersion: 1,
+  reportSha256: sha256File(scanReportFile),
+  repoSha: scanRepoSha,
+  labels: [
+    { candidateId: sharedCand.id, outcome: 'true-positive-existing', linkedRecordId: 'E-0002', note: 'PRIVATE_SCAN_NOTE' },
+    { candidateId: exactCand.id, outcome: 'true-positive-existing', linkedRecordId: 'E-0003' },
+    { candidateId: unmatchedCand.id, outcome: 'false-positive' }
+  ]
+});
+const scanLabelledJson = run(scanFixture, ['--labels', scanLabelsFile, '--json']);
+const scanLabelledPayload = jsonResult(scanLabelledJson);
+assert.strictEqual(scanLabelledPayload.labelled.counts.labelled, 3);
+assert.strictEqual(scanLabelledPayload.labelled.counts.decided, 3);
+assert.strictEqual(scanLabelledPayload.labelled.counts.truePositiveExisting, 2);
+assert.strictEqual(scanLabelledPayload.labelled.counts.falsePositive, 1);
+assert.strictEqual(scanLabelledPayload.labelled.rates.precision, 2 / 3);
+assert.strictEqual(scanLabelledPayload.labelled.rates.falsePositiveShare, 1 / 3);
+assert.deepStrictEqual(scanLabelledPayload.labelled.pathLinkAudit, {
+  totalPathPairs: 2,
+  auditedPairs: 2,
+  truePairs: 1,
+  falsePairs: 1,
+  uncertainPairs: 0,
+  unlabelledPairs: 0,
+  falseLinkShare: 1 / 2
+});
+assert.ok(!scanLabelledJson.stdout.includes('PRIVATE_SCAN_NOTE') && !scanLabelledJson.stdout.includes('PRIVATE_SCAN_BODY_'));
+
+// Exact report-byte SHA-256 sensitivity: adding a single trailing newline invalidates reportSha256
+const modifiedReportFile = path.join(scanRoot, 'scan-report-whitespace.json');
+fs.writeFileSync(modifiedReportFile, `${fs.readFileSync(scanReportFile, 'utf8')}\n`);
+const staleReportRun = run({ root: scanRoot, ledger: scanLedger, report: modifiedReportFile }, ['--labels', scanLabelsFile, '--json']);
+assert.strictEqual(staleReportRun.status, 2, 'exact report-byte SHA-256 must fail on 1-byte whitespace change');
+assert.match(staleReportRun.stderr, /reportSha256/);
+
+// Malformed JSON labels file fails before mutation
+const malformedLabelsFile = path.join(fixture.root, 'malformed-labels.json');
+write(malformedLabelsFile, '{ not valid json');
+const malformedRun = run(fixture, ['--labels', malformedLabelsFile, '--json', '--out', sentinelOut]);
+assert.strictEqual(malformedRun.status, 2, 'malformed JSON labels file must exit 2');
+assert.deepStrictEqual(fs.readFileSync(sentinelOut), sentinelBefore, 'malformed JSON labels must not mutate --out');
+
 try {
   fs.rmSync(TMP, { recursive: true, force: true });
 } catch (error) {
