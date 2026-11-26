@@ -298,8 +298,20 @@ addOccurrence(workspaceB, 'workspace-b-occurrence', 'harness', 6);
 const collisionOccurrence = addOccurrence(workspaceCollision, 'collision-occurrence', 'harness', 7);
 const collisionRawId = collisionOccurrence.provisionalId;
 PRIVATE_VALUES.push(collisionRawId);
-const collisionLesson = addLesson(workspaceCollision, 'collision-lesson', 'project', ACTIONS.commit, collisionRawId);
+const collisionLesson = addLesson(
+  workspaceCollision, 'collision-lesson', 'project', ACTIONS.commit, `${collisionRawId}-lesson`
+);
 addLesson(workspaceB, 'collision-id-other-workspace', 'harness', ACTIONS.commit, collisionRawId);
+const collisionFixtureFile = path.join(STORE, localErrors.INDEX_FILE);
+const collisionFixtureIndex = JSON.parse(fs.readFileSync(collisionFixtureFile, 'utf8'));
+const collisionFixtureLesson = collisionFixtureIndex.records.find(record =>
+  record.kind === 'provisional-lesson' &&
+  record.workspaceKey === collisionLesson.workspaceKey &&
+  record.provisionalId === collisionLesson.provisionalId
+);
+assert.ok(collisionFixtureLesson, 'positive control: the lesson exists before creating a legacy collision');
+collisionFixtureLesson.provisionalId = collisionRawId;
+fs.writeFileSync(collisionFixtureFile, `${JSON.stringify(collisionFixtureIndex)}\n`);
 const distinctLesson = addLesson(workspaceCollision, 'distinct-lesson-signature', 'harness', ACTIONS.commit, 'distinct-lesson-id');
 const distinctOccurrence = addOccurrence(workspaceCollision, 'distinct-occurrence-signature', 'harness', 8);
 PRIVATE_VALUES.push(distinctOccurrence.provisionalId);
