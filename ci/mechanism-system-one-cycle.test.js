@@ -155,13 +155,15 @@ function environment446(fixture, quality = 0.9) {
   return env;
 }
 
-function run446Cycle(fixture, version, { history, quality = 0.9, all = false } = {}) {
+function run446Cycle(fixture, version, { history, quality = 0.9, all = false, preload } = {}) {
   const args = [cycleCli, all ? 'all' : 'evaluate'];
   if (all) args.push('--until', 'evaluate');
   args.push('--data-dir', fixture.dataDir, '--holdout', fixture.holdout, '--version', version);
   if (history === true) args.push('--history');
   else if (history !== undefined) args.push('--history', history);
-  return spawnSync(process.execPath, args, { cwd: root, encoding: 'utf8', env: environment446(fixture, quality) });
+  const env = environment446(fixture, quality);
+  if (preload) env.NODE_OPTIONS = `--require ${JSON.stringify(preload.replaceAll('\\', '/'))}`;
+  return spawnSync(process.execPath, args, { cwd: root, encoding: 'utf8', env });
 }
 
 function rows446(history) {
@@ -1024,6 +1026,49 @@ test('446 cross-cycle: default history remains local and explicit history valida
   });
   assert.notEqual(failedHistory.status, 0, 'history append failure must fail evaluation');
   assert.equal(fs.existsSync(path.join(appendFailure.dataDir, 'cycle-state.json')), false);
+});
+
+test('443 R6: resumes after an interrupted history append exactly once', t => {
+  const tmp = private446Root(t);
+  const history = path.join(tmp, 'history.jsonl');
+  const version = 'v1';
+  const fixture = setup446Cycle(t, path.join(tmp, 'cycle'), [
+    { version: 'v0', quality: 0.9 }, { version, quality: 0.9 },
+  ]);
+  assert.equal(run446Cycle(fixture, 'v0', { history }).status, 0);
+  const prefix = fs.readFileSync(history, 'utf8');
+  const preload = path.join(tmp, 'fail-history-append.cjs');
+  fs.writeFileSync(preload, `
+    const fs = require('node:fs');
+    const append = fs.appendFileSync;
+    fs.appendFileSync = (file, ...args) => {
+      if (file === ${JSON.stringify(fs.realpathSync.native(history))}) throw new Error('injected history append failure');
+      return append(file, ...args);
+    };
+  `);
+
+  const interrupted = run446Cycle(fixture, version, { history, preload });
+  assert.notEqual(interrupted.status, 0);
+  const candidate = path.join(fixture.dataDir, 'training', 'candidates', version);
+  const manifest = path.join(candidate, 'manifest.json');
+  const evaluationFiles = snapshot446(['curves.json', 'trend.json'].map(file =>
+    path.join(candidate, 'evaluation', file)));
+  assert.equal(fs.readFileSync(history, 'utf8'), prefix);
+  assert.equal(JSON.parse(fs.readFileSync(manifest, 'utf8')).evaluation, null);
+  const callsAfterFailure = fs.readFileSync(fixture.callLog, 'utf8');
+
+  const resumed = run446Cycle(fixture, version, { history });
+  assert.equal(resumed.status, 0, resumed.stderr || resumed.stdout);
+  assert.equal(JSON.parse(resumed.stdout).steps[0].resumed, true);
+  assert.equal(JSON.parse(fs.readFileSync(manifest, 'utf8')).evaluation, 'evaluation/curves.json');
+  const restored = fs.readFileSync(history, 'utf8');
+  assert.equal(restored, prefix + JSON.stringify(evaluation446(fixture.dataDir, version).curves) + '\n');
+
+  const repeated = run446Cycle(fixture, version, { history });
+  assert.equal(repeated.status, 0, repeated.stderr || repeated.stdout);
+  assert.equal(fs.readFileSync(history, 'utf8'), restored);
+  assert.equal(fs.readFileSync(fixture.callLog, 'utf8'), callsAfterFailure);
+  assertSnapshot446(evaluationFiles);
 });
 
 test('446 H2: rejects changed same-id baseline before append, including an existing identical candidate', t => {
