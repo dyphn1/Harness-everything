@@ -253,10 +253,10 @@ function reportedStatus(raw) {
     lines.pop();
     while (lines.length && lines.at(-1).trim() === '') lines.pop(); // live codex -o: blank line before the label
   }
-  const line = lines.at(-1) || '';
+  const line = (lines.at(-1) || '').replace(/[ \t]+$/, '');
   if (line === 'STATUS: DONE') return { status: 'DONE' };
   const blocked = /^STATUS: BLOCKED: (.+)$/.exec(line);
-  if (blocked && blocked[1].trim()) return { status: 'BLOCKED', reason: blocked[1].trim() };
+  if (blocked && blocked[1] === blocked[1].trim() && blocked[1]) return { status: 'BLOCKED', reason: blocked[1] };
   fail(16, 'REPORT_INVALID', 'report', 'Codex output must end with STATUS: DONE or STATUS: BLOCKED: <reason>');
 }
 

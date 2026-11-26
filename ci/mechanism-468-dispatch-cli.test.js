@@ -31,6 +31,7 @@ const symlinkedParent = path.join(fixtureRoot, 'symlinked parent');
 const reports = path.join(fixtureRoot, 'reports with spaces');
 const runnerBin = path.join(fixtureRoot, 'runner bin');
 const openCodeOnlyBin = path.join(fixtureRoot, 'opencode only bin');
+const rawOverridePreload = path.join(fixtureRoot, 'raw-override.cjs');
 const packet = path.join(worktree, 'packet with spaces.md');
 const failures = [];
 const passed = [];
@@ -103,6 +104,10 @@ function cli(args, testCase, config = {}) {
     DISPATCH_FIXTURE_READINESS: config.readiness || 'ready',
     DISPATCH_FIXTURE_EXECUTION: config.execution || 'done',
   };
+  if (config.rawOverride !== undefined) {
+    env.DISPATCH_FIXTURE_RAW_OVERRIDE = config.rawOverride;
+    env.NODE_OPTIONS = `${process.env.NODE_OPTIONS || ''} --require "${rawOverridePreload.replace(/\\/g, '/')}"`.trim();
+  }
   delete env.HARNESS_SYSTEM_ONE_MODE;
   const result = spawnSync(process.execPath, [entry, ...args], {
     cwd: root,
@@ -271,6 +276,25 @@ function runReportInvalidCase(runner, scenario) {
 
 makeRepository();
 makeRunnerPath();
+fs.writeFileSync(rawOverridePreload, `'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
+if (
+  path.basename(process.argv[1] || '') === 'exec' &&
+  process.env.DISPATCH_FIXTURE_RAW_OVERRIDE !== undefined &&
+  process.argv.at(-1) !== 'Reply with the single word READY'
+) {
+  const oIndex = process.argv.indexOf('-o');
+  const outputPath = oIndex >= 0 ? process.argv[oIndex + 1] : null;
+  const writeFileSync = fs.writeFileSync;
+  fs.writeFileSync = function (file, data, ...rest) {
+    if (outputPath && file === outputPath) {
+      return writeFileSync.call(this, file, process.env.DISPATCH_FIXTURE_RAW_OVERRIDE, ...rest);
+    }
+    return writeFileSync.call(this, file, data, ...rest);
+  };
+}
+`);
 fs.mkdirSync(reports);
 fs.mkdirSync(path.join(fixtureRoot, `${path.basename(worktree)}-sibling`));
 fs.symlinkSync(repositoryParent, symlinkedParent, process.platform === 'win32' ? 'junction' : 'dir');
@@ -647,6 +671,66 @@ try {
     jsonResponse(cli([...argsFor(testCase), '--json'], testCase, { execution: 'raw-label-blank' }), 0, 'DONE');
     assert.equal(fs.readFileSync(testCase.report, 'utf8'), 'Fixture completed the packet.\nSTATUS: DONE\n');
   });
+
+  for (const { label, raw, expectedReport } of [
+    {
+      label: 'padded DONE spaces',
+      raw: 'Fixture completed the packet.\nSTATUS: DONE  \n',
+      expectedReport: 'Fixture completed the packet.\nSTATUS: DONE\n',
+    },
+    {
+      label: 'padded DONE tab with blank line and host label',
+      raw: 'Fixture completed the packet.\nSTATUS: DONE\t\n\n<!-- harness-label {"v":1,"validity":"actionable","tier":"tier2","intents":["fix"],"workflow":"iterative-single","skills":[]} -->\n',
+      expectedReport: 'Fixture completed the packet.\nSTATUS: DONE\n',
+    },
+  ]) {
+    check(`441-A Codex ${label} -> DONE with preserved raw bytes and canonical report`, () => {
+      const testCase = makeCase(`Codex ${label}`);
+      const response = jsonResponse(cli([...argsFor(testCase), '--json'], testCase, { rawOverride: raw }), 0, 'DONE');
+      assert.equal(fs.readFileSync(response.evidence.rawOutput, 'utf8'), raw);
+      assert.equal(fs.readFileSync(testCase.report, 'utf8'), expectedReport);
+    });
+  }
+
+  for (const { label, raw, expectedReport } of [
+    {
+      label: 'padded BLOCKED spaces',
+      raw: 'Fixture could not verify the packet.\nSTATUS: BLOCKED: missing evidence  \n',
+      expectedReport: 'Fixture could not verify the packet.\nSTATUS: BLOCKED: missing evidence\n',
+    },
+    {
+      label: 'padded BLOCKED tab with host label',
+      raw: 'Fixture could not verify the packet.\nSTATUS: BLOCKED: missing evidence\t \n<!-- harness-label {"v":1,"validity":"actionable","tier":"tier2","intents":["fix"],"workflow":"iterative-single","skills":[]} -->\n',
+      expectedReport: 'Fixture could not verify the packet.\nSTATUS: BLOCKED: missing evidence\n',
+    },
+  ]) {
+    check(`441-A Codex ${label} -> WORKER_BLOCKED with preserved raw bytes and canonical report`, () => {
+      const testCase = makeCase(`Codex ${label}`);
+      const response = jsonResponse(cli([...argsFor(testCase), '--json'], testCase, { rawOverride: raw }), 17, 'WORKER_BLOCKED');
+      assert.equal(response.message, 'worker delivered a valid BLOCKED report: missing evidence');
+      assert.equal(fs.readFileSync(response.evidence.rawOutput, 'utf8'), raw);
+      assert.equal(fs.readFileSync(testCase.report, 'utf8'), expectedReport);
+      assert.match(fs.readFileSync(response.evidence.reportWriterLog, 'utf8'), /valid \(STATUS: BLOCKED: missing evidence\)/);
+    });
+  }
+
+  for (const { label, raw } of [
+    { label: 'leading space DONE', raw: 'Fixture completed the packet.\n STATUS: DONE\n' },
+    { label: 'leading space BLOCKED', raw: 'Fixture could not verify the packet.\n STATUS: BLOCKED: missing evidence\n' },
+    { label: 'leading space BLOCKED reason', raw: 'Fixture could not verify the packet.\nSTATUS: BLOCKED:  missing evidence\n' },
+    { label: 'non-ASCII trailing space DONE', raw: 'Fixture completed the packet.\nSTATUS: DONE\u00a0\n' },
+    { label: 'non-ASCII trailing space BLOCKED', raw: 'Fixture could not verify the packet.\nSTATUS: BLOCKED: missing evidence\u00a0\n' },
+    { label: 'nonterminal padded DONE', raw: 'Fixture completed the packet.\nSTATUS: DONE  \nextra line\n' },
+    { label: 'duplicate padded DONE', raw: 'Fixture completed the packet.\nSTATUS: DONE  \nSTATUS: DONE\n' },
+    { label: 'label without newline after padded STATUS', raw: 'Fixture completed the packet.\nSTATUS: DONE  <!-- harness-label {"v":1,"validity":"actionable","tier":"tier2","intents":["fix"],"workflow":"iterative-single","skills":[]} -->\n' },
+  ]) {
+    check(`441-A Codex refusal control (${label}) -> REPORT_INVALID`, () => {
+      const testCase = makeCase(`Codex refusal ${label}`);
+      const response = jsonResponse(cli([...argsFor(testCase), '--json'], testCase, { rawOverride: raw }), 16, 'REPORT_INVALID');
+      assert.equal(fs.readFileSync(response.evidence.rawOutput, 'utf8'), raw);
+      assert.equal(fs.existsSync(testCase.report), false);
+    });
+  }
 
   for (const scenario of ['missing-raw', 'no-status', 'multiple-status', 'bad-label']) {
     check(`Codex ${scenario} -> REPORT_INVALID`, () => runReportInvalidCase('codex', scenario));
