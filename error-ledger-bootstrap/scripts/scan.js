@@ -262,10 +262,294 @@ function lessonSites(text, knownFiles) {
   return [...sites].sort();
 }
 
-function isLesson(text, file) {
+function consumeQuotedScalar(lines, lineIdx, startCol) {
+  const quote = lines[lineIdx][startCol];
+  let value = '';
+  for (let li = lineIdx; li < lines.length; li++) {
+    const line = lines[li];
+    let col = li === lineIdx ? startCol + 1 : 0;
+    while (col < line.length) {
+      const ch = line[col];
+      if (quote === '"' && ch === '\\') {
+        if (col + 1 >= line.length) {
+          col += 1;
+          break;
+        }
+        const next = line[col + 1];
+        value += next === 'n' ? '\n' : next === 't' ? '\t' : next === 'r' ? '\r' : next;
+        col += 2;
+        continue;
+      }
+      if (quote === "'" && ch === "'" && line[col + 1] === "'") {
+        value += "'";
+        col += 2;
+        continue;
+      }
+      if (ch === quote) {
+        const trailing = line.slice(col + 1);
+        if (!/^(?:[ \t]+#.*|[ \t]*)$/.test(trailing)) return { ok: false };
+        return { ok: true, value, endLine: li, multiline: li !== lineIdx };
+      }
+      value += ch;
+      col += 1;
+    }
+    if (li < lines.length - 1) value += '\n';
+  }
+  return { ok: false };
+}
+
+function parseTypeScalar(rawValue) {
+  const trimmed = rawValue.trimStart();
+  if (!trimmed || trimmed.startsWith('#')) return { ok: false };
+  if (trimmed[0] === '"' || trimmed[0] === "'") {
+    const quoted = consumeQuotedScalar([trimmed], 0, 0);
+    if (!quoted.ok || quoted.multiline) return { ok: false };
+    return { ok: true, value: quoted.value };
+  }
+  if (/^[[\]{}|>&*!]/.test(trimmed)) return { ok: false };
+  const commentIdx = trimmed.search(/[ \t]+#/);
+  const plain = (commentIdx === -1 ? trimmed : trimmed.slice(0, commentIdx)).trimEnd();
+  if (!plain || plain === 'null' || plain === '~' || /^[?:,-](?:[ \t]|$)|:[ \t]/.test(plain)) {
+    return { ok: false };
+  }
+  return { ok: true, value: plain };
+}
+
+function parseMappingLine(content) {
+  if (content[0] === '"' || content[0] === "'") {
+    const quote = content[0];
+    let key = '';
+    let col = 1;
+    while (col < content.length) {
+      const ch = content[col];
+      if (quote === '"' && ch === '\\') {
+        if (col + 1 >= content.length) return null;
+        key += content[col + 1];
+        col += 2;
+        continue;
+      }
+      if (quote === "'" && ch === "'" && content[col + 1] === "'") {
+        key += "'";
+        col += 2;
+        continue;
+      }
+      if (ch === quote) {
+        const rest = /^([ \t]*):(?:([ \t]+.*)|[ \t]*)$/.exec(content.slice(col + 1));
+        if (!rest) return null;
+        return { key, rawValue: rest[2] || '' };
+      }
+      key += ch;
+      col += 1;
+    }
+    return null;
+  }
+  const match = /^([^:#\[\]{}"'\t-][^:\t]*?)[ \t]*:(?:([ \t]+.*)|[ \t]*)$/.exec(content);
+  if (!match) return null;
+  return { key: match[1].trim(), rawValue: match[2] || '' };
+}
+
+function consumeOtherValue(lines, lineIdx, keyIndent, rawValue) {
+  const trimmed = rawValue.trimStart();
+  if (!trimmed || trimmed.startsWith('#')) {
+    return { ok: true, endLine: lineIdx, allowsNested: true };
+  }
+  if (/^[|>](?:[+-]?\d*|\d*[+-]?)?(?:[ \t]+#.*|[ \t]*)$/.test(trimmed)) {
+    let end = lineIdx;
+    for (let j = lineIdx + 1; j < lines.length; j++) {
+      if (/^[ \t]*$/.test(lines[j])) {
+        end = j;
+        continue;
+      }
+      const spaces = /^ */.exec(lines[j])[0].length;
+      if (spaces > keyIndent) {
+        end = j;
+        continue;
+      }
+      break;
+    }
+    return { ok: true, endLine: end, allowsNested: false };
+  }
+  if (trimmed[0] === '"' || trimmed[0] === "'") {
+    const startCol = lines[lineIdx].length - trimmed.length;
+    const quoted = consumeQuotedScalar(lines, lineIdx, startCol);
+    if (!quoted.ok) return { ok: false };
+    return { ok: true, endLine: quoted.endLine, allowsNested: false };
+  }
+  return { ok: true, endLine: lineIdx, allowsNested: false };
+}
+
+function consumeNestedLine(lines, lineIdx, indent, content) {
+  const parsed = parseMappingLine(content);
+  if (!parsed) return { ok: true, endLine: lineIdx };
+  const consumed = consumeOtherValue(lines, lineIdx, indent, parsed.rawValue);
+  if (!consumed.ok) return { ok: false };
+  return { ok: true, endLine: consumed.endLine };
+}
+
+function parseMemoryFrontmatter(text) {
+  const source = String(text || '').replace(/^\uFEFF/, '');
+  const lines = source.split(/\r?\n/);
+  if (!/^---[ \t]*$/.test(lines[0])) {
+    return { state: 'untyped', body: source };
+  }
+  let closeIdx = -1;
+  for (let i = 1; i < lines.length; i++) {
+    if (/^---[ \t]*$/.test(lines[i])) {
+      closeIdx = i;
+      break;
+    }
+  }
+  if (closeIdx === -1) return { state: 'malformed', body: '' };
+
+  const fmLines = lines.slice(1, closeIdx);
+  const body = lines.slice(closeIdx + 1).join('\n');
+  const topTypes = [];
+  const metaTypes = [];
+  let inMetadata = false;
+  let metaChildIndent = null;
+  let topAllowsNested = false;
+  let metaChildAllowsNested = false;
+  let metaCount = 0;
+
+  for (let i = 0; i < fmLines.length; i++) {
+    const line = fmLines[i];
+    if (/^[ \t]*(?:#.*)?$/.test(line)) continue;
+    const indentMatch = /^([ \t]*)/.exec(line);
+    if (indentMatch[1].includes('\t')) return { state: 'malformed', body };
+    const indent = indentMatch[1].length;
+    const content = line.slice(indent);
+
+    if (inMetadata) {
+      if (indent === 0) {
+        inMetadata = false;
+        metaChildIndent = null;
+        metaChildAllowsNested = false;
+      } else {
+        if (metaChildIndent === null) {
+          if (/^-(?:[ \t]|$)/.test(content)) return { state: 'malformed', body };
+          metaChildIndent = indent;
+        }
+        if (indent < metaChildIndent) return { state: 'malformed', body };
+        if (indent > metaChildIndent) {
+          if (!metaChildAllowsNested) return { state: 'malformed', body };
+          const nested = consumeNestedLine(fmLines, i, indent, content);
+          if (!nested.ok) return { state: 'malformed', body };
+          i = nested.endLine;
+          continue;
+        }
+        if (metaChildAllowsNested && /^-(?:[ \t]|$)/.test(content)) continue;
+        metaChildAllowsNested = false;
+        const entry = parseMappingLine(content);
+        if (!entry) return { state: 'malformed', body };
+        if (entry.key === 'type') {
+          const scalar = parseTypeScalar(entry.rawValue);
+          if (!scalar.ok) return { state: 'malformed', body };
+          metaTypes.push(scalar.value.toLowerCase());
+        } else {
+          const consumed = consumeOtherValue(fmLines, i, indent, entry.rawValue);
+          if (!consumed.ok) return { state: 'malformed', body };
+          i = consumed.endLine;
+          metaChildAllowsNested = consumed.allowsNested;
+        }
+        continue;
+      }
+    }
+
+    if (indent > 0) {
+      if (!topAllowsNested) return { state: 'malformed', body };
+      const nested = consumeNestedLine(fmLines, i, indent, content);
+      if (!nested.ok) return { state: 'malformed', body };
+      i = nested.endLine;
+      continue;
+    }
+    if (topAllowsNested && /^-(?:[ \t]|$)/.test(content)) continue;
+    topAllowsNested = false;
+    const entry = parseMappingLine(content);
+    if (!entry) return { state: 'malformed', body };
+    if (entry.key === 'type') {
+      const scalar = parseTypeScalar(entry.rawValue);
+      if (!scalar.ok) return { state: 'malformed', body };
+      topTypes.push(scalar.value.toLowerCase());
+    } else if (entry.key === 'metadata') {
+      const trimmed = entry.rawValue.trimStart();
+      if (trimmed && !trimmed.startsWith('#')) return { state: 'malformed', body };
+      metaCount += 1;
+      if (metaCount > 1) return { state: 'malformed', body };
+      inMetadata = true;
+      metaChildIndent = null;
+      metaChildAllowsNested = false;
+    } else {
+      const consumed = consumeOtherValue(fmLines, i, 0, entry.rawValue);
+      if (!consumed.ok) return { state: 'malformed', body };
+      i = consumed.endLine;
+      topAllowsNested = consumed.allowsNested;
+    }
+  }
+
+  if (topTypes.length > 1 || metaTypes.length > 1) {
+    return { state: 'malformed', body };
+  }
+  if (topTypes.length === 1 && metaTypes.length === 1) {
+    if (topTypes[0] !== metaTypes[0]) return { state: 'conflicting', body };
+    return { state: topTypes[0] === 'feedback' ? 'feedback' : 'explicit-other', body };
+  }
+  const single = topTypes[0] || metaTypes[0];
+  if (single !== undefined) {
+    return { state: single === 'feedback' ? 'feedback' : 'explicit-other', body };
+  }
+  return { state: 'untyped', body };
+}
+
+function stripFencedCodeBlocks(text) {
+  const lines = text.split(/\r?\n/);
+  const kept = [];
+  let fenceChar = null;
+  let fenceLen = 0;
+  for (const line of lines) {
+    if (!fenceChar) {
+      const open = /^[ \t]{0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+      if (open && (open[1][0] === '~' || !open[2].includes('`'))) {
+        fenceChar = open[1][0];
+        fenceLen = open[1].length;
+        continue;
+      }
+      kept.push(line);
+    } else {
+      const close = new RegExp(`^[ \\t]{0,3}${fenceChar}{${fenceLen},}[ \\t]*$`);
+      if (close.test(line)) {
+        fenceChar = null;
+        fenceLen = 0;
+      }
+    }
+  }
+  return kept.join('\n');
+}
+
+function hasPairedWhyHowHeadings(body) {
+  const why = /^[ \t]{0,3}(?:#{1,6}[ \t]*why(?:\s*:|\s*$)|(?:\*\*why:\*\*|\*\*why\*\*:|__why:__|__why__:)(?:[ \t]|$)|(?:\*\*why\*\*|__why__)[ \t]*$)/im;
+  const how = /^[ \t]{0,3}(?:#{1,6}[ \t]*how[ \t]+to[ \t]+apply(?:\s*:|\s*$)|(?:\*\*how[ \t]+to[ \t]+apply:\*\*|\*\*how[ \t]+to[ \t]+apply\*\*:|__how[ \t]+to[ \t]+apply:__|__how[ \t]+to[ \t]+apply__:)(?:[ \t]|$)|(?:\*\*how[ \t]+to[ \t]+apply\*\*|__how[ \t]+to[ \t]+apply__)[ \t]*$)/im;
+  return why.test(body) && how.test(body);
+}
+
+function isInstructionLesson(text, file) {
   const frontmatter = /^---\s*\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
   const feedback = frontmatter && /^type:\s*['"]?feedback(?:['"]?\s|$)/mi.test(frontmatter[1]);
   return Boolean(feedback || /^lesson-/i.test(path.basename(file)) || /^#{1,6}\s*(?:cue|lesson)\b/im.test(text));
+}
+
+function isMemoryLesson(text, file) {
+  if (isMemoryIndex(file)) return false;
+  const parsed = parseMemoryFrontmatter(text);
+  if (parsed.state === 'feedback') return true;
+  if (parsed.state !== 'untyped') return false;
+  if (/^(?:lesson|feedback)-/i.test(path.basename(file))) return true;
+  const cleanBody = stripFencedCodeBlocks(parsed.body);
+  if (/^[ \t]{0,3}#{1,6}[ \t]*(?:cue|lesson)\b/im.test(cleanBody)) return true;
+  return hasPairedWhyHowHeadings(cleanBody);
+}
+
+function isLesson(text, file, type = 'instruction') {
+  return type === 'memory' ? isMemoryLesson(text, file) : isInstructionLesson(text, file);
 }
 
 function publicText(value, root, home) {
@@ -310,7 +594,7 @@ function candidatesFromFiles(files, type, root, home, knownFiles, privateInput =
   for (const file of files) {
     if (type === 'memory' && isMemoryIndex(file)) continue;
     const text = safeRead(file);
-    if (text === null || !isLesson(text, file)) continue;
+    if (text === null || !isLesson(text, file, type)) continue;
     const privateSource = type === 'memory' || privateInput || !isWithin(root, path.resolve(file));
     const title = privateSource ? `Local ${type} lead` :
       shortTitle(markdownTitle(text) || path.basename(file, path.extname(file)), root, home);

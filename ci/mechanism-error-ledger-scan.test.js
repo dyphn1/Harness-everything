@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const childProcess = require('node:child_process');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -732,6 +733,421 @@ try {
 
   assert.strictEqual(git(repo, ['status', '--porcelain']), statusBefore,
     'scanner leaves the target repository unchanged');
+
+  // I486-lesson-cues: bounded top-level / direct metadata.type feedback, filename & Why/How cues on untyped notes,
+  // negative typed/malformed/conflicting/outside-field controls, instruction boundary, and --no-memory invariance.
+  const cueRepo = path.join(TMP, 'PRIVATE_CUE_PARENT_SENTINEL', 'cue-synthetic-harness');
+  const cueHome = path.join(TMP, 'PRIVATE_CUE_HOME_SENTINEL');
+  const cueSlug = path.resolve(cueRepo).replace(/[^a-z0-9]/gi, '-');
+  const cueAutoDir = path.join(cueHome, '.claude', 'projects', cueSlug, 'memory');
+  const cueExplicitDir = path.join(TMP, 'cue-explicit-memory');
+  const cueInstFile = path.join(cueHome, 'cue-explicit-instructions.md');
+  const cueLegacyInstFile = path.join(cueHome, 'cue-legacy-instructions.md');
+  fs.mkdirSync(cueRepo, { recursive: true });
+  fs.mkdirSync(cueAutoDir, { recursive: true });
+  fs.mkdirSync(cueExplicitDir, { recursive: true });
+  git(cueRepo, ['init', '-q']);
+  git(cueRepo, ['config', 'user.name', 'Scanner Fixture']);
+  git(cueRepo, ['config', 'user.email', 'scanner@example.invalid']);
+  git(cueRepo, ['config', 'commit.gpgsign', 'false']);
+  commit(cueRepo, 'feat: seed lesson cue fixture repo', {
+    'src/alpha.js': 'module.exports = 1;\n',
+    'AGENTS.md': [
+      '---',
+      'metadata:',
+      '  type: feedback',
+      '---',
+      '# Repository AGENTS instructions',
+      '',
+      '**Why:** Memory-only metadata and Why/How cues must not widen instruction classification.',
+      '',
+      '**How to apply:** Keep AGENTS.md excluded without Cue/Lesson or top-level type: feedback.',
+      ''
+    ].join('\n'),
+    'CLAUDE.md': [
+      '# Repository CLAUDE instructions',
+      '',
+      '## Lesson',
+      'Keep `src/alpha.js` covered.',
+      ''
+    ].join('\n')
+  }, 0);
+  writeFile(cueInstFile, [
+    '---',
+    'metadata:',
+    '  type: feedback',
+    '---',
+    '# Explicit instruction with memory-only cues',
+    '',
+    '**Why:** Should not qualify as an instruction lead.',
+    '',
+    '**How to apply:** Keep explicit instruction rules unchanged.',
+    ''
+  ].join('\n'));
+  writeFile(cueLegacyInstFile, [
+    '---',
+    'type: feedback',
+    '---',
+    '# Legacy explicit instruction',
+    'Keep `src/alpha.js` checked.',
+    ''
+  ].join('\n'));
+
+  const cueCases = [
+    {
+      name: 'top-unquoted-comment.md',
+      expected: true,
+      content: '---\ntype: feedback # inline comment\ntitle: PRIVATE_CUE_TITLE_SENTINEL\n---\nPRIVATE_CUE_BODY_SENTINEL `src/alpha.js`.\n'
+    },
+    {
+      name: 'top-single-quoted.md',
+      expected: true,
+      content: "---\ntype: 'feedback' # single-quoted comment\n---\nCheck `src/alpha.js`.\n"
+    },
+    {
+      name: 'top-double-quoted.md',
+      expected: true,
+      content: '---\ntype: "feedback"   # double-quoted comment\n---\nCheck `src/alpha.js`.\n'
+    },
+    {
+      name: 'convention-metadata-feedback.md',
+      expected: true,
+      content: [
+        '---',
+        'name: convention-check',
+        'metadata:',
+        '  # comment inside metadata',
+        '  tags:',
+        '    - style',
+        '  nested:',
+        '    type: project',
+        '  type: feedback # inline comment',
+        '---',
+        'PRIVATE_CUE_CONVENTION_SENTINEL `src/alpha.js`.',
+        ''
+      ].join('\n')
+    },
+    {
+      name: 'principle-metadata-4space.md',
+      expected: true,
+      content: [
+        '---',
+        'name: principle-check',
+        'metadata:',
+        '    notes: |',
+        '      type: project',
+        '    type: "feedback" # 4-space direct indent',
+        '---',
+        'PRIVATE_CUE_PRINCIPLE_SENTINEL `src/alpha.js`.',
+        ''
+      ].join('\n')
+    },
+    {
+      name: 'metadata-single-quoted.md',
+      expected: true,
+      content: "---\nmetadata:\n  type: 'feedback'\n---\nDirect single-quoted metadata.\n"
+    },
+    {
+      name: 'metadata-crlf.md',
+      expected: true,
+      content: '---\r\nmetadata:\r\n  type: "feedback"\r\n---\r\nCRLF frontmatter.\r\n'
+    },
+    {
+      name: 'untyped-why-how-colon-outside.md',
+      expected: true,
+      content: '**Why**: Reason.\n\n**How to apply**: Rule.\n'
+    },
+    {
+      name: 'feedback-untyped-filename.md',
+      expected: true,
+      content: 'Untyped feedback filename note mentioning `src/alpha.js`.\n'
+    },
+    {
+      name: 'feedback-untyped-frontmatter.md',
+      expected: true,
+      content: '---\nname: untyped-feedback\ndescription: PRIVATE_CUE_DESC_SENTINEL\n---\nUntyped frontmatter with feedback- prefix.\n'
+    },
+    {
+      name: 'untyped-cue-heading.md',
+      expected: true,
+      content: '# Untyped\n## Cue\nRegression on `src/alpha.js`.\n'
+    },
+    {
+      name: 'untyped-lesson-heading.md',
+      expected: true,
+      content: '---\nauthor: fixture\n---\n### Lesson\nCheck `src/alpha.js`.\n'
+    },
+    {
+      name: 'untyped-bold-why-how.md',
+      expected: true,
+      content: [
+        'Always verify input bounds.',
+        '',
+        '**Why:** Unbounded input broke `src/alpha.js`.',
+        '',
+        '**How to apply:** Validate length at entry.',
+        ''
+      ].join('\n')
+    },
+    {
+      name: 'convention-why-how-untyped-fm.md',
+      expected: true,
+      content: [
+        '---',
+        'name: untyped-convention',
+        'other:',
+        '  type: project',
+        '---',
+        '## Why',
+        'Because X happened.',
+        '',
+        '## How to apply',
+        'Do Y on `src/alpha.js`.',
+        ''
+      ].join('\n')
+    },
+    {
+      name: 'MEMORY.md',
+      expected: false,
+      content: '---\nmetadata:\n  type: feedback\ntitle: PRIVATE_CUE_INDEX_SENTINEL\n---\n## Cue\nIndex.\n## Lesson\n`src/alpha.js`.\n**Why:** Index.\n**How to apply:** Never emit.\n'
+    },
+    {
+      name: 'outside-body-type.md',
+      expected: false,
+      content: '# Note\n\ntype: feedback\nmetadata:\n  type: feedback\n'
+    },
+    {
+      name: 'outside-other-mapping.md',
+      expected: false,
+      content: '---\nother:\n  type: feedback\n---\nNo weak cues.\n'
+    },
+    {
+      name: 'outside-nested-metadata.md',
+      expected: false,
+      content: '---\nmetadata:\n  nested:\n    type: feedback\n---\nNo weak cues.\n'
+    },
+    {
+      name: 'outside-quoted-fields.md',
+      expected: false,
+      content: '---\ntitle: "type: feedback"\nsummary: "multi\ntype: feedback\nend"\n---\nNo weak cues.\n'
+    },
+    {
+      name: 'outside-block-scalar.md',
+      expected: false,
+      content: '---\nnotes: |\n  type: feedback\n  metadata:\n    type: feedback\nmetadata:\n  notes: |\n    type: feedback\n---\nNo weak cues.\n'
+    },
+    {
+      name: 'outside-comments-and-similar-key.md',
+      expected: false,
+      content: '---\n# type: feedback\nsubtype: feedback\nmetadata:\n  # type: feedback\n  subtype: feedback\n---\nNo weak cues.\n'
+    },
+    {
+      name: 'outside-literal-hash-in-type.md',
+      expected: false,
+      content: '---\ntype: "feedback # literal"\n---\nNo weak cues.\n'
+    },
+    {
+      name: 'outside-unspaced-hash-in-type.md',
+      expected: false,
+      content: '---\ntype: feedback#nospace\n---\nNo weak cues.\n'
+    },
+    {
+      name: 'outside-quoted-spaces-in-type.md',
+      expected: false,
+      content: '---\ntype: " feedback "\n---\nNo weak cues.\n'
+    },
+    {
+      name: 'outside-fenced-code-cues.md',
+      expected: false,
+      content: '# Example\n\n```markdown\n## Cue\n**Why:** example\n**How to apply:** example\n```\n'
+    },
+    {
+      name: 'unpaired-why-only.md',
+      expected: false,
+      content: '**Why:** Only why without how to apply.\n'
+    },
+    {
+      name: 'unpaired-how-only.md',
+      expected: false,
+      content: '**How to apply:** Only how to apply without why.\n'
+    },
+    {
+      name: 'prose-why-how.md',
+      expected: false,
+      content: 'This explains why: x and how to apply: y in ordinary prose.\n'
+    },
+    {
+      name: 'convention-untyped-plain.md',
+      expected: false,
+      content: '# Convention\nPlain untyped convention note without cues.\n'
+    },
+    {
+      name: 'principle-untyped-plain.md',
+      expected: false,
+      content: '# Principle\nPlain untyped principle note without cues.\n'
+    },
+    {
+      name: 'feedback-explicit-project.md',
+      expected: false,
+      content: '---\ntype: project\n---\n## Cue\nProject note.\n## Lesson\nCheck `src/alpha.js`.\n**Why:** Project.\n**How to apply:** Ignore.\n'
+    },
+    {
+      name: 'lesson-metadata-reference.md',
+      expected: false,
+      content: '---\nmetadata:\n  type: reference\n---\n## Cue\nReference note.\n## Lesson\nCheck `src/alpha.js`.\n**Why:** Reference.\n**How to apply:** Ignore.\n'
+    },
+    {
+      name: 'lesson-metadata-user.md',
+      expected: false,
+      content: '---\nmetadata:\n  type: user\n---\n## Lesson\nUser profile note.\n'
+    },
+    {
+      name: 'lesson-conflict-top-first.md',
+      expected: false,
+      content: '---\ntype: feedback\nmetadata:\n  type: project\n---\n## Cue\nConflicting metadata.\n'
+    },
+    {
+      name: 'lesson-conflict-meta-first.md',
+      expected: false,
+      content: '---\ntype: project\nmetadata:\n  type: feedback\n---\n## Cue\nConflicting metadata reversed.\n'
+    },
+    {
+      name: 'lesson-duplicate-key-conflict.md',
+      expected: false,
+      content: '---\nmetadata:\n  type: project\n  type: feedback\n---\n## Cue\nDuplicate metadata type key.\n'
+    },
+    {
+      name: 'lesson-duplicate-top-conflict.md',
+      expected: false,
+      content: '---\ntype: feedback\ntype: project\n---\n## Cue\nDuplicate top type key.\n'
+    },
+    {
+      name: 'lesson-duplicate-top-conflict-rev.md',
+      expected: false,
+      content: '---\ntype: project\ntype: feedback\n---\n## Cue\nDuplicate top type key reversed.\n'
+    },
+    {
+      name: 'lesson-malformed-unclosed-quote.md',
+      expected: false,
+      content: '---\ntype: "feedback\n---\n## Cue\nUnclosed quote.\n'
+    },
+    {
+      name: 'lesson-malformed-trailing-text.md',
+      expected: false,
+      content: "---\ntype: 'feedback' trailing\n---\n## Cue\nTrailing text.\n"
+    },
+    {
+      name: 'lesson-malformed-empty-type.md',
+      expected: false,
+      content: '---\ntype: # missing value\n---\n## Cue\nEmpty type.\n'
+    },
+    {
+      name: 'lesson-malformed-block-type.md',
+      expected: false,
+      content: '---\ntype: |\n  feedback\n---\n## Cue\nBlock scalar type.\n'
+    },
+    {
+      name: 'lesson-malformed-bad-indent.md',
+      expected: false,
+      content: '---\nmetadata:\n    author: a\n  type: feedback\n---\n## Cue\nBroken indentation.\n'
+    },
+    {
+      name: 'lesson-malformed-tab-indent.md',
+      expected: false,
+      content: '---\nmetadata:\n\ttype: feedback\n---\n## Cue\nTab indentation.\n'
+    },
+    {
+      name: 'lesson-malformed-unclosed-fm.md',
+      expected: false,
+      content: '---\ntype: feedback\n## Cue\nUnclosed frontmatter.\n'
+    }
+  ];
+
+  const refOf = filePath => `local/${crypto.createHash('sha256').update(path.resolve(filePath)).digest('hex')}`;
+  for (const item of cueCases) {
+    writeFile(path.join(cueAutoDir, item.name), item.content);
+    writeFile(path.join(cueExplicitDir, item.name), item.content);
+  }
+
+  const cueLessonFailures = [];
+  const checkCue = (passed, message) => {
+    if (!passed) cueLessonFailures.push(message);
+  };
+
+  for (const mode of [
+    {
+      label: 'auto-memory',
+      args: ['--root', cueRepo, '--out', path.join(TMP, 'cue-auto-reports'), '--hide-ledger', '--home', cueHome],
+      dir: cueAutoDir
+    },
+    {
+      label: 'explicit-memory',
+      args: [
+        '--root', cueRepo, '--out', path.join(TMP, 'cue-explicit-reports'), '--hide-ledger',
+        '--home', path.join(TMP, 'cue-empty-home'), '--memory', cueExplicitDir,
+        '--instructions', cueInstFile, '--instructions', cueLegacyInstFile
+      ],
+      dir: cueExplicitDir
+    }
+  ]) {
+    const res = run(mode.args, cueHome);
+    const payload = reportFrom(res);
+    const reportJson = JSON.parse(fs.readFileSync(payload.reportJson, 'utf8'));
+    const reportMd = fs.readFileSync(payload.reportMd, 'utf8');
+    const memoryLeads = reportJson.candidates.filter(item => item.sources.some(source => source.type === 'memory'));
+    const emittedRefs = new Set(memoryLeads.flatMap(item => item.sources.filter(s => s.type === 'memory').map(s => s.ref)));
+
+    for (const item of cueCases) {
+      const filePath = path.join(mode.dir, item.name);
+      const expectedRef = refOf(filePath);
+      const present = emittedRefs.has(expectedRef);
+      checkCue(present === item.expected,
+        `${mode.label} ${item.name}: expected=${item.expected}, got=${present}`);
+    }
+    for (const lead of memoryLeads) {
+      checkCue(lead.title === 'Local memory lead', `${mode.label} neutral title got ${lead.title}`);
+      checkCue(lead.status === 'UNVERIFIED', `${mode.label} status got ${lead.status}`);
+      checkCue(lead.sources.length === 1 && lead.sources[0].type === 'memory' && /^local\/[a-f0-9]{64}$/.test(lead.sources[0].ref),
+        `${mode.label} opaque source ref invalid: ${JSON.stringify(lead.sources)}`);
+    }
+    const serialized = `${JSON.stringify(reportJson)}\n${reportMd}`;
+    checkCue(!/PRIVATE_CUE_(?:PARENT|HOME|TITLE|BODY|CONVENTION|PRINCIPLE|DESC|INDEX)_SENTINEL/.test(serialized),
+      `${mode.label} leaked private cue sentinel`);
+    for (const item of cueCases) {
+      checkCue(!serialized.includes(item.name), `${mode.label} leaked private filename ${item.name}`);
+    }
+
+    const repoInstRefs = reportJson.candidates
+      .flatMap(item => item.sources.filter(s => s.type === 'instruction' && s.ref.startsWith('repo/')).map(s => s.ref));
+    checkCue(repoInstRefs.includes('repo/CLAUDE.md'), `${mode.label} keeps legacy CLAUDE.md instruction lead`);
+    checkCue(!repoInstRefs.includes('repo/AGENTS.md'), `${mode.label} does not widen AGENTS.md instruction classification`);
+
+    if (mode.label === 'explicit-memory') {
+      const localInstRefs = reportJson.candidates
+        .flatMap(item => item.sources.filter(s => s.type === 'instruction' && s.ref.startsWith('local/')).map(s => s.ref));
+      checkCue(localInstRefs.includes(refOf(cueLegacyInstFile)),
+        'explicit-memory keeps legacy explicit instruction classification');
+      checkCue(!localInstRefs.includes(refOf(cueInstFile)),
+        'explicit-memory does not widen explicit instruction classification with metadata.type or Why/How');
+    }
+  }
+
+  const cueNoMemWith = reportFrom(run([
+    '--root', cueRepo, '--out', path.join(TMP, 'cue-nomem-with'), '--hide-ledger', '--home', cueHome,
+    '--memory', cueExplicitDir, '--no-memory'
+  ], cueHome, freezeTime));
+  const cueNoMemEmptyHome = path.join(TMP, 'cue-nomem-empty-home');
+  fs.mkdirSync(cueNoMemEmptyHome, { recursive: true });
+  const cueNoMemWithout = reportFrom(run([
+    '--root', cueRepo, '--out', path.join(TMP, 'cue-nomem-without'), '--hide-ledger', '--home', cueNoMemEmptyHome,
+    '--memory', cueExplicitDir, '--no-memory'
+  ], cueNoMemEmptyHome, freezeTime));
+  checkCue(fs.readFileSync(cueNoMemWith.reportJson, 'utf8') === fs.readFileSync(cueNoMemWithout.reportJson, 'utf8'),
+    '--no-memory JSON stays byte-identical across new cue files');
+  checkCue(fs.readFileSync(cueNoMemWith.reportMd, 'utf8') === fs.readFileSync(cueNoMemWithout.reportMd, 'utf8'),
+    '--no-memory Markdown stays byte-identical across new cue files');
+
+  assert.deepStrictEqual(cueLessonFailures, [], `I486-lesson-cues failures:\n${cueLessonFailures.join('\n')}`);
 
   const acceptanceFailures = [];
   const checkAcceptance = (passed, message) => {
