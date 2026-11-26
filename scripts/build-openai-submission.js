@@ -7,7 +7,8 @@ const path = require('path');
 const { isPackagingNoise } = require('./lib/packaging-noise');
 
 const ROOT = path.resolve(__dirname, '..');
-const SKILLS_ROOT = path.join(ROOT, 'plugins', 'harness-everything', 'skills');
+const PLUGIN_ROOT = path.join(ROOT, 'plugins', 'harness-everything');
+const SKILLS_ROOT = path.join(PLUGIN_ROOT, 'skills');
 const DEFAULT_OUTPUT = path.join(ROOT, 'dist', 'openai-submission', 'harness-everything-skills.zip');
 
 function parseArgs(argv) {
@@ -119,10 +120,13 @@ function build(output) {
   const relativeFiles = filesUnder(SKILLS_ROOT);
   if (relativeFiles.length === 0) throw new Error('no packaged skill files found');
 
-  const entries = relativeFiles.map(relative => {
+  const { extensions, ...identity } = JSON.parse(fs.readFileSync(path.join(PLUGIN_ROOT, 'plugin.json'), 'utf8'));
+  const publicManifest = { ...identity, extensions: { 'com.openai': { interface: extensions['com.openai'].interface } } };
+  const entries = [{ name: 'plugin.json', data: Buffer.from(`${JSON.stringify(publicManifest, null, 2)}\n`) }];
+  for (const relative of relativeFiles) {
     const data = fs.readFileSync(path.join(SKILLS_ROOT, relative));
-    return { name: `skills/${relative}`, data };
-  });
+    entries.push({ name: `skills/${relative}`, data });
+  }
   const zip = zipStored(entries);
   fs.mkdirSync(path.dirname(output), { recursive: true });
   fs.writeFileSync(output, zip);

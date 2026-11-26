@@ -19,22 +19,17 @@ dist/openai-submission/
 └── harness-everything-skills.manifest.json
 ```
 
-The ZIP contains exactly the synchronized `plugins/harness-everything/skills/` tree under `skills/`. It does not contain the local `.codex-plugin` lifecycle hooks, MCP definitions, or app wrappers. The manifest records every file path, byte count, content hash, and final bundle SHA-256. Rebuilding the same revision must produce the same bundle hash.
+The ZIP contains a portable root `plugin.json` and the synchronized skill tree under `skills/`. The builder takes the identity and listing interface from the local portable manifest. The archive excludes the local hook configuration, MCP definitions, and app wrappers. The manifest records every file path, byte count, content hash, and final bundle SHA-256. Rebuilding the same revision must produce the same bundle hash.
 
 ## Official portal workflow
 
-1. Select **Create plugin**.
-2. Choose **Skills only**.
-3. Provide the listing metadata from `listing.json`.
-4. Upload the final `harness-everything-skills.zip` bundle.
-5. Provide the starter prompts and exactly five positive plus three negative reviewer cases from `test-cases.json`.
-6. Select the verified developer/business identity, production logo, availability, and policy attestations.
-7. Confirm the submitter has **Apps Management: Write** access.
-8. Submit for review and publish only after approval.
+1. Select the publishing organization and project. Organization owners can submit. Other members need **Apps Management: Write**. Complete individual or business identity verification.
+2. In the OpenAI Platform Plugins page, select **Upload new or existing plugin**, choose the verified developer identity, and upload `harness-everything-skills.zip`.
+3. Review the imported listing in **Metadata & Skills**. Resolve scan findings and complete the requested listing, logo, and availability fields using `listing.json`.
+4. Run the smoke cases in `test-cases.json` against the prepared plugin in a fresh host session. The documented five-positive and three-negative app review requirement applies to initial MCP app review. Harness uses these cases for its own Skills-only smoke test.
+5. Submit for review when the portal is ready. After approval, publish and confirm that a fresh eligible account can find and install the public listing.
 
-Official documentation: [Submit a plugin](https://developers.openai.com/plugins/deploy/submission).
-
-The review cases follow the documented shape. Each positive case includes a prompt, expected skill/workflow behavior, expected result shape, and fixture/account data. Each negative case includes a prompt/scenario, expected refusal/clarification/safe fallback, and a reason not to complete.
+See [Submit a plugin](https://developers.openai.com/plugins/deploy/submission) and the [submission error reference](https://developers.openai.com/plugins/deploy/submission-errors).
 
 ## Public submission boundary
 
@@ -53,7 +48,7 @@ CI cannot complete these portal operations:
 - run reviewer cases in the final host environment;
 - submit, receive approval, or publish to the public directory.
 
-The repository therefore claims a reproducible, review-ready submission artifact only. It does not claim public-directory approval, managed-workspace import success, or live host execution until those external artifacts are preserved.
+The repository checks establish package evidence. Keep the ZIP digest and source revision with the portal scan or submission result, then retain the approval and the fresh-account install result when available.
 
 ## Repository checks
 
@@ -64,4 +59,4 @@ npm run test:plugin:openai
 npm run test:plugin:submission
 ```
 
-The checks verify listing/manifest alignment, official-source metadata, public support/privacy/terms URLs, exactly five positive and three negative review cases, deterministic bundle generation, and exact file parity between the generated bundle manifest and the packaged skill tree.
+The checks verify listing metadata, public URLs, and the project smoke cases. They also verify deterministic bundle generation, ZIP entry names and hashes, and that the public manifest omits local hook settings.

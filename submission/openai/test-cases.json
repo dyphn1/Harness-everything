@@ -1,6 +1,6 @@
 {
   "format": "harness-openai-plugin-review-tests-v1",
-  "note": "Reviewer-facing cases for manual entry in the OpenAI plugin submission portal.",
+  "note": "Harness smoke cases for testing the Skills-only plugin in a fresh host session.",
   "positive": [
     {
       "id": "bugfix-with-tests",

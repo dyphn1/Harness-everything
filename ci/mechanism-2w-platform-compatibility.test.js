@@ -180,8 +180,7 @@ try {
   const result = build(tempOutput);
   const publicManifest = JSON.parse(fs.readFileSync(result.manifestPath, 'utf8'));
   const packagedFiles = filesUnder(path.join(ROOT, 'plugins', 'harness-everything', 'skills')).map(file => `skills/${file}`);
-  assert.deepStrictEqual(publicManifest.files.map(file => file.path), packagedFiles);
-  assert.ok(publicManifest.files.every(file => file.path.startsWith('skills/')));
+  assert.deepStrictEqual(publicManifest.files.map(file => file.path), ['plugin.json', ...packagedFiles]);
   assert.ok(publicManifest.files.every(file => !/(^|\/)(hooks|\.codex-plugin)(\/|$)/.test(file.path)));
   assert.strictEqual(publicManifest.bundle_sha256, sha256(tempOutput));
 } finally {
