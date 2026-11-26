@@ -88,7 +88,7 @@ mkdir -p "<target repo>/.agents/harness-everything/errors"
 | Candidate source | Index precondition before scan and approval |
 | --- | --- |
 | Legacy (no `local-store` source) | No index file needed beforehand; the first promotion creates it through the sync command below. |
-| `local-store` | `index.jsonl` must already exist and be current in the target. Create/refresh it from the trusted checkout with `node "<Harness checkout>/scripts/errors-sync.js" --root "<target repo>"`. A missing or stale index leaves dedupe `unverified` (`ledger-missing`) and promotion fails closed; never bypass it. |
+| `local-store` | `index.jsonl` must already exist and be current in the target. Create/refresh it from the trusted checkout with `node "<Harness checkout>/scripts/errors-sync.js" --root "<target repo>"`. A missing index leaves scan dedupe `unverified` (`ledger-missing`). Scan does not detect a stale index; promotion rechecks it under lock and fails closed (`destination ledger index is stale or unavailable`). Never bypass either; refresh, rescan and reapprove. |
 
 Copyable first-promotion sequence for a `local-store` lead:
 
