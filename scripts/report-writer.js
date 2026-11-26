@@ -134,7 +134,7 @@ function extractCodexBody(raw, expectedStatus) {
     // Live codex -o output (2026-11-21) puts one blank line between STATUS and the host label.
     while (strippedLabel && terminalIndex > 0 && lines[terminalIndex].value.trim() === '') terminalIndex -= 1;
     if (statusIndex !== terminalIndex) error('raw STATUS must be terminal or immediately before the host label');
-    if (controls[0].value !== expectedStatus) error('raw terminal STATUS does not match the requested status');
+    if (controls[0].value.replace(/[ \t]+$/, '') !== expectedStatus) error('raw terminal STATUS does not match the requested status');
     if (strippedLabel && !controls[0].eol) error('host label must be on a line after STATUS');
     bodyEnd = controls[0].start;
   }
