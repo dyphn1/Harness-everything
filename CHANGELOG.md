@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.2.1](https://github.com/dyphn1/Harness-everything/compare/v1.2.0...v1.2.1) (2026-11-26)
+
+### Bug Fixes
+
+* **errors:** drop the claude exit-code wrapper from generic signatures ([#527](https://github.com/dyphn1/Harness-everything/issues/527)) ([c221b73](https://github.com/dyphn1/Harness-everything/commit/c221b73ac0fb819b4da9a5120ecf16db00ddeae0)), closes [#526](https://github.com/dyphn1/Harness-everything/issues/526)
+* **errors:** reject cross-kind provisional ids and unscoped store reads ([#527](https://github.com/dyphn1/Harness-everything/issues/527)) ([e33ce07](https://github.com/dyphn1/Harness-everything/commit/e33ce07e817a6598bb93af371316656af7ce5f7f)), closes [#498](https://github.com/dyphn1/Harness-everything/issues/498)
+
 ## [1.2.0](https://github.com/dyphn1/Harness-everything/compare/v1.1.1...v1.2.0) (2026-11-25)
 
 ### Features
