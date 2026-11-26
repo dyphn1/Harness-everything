@@ -117,6 +117,7 @@ try {
 
   const fallbackRecord = index.records.find(entry => entry.captureMethod === 'session-backfill' && entry.turn === 3);
   assert(fallbackRecord, 'the response_item assistant label is recovered when task_complete omits it');
+  assert.strictEqual(fallbackRecord.selfReport.workflow, null);
   const fallbackText = JSON.parse(fs.readFileSync(path.join(store, 'text', fallbackRecord.contentSha256 + '.json'), 'utf8'));
   assert.strictEqual(fallbackText.prompt, 'fallback prompt from the rollout message');
   const backfilledTier1 = index.records.find(entry => entry.captureMethod === 'session-backfill' && entry.selfReport.tier === 'tier1');

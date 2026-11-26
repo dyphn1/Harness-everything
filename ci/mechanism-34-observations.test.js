@@ -639,12 +639,47 @@ test('the label contract is the router output\'s last section and covers every t
   const sections = out.split(/\n(?==> )/);
   const last = sections[sections.length - 1];
   assert(/^=> TURN LABEL LINE/.test(last) && last.includes('harness-label'), 'the label contract is printed last');
-  assert(/EVERY TURN/.test(last) && /null only when validity is invalid/.test(last));
+  assert(/EVERY TURN/.test(last) && /null tier only when validity is invalid/.test(last));
   assert(/cannot be understood from its own text and needs conversation context/.test(last));
   assert(/agent-written dispatches and worker instructions are ordinary prompts/.test(last));
   const status = sections.find(x => x.startsWith('=> USER-VISIBLE HARNESS STATUS CONTRACT'));
   assert(status && !status.includes('harness-label'), 'not scoped under the non-trivial Harness Status contract');
   assert(/^14\. \*\*The turn label line is mandatory on every turn/m.test(fs.readFileSync(path.join(ROOT, 'AGENTS.md'), 'utf8')));
+});
+
+test('deferred routing instructs an actionable turn to report a null workflow', () => {
+  const s = sandbox();
+  s.env.HARNESS_SYSTEM_ONE_MODE = 'off';
+  const base = { session_id: 'deferred-label', cwd: s.repo };
+  const promptEvent = { ...base, hook_event_name: 'UserPromptSubmit', prompt: 'git status' };
+  const result = spawnSync(process.execPath, [ROUTER], {
+    input: JSON.stringify(promptEvent), cwd: s.repo, encoding: 'utf8', env: s.env,
+  });
+  assert.strictEqual(result.status, 0, result.stderr);
+  assert.match(result.stdout, /=> WORKFLOW STRATEGY: deferred/);
+  const contract = result.stdout.slice(result.stdout.indexOf('=> TURN LABEL LINE'));
+  assert.match(contract, /Use JSON null for workflow when the strategy is deferred/);
+
+  const [, example] = contract.match(/<!-- harness-label (.*) -->/);
+  const nullWorkflow = LABEL.replace('"iterative-single"', JSON.stringify(JSON.parse(example).workflow));
+  assert.strictEqual(lib.parseLabelLine(nullWorkflow).label.workflow, null);
+  hook(s.env, promptEvent);
+  hook(s.env, { ...base, hook_event_name: 'Stop', last_assistant_message: `done\n${nullWorkflow}` });
+  const [report] = records(s.store);
+  assert.strictEqual(report.selfReport.workflow, null);
+  const out = path.join(s.dir, 'deferred-export');
+  const exported = spawnSync(process.execPath, [EXPORTER, '--store', s.store, '--out', out, '--self-report-only'], {
+    encoding: 'utf8', env: s.env,
+  });
+  assert.strictEqual(exported.status, 0, exported.stderr);
+  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(out, 'labels-observed.jsonl'), 'utf8')).workflow, null);
+
+  const witness = { v: 1, validity: 'actionable', tier: 'tier1', intents: [], workflow: 'deferred', skills: [] };
+  assert.strictEqual(lib.parseLabelLine(`<!-- harness-label ${JSON.stringify(witness)} -->`).reason, 'label-invalid');
+  assert.strictEqual(lib.validLabel({ ...witness, workflow: 'unknown' }), false);
+  for (const workflow of ['direct-single', 'iterative-single', 'fable-staged', 'fable-parallel', 'fable-multi-agent-workspace']) {
+    assert.strictEqual(lib.validLabel({ ...witness, workflow }), true, workflow);
+  }
 });
 
 test('router/self agreement counts only turns where the router chose a tier', () => {
@@ -692,6 +727,7 @@ test('Codex router hook returns its contract as JSON additionalContext', () => {
     const out = JSON.parse(r.stdout);
     assert.strictEqual(out.hookSpecificOutput.hookEventName, 'UserPromptSubmit', script);
     assert(out.hookSpecificOutput.additionalContext.includes('TURN LABEL LINE'), script);
+    assert.match(out.hookSpecificOutput.additionalContext, /Use JSON null for workflow when the strategy is deferred/, script);
   }
 });
 

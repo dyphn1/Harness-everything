@@ -155,9 +155,10 @@ function activeExecutionFor(persisted, plan) {
 function printLabelContract() {
   console.log('\n=> TURN LABEL LINE (MUST, EVERY TURN — short answers, lookups and trivial edits included):');
   console.log('   - The last line of your final message MUST be one hidden label line with your own post-work judgement, not a copy of the router tier above:');
-  console.log('     <!-- harness-label {"v":1,"validity":"actionable|invalid","tier":"tier1|tier2|tier3|null","intents":["up to 3 of explain,discuss,git,fix,edit,feature,refactor,review,test,docs,plan,investigate"],"workflow":"strategy id or null","skills":["skills used"]} -->');
+  console.log('   - Use JSON null for workflow when the strategy is deferred or none was selected. Otherwise use the strategy id actually used.');
+  console.log('     <!-- harness-label {"v":1,"validity":"actionable|invalid","tier":"tier1|tier2|tier3|null","intents":["up to 3 of explain,discuss,git,fix,edit,feature,refactor,review,test,docs,plan,investigate"],"workflow":null,"skills":["skills used"]} -->');
   console.log('   - invalid means the prompt cannot be understood from its own text and needs conversation context; agent-written dispatches and worker instructions are ordinary prompts.');
-  console.log('   - tier1: answer, lookup, status or git operation with no code change; tier2: bounded change; tier3: new feature, refactor, redefinition or cross-component work. Use null only when validity is invalid.');
+  console.log('   - tier1: answer, lookup, status or git operation with no code change; tier2: bounded change; tier3: new feature, refactor, redefinition or cross-component work. Use a null tier only when validity is invalid.');
   console.log('   - It is invisible in rendered Markdown and records local training data; it never gates routing.');
 }
 
