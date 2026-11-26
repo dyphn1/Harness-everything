@@ -1149,6 +1149,260 @@ try {
 
   assert.deepStrictEqual(cueLessonFailures, [], `I486-lesson-cues failures:\n${cueLessonFailures.join('\n')}`);
 
+  // I486-file-sites: exact repo-relative tracked regular-file mentions for memory leads,
+  // rejecting directories/URLs/traversal/absolute/UNC/escaped/symlinked-out/missing targets without suffix leaks,
+  // preserving directory/file distinctions and redaction, plus CLI scan-to-oracle comparison and --no-memory invariance.
+  const siteRepo = path.join(TMP, 'PRIVATE_SITE_PARENT_SENTINEL', 'site-synthetic-harness');
+  const siteHome = path.join(TMP, 'PRIVATE_SITE_HOME_SENTINEL');
+  const siteSlug = path.resolve(siteRepo).replace(/[^a-z0-9]/gi, '-');
+  const siteAutoDir = path.join(siteHome, '.claude', 'projects', siteSlug, 'memory');
+  const siteExplicitDir = path.join(TMP, 'site-explicit-memory');
+  const siteOutsideDir = path.join(TMP, 'PRIVATE_SITE_OUTSIDE_SENTINEL');
+  const siteOutsideFile = path.join(siteOutsideDir, 'outside.js');
+  const siteOutsideTarget = path.join(siteOutsideDir, 'escaped-target.js');
+  fs.mkdirSync(siteRepo, { recursive: true });
+  fs.mkdirSync(siteAutoDir, { recursive: true });
+  fs.mkdirSync(siteExplicitDir, { recursive: true });
+  writeFile(siteOutsideFile, 'module.exports = "outside";\n');
+  writeFile(siteOutsideTarget, 'module.exports = "escaped";\n');
+
+  git(siteRepo, ['init', '-q']);
+  git(siteRepo, ['config', 'user.name', 'Scanner Fixture']);
+  git(siteRepo, ['config', 'user.email', 'scanner@example.invalid']);
+  git(siteRepo, ['config', 'commit.gpgsign', 'false']);
+  commit(siteRepo, 'feat: seed file-sites fixture repo', {
+    'AGENTS.md': '# Repo Agents\n',
+    'Makefile': 'all:\n\techo ok\n',
+    '.nvmrc': '24\n',
+    '.husky/commit-msg': '#!/bin/sh\nexit 0\n',
+    'src/parser.js': 'module.exports = 1;\n',
+    'src/deleted.js': 'module.exports = 2;\n',
+    'docs/guide/intro.md': '# Guide\n',
+    'escaped-dir/escaped-target.js': 'module.exports = 3;\n'
+  }, 0);
+
+  // Create a tracked symlink pointing outside and a tracked symlink pointing inside (when host allows file symlinks).
+  let fileSymlinksCreated = false;
+  try {
+    fs.mkdirSync(path.join(siteRepo, 'links'), { recursive: true });
+    fs.symlinkSync(siteOutsideFile, path.join(siteRepo, 'links', 'symlink-out.js'));
+    fs.symlinkSync('../AGENTS.md', path.join(siteRepo, 'links', 'symlink-in.js'));
+    git(siteRepo, ['add', 'links/symlink-out.js', 'links/symlink-in.js']);
+    git(siteRepo, ['commit', '-q', '-m', 'feat: add symlink controls'], {
+      GIT_AUTHOR_NAME: 'Scanner Fixture',
+      GIT_AUTHOR_EMAIL: 'scanner@example.invalid',
+      GIT_COMMITTER_NAME: 'Scanner Fixture',
+      GIT_COMMITTER_EMAIL: 'scanner@example.invalid',
+      GIT_AUTHOR_DATE: FIXED_DATE,
+      GIT_COMMITTER_DATE: FIXED_DATE
+    });
+    fileSymlinksCreated = true;
+  } catch (cause) {
+    if (process.platform !== 'win32' || cause.code !== 'EPERM') throw cause;
+  }
+
+  // Working-tree mutations on tracked/untracked targets:
+  // 1) delete a tracked file on disk (missing target)
+  fs.rmSync(path.join(siteRepo, 'src', 'deleted.js'));
+  // 2) create an untracked regular file on disk
+  write(siteRepo, 'src/untracked.js', 'module.exports = "untracked";\n');
+  // 3) replace tracked directory `escaped-dir` with a symlink/junction pointing outside the checkout
+  fs.rmSync(path.join(siteRepo, 'escaped-dir'), { recursive: true, force: true });
+  fs.symlinkSync(siteOutsideDir, path.join(siteRepo, 'escaped-dir'), process.platform === 'win32' ? 'junction' : 'dir');
+
+  const siteCases = [
+    {
+      name: 'positive-root-and-extless.md',
+      expectedSites: ['.husky/commit-msg', '.nvmrc', 'AGENTS.md', 'Makefile', 'src/parser.js'],
+      content: [
+        '---',
+        'metadata:',
+        '  type: feedback',
+        'title: PRIVATE_SITE_TITLE_SENTINEL positive',
+        '---',
+        'PRIVATE_SITE_BODY_SENTINEL',
+        'Check AGENTS.md, `Makefile`, (.nvmrc), [hook](.husky/commit-msg), and src/parser.js.',
+        ''
+      ].join('\n')
+    },
+    {
+      name: 'negative-directories-and-distinction.md',
+      expectedSites: [],
+      content: [
+        '---',
+        'metadata:',
+        '  type: feedback',
+        '---',
+        'Directories: `src`, `src/`, `docs`, `docs/guide`, `docs/guide/`, `.husky`, `.husky/`.',
+        'File-as-directory: `AGENTS.md/`, `Makefile/`, `src/parser.js/`, `.husky/commit-msg/`, `src/parser.js/child`.',
+        ''
+      ].join('\n')
+    },
+    {
+      name: 'negative-urls-and-suffixes.md',
+      expectedSites: [],
+      content: [
+        '---',
+        'metadata:',
+        '  type: feedback',
+        '---',
+        'URLs: https://example.com/org/repo/blob/main/AGENTS.md http://localhost:8080/Makefile',
+        'More: file:///tmp/repo/src/parser.js https://example.com/.husky/commit-msg?raw=1#L1',
+        '[external](https://example.com/AGENTS.md) <https://example.com/src/parser.js>',
+        ''
+      ].join('\n')
+    },
+    {
+      name: 'negative-traversal-and-absolute-and-unc.md',
+      expectedSites: [],
+      content: [
+        '---',
+        'metadata:',
+        '  type: feedback',
+        '---',
+        'Traversal: ../AGENTS.md ../../src/parser.js src/../AGENTS.md src/../Makefile ..\\AGENTS.md a/../../.husky/commit-msg',
+        `POSIX abs: /AGENTS.md /abs/path/AGENTS.md /Users/dev/repo/src/parser.js ${siteRepo}/AGENTS.md`,
+        'Windows abs: C:\\repo\\AGENTS.md C:/repo/src/parser.js D:\\work\\Makefile C:\\repo\\.husky\\commit-msg',
+        'UNC: \\\\server\\share\\AGENTS.md //server/share/src/parser.js \\\\?\\C:\\repo\\Makefile',
+        'Prefixed/aliases: missing/AGENTS.md other/src/parser.js ./AGENTS.md AGENTS.md.bak foo-AGENTS.md src\\parser.js',
+        ''
+      ].join('\n')
+    },
+    {
+      name: 'negative-missing-untracked-escaped-symlinked.md',
+      expectedSites: [],
+      content: [
+        '---',
+        'metadata:',
+        '  type: feedback',
+        '---',
+        'Missing tracked: `src/deleted.js`.',
+        'Untracked file: `src/untracked.js`.',
+        'Escaped dir target: `escaped-dir/escaped-target.js`.',
+        'Nonexistent: `does/not/exist.js`.',
+        ...(fileSymlinksCreated ? ['Symlinks: `links/symlink-out.js` and `links/symlink-in.js`.'] : []),
+        ''
+      ].join('\n')
+    }
+  ];
+
+  writeFile(path.join(siteAutoDir, 'MEMORY.md'), '# Synthetic site index\n');
+  for (const item of siteCases) {
+    writeFile(path.join(siteAutoDir, item.name), item.content);
+    writeFile(path.join(siteExplicitDir, item.name), item.content);
+  }
+
+  const fileSiteFailures = [];
+  const checkSite = (passed, message) => {
+    if (!passed) fileSiteFailures.push(message);
+  };
+
+  let siteAutoReportPath = null;
+  for (const mode of [
+    {
+      label: 'auto-memory',
+      args: ['--root', siteRepo, '--out', path.join(TMP, 'site-auto-reports'), '--hide-ledger', '--home', siteHome],
+      dir: siteAutoDir
+    },
+    {
+      label: 'explicit-memory',
+      args: [
+        '--root', siteRepo, '--out', path.join(TMP, 'site-explicit-reports'), '--hide-ledger',
+        '--home', path.join(TMP, 'site-empty-home'), '--memory', siteExplicitDir
+      ],
+      dir: siteExplicitDir
+    }
+  ]) {
+    const res = run(mode.args, siteHome);
+    const payload = reportFrom(res);
+    if (mode.label === 'auto-memory') siteAutoReportPath = payload.reportJson;
+    const reportJson = JSON.parse(fs.readFileSync(payload.reportJson, 'utf8'));
+    const reportMd = fs.readFileSync(payload.reportMd, 'utf8');
+    const memoryLeads = reportJson.candidates.filter(item => item.sources.some(source => source.type === 'memory'));
+    const leadByRef = new Map(memoryLeads.map(item => [item.sources[0].ref, item]));
+
+    for (const item of siteCases) {
+      const expectedRef = refOf(path.join(mode.dir, item.name));
+      const lead = leadByRef.get(expectedRef);
+      checkSite(Boolean(lead), `${mode.label} ${item.name}: expected memory lead to exist`);
+      if (lead) {
+        checkSite(JSON.stringify(lead.sites) === JSON.stringify(item.expectedSites),
+          `${mode.label} ${item.name}: expected sites=${JSON.stringify(item.expectedSites)}, got=${JSON.stringify(lead.sites)}`);
+        checkSite(lead.title === 'Local memory lead', `${mode.label} ${item.name}: neutral title got ${lead.title}`);
+      }
+    }
+
+    const serialized = `${JSON.stringify(reportJson)}\n${reportMd}`;
+    checkSite(!/PRIVATE_SITE_(?:PARENT|HOME|OUTSIDE|TITLE|BODY)_SENTINEL/.test(serialized),
+      `${mode.label} leaked private site sentinel`);
+    checkSite(!serialized.includes(siteRepo) && !serialized.includes(siteHome) && !serialized.includes(siteOutsideDir),
+      `${mode.label} leaked absolute fixture path`);
+    for (const item of siteCases) {
+      checkSite(!serialized.includes(item.name), `${mode.label} leaked private filename ${item.name}`);
+    }
+  }
+
+  // CLI scan-to-oracle comparison against a fixed synthetic baseline + --no-memory byte invariance.
+  const siteLedgerDir = path.join(TMP, 'site-synthetic-ledger');
+  writeFile(path.join(siteLedgerDir, 'E-0001-root-agents.md'),
+    '---\nid: E-0001\nsignature: root-agents\nsites:\n  - AGENTS.md\n---\n');
+  writeFile(path.join(siteLedgerDir, 'E-0002-extless-hook.md'),
+    '---\nid: E-0002\nsignature: extless-hook\nsites:\n  - .husky/commit-msg\n---\n');
+  writeFile(path.join(siteLedgerDir, 'E-0003-root-extless.md'),
+    '---\nid: E-0003\nsignature: root-extless\nsites:\n  - Makefile\n---\n');
+  writeFile(path.join(siteLedgerDir, 'E-0004-dir-only.md'),
+    '---\nid: E-0004\nsignature: dir-only\nsites:\n  - docs/guide\n---\n');
+
+  const siteNoMemPresent = reportFrom(run([
+    '--root', siteRepo, '--out', path.join(TMP, 'site-nomem-present'), '--hide-ledger', '--home', siteHome, '--no-memory'
+  ], siteHome, freezeTime));
+  const siteNoMemEmptyHome = path.join(TMP, 'site-nomem-empty-home');
+  fs.mkdirSync(siteNoMemEmptyHome, { recursive: true });
+  const siteNoMemAbsent = reportFrom(run([
+    '--root', siteRepo, '--out', path.join(TMP, 'site-nomem-absent'), '--hide-ledger', '--home', siteNoMemEmptyHome, '--no-memory'
+  ], siteNoMemEmptyHome, freezeTime));
+  checkSite(fs.readFileSync(siteNoMemPresent.reportJson, 'utf8') === fs.readFileSync(siteNoMemAbsent.reportJson, 'utf8'),
+    'siteRepo --no-memory JSON stays byte-identical with verified memory present');
+  checkSite(fs.readFileSync(siteNoMemPresent.reportMd, 'utf8') === fs.readFileSync(siteNoMemAbsent.reportMd, 'utf8'),
+    'siteRepo --no-memory Markdown stays byte-identical with verified memory present');
+
+  const ORACLE = path.join(ROOT, 'scripts', 'error-ledger-oracle.js');
+  const runOracle = reportPath => {
+    const res = childProcess.spawnSync(process.execPath, [ORACLE, '--report', reportPath, '--ledger', siteLedgerDir, '--json'], {
+      encoding: 'utf8',
+      env: { ...process.env, HOME: siteHome, USERPROFILE: siteHome }
+    });
+    assert.ifError(res.error);
+    assert.strictEqual(res.status, 0, `oracle exit ${res.status}; stderr: ${res.stderr}`);
+    return JSON.parse(res.stdout);
+  };
+  const baselineOracle = runOracle(siteNoMemPresent.reportJson);
+  const memoryOracle = runOracle(siteAutoReportPath);
+  checkSite(baselineOracle.counts.linkedRecords === 0,
+    `baseline oracle expected 0 linkedRecords, got ${baselineOracle.counts.linkedRecords}`);
+  checkSite(memoryOracle.counts.linkedRecords === 3,
+    `memory oracle expected 3 linkedRecords (root+extless files only), got ${memoryOracle.counts.linkedRecords}`);
+  checkSite(JSON.stringify(memoryOracle.linked.map(item => item.id).sort()) === JSON.stringify(['E-0001', 'E-0002', 'E-0003']),
+    `memory oracle linked ids expected [E-0001,E-0002,E-0003], got ${JSON.stringify(memoryOracle.linked.map(item => item.id))}`);
+  checkSite(JSON.stringify(memoryOracle.unlinked) === JSON.stringify(['E-0004']),
+    `memory oracle must keep directory-only E-0004 unlinked, got ${JSON.stringify(memoryOracle.unlinked)}`);
+
+  // Packaged scanner check on the synthetic file-sites fixture (zero external dependencies).
+  const PACKAGED_SCANNER = path.join(ROOT, 'plugins', 'harness-everything', 'skills', 'error-ledger-bootstrap', 'scripts', 'scan.js');
+  const pkgSiteOut = path.join(TMP, 'site-packaged-reports');
+  const pkgSiteRes = childProcess.spawnSync(process.execPath, [
+    PACKAGED_SCANNER, '--root', siteRepo, '--out', pkgSiteOut, '--hide-ledger', '--home', siteHome, '--json'
+  ], { encoding: 'utf8', env: { ...process.env, HOME: siteHome, USERPROFILE: siteHome } });
+  assert.ifError(pkgSiteRes.error);
+  const pkgSitePayload = reportFrom(pkgSiteRes);
+  const pkgSiteJson = JSON.parse(fs.readFileSync(pkgSitePayload.reportJson, 'utf8'));
+  const pkgPosLead = pkgSiteJson.candidates.find(item =>
+    item.sources.some(source => source.type === 'memory' && source.ref === refOf(path.join(siteAutoDir, 'positive-root-and-extless.md'))));
+  checkSite(Boolean(pkgPosLead) && JSON.stringify(pkgPosLead.sites) === JSON.stringify(['.husky/commit-msg', '.nvmrc', 'AGENTS.md', 'Makefile', 'src/parser.js']),
+    `packaged scanner expected root+extless sites, got ${JSON.stringify(pkgPosLead && pkgPosLead.sites)}`);
+
+  assert.deepStrictEqual(fileSiteFailures, [], `I486-file-sites failures:\n${fileSiteFailures.join('\n')}`);
+
   const acceptanceFailures = [];
   const checkAcceptance = (passed, message) => {
     if (!passed) acceptanceFailures.push(message);

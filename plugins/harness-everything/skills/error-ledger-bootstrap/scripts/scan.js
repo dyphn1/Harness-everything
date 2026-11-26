@@ -167,6 +167,48 @@ function repoFiles(root) {
     .split('\0').filter(Boolean).map(normalizedRepoPath);
 }
 
+function isTrackedRegularFile(root, site) {
+  if (!site || site === '.' || site.endsWith('/') || path.posix.isAbsolute(site) ||
+      /^[A-Za-z]:/.test(site) || site.includes('\\') || site.split('/').includes('..')) {
+    return false;
+  }
+  const candidate = path.resolve(root, site.split('/').join(path.sep));
+  if (!isWithin(root, candidate)) return false;
+  let stat;
+  try {
+    stat = fs.lstatSync(candidate);
+  } catch (_) {
+    return false;
+  }
+  if (stat.isSymbolicLink() || !stat.isFile()) return false;
+  let resolved;
+  try {
+    resolved = canonical(candidate);
+  } catch (_) {
+    return false;
+  }
+  if (!isWithin(root, resolved)) return false;
+  try {
+    return fs.statSync(resolved).isFile();
+  } catch (_) {
+    return false;
+  }
+}
+
+function trackedRegularFiles(root) {
+  const entries = git(root, ['ls-files', '--cached', '--stage', '-z']).split('\0').filter(Boolean);
+  const tracked = new Set();
+  for (const entry of entries) {
+    const tab = entry.indexOf('\t');
+    if (tab === -1) continue;
+    const mode = entry.slice(0, entry.indexOf(' '));
+    if (mode !== '100644' && mode !== '100755') continue;
+    const site = normalizedRepoPath(entry.slice(tab + 1));
+    if (isTrackedRegularFile(root, site)) tracked.add(site);
+  }
+  return tracked;
+}
+
 function safeRead(file) {
   try {
     if (fs.lstatSync(file).isSymbolicLink()) return null;
@@ -258,6 +300,23 @@ function lessonSites(text, knownFiles) {
     const site = path.posix.normalize(match[1]);
     if (!path.posix.isAbsolute(site) && !site.split('/').includes('..') && !/^[A-Za-z]:/.test(site) &&
       (!knownFiles || knownFiles.has(site))) sites.add(site);
+  }
+  return [...sites].sort();
+}
+
+function memorySites(text, trackedFiles) {
+  if (!trackedFiles || !trackedFiles.size) return [];
+  const sites = new Set();
+  for (const raw of String(text || '').split(/[\s"'`<>()\[\]{}|]+/)) {
+    if (!raw) continue;
+    if (trackedFiles.has(raw)) {
+      sites.add(raw);
+      continue;
+    }
+    const trimmed = raw.replace(/[,;:!?]+$/, '').replace(/\.$/, '');
+    if (trimmed && trimmed !== raw && trackedFiles.has(trimmed)) {
+      sites.add(trimmed);
+    }
   }
   return [...sites].sort();
 }
@@ -602,7 +661,9 @@ function candidatesFromFiles(files, type, root, home, knownFiles, privateInput =
     candidates.push(makeCandidate({
       title,
       signature: slug(title),
-      sites: lessonSites(text, privateSource ? knownFiles : undefined),
+      sites: type === 'memory'
+        ? memorySites(text, knownFiles)
+        : lessonSites(text, privateSource ? knownFiles : undefined),
       sources: [{ type, ref }]
     }));
   }
@@ -802,13 +863,14 @@ function collectSources(options, root, home, files, historyCandidates) {
     return { sources, candidates };
   }
 
+  const trackedMemoryFiles = trackedRegularFiles(root);
   const auto = autoMemory(root, home);
   sources.push(sourceStatus('memory', 'auto', auto.files.length ? (auto.verified ? 'used' : 'unverified') : 'missing', {
     verified: auto.verified, reason: auto.reason,
     ref: localSourceId(auto.directory),
     ...(auto.verificationRef ? { verificationRef: localSourceId(auto.verificationRef) } : {})
   }));
-  if (auto.verified) candidates.push(...candidatesFromFiles(auto.files, 'memory', root, home, knownFiles));
+  if (auto.verified) candidates.push(...candidatesFromFiles(auto.files, 'memory', root, home, trackedMemoryFiles));
 
   if (options.memory.length) {
     for (const input of options.memory) {
@@ -817,7 +879,7 @@ function collectSources(options, root, home, files, historyCandidates) {
         ref: localSourceId(input),
         ...(selected.length ? {} : { reason: 'no readable files at the selected path' })
       }));
-      candidates.push(...candidatesFromFiles(selected, 'memory', root, home, knownFiles));
+      candidates.push(...candidatesFromFiles(selected, 'memory', root, home, trackedMemoryFiles));
     }
   } else {
     sources.push(sourceStatus('memory', 'explicit', 'missing', { reason: 'no --memory path provided' }));
