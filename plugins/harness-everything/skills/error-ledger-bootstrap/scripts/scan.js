@@ -167,6 +167,48 @@ function repoFiles(root) {
     .split('\0').filter(Boolean).map(normalizedRepoPath);
 }
 
+function isTrackedRegularFile(root, site) {
+  if (!site || site === '.' || site.endsWith('/') || path.posix.isAbsolute(site) ||
+      /^[A-Za-z]:/.test(site) || site.includes('\\') || site.split('/').includes('..')) {
+    return false;
+  }
+  const candidate = path.resolve(root, site.split('/').join(path.sep));
+  if (!isWithin(root, candidate)) return false;
+  let stat;
+  try {
+    stat = fs.lstatSync(candidate);
+  } catch (_) {
+    return false;
+  }
+  if (stat.isSymbolicLink() || !stat.isFile()) return false;
+  let resolved;
+  try {
+    resolved = canonical(candidate);
+  } catch (_) {
+    return false;
+  }
+  if (!isWithin(root, resolved)) return false;
+  try {
+    return fs.statSync(resolved).isFile();
+  } catch (_) {
+    return false;
+  }
+}
+
+function trackedRegularFiles(root) {
+  const entries = git(root, ['ls-files', '--cached', '--stage', '-z']).split('\0').filter(Boolean);
+  const tracked = new Set();
+  for (const entry of entries) {
+    const tab = entry.indexOf('\t');
+    if (tab === -1) continue;
+    const mode = entry.slice(0, entry.indexOf(' '));
+    if (mode !== '100644' && mode !== '100755') continue;
+    const site = normalizedRepoPath(entry.slice(tab + 1));
+    if (isTrackedRegularFile(root, site)) tracked.add(site);
+  }
+  return tracked;
+}
+
 function safeRead(file) {
   try {
     if (fs.lstatSync(file).isSymbolicLink()) return null;
@@ -192,10 +234,23 @@ function walkMarkdown(directory) {
   return found;
 }
 
+function isMemoryIndex(file) {
+  return /^memory\.md$/i.test(path.basename(file));
+}
+
+function isRegularFile(file) {
+  try {
+    const stat = fs.lstatSync(file);
+    return !stat.isSymbolicLink() && stat.isFile();
+  } catch (_) {
+    return false;
+  }
+}
+
 function flatMarkdown(directory) {
   try {
     return fs.readdirSync(directory, { withFileTypes: true })
-      .filter(entry => entry.isFile() && entry.name.toLowerCase().endsWith('.md'))
+      .filter(entry => entry.isFile() && entry.name.toLowerCase().endsWith('.md') && !isMemoryIndex(entry.name))
       .map(entry => path.join(directory, entry.name))
       .sort((a, b) => a.localeCompare(b));
   } catch (_) {
@@ -249,10 +304,371 @@ function lessonSites(text, knownFiles) {
   return [...sites].sort();
 }
 
-function isLesson(text, file) {
+const MEMORY_WRAPPER_PAIRS = [
+  ['(', ')'],
+  ['[', ']'],
+  ['{', '}'],
+  ['<', '>'],
+  ['"', '"'],
+  ["'", "'"],
+  ['`', '`'],
+  ['|', '|']
+];
+
+function isForbiddenMemoryToken(value) {
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(value) ||
+    /^file:\//i.test(value) ||
+    value.startsWith('/') ||
+    value.startsWith('\\') ||
+    value.startsWith('./') ||
+    /^[A-Za-z]:/.test(value) ||
+    value.includes('\\') ||
+    /(?:^|\/)\.\.(?:\/|$)/.test(value);
+}
+
+function stripMemoryPunctuation(value) {
+  return value.replace(/[,;:!?]+$/, '').replace(/\.$/, '');
+}
+
+function resolveMemorySiteToken(token, trackedFiles) {
+  let current = token;
+  while (current) {
+    if (isForbiddenMemoryToken(current)) return null;
+    if (trackedFiles.has(current)) return current;
+
+    const depunct = stripMemoryPunctuation(current);
+    if (depunct !== current) {
+      current = depunct;
+      continue;
+    }
+
+    const linkSep = current.indexOf('](');
+    if (linkSep !== -1 && current.endsWith(')')) {
+      return resolveMemorySiteToken(current.slice(linkSep + 2, -1), trackedFiles);
+    }
+
+    let peeled = false;
+    for (const [open, close] of MEMORY_WRAPPER_PAIRS) {
+      if (current.length >= 2 && current.startsWith(open) && current.endsWith(close)) {
+        current = current.slice(1, -1);
+        peeled = true;
+        break;
+      }
+    }
+    if (peeled) continue;
+
+    if (/^["'`<>(\[{|]/.test(current)) {
+      current = current.slice(1);
+      continue;
+    }
+    if (/["'`<>)\]}|]$/.test(current)) {
+      current = current.slice(0, -1);
+      continue;
+    }
+    break;
+  }
+  return null;
+}
+
+function memorySites(text, trackedFiles) {
+  if (!trackedFiles || !trackedFiles.size) return [];
+  const sites = new Set();
+  for (const raw of String(text || '').split(/\s+/)) {
+    if (!raw) continue;
+    const site = resolveMemorySiteToken(raw, trackedFiles);
+    if (site) sites.add(site);
+  }
+  return [...sites].sort();
+}
+
+function consumeQuotedScalar(lines, lineIdx, startCol) {
+  const quote = lines[lineIdx][startCol];
+  let value = '';
+  for (let li = lineIdx; li < lines.length; li++) {
+    const line = lines[li];
+    let col = li === lineIdx ? startCol + 1 : 0;
+    while (col < line.length) {
+      const ch = line[col];
+      if (quote === '"' && ch === '\\') {
+        if (col + 1 >= line.length) {
+          col += 1;
+          break;
+        }
+        const next = line[col + 1];
+        value += next === 'n' ? '\n' : next === 't' ? '\t' : next === 'r' ? '\r' : next;
+        col += 2;
+        continue;
+      }
+      if (quote === "'" && ch === "'" && line[col + 1] === "'") {
+        value += "'";
+        col += 2;
+        continue;
+      }
+      if (ch === quote) {
+        const trailing = line.slice(col + 1);
+        if (!/^(?:[ \t]+#.*|[ \t]*)$/.test(trailing)) return { ok: false };
+        return { ok: true, value, endLine: li, multiline: li !== lineIdx };
+      }
+      value += ch;
+      col += 1;
+    }
+    if (li < lines.length - 1) value += '\n';
+  }
+  return { ok: false };
+}
+
+function parseTypeScalar(rawValue) {
+  const trimmed = rawValue.trimStart();
+  if (!trimmed || trimmed.startsWith('#')) return { ok: false };
+  if (trimmed[0] === '"' || trimmed[0] === "'") {
+    const quoted = consumeQuotedScalar([trimmed], 0, 0);
+    if (!quoted.ok || quoted.multiline || !quoted.value.trim()) return { ok: false };
+    return { ok: true, value: quoted.value };
+  }
+  if (/^[[\]{}|>&*!]/.test(trimmed)) return { ok: false };
+  const commentIdx = trimmed.search(/[ \t]+#/);
+  const plain = (commentIdx === -1 ? trimmed : trimmed.slice(0, commentIdx)).trimEnd();
+  if (!plain || plain === 'null' || plain === '~' || /^[?:,-](?:[ \t]|$)|:[ \t]/.test(plain)) {
+    return { ok: false };
+  }
+  return { ok: true, value: plain };
+}
+
+function parseMappingLine(content) {
+  if (content[0] === '"' || content[0] === "'") {
+    const quote = content[0];
+    let key = '';
+    let col = 1;
+    while (col < content.length) {
+      const ch = content[col];
+      if (quote === '"' && ch === '\\') {
+        if (col + 1 >= content.length) return null;
+        key += content[col + 1];
+        col += 2;
+        continue;
+      }
+      if (quote === "'" && ch === "'" && content[col + 1] === "'") {
+        key += "'";
+        col += 2;
+        continue;
+      }
+      if (ch === quote) {
+        const rest = /^([ \t]*):(?:([ \t]+.*)|[ \t]*)$/.exec(content.slice(col + 1));
+        if (!rest) return null;
+        return { key, rawValue: rest[2] || '' };
+      }
+      key += ch;
+      col += 1;
+    }
+    return null;
+  }
+  const match = /^([^:#\[\]{}"'\t-][^:\t]*?)[ \t]*:(?:([ \t]+.*)|[ \t]*)$/.exec(content);
+  if (!match) return null;
+  return { key: match[1].trim(), rawValue: match[2] || '' };
+}
+
+function consumeOtherValue(lines, lineIdx, keyIndent, rawValue) {
+  const trimmed = rawValue.trimStart();
+  if (!trimmed || trimmed.startsWith('#')) {
+    return { ok: true, endLine: lineIdx, allowsNested: true };
+  }
+  if (/^[|>](?:[+-]?\d*|\d*[+-]?)?(?:[ \t]+#.*|[ \t]*)$/.test(trimmed)) {
+    let end = lineIdx;
+    for (let j = lineIdx + 1; j < lines.length; j++) {
+      if (/^[ \t]*$/.test(lines[j])) {
+        end = j;
+        continue;
+      }
+      const spaces = /^ */.exec(lines[j])[0].length;
+      if (spaces > keyIndent) {
+        end = j;
+        continue;
+      }
+      break;
+    }
+    return { ok: true, endLine: end, allowsNested: false };
+  }
+  if (trimmed[0] === '"' || trimmed[0] === "'") {
+    const startCol = lines[lineIdx].length - trimmed.length;
+    const quoted = consumeQuotedScalar(lines, lineIdx, startCol);
+    if (!quoted.ok) return { ok: false };
+    return { ok: true, endLine: quoted.endLine, allowsNested: false };
+  }
+  return { ok: true, endLine: lineIdx, allowsNested: false };
+}
+
+function consumeNestedLine(lines, lineIdx, indent, content) {
+  const parsed = parseMappingLine(content);
+  if (!parsed) return { ok: true, endLine: lineIdx };
+  const consumed = consumeOtherValue(lines, lineIdx, indent, parsed.rawValue);
+  if (!consumed.ok) return { ok: false };
+  return { ok: true, endLine: consumed.endLine };
+}
+
+function parseMemoryFrontmatter(text) {
+  const source = String(text || '').replace(/^\uFEFF/, '');
+  const lines = source.split(/\r?\n/);
+  if (!/^---[ \t]*$/.test(lines[0])) {
+    return { state: 'untyped', body: source };
+  }
+  let closeIdx = -1;
+  for (let i = 1; i < lines.length; i++) {
+    if (/^---[ \t]*$/.test(lines[i])) {
+      closeIdx = i;
+      break;
+    }
+  }
+  if (closeIdx === -1) return { state: 'malformed', body: '' };
+
+  const fmLines = lines.slice(1, closeIdx);
+  const body = lines.slice(closeIdx + 1).join('\n');
+  const topTypes = [];
+  const metaTypes = [];
+  let inMetadata = false;
+  let metaChildIndent = null;
+  let topAllowsNested = false;
+  let metaChildAllowsNested = false;
+  let metaCount = 0;
+
+  for (let i = 0; i < fmLines.length; i++) {
+    const line = fmLines[i];
+    if (/^[ \t]*(?:#.*)?$/.test(line)) continue;
+    const indentMatch = /^([ \t]*)/.exec(line);
+    if (indentMatch[1].includes('\t')) return { state: 'malformed', body };
+    const indent = indentMatch[1].length;
+    const content = line.slice(indent);
+
+    if (inMetadata) {
+      if (indent === 0) {
+        inMetadata = false;
+        metaChildIndent = null;
+        metaChildAllowsNested = false;
+      } else {
+        if (metaChildIndent === null) {
+          if (/^-(?:[ \t]|$)/.test(content)) return { state: 'malformed', body };
+          metaChildIndent = indent;
+        }
+        if (indent < metaChildIndent) return { state: 'malformed', body };
+        if (indent > metaChildIndent) {
+          if (!metaChildAllowsNested) return { state: 'malformed', body };
+          const nested = consumeNestedLine(fmLines, i, indent, content);
+          if (!nested.ok) return { state: 'malformed', body };
+          i = nested.endLine;
+          continue;
+        }
+        if (metaChildAllowsNested && /^-(?:[ \t]|$)/.test(content)) continue;
+        metaChildAllowsNested = false;
+        const entry = parseMappingLine(content);
+        if (!entry) return { state: 'malformed', body };
+        if (entry.key === 'type') {
+          const scalar = parseTypeScalar(entry.rawValue);
+          if (!scalar.ok) return { state: 'malformed', body };
+          metaTypes.push(scalar.value.toLowerCase());
+        } else {
+          const consumed = consumeOtherValue(fmLines, i, indent, entry.rawValue);
+          if (!consumed.ok) return { state: 'malformed', body };
+          i = consumed.endLine;
+          metaChildAllowsNested = consumed.allowsNested;
+        }
+        continue;
+      }
+    }
+
+    if (indent > 0) {
+      if (!topAllowsNested) return { state: 'malformed', body };
+      const nested = consumeNestedLine(fmLines, i, indent, content);
+      if (!nested.ok) return { state: 'malformed', body };
+      i = nested.endLine;
+      continue;
+    }
+    if (topAllowsNested && /^-(?:[ \t]|$)/.test(content)) continue;
+    topAllowsNested = false;
+    const entry = parseMappingLine(content);
+    if (!entry) return { state: 'malformed', body };
+    if (entry.key === 'type') {
+      const scalar = parseTypeScalar(entry.rawValue);
+      if (!scalar.ok) return { state: 'malformed', body };
+      topTypes.push(scalar.value.toLowerCase());
+    } else if (entry.key === 'metadata') {
+      const trimmed = entry.rawValue.trimStart();
+      if (trimmed && !trimmed.startsWith('#')) return { state: 'malformed', body };
+      metaCount += 1;
+      if (metaCount > 1) return { state: 'malformed', body };
+      inMetadata = true;
+      metaChildIndent = null;
+      metaChildAllowsNested = false;
+    } else {
+      const consumed = consumeOtherValue(fmLines, i, 0, entry.rawValue);
+      if (!consumed.ok) return { state: 'malformed', body };
+      i = consumed.endLine;
+      topAllowsNested = consumed.allowsNested;
+    }
+  }
+
+  if (topTypes.length > 1 || metaTypes.length > 1) {
+    return { state: 'malformed', body };
+  }
+  if (topTypes.length === 1 && metaTypes.length === 1) {
+    if (topTypes[0] !== metaTypes[0]) return { state: 'conflicting', body };
+    return { state: topTypes[0] === 'feedback' ? 'feedback' : 'explicit-other', body };
+  }
+  const single = topTypes[0] ?? metaTypes[0];
+  if (single !== undefined) {
+    return { state: single === 'feedback' ? 'feedback' : 'explicit-other', body };
+  }
+  return { state: 'untyped', body };
+}
+
+function stripFencedCodeBlocks(text) {
+  const lines = text.split(/\r?\n/);
+  const kept = [];
+  let fenceChar = null;
+  let fenceLen = 0;
+  for (const line of lines) {
+    if (!fenceChar) {
+      const open = /^[ \t]{0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+      if (open && (open[1][0] === '~' || !open[2].includes('`'))) {
+        fenceChar = open[1][0];
+        fenceLen = open[1].length;
+        continue;
+      }
+      kept.push(line);
+    } else {
+      const close = new RegExp(`^[ \\t]{0,3}${fenceChar}{${fenceLen},}[ \\t]*$`);
+      if (close.test(line)) {
+        fenceChar = null;
+        fenceLen = 0;
+      }
+    }
+  }
+  return kept.join('\n');
+}
+
+function hasPairedWhyHowHeadings(body) {
+  const why = /^[ \t]{0,3}(?:#{1,6}[ \t]*why(?:\s*:|\s*$)|(?:\*\*why:\*\*|\*\*why\*\*:|__why:__|__why__:)(?:[ \t]|$)|(?:\*\*why\*\*|__why__)[ \t]*$)/im;
+  const how = /^[ \t]{0,3}(?:#{1,6}[ \t]*how[ \t]+to[ \t]+apply(?:\s*:|\s*$)|(?:\*\*how[ \t]+to[ \t]+apply:\*\*|\*\*how[ \t]+to[ \t]+apply\*\*:|__how[ \t]+to[ \t]+apply:__|__how[ \t]+to[ \t]+apply__:)(?:[ \t]|$)|(?:\*\*how[ \t]+to[ \t]+apply\*\*|__how[ \t]+to[ \t]+apply__)[ \t]*$)/im;
+  return why.test(body) && how.test(body);
+}
+
+function isInstructionLesson(text, file) {
   const frontmatter = /^---\s*\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
   const feedback = frontmatter && /^type:\s*['"]?feedback(?:['"]?\s|$)/mi.test(frontmatter[1]);
   return Boolean(feedback || /^lesson-/i.test(path.basename(file)) || /^#{1,6}\s*(?:cue|lesson)\b/im.test(text));
+}
+
+function isMemoryLesson(text, file) {
+  if (isMemoryIndex(file)) return false;
+  const parsed = parseMemoryFrontmatter(text);
+  if (parsed.state === 'feedback') return true;
+  if (parsed.state !== 'untyped') return false;
+  if (/^(?:lesson|feedback)-/i.test(path.basename(file))) return true;
+  const cleanBody = stripFencedCodeBlocks(parsed.body);
+  if (/^[ \t]{0,3}#{1,6}[ \t]*(?:cue|lesson)\b/im.test(cleanBody)) return true;
+  return hasPairedWhyHowHeadings(cleanBody);
+}
+
+function isLesson(text, file, type = 'instruction') {
+  return type === 'memory' ? isMemoryLesson(text, file) : isInstructionLesson(text, file);
 }
 
 function publicText(value, root, home) {
@@ -295,8 +711,9 @@ function makeCandidate({ title, signature, sites, sources }) {
 function candidatesFromFiles(files, type, root, home, knownFiles, privateInput = false) {
   const candidates = [];
   for (const file of files) {
+    if (type === 'memory' && isMemoryIndex(file)) continue;
     const text = safeRead(file);
-    if (text === null || !isLesson(text, file)) continue;
+    if (text === null || !isLesson(text, file, type)) continue;
     const privateSource = type === 'memory' || privateInput || !isWithin(root, path.resolve(file));
     const title = privateSource ? `Local ${type} lead` :
       shortTitle(markdownTitle(text) || path.basename(file, path.extname(file)), root, home);
@@ -304,26 +721,109 @@ function candidatesFromFiles(files, type, root, home, knownFiles, privateInput =
     candidates.push(makeCandidate({
       title,
       signature: slug(title),
-      sites: lessonSites(text, privateSource ? knownFiles : undefined),
+      sites: type === 'memory'
+        ? memorySites(text, knownFiles)
+        : lessonSites(text, privateSource ? knownFiles : undefined),
       sources: [{ type, ref }]
     }));
   }
   return candidates;
 }
 
-function autoMemory(root, home) {
-  const slugDir = path.join(home, '.claude', 'projects', path.resolve(root).replace(/[^a-z0-9]/gi, '-'));
+function samePath(left, right, pathApi) {
+  return isWithin(left, right, pathApi) && isWithin(right, left, pathApi);
+}
+
+function parseWorktreeList(raw) {
+  const entries = [];
+  let current = null;
+  for (const token of raw.split('\0')) {
+    if (token === '') {
+      if (current) entries.push(current);
+      current = null;
+      continue;
+    }
+    if (token.startsWith('worktree ')) {
+      if (current) entries.push(current);
+      try {
+        current = { root: canonical(token.slice(9)), bare: false };
+      } catch (_) {
+        current = null;
+      }
+    } else if (current && token === 'bare') {
+      current.bare = true;
+    }
+  }
+  if (current) entries.push(current);
+  return entries;
+}
+
+function mainWorktreeRoot(root) {
+  let commonRaw;
+  let gitDirRaw;
+  try {
+    commonRaw = git(root, ['rev-parse', '--git-common-dir']).trim();
+    gitDirRaw = git(root, ['rev-parse', '--git-dir']).trim();
+  } catch (_) {
+    return null;
+  }
+  if (!commonRaw || !gitDirRaw) return null;
+  let commonDir;
+  let gitDir;
+  try {
+    commonDir = canonical(path.resolve(root, commonRaw));
+    gitDir = canonical(path.resolve(root, gitDirRaw));
+  } catch (_) {
+    return null;
+  }
+  if (samePath(commonDir, gitDir)) return null;
+  if (path.basename(commonDir) !== '.git') return null;
+  const candidate = path.dirname(commonDir);
+  let mainRoot;
+  try {
+    if (!fs.statSync(candidate).isDirectory()) return null;
+    mainRoot = canonical(candidate);
+  } catch (_) {
+    return null;
+  }
+  if (samePath(mainRoot, root)) return null;
+  let worktreeRaw;
+  try {
+    worktreeRaw = git(root, ['worktree', 'list', '--porcelain', '-z']);
+  } catch (_) {
+    return null;
+  }
+  const registered = parseWorktreeList(worktreeRaw);
+  const mainEntry = registered.find(entry => !entry.bare && samePath(entry.root, mainRoot));
+  if (!mainEntry) return null;
+  try {
+    const mainTop = canonical(git(mainRoot, ['rev-parse', '--show-toplevel']).trim());
+    const mainGitDir = canonical(path.resolve(mainRoot, git(mainRoot, ['rev-parse', '--git-dir']).trim()));
+    const mainCommonDir = canonical(path.resolve(mainRoot, git(mainRoot, ['rev-parse', '--git-common-dir']).trim()));
+    if (!samePath(mainTop, mainRoot) || !samePath(mainGitDir, commonDir) || !samePath(mainCommonDir, commonDir)) {
+      return null;
+    }
+  } catch (_) {
+    return null;
+  }
+  return mainRoot;
+}
+
+function inspectMemorySlug(targetRoot, home) {
+  const slugDir = path.join(home, '.claude', 'projects', path.resolve(targetRoot).replace(/[^a-z0-9]/gi, '-'));
   const directory = path.join(slugDir, 'memory');
   const files = flatMarkdown(directory);
   let reason = fs.existsSync(directory) ? 'hinted memory directory contains no Markdown files' : 'hinted memory directory is missing';
-  const marker = path.join(slugDir, 'MEMORY.md');
-  let verified = fs.existsSync(marker);
-  let verificationRef = verified ? marker : undefined;
+  const currentMarker = path.join(directory, 'MEMORY.md');
+  const legacyMarker = path.join(slugDir, 'MEMORY.md');
+  const marker = isRegularFile(currentMarker) ? currentMarker : isRegularFile(legacyMarker) ? legacyMarker : null;
+  let verified = Boolean(marker);
+  let verificationRef = marker || undefined;
   if (verified) reason = 'automatic memory marker found';
   else if (files.length) {
     for (const file of files) {
       const text = safeRead(file) || '';
-      if (text.includes(path.basename(root)) || text.includes(root)) {
+      if (text.includes(path.basename(targetRoot)) || text.includes(targetRoot)) {
         verified = true;
         verificationRef = file;
         reason = 'a memory file names the target repository';
@@ -333,6 +833,18 @@ function autoMemory(root, home) {
     if (!verified) reason = 'automatic memory marker absent and no memory file names the target repository';
   }
   return { directory, files, verified, reason, verificationRef };
+}
+
+function autoMemory(root, home) {
+  const primary = inspectMemorySlug(root, home);
+  if (primary.verified) return primary;
+  const mainRoot = mainWorktreeRoot(root);
+  if (!mainRoot) return primary;
+  const fallback = inspectMemorySlug(mainRoot, home);
+  if (fallback.verified || (!primary.files.length && fallback.files.length)) {
+    return fallback;
+  }
+  return primary;
 }
 
 function sourceStatus(type, origin, status, details = {}) {
@@ -411,13 +923,14 @@ function collectSources(options, root, home, files, historyCandidates) {
     return { sources, candidates };
   }
 
+  const trackedMemoryFiles = trackedRegularFiles(root);
   const auto = autoMemory(root, home);
   sources.push(sourceStatus('memory', 'auto', auto.files.length ? (auto.verified ? 'used' : 'unverified') : 'missing', {
     verified: auto.verified, reason: auto.reason,
     ref: localSourceId(auto.directory),
     ...(auto.verificationRef ? { verificationRef: localSourceId(auto.verificationRef) } : {})
   }));
-  if (auto.verified) candidates.push(...candidatesFromFiles(auto.files, 'memory', root, home, knownFiles));
+  if (auto.verified) candidates.push(...candidatesFromFiles(auto.files, 'memory', root, home, trackedMemoryFiles));
 
   if (options.memory.length) {
     for (const input of options.memory) {
@@ -426,7 +939,7 @@ function collectSources(options, root, home, files, historyCandidates) {
         ref: localSourceId(input),
         ...(selected.length ? {} : { reason: 'no readable files at the selected path' })
       }));
-      candidates.push(...candidatesFromFiles(selected, 'memory', root, home, knownFiles));
+      candidates.push(...candidatesFromFiles(selected, 'memory', root, home, trackedMemoryFiles));
     }
   } else {
     sources.push(sourceStatus('memory', 'explicit', 'missing', { reason: 'no --memory path provided' }));
