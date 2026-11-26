@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.3.0](https://github.com/dyphn1/Harness-everything/compare/v1.2.2...v1.3.0) (2026-11-26)
+
+### Features
+
+* **dispatch:** agy runner adapter for c8 ([c4bf60c](https://github.com/dyphn1/Harness-everything/commit/c4bf60c91380a67eea88070e67c1409e9dc33c5c)), closes [#466](https://github.com/dyphn1/Harness-everything/issues/466)
+* **dispatch:** managed c8 gate assignment refuses sandboxed verify:all ([a7365bf](https://github.com/dyphn1/Harness-everything/commit/a7365bf189bb4823ef74424ee3db260c840a22bd)), closes [#466](https://github.com/dyphn1/Harness-everything/issues/466)
+* **dispatch:** managed c8 per-attempt tmpdir with evidence retention ([37d070e](https://github.com/dyphn1/Harness-everything/commit/37d070e081d31b8e5bd5431d1c78b83326266494)), closes [#466](https://github.com/dyphn1/Harness-everything/issues/466)
+* **dispatch:** per-pool admission cap for managed c8 ([c30a506](https://github.com/dyphn1/Harness-everything/commit/c30a5068d72b2f029ebf3263c005ab15fa3d9c5f)), closes [#466](https://github.com/dyphn1/Harness-everything/issues/466)
+* **error-ledger-bootstrap:** classify memory lessons by feedback metadata and cues ([ec57a8e](https://github.com/dyphn1/Harness-everything/commit/ec57a8e2ae9339f007881044e82fd4e5e973855a)), closes [#486](https://github.com/dyphn1/Harness-everything/issues/486)
+* **error-ledger-bootstrap:** discover claude memory via the memory index and main worktree ([406a85c](https://github.com/dyphn1/Harness-everything/commit/406a85c2c61fd081a8030276ac383b984453824b)), closes [#486](https://github.com/dyphn1/Harness-everything/issues/486)
+* **error-ledger-bootstrap:** verified tracked-file sites for memory leads ([758bf98](https://github.com/dyphn1/Harness-everything/commit/758bf98ed4a6e042762646cc4e48f13835c78eee)), closes [#486](https://github.com/dyphn1/Harness-everything/issues/486)
+* **error-ledger-oracle:** optional digest-bound labels for candidate precision ([5fe332e](https://github.com/dyphn1/Harness-everything/commit/5fe332e20d654258294b40d12bd09c71cfef1010)), closes [#484](https://github.com/dyphn1/Harness-everything/issues/484)
+* **error-ledger-oracle:** process view with exact signature links ([3d499c6](https://github.com/dyphn1/Harness-everything/commit/3d499c6c56a7347f638c29cb44adac29ccca0381)), closes [#484](https://github.com/dyphn1/Harness-everything/issues/484) [#485](https://github.com/dyphn1/Harness-everything/issues/485)
+
+### Bug Fixes
+
+* **dispatch:** classify the live agy quota pair as runner quota ([af1b510](https://github.com/dyphn1/Harness-everything/commit/af1b510450bcc58841f7925716b512379f4d1610)), closes [#544](https://github.com/dyphn1/Harness-everything/issues/544)
+* **dispatch:** treat stale admission slots as occupied and harden c8 path checks ([3d5d615](https://github.com/dyphn1/Harness-everything/commit/3d5d615433e87fe67a5d90c4e6fd921b76b10ed0)), closes [#466](https://github.com/dyphn1/Harness-everything/issues/466)
+* **error-ledger-bootstrap:** empty typed metadata and wrapped-suffix memory sites ([40d4cee](https://github.com/dyphn1/Harness-everything/commit/40d4cee504167637c74f8d888630edb42e41976e)), closes [#486](https://github.com/dyphn1/Harness-everything/issues/486)
+* **report:** accept trailing ascii whitespace on raw codex status line ([d0c81a2](https://github.com/dyphn1/Harness-everything/commit/d0c81a208fe660f416c4ccfb4e5b6a1cb2979619)), closes [#498](https://github.com/dyphn1/Harness-everything/issues/498) [#437](https://github.com/dyphn1/Harness-everything/issues/437) [#441](https://github.com/dyphn1/Harness-everything/issues/441)
+* **report:** keep alias rejection when the inode is zero ([3c31063](https://github.com/dyphn1/Harness-everything/commit/3c31063d62c53bbc4df192e996c25a4b85ac052c)), closes [#548](https://github.com/dyphn1/Harness-everything/issues/548)
+* **windows:** compare file identities with bigint stats ([d3cd874](https://github.com/dyphn1/Harness-everything/commit/d3cd874b5a7984f63260150fc7b274ca94aadda8)), closes [#548](https://github.com/dyphn1/Harness-everything/issues/548)
+
 ## [1.2.2](https://github.com/dyphn1/Harness-everything/compare/v1.2.1...v1.2.2) (2026-11-26)
 
 ### Bug Fixes
