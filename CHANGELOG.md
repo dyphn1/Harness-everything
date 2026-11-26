@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.2.2](https://github.com/dyphn1/Harness-everything/compare/v1.2.1...v1.2.2) (2026-11-26)
+
+### Bug Fixes
+
+* **agy:** avoid false windows shell edit tracking ([8e611ce](https://github.com/dyphn1/Harness-everything/commit/8e611ce288719729d6de1dc08b1ffe46aee87478))
+* **distribution:** include the portable manifest in the public skills bundle ([b52d1da](https://github.com/dyphn1/Harness-everything/commit/b52d1daa59eb91ff9218853be9858e5ccc977bc3))
+* **router:** explain null workflow labels for deferred routing ([a6339a5](https://github.com/dyphn1/Harness-everything/commit/a6339a5d3e6219c588ccab50dbc9f146c3ef3462))
+
 ## [1.2.1](https://github.com/dyphn1/Harness-everything/compare/v1.2.0...v1.2.1) (2026-11-26)
 
 ### Bug Fixes
