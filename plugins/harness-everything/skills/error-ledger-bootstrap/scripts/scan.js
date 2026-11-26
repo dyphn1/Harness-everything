@@ -192,10 +192,23 @@ function walkMarkdown(directory) {
   return found;
 }
 
+function isMemoryIndex(file) {
+  return /^memory\.md$/i.test(path.basename(file));
+}
+
+function isRegularFile(file) {
+  try {
+    const stat = fs.lstatSync(file);
+    return !stat.isSymbolicLink() && stat.isFile();
+  } catch (_) {
+    return false;
+  }
+}
+
 function flatMarkdown(directory) {
   try {
     return fs.readdirSync(directory, { withFileTypes: true })
-      .filter(entry => entry.isFile() && entry.name.toLowerCase().endsWith('.md'))
+      .filter(entry => entry.isFile() && entry.name.toLowerCase().endsWith('.md') && !isMemoryIndex(entry.name))
       .map(entry => path.join(directory, entry.name))
       .sort((a, b) => a.localeCompare(b));
   } catch (_) {
@@ -295,6 +308,7 @@ function makeCandidate({ title, signature, sites, sources }) {
 function candidatesFromFiles(files, type, root, home, knownFiles, privateInput = false) {
   const candidates = [];
   for (const file of files) {
+    if (type === 'memory' && isMemoryIndex(file)) continue;
     const text = safeRead(file);
     if (text === null || !isLesson(text, file)) continue;
     const privateSource = type === 'memory' || privateInput || !isWithin(root, path.resolve(file));
@@ -311,19 +325,100 @@ function candidatesFromFiles(files, type, root, home, knownFiles, privateInput =
   return candidates;
 }
 
-function autoMemory(root, home) {
-  const slugDir = path.join(home, '.claude', 'projects', path.resolve(root).replace(/[^a-z0-9]/gi, '-'));
+function samePath(left, right, pathApi) {
+  return isWithin(left, right, pathApi) && isWithin(right, left, pathApi);
+}
+
+function parseWorktreeList(raw) {
+  const entries = [];
+  let current = null;
+  for (const token of raw.split('\0')) {
+    if (token === '') {
+      if (current) entries.push(current);
+      current = null;
+      continue;
+    }
+    if (token.startsWith('worktree ')) {
+      if (current) entries.push(current);
+      try {
+        current = { root: canonical(token.slice(9)), bare: false };
+      } catch (_) {
+        current = null;
+      }
+    } else if (current && token === 'bare') {
+      current.bare = true;
+    }
+  }
+  if (current) entries.push(current);
+  return entries;
+}
+
+function mainWorktreeRoot(root) {
+  let commonRaw;
+  let gitDirRaw;
+  try {
+    commonRaw = git(root, ['rev-parse', '--git-common-dir']).trim();
+    gitDirRaw = git(root, ['rev-parse', '--git-dir']).trim();
+  } catch (_) {
+    return null;
+  }
+  if (!commonRaw || !gitDirRaw) return null;
+  let commonDir;
+  let gitDir;
+  try {
+    commonDir = canonical(path.resolve(root, commonRaw));
+    gitDir = canonical(path.resolve(root, gitDirRaw));
+  } catch (_) {
+    return null;
+  }
+  if (samePath(commonDir, gitDir)) return null;
+  if (path.basename(commonDir) !== '.git') return null;
+  const candidate = path.dirname(commonDir);
+  let mainRoot;
+  try {
+    if (!fs.statSync(candidate).isDirectory()) return null;
+    mainRoot = canonical(candidate);
+  } catch (_) {
+    return null;
+  }
+  if (samePath(mainRoot, root)) return null;
+  let worktreeRaw;
+  try {
+    worktreeRaw = git(root, ['worktree', 'list', '--porcelain', '-z']);
+  } catch (_) {
+    return null;
+  }
+  const registered = parseWorktreeList(worktreeRaw);
+  const mainEntry = registered.find(entry => !entry.bare && samePath(entry.root, mainRoot));
+  if (!mainEntry) return null;
+  try {
+    const mainTop = canonical(git(mainRoot, ['rev-parse', '--show-toplevel']).trim());
+    const mainGitDir = canonical(path.resolve(mainRoot, git(mainRoot, ['rev-parse', '--git-dir']).trim()));
+    const mainCommonDir = canonical(path.resolve(mainRoot, git(mainRoot, ['rev-parse', '--git-common-dir']).trim()));
+    if (!samePath(mainTop, mainRoot) || !samePath(mainGitDir, commonDir) || !samePath(mainCommonDir, commonDir)) {
+      return null;
+    }
+  } catch (_) {
+    return null;
+  }
+  return mainRoot;
+}
+
+function inspectMemorySlug(targetRoot, home) {
+  const slugDir = path.join(home, '.claude', 'projects', path.resolve(targetRoot).replace(/[^a-z0-9]/gi, '-'));
   const directory = path.join(slugDir, 'memory');
   const files = flatMarkdown(directory);
   let reason = fs.existsSync(directory) ? 'hinted memory directory contains no Markdown files' : 'hinted memory directory is missing';
-  const marker = path.join(slugDir, 'MEMORY.md');
-  let verified = fs.existsSync(marker);
-  let verificationRef = verified ? marker : undefined;
+  const currentMarker = path.join(directory, 'MEMORY.md');
+  const legacyMarker = path.join(slugDir, 'MEMORY.md');
+  const marker = isRegularFile(currentMarker) ? currentMarker : isRegularFile(legacyMarker) ? legacyMarker : null;
+  let verified = Boolean(marker);
+  let verificationRef = marker || undefined;
   if (verified) reason = 'automatic memory marker found';
   else if (files.length) {
     for (const file of files) {
       const text = safeRead(file) || '';
-      if (text.includes(path.basename(root)) || text.includes(root)) {
+      if (text.includes(path.basename(targetRoot)) || text.includes(targetRoot)) {
         verified = true;
         verificationRef = file;
         reason = 'a memory file names the target repository';
@@ -333,6 +428,18 @@ function autoMemory(root, home) {
     if (!verified) reason = 'automatic memory marker absent and no memory file names the target repository';
   }
   return { directory, files, verified, reason, verificationRef };
+}
+
+function autoMemory(root, home) {
+  const primary = inspectMemorySlug(root, home);
+  if (primary.verified) return primary;
+  const mainRoot = mainWorktreeRoot(root);
+  if (!mainRoot) return primary;
+  const fallback = inspectMemorySlug(mainRoot, home);
+  if (fallback.verified || (!primary.files.length && fallback.files.length)) {
+    return fallback;
+  }
+  return primary;
 }
 
 function sourceStatus(type, origin, status, details = {}) {

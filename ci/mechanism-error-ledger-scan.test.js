@@ -468,6 +468,236 @@ try {
     'MEMORY.md verifies the hinted directory');
   fs.rmSync(memoryMarker);
 
+  // I486-memory-discovery: current memory/MEMORY.md marker, index exclusion, unrelated-home isolation, and linked-worktree fallback.
+  const unrelatedHome = path.join(TMP, 'PRIVATE_UNRELATED_HOME_SENTINEL');
+  const unrelatedSlugDir = path.join(unrelatedHome, '.claude', 'projects', slug, 'memory');
+  writeFile(path.join(unrelatedSlugDir, 'MEMORY.md'), '# Unrelated home index\n');
+  writeFile(path.join(unrelatedSlugDir, 'lesson-trap.md'),
+    '---\ntype: feedback\ntitle: PRIVATE_UNRELATED_HOME_TRAP\n---\n## Cue\nTrap.\n## Lesson\nInspect `src/single.js`.\n');
+  writeFile(path.join(home, '.claude', 'projects', '-unrelated-other-repo', 'memory', 'MEMORY.md'), '# Other project index\n');
+  writeFile(path.join(home, '.claude', 'projects', '-unrelated-other-repo', 'memory', 'lesson-other.md'),
+    '---\ntype: feedback\ntitle: PRIVATE_OTHER_PROJECT_TRAP\n---\n## Cue\nOther.\n## Lesson\nInspect `src/single.js`.\n');
+
+  const currentMarker = path.join(autoMemoryDir, 'MEMORY.md');
+  writeFile(currentMarker, [
+    '---',
+    'type: feedback',
+    'title: PRIVATE_INDEX_TITLE_SENTINEL',
+    '---',
+    '# Memory Index',
+    '## Cue',
+    'Index entry should never become a candidate.',
+    '## Lesson',
+    'Do not emit `src/parser.js` from the index.',
+    ''
+  ].join('\n'));
+  writeFile(autoMemory, [
+    '---',
+    'type: feedback',
+    'title: PRIVATE_TITLE_SENTINEL current marker lesson',
+    '---',
+    '## Cue',
+    'Current marker verification without repeating repo name.',
+    '## Lesson',
+    'Keep testing `src/parser.js`.',
+    ''
+  ].join('\n'));
+
+  const currentMarkerOut = path.join(TMP, 'current-marker-reports');
+  const currentMarkerPayload = reportFrom(run([
+    '--root', repo, '--out', currentMarkerOut, '--hide-ledger', '--home', home
+  ], home, null, { HOME: unrelatedHome, USERPROFILE: unrelatedHome }));
+  const currentMarkerJson = JSON.parse(fs.readFileSync(currentMarkerPayload.reportJson, 'utf8'));
+  const currentMarkerMd = fs.readFileSync(currentMarkerPayload.reportMd, 'utf8');
+  const currentMarkerSource = currentMarkerJson.sources.find(source => source.type === 'memory' && source.origin === 'auto');
+  assert.strictEqual(currentMarkerSource.status, 'used', 'memory/MEMORY.md verifies the auto-memory directory');
+  assert.strictEqual(currentMarkerSource.verified, true);
+  assert.match(currentMarkerSource.verificationRef, /^local\/[a-f0-9]{64}$/);
+  assert.ok(currentMarkerSource.reason.includes('memory marker'));
+  const currentMemoryLeads = currentMarkerJson.candidates.filter(item => item.sources.some(source => source.type === 'memory'));
+  assert.strictEqual(currentMemoryLeads.length, 1, 'supported legacy lesson reaches report while MEMORY.md index does not');
+  assert.deepStrictEqual(currentMemoryLeads[0].sites, ['src/parser.js']);
+  assert.ok(!candidate(currentMarkerJson, 'src/single.js', 'memory'), 'unrelated home directories are never traversed');
+  assert.doesNotMatch(JSON.stringify(currentMarkerJson), /PRIVATE_INDEX_TITLE_SENTINEL|PRIVATE_UNRELATED_HOME|PRIVATE_OTHER_PROJECT/);
+  assert.doesNotMatch(currentMarkerMd, /PRIVATE_INDEX_TITLE_SENTINEL|PRIVATE_UNRELATED_HOME|PRIVATE_OTHER_PROJECT/);
+
+  // Explicit --memory directory containing MEMORY.md also skips the index.
+  const explicitWithIndexDir = path.join(TMP, 'explicit-with-index');
+  writeFile(path.join(explicitWithIndexDir, 'MEMORY.md'), [
+    '---',
+    'type: feedback',
+    'title: PRIVATE_INDEX_TITLE_SENTINEL',
+    '---',
+    '## Cue',
+    'Explicit index.',
+    '## Lesson',
+    'Ignore `src/single.js` in index.',
+    ''
+  ].join('\n'));
+  writeFile(path.join(explicitWithIndexDir, 'lesson-explicit-real.md'), [
+    '---',
+    'type: feedback',
+    '---',
+    '## Cue',
+    'Explicit real lesson.',
+    '## Lesson',
+    'Check `src/parser.js`.',
+    ''
+  ].join('\n'));
+  const explicitIndexOut = path.join(TMP, 'explicit-index-reports');
+  const explicitIndexJson = JSON.parse(fs.readFileSync(reportFrom(run([
+    '--root', repo, '--out', explicitIndexOut, '--hide-ledger', '--home', home, '--memory', explicitWithIndexDir
+  ], home)).reportJson, 'utf8'));
+  assert.ok(!candidate(explicitIndexJson, 'src/single.js', 'memory'), 'explicit --memory skips MEMORY.md index');
+
+  // --no-memory byte-identical check with verified auto-memory present vs absent.
+  const freezeTime = path.join(TMP, 'freeze-time.js');
+  writeFile(freezeTime, [
+    'const NativeDate = Date;',
+    "class FrozenDate extends NativeDate { constructor(...args) { super(...(args.length ? args : ['2026-11-26T00:00:00.000Z'])); } static now() { return NativeDate.parse('2026-11-26T00:00:00.000Z'); } }",
+    'global.Date = FrozenDate;'
+  ].join('\n'));
+  const emptyHome = path.join(TMP, 'empty-home');
+  fs.mkdirSync(emptyHome, { recursive: true });
+  const noMemPresentOut = path.join(TMP, 'no-mem-present');
+  const noMemAbsentOut = path.join(TMP, 'no-mem-absent');
+  const noMemPresent = reportFrom(run(['--root', repo, '--out', noMemPresentOut, '--hide-ledger', '--home', home, '--no-memory'], home, freezeTime));
+  const noMemAbsent = reportFrom(run(['--root', repo, '--out', noMemAbsentOut, '--hide-ledger', '--home', emptyHome, '--no-memory'], emptyHome, freezeTime));
+  assert.strictEqual(fs.readFileSync(noMemPresent.reportJson, 'utf8'), fs.readFileSync(noMemAbsent.reportJson, 'utf8'),
+    '--no-memory JSON stays byte-identical with verified memory present');
+  assert.strictEqual(fs.readFileSync(noMemPresent.reportMd, 'utf8'), fs.readFileSync(noMemAbsent.reportMd, 'utf8'),
+    '--no-memory Markdown stays byte-identical with verified memory present');
+
+  // Real fixture linked worktree: verified main-repository slug fallback, then worktree-first precedence.
+  const linkedWorktree = path.join(TMP, 'PRIVATE_WT_PARENT_SENTINEL', 'linked-worktree');
+  fs.mkdirSync(path.dirname(linkedWorktree), { recursive: true });
+  git(repo, ['worktree', 'add', '-q', '-b', 'wt-memory-test', linkedWorktree]);
+  const wtSlug = path.resolve(linkedWorktree).replace(/[^a-z0-9]/gi, '-');
+  const wtMemoryDir = path.join(home, '.claude', 'projects', wtSlug, 'memory');
+
+  const wtFallbackOut = path.join(TMP, 'wt-fallback-reports');
+  const wtFallbackPayload = reportFrom(run(['--root', linkedWorktree, '--out', wtFallbackOut, '--hide-ledger', '--home', home], home));
+  const wtFallbackJson = JSON.parse(fs.readFileSync(wtFallbackPayload.reportJson, 'utf8'));
+  const wtFallbackMd = fs.readFileSync(wtFallbackPayload.reportMd, 'utf8');
+  const wtFallbackSource = wtFallbackJson.sources.find(source => source.type === 'memory' && source.origin === 'auto');
+  assert.strictEqual(wtFallbackSource.status, 'used', 'linked worktree falls back to verified main-repository memory');
+  assert.strictEqual(wtFallbackSource.verified, true);
+  assert.ok(candidate(wtFallbackJson, 'src/parser.js', 'memory'), 'main-repository lesson reaches report from linked worktree');
+  assert.strictEqual(wtFallbackJson.candidates.filter(item => item.sources.some(source => source.type === 'memory')).length, 1,
+    'fallback skips MEMORY.md index');
+  assert.ok(!JSON.stringify(wtFallbackJson).includes(linkedWorktree) && !wtFallbackMd.includes(linkedWorktree),
+    'linked worktree path is never exposed');
+  assert.ok(!JSON.stringify(wtFallbackJson).includes(repo) && !wtFallbackMd.includes(repo),
+    'main repository path is never exposed');
+  assert.doesNotMatch(JSON.stringify(wtFallbackJson), /PRIVATE_WT_PARENT_SENTINEL|PRIVATE_INDEX_TITLE_SENTINEL/);
+  assert.doesNotMatch(wtFallbackMd, /PRIVATE_WT_PARENT_SENTINEL|PRIVATE_INDEX_TITLE_SENTINEL/);
+
+  // Unverified worktree memory does not emit leads and still allows verified main-repository fallback.
+  const wtLesson = path.join(wtMemoryDir, 'lesson-PRIVATE_FILENAME_SENTINEL-wt.md');
+  writeFile(wtLesson, [
+    '---',
+    'type: feedback',
+    'title: PRIVATE_WT_TITLE_SENTINEL',
+    '---',
+    '## Cue',
+    'Worktree note.',
+    '## Lesson',
+    'Check `src/single.js`.',
+    ''
+  ].join('\n'));
+  const wtUnverifiedPrimaryOut = path.join(TMP, 'wt-unverified-primary');
+  const wtUnverifiedPrimaryJson = JSON.parse(fs.readFileSync(reportFrom(run([
+    '--root', linkedWorktree, '--out', wtUnverifiedPrimaryOut, '--hide-ledger', '--home', home
+  ], home)).reportJson, 'utf8'));
+  assert.ok(candidate(wtUnverifiedPrimaryJson, 'src/parser.js', 'memory'),
+    'verified main-repository fallback is used when worktree memory is unverified');
+  assert.ok(!candidate(wtUnverifiedPrimaryJson, 'src/single.js', 'memory'),
+    'unverified worktree memory produces no leads');
+
+  // Verified worktree-specific marker takes precedence over main-repository fallback.
+  writeFile(path.join(wtMemoryDir, 'MEMORY.md'), '# Worktree memory index\n');
+  const wtVerifiedOut = path.join(TMP, 'wt-verified-reports');
+  const wtVerifiedPayload = reportFrom(run([
+    '--root', linkedWorktree, '--out', wtVerifiedOut, '--hide-ledger', '--home', home
+  ], home));
+  const wtVerifiedJson = JSON.parse(fs.readFileSync(wtVerifiedPayload.reportJson, 'utf8'));
+  const wtVerifiedMd = fs.readFileSync(wtVerifiedPayload.reportMd, 'utf8');
+  assert.ok(candidate(wtVerifiedJson, 'src/single.js', 'memory'),
+    'verified worktree-specific marker is used first');
+  assert.ok(!candidate(wtVerifiedJson, 'src/parser.js', 'memory'),
+    'main-repository fallback is not merged when worktree-specific marker is verified');
+  assert.doesNotMatch(JSON.stringify(wtVerifiedJson), /PRIVATE_WT_PARENT_SENTINEL|PRIVATE_WT_TITLE_SENTINEL|PRIVATE_FILENAME_SENTINEL/);
+  assert.doesNotMatch(wtVerifiedMd, /PRIVATE_WT_PARENT_SENTINEL|PRIVATE_WT_TITLE_SENTINEL|PRIVATE_FILENAME_SENTINEL/);
+
+  // Unverified main-repository fallback (when worktree memory is absent) produces no auto-memory leads.
+  fs.rmSync(path.join(home, '.claude', 'projects', wtSlug), { recursive: true, force: true });
+  fs.rmSync(currentMarker);
+  const wtBothUnverifiedOut = path.join(TMP, 'wt-both-unverified');
+  const wtBothUnverifiedJson = JSON.parse(fs.readFileSync(reportFrom(run([
+    '--root', linkedWorktree, '--out', wtBothUnverifiedOut, '--hide-ledger', '--home', home
+  ], home)).reportJson, 'utf8'));
+  const wtBothUnverifiedSource = wtBothUnverifiedJson.sources.find(source => source.type === 'memory' && source.origin === 'auto');
+  assert.strictEqual(wtBothUnverifiedSource.verified, false);
+  assert.strictEqual(wtBothUnverifiedSource.status, 'unverified');
+  assert.ok(!wtBothUnverifiedJson.candidates.some(item => item.sources.some(source => source.type === 'memory')),
+    'unverified fallback produces no auto-memory leads');
+
+  // Negative controls: bare-repo worktree and --separate-git-dir worktree must not treat git-common-dir parent as main worktree.
+  const bareParent = path.join(TMP, 'bare-parent');
+  const bareRepo = path.join(bareParent, 'origin.git');
+  const bareSeed = path.join(TMP, 'bare-seed');
+  fs.mkdirSync(bareSeed, { recursive: true });
+  git(bareSeed, ['init', '-q']);
+  git(bareSeed, ['config', 'user.name', 'Scanner Fixture']);
+  git(bareSeed, ['config', 'user.email', 'scanner@example.invalid']);
+  git(bareSeed, ['config', 'commit.gpgsign', 'false']);
+  commit(bareSeed, 'feat: seed bare repo', { 'src/parser.js': 'module.exports = 1;\n' }, 0);
+  fs.mkdirSync(bareParent, { recursive: true });
+  git(bareSeed, ['clone', '--bare', '-q', bareSeed, bareRepo]);
+  const bareWt = path.join(TMP, 'bare-linked-wt');
+  git(bareRepo, ['worktree', 'add', '-q', '-b', 'bare-wt-branch', bareWt]);
+  for (const bogusRoot of [bareRepo, bareParent]) {
+    const bogusSlug = path.resolve(bogusRoot).replace(/[^a-z0-9]/gi, '-');
+    writeFile(path.join(home, '.claude', 'projects', bogusSlug, 'memory', 'MEMORY.md'), '# Bogus index\n');
+    writeFile(path.join(home, '.claude', 'projects', bogusSlug, 'memory', 'lesson-bogus.md'),
+      '---\ntype: feedback\n---\n## Cue\nBogus.\n## Lesson\nCheck `src/parser.js`.\n');
+  }
+  const bareWtOut = path.join(TMP, 'bare-wt-reports');
+  const bareWtJson = JSON.parse(fs.readFileSync(reportFrom(run([
+    '--root', bareWt, '--out', bareWtOut, '--hide-ledger', '--home', home
+  ], home)).reportJson, 'utf8'));
+  const bareWtSource = bareWtJson.sources.find(source => source.type === 'memory' && source.origin === 'auto');
+  assert.strictEqual(bareWtSource.verified, false, 'bare repo common-dir never establishes a main worktree');
+  assert.ok(!bareWtJson.candidates.some(item => item.sources.some(source => source.type === 'memory')),
+    'bare repo worktree emits no fallback auto-memory leads');
+
+  const sepParent = path.join(TMP, 'sep-git-parent');
+  const sepGitDir = path.join(sepParent, 'repo-git');
+  const sepRepo = path.join(TMP, 'sep-main-repo');
+  fs.mkdirSync(sepParent, { recursive: true });
+  fs.mkdirSync(sepRepo, { recursive: true });
+  git(sepRepo, ['init', '-q', `--separate-git-dir=${sepGitDir}`]);
+  git(sepRepo, ['config', 'user.name', 'Scanner Fixture']);
+  git(sepRepo, ['config', 'user.email', 'scanner@example.invalid']);
+  git(sepRepo, ['config', 'commit.gpgsign', 'false']);
+  commit(sepRepo, 'feat: seed separate git dir', { 'src/parser.js': 'module.exports = 2;\n' }, 0);
+  const sepWt = path.join(TMP, 'sep-linked-wt');
+  git(sepRepo, ['worktree', 'add', '-q', '-b', 'sep-wt-branch', sepWt]);
+  for (const bogusRoot of [sepGitDir, sepParent]) {
+    const bogusSlug = path.resolve(bogusRoot).replace(/[^a-z0-9]/gi, '-');
+    writeFile(path.join(home, '.claude', 'projects', bogusSlug, 'memory', 'MEMORY.md'), '# Bogus separate index\n');
+    writeFile(path.join(home, '.claude', 'projects', bogusSlug, 'memory', 'lesson-sep-bogus.md'),
+      '---\ntype: feedback\n---\n## Cue\nBogus sep.\n## Lesson\nCheck `src/parser.js`.\n');
+  }
+  const sepWtOut = path.join(TMP, 'sep-wt-reports');
+  const sepWtJson = JSON.parse(fs.readFileSync(reportFrom(run([
+    '--root', sepWt, '--out', sepWtOut, '--hide-ledger', '--home', home
+  ], home)).reportJson, 'utf8'));
+  const sepWtSource = sepWtJson.sources.find(source => source.type === 'memory' && source.origin === 'auto');
+  assert.strictEqual(sepWtSource.verified, false, 'separate-git-dir parent never establishes a main worktree');
+  assert.ok(!sepWtJson.candidates.some(item => item.sources.some(source => source.type === 'memory')),
+    'separate-git-dir worktree emits no fallback auto-memory leads');
+
   const insideOut = path.join(repo, 'must-not-be-created');
   const insideResult = run(['--root', repo, '--out', insideOut, '--hide-ledger', '--home', home], home);
   const insidePayload = reportFrom(insideResult, 2);
