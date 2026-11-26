@@ -90,6 +90,49 @@ test('548 report-writer allows distinct files whose 64-bit dev/ino collide as Nu
   }
 });
 
+test('548 report-writer rejects a zero-inode parent-directory alias and preserves the raw input', t => {
+  const dir = tempDir(t, 'harness-548-alias-');
+  const files = path.join(dir, 'files');
+  fs.mkdirSync(files);
+  const raw = path.join(files, 'raw.txt');
+  const aliasDir = path.join(dir, 'alias-dir');
+  const aliased = path.join(aliasDir, 'raw.txt');
+  fs.symlinkSync(files, aliasDir, process.platform === 'win32' ? 'junction' : 'dir');
+  const rawBytes = Buffer.from('First\n');
+  fs.writeFileSync(raw, rawBytes);
+
+  // Simulate a stat backend that reports inode zero for Number and bigint stats alike.
+  const preload = writeStatPreload(path.join(dir, 'preload-zero-ino.cjs'), `
+    'use strict';
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const norm = p => {
+      const resolved = path.resolve(String(p));
+      return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+    };
+    const rawKey = norm(${JSON.stringify(raw)});
+    const aliasKey = norm(${JSON.stringify(aliased)});
+    const origStatSync = fs.statSync;
+    fs.statSync = function (file, options) {
+      const result = origStatSync.call(this, file, options);
+      const key = norm(file);
+      if (key === rawKey || key === aliasKey) {
+        result.ino = options && options.bigint ? 0n : 0;
+      }
+      return result;
+    };
+  `);
+
+  const result = runNode(
+    [REPORT_WRITER, 'write', '--output', aliased, '--status', 'DONE', '--from-codex-output', raw],
+    { preload }
+  );
+
+  assert.notEqual(result.status, 0, 'zero-inode directory alias must be rejected');
+  assert.match(result.stderr, /report-writer: output aliases an input file/);
+  assert.deepEqual(fs.readFileSync(raw), rawBytes, 'raw input bytes must be preserved');
+});
+
 test('548 errors-sync detects a swapped index whose 64-bit ino collides as Number', t => {
   assert.equal(Number(LARGE), Number(LARGE + 1n), 'fixture IDs must collide when converted to Number');
 

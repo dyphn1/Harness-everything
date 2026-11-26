@@ -153,7 +153,7 @@ function assertDistinctFiles(input, output) {
   const inputStat = fs.statSync(inputPath, { bigint: true });
   try {
     const outputStat = fs.statSync(outputPath, { bigint: true });
-    if (inputStat.ino > 0n && inputStat.dev === outputStat.dev && inputStat.ino === outputStat.ino) error('output aliases an input file');
+    if (inputStat.dev === outputStat.dev && inputStat.ino === outputStat.ino) error('output aliases an input file');
   } catch (cause) {
     if (cause.code !== 'ENOENT') throw cause;
     try {
