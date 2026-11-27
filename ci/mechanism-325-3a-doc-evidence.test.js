@@ -1169,4 +1169,77 @@ checkCase('325-3a S3 absent reqUpdates with a valid-looking waiver and matching 
     'absent update data makes the obligation unknown: no pass and no absence fail');
 });
 
+// T2-C (#553): surviving outline-confirmation evidence controls moved from
+// ci/mechanism-prb-outline-review.test.js (source + packaged legs).
+const EVIDENCE_LEGS = [
+  { name: 'source', modulePath: path.join(__dirname, '..', 'harness-everything', 'scripts', 'doc-evidence.js') },
+  { name: 'packaged', modulePath: path.join(__dirname, '..', 'plugins', 'harness-everything', 'skills', 'harness-everything', 'scripts', 'doc-evidence.js') },
+];
+
+for (const leg of EVIDENCE_LEGS) {
+  checkCase(`325-3a T2-C [${leg.name}] PR-B generic successful execution or waiver cannot pass outline-confirmation`, () => {
+    const { checkDocObligations: checkLeg } = require(leg.modulePath);
+    const target = 'docs/adr/DOCS-001.md';
+    const digest = sha256('final D bytes');
+    const baselineDigest = sha256('original B');
+    const outlineObligation = {
+      id: 'outline-confirmation', capability: 'outline-confirmation', strength: 'MUST',
+      applicability: 'applicable', scope: { paths: [target] },
+    };
+    const genericExecution = {
+      id: 'generic-exec', obligationId: 'outline-confirmation', kind: 'execution',
+      command: 'echo done', exitCode: 0, paths: [target], artifactDigests: { [target]: digest },
+      baseDigest: baselineDigest, provenance: 'ordinary shell command',
+    };
+    const genericWaiver = {
+      id: 'generic-waiver', obligationId: 'outline-confirmation', kind: 'waiver', reason: 'approved',
+      citedRecordIds: ['generic-exec'], paths: [target], artifactDigests: { [target]: digest }, baseDigest: baselineDigest,
+    };
+    const output = checkLeg({
+      obligations: [outlineObligation], artifacts: { [target]: { digest } }, baseline: { digest: baselineDigest },
+      executionRecords: [genericExecution], reviewRecords: [genericWaiver],
+    });
+    assert.notStrictEqual(output.results[0].outcome, 'pass', 'outline-confirmation must bypass generic execution and waiver lanes');
+    assert.strictEqual(output.results[0].observation, 'unresolved');
+  });
+
+  checkCase(`325-3a T2-C [${leg.name}] PR-B outline checker reports validated O/D and missing D remains incomplete`, () => {
+    const { checkDocObligations: checkLeg } = require(leg.modulePath);
+    const target = 'docs/adr/DOCS-001.md';
+    const digest = sha256('final D bytes');
+    const baselineDigest = sha256('original B');
+    const evidence = {
+      schema: 'harness.outline-confirmation.v1', state: 'validated',
+      taskId: 'task-prb', attemptId: 'attempt-1', inventoryRowId: '20', domain: 'DOCS',
+      inventoryPinDigest: sha256('pin'), inventoryArtifactDigest: sha256('inventory'),
+      baselineCommit: 'a'.repeat(40), outlineCommit: 'b'.repeat(40), draftCommit: 'c'.repeat(40), mergedCommit: 'c'.repeat(40),
+      handoffDigest: sha256('handoff'), reviewDigest: sha256('review'), seamDigest: sha256('seam'),
+      reviewCaptureDigest: sha256('review-capture'), dispatchInputDigest: sha256('dispatch'), writerLeaseDigest: sha256('lease'),
+      dispatchToolUseId: 'dispatch-1',
+      ancestry: 'strict-descendant', targetPaths: [target],
+      mergeCorrespondence: null,
+      outlineArtifactDigests: { [target]: sha256('outline O bytes') },
+      draftArtifactDigests: { [target]: digest },
+      reviewerPrincipal: 'reviewer-agent', coordinatorPrincipal: 'author-session', workerPrincipal: 'worker-agent',
+    };
+    const output = checkLeg({
+      obligations: [{ id: 'outline-confirmation', capability: 'outline-confirmation', strength: 'MUST',
+        applicability: 'applicable', scope: { paths: [target] } }],
+      artifacts: { [target]: { digest } }, baseline: { digest: baselineDigest }, executionRecords: [],
+      reviewRecords: [{ id: 'outline-event', obligationId: 'outline-confirmation', kind: 'outline-confirmation',
+        provenance: 'validated pre-draft outline evidence', paths: [target], baseDigest: baselineDigest,
+        artifactDigests: { [target]: digest }, outlineEvidence: evidence }],
+    });
+    assert.strictEqual(output.results[0].outcome, 'pass', JSON.stringify({ result: output.results[0], diagnostics: output.diagnostics }));
+    assert.strictEqual(output.results[0].observation, 'observed');
+    const incomplete = checkLeg({
+      obligations: [{ id: 'outline-confirmation', capability: 'outline-confirmation', strength: 'MUST',
+        applicability: 'applicable', scope: { paths: [target] } }],
+      artifacts: { [target]: { digest } }, baseline: { digest: baselineDigest }, executionRecords: [], reviewRecords: [],
+    });
+    assert.strictEqual(incomplete.results[0].outcome, 'none');
+    assert.strictEqual(incomplete.results[0].observation, 'unresolved', 'missing D remains incomplete');
+  });
+}
+
 helper.finish();
