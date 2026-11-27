@@ -1,26 +1,9 @@
 #!/usr/bin/env node
 'use strict';
 
-// #325 PR #351 review P2: withholding persistence must apply the credit decision in memory first (RED).
-//
-// Contract under test (docs/doc-workflow-reconciliation.md, "Persistence failure (PR #351 review P2)"):
-// when the S1 pilot withholds credit at a boundary, the withholding decision is applied in memory first
-// (aggregate verify becomes pending, a satisfied workflow becomes running, step:<verify>:pending is
-// reported) and persisting that state is best-effort afterwards. A failed obligations-file write adds the
-// diagnostic withhold-persist-failed and a reminder; it never escapes, never leaves persisted
-// satisfied/PASS counting as credit, and never makes Stop exit non-zero.
-//
-// The seam is hooks/scripts/lib/workflow-obligations.js (withholdPilotVerification): it writes
-// workflow-obligations.json through ./fable-contracts atomicWriteJson before flipping workflow.state. Each
-// leg (source hooks/scripts and packaged plugins/harness-everything/hooks/scripts) is stubbed in require.cache
-// — atomicWriteJson is replaced before that leg's workflow-obligations.js is required, so the stub throws on
-// the obligations-file write only; the pilot report write still succeeds through the same stub. The context is
-// an OFF-seeded satisfied workflow in a temporary git repository whose recorded scope is governed (the pilot
-// baseline is captured through the runtime's own captureBaseline seam), assessed with the switch env exactly 1.
-//
-// This file grants no pilot credit: a FAIL is a real gap (exception escapes, state stays satisfied, the
-// diagnostic is absent); PASS/FAIL/INFRA classification follows the mechanism suite convention
-// (0 pass, 1 failed assertion, 2 infrastructure).
+// #325 PR #351 retained controls: closed-workflow refusal plus OFF/Fable and generic Stop failure behavior.
+// Pilot withholding, E1 re-evaluation, and their dedicated recovery paths were retired. These controls replay
+// the real source and packaged entry points and compare preserved OFF/Fable behavior with the historical Stop.
 
 const fs = require('fs');
 const os = require('os');
@@ -29,14 +12,8 @@ const { execFileSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const SWITCH = 'HARNESS_DOC_RECONCILIATION_PILOT';
-const OBLIGATION_FILE = 'workflow-obligations.json';
 const PILOT_REPORT_FILE = 'doc-reconciliation-pilot.json';
 const VERIFY_STEP_ID = 'req-verify';
-
-const LEGS = [
-  { id: 'source', lib: path.join(ROOT, 'hooks', 'scripts', 'lib') },
-  { id: 'packaged', lib: path.join(ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'lib') },
-];
 
 const GOVERNED_CONFIG = '{\n  "governed": [\n    { "path": "docs/adr/**", "role": "adr" }\n  ],\n  "domains": ["GRPH"]\n}\n';
 const ADR_BASE = '# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry once.\n';
@@ -75,236 +52,7 @@ function writeFile(dir, relative, content) {
   fs.writeFileSync(target, content, 'utf8');
 }
 
-// A temporary git repository with a governed document diff, mirroring the fixture materialisation:
-// the baseline definitions are committed, then the candidate ADR becomes the working tree, so the
-// recorded scope is governed while the workflow itself was seeded satisfied without the pilot.
-function buildGovernedWorkspace(dir) {
-  writeFile(dir, '.agents/harness-everything/project-docs.json', GOVERNED_CONFIG);
-  writeFile(dir, 'docs/adr/GRPH-001.md', ADR_BASE);
-  git(dir, ['init', '-q']);
-  git(dir, ['add', '-A']);
-  git(dir, ['-c', 'user.name=harness-review', '-c', 'user.email=harness-review@example.com', '-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '-m', 'baseline']);
-  writeFile(dir, 'docs/adr/GRPH-001.md', ADR_CANDIDATE);
-}
-
-// Installs the stub in require.cache before that leg's workflow-obligations.js is required, then loads
-// the leg fresh. armed=0 keeps writes succeeding (control); armed=1 throws on the obligations-file
-// write only and stashes the payload the withholding decision tried to persist. Returns a restore handle.
-function installLeg(leg) {
-  const contractsFile = path.join(leg.lib, 'fable-contracts.js');
-  const state = { armed: false, lastFailedWrite: null };
-  const cached = new Map();
-  for (const key of Object.keys(require.cache)) {
-    if (key === leg.lib || key.startsWith(leg.lib + path.sep)) {
-      cached.set(key, require.cache[key]);
-      delete require.cache[key];
-    }
-  }
-  const contracts = require(contractsFile);
-  const originalWrite = contracts.atomicWriteJson;
-  contracts.atomicWriteJson = (target, value) => {
-    if (state.armed && path.basename(String(target)) === OBLIGATION_FILE) {
-      state.lastFailedWrite = value;
-      throw new Error('simulated obligations-file write failure (PR #351 review P2)');
-    }
-    return originalWrite(target, value);
-  };
-  const restore = () => {
-    contracts.atomicWriteJson = originalWrite;
-    for (const key of Object.keys(require.cache)) {
-      if (key === leg.lib || key.startsWith(leg.lib + path.sep)) delete require.cache[key];
-    }
-    for (const [key, module] of cached) require.cache[key] = module;
-  };
-  try {
-    const obligations = require(path.join(leg.lib, 'workflow-obligations.js'));
-    return { state, restore, obligations, contracts };
-  } catch (error) {
-    restore();
-    throw error;
-  }
-}
-
-// Builds an ON context with an OFF-seeded satisfied workflow whose scope is governed, through the leg's own
-// planning API; the pilot baseline is captured through captureBaseline. Must never fault behind the assertions.
-function seedLegScenario(leg, handle, dir) {
-  const plan = { strategySelection: 'selected', tier: 'tier2', strategy: 'iterative-single' };
-  const sessionDir = path.join(dir, 'session');
-  fs.mkdirSync(sessionDir, { recursive: true });
-  buildGovernedWorkspace(dir);
-  const context = {
-    sessionId: 's1-review-persist-' + leg.id,
-    sessionDir,
-    root: dir,
-    workflow: {
-      workflowId: 'wf-325b1-review-' + leg.id,
-      revision: 1,
-      state: 'satisfied',
-      strategy: 'iterative-single',
-      workflowPlan: plan,
-    },
-  };
-  handle.obligations.initializePlanningContract(context, plan);
-  handle.obligations.recordPlanning(context, REQUIREMENTS, plan, 'iterative-single',
-    'two dependent requirements fit a bounded documentation loop');
-  handle.obligations.materializeExecutionObligations(context, plan);
-  const seeded = handle.obligations.loadObligationSet(context, plan).set;
-  if (!seeded) throw new Error(`[${leg.id}] seeding failed: obligation set invalid after planning`);
-  for (const step of seeded.requirements) {
-    step.status = 'pass';
-    step.evidence = 'seeded-off-pass';
-    for (const binding of [...step.requiredBindings, ...step.optionalBindings]) binding.status = 'loaded';
-  }
-  for (const obligation of seeded.obligations) {
-    obligation.status = 'pass';
-    obligation.evidence = 'seeded-off-pass';
-    obligation.reasonCode = null;
-    obligation.scope = null;
-  }
-  seeded.activeStepId = handle.obligations.activeStepSnapshot(seeded)?.id || null;
-  handle.contracts.atomicWriteJson(handle.obligations.obligationPath(sessionDir), seeded);
-  const pilot = require(path.join(leg.lib, 'doc-reconciliation-pilot.js'));
-  pilot.captureBaseline(context);
-  if (!context.workflow.docReconciliationBaseline) {
-    throw new Error(`[${leg.id}] seeding failed: captureBaseline recorded no baseline`);
-  }
-  context.workflow.state = 'satisfied';
-  return { context, plan };
-}
-
-function withCapturedStderr(fn) {
-  const chunks = [];
-  const originalWrite = process.stderr.write;
-  process.stderr.write = function (chunk, ...rest) {
-    chunks.push(typeof chunk === 'string' ? chunk : String(chunk));
-    return originalWrite.call(process.stderr, chunk, ...rest);
-  };
-  try {
-    return { value: fn(), stderr: chunks.join('') };
-  } finally {
-    process.stderr.write = originalWrite;
-  }
-}
-
-// One scenario: seed, arm, call, and the four observation shapes. Returns { error, unresolved, stderr } —
-// never throws except for infrastructure (seed failures), which the caller records as INFRA.
-function runLegScenario(leg, mode) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-325b1-review-'));
-  let handle = null;
-  try {
-    handle = installLeg(leg);
-    const seeded = seedLegScenario(leg, handle, dir);
-    const { context, plan } = seeded;
-    handle.state.armed = mode === 'fail-write';
-    let thrown = null;
-    let unresolved;
-    let stderr = '';
-    const call = withCapturedStderr(() => {
-      try { return handle.obligations.unresolvedObligations(context); }
-      catch (error) { thrown = error; return null; }
-    });
-    stderr = call.stderr;
-    unresolved = call.value;
-    handle.state.armed = false;
-    // Capture the persisted state before the temporary directory is cleaned up. In the control leg the
-    // write succeeded, so disk reflects the in-memory decision; in the fail-write leg the failed write is
-    // observed through the stub's stash of the exact in-memory payload it was asked to persist.
-    const verifyOnDisk = (readJsonOrNull(path.join(context.sessionDir, OBLIGATION_FILE))?.obligations || [])
-      .find(item => item.id === 'verify') || null;
-    const reportDiagnostics = readJsonOrNull(path.join(context.sessionDir, PILOT_REPORT_FILE))?.diagnostics || null;
-    return {
-      panicked: thrown && { message: thrown.message, stack: String(thrown.stack || '').split('\n').slice(0, 4).join(' | ') } || null,
-      unresolved, context, plan, stderr, reportDiagnostics, verifyOnDisk, loaded: handle.state.lastFailedWrite,
-    };
-  } finally {
-    if (handle) handle.restore();
-    fs.rmSync(dir, { recursive: true, force: true });
-  }
-}
-
-function diagnosePersistence(leg, mode, scenario) {
-  const tag = `${leg.id}.${mode}`;
-  if (!scenario || !scenario.context) {
-    record('INFRA', `${tag}.scenario`, 'seed or load failed; scenario not observable');
-    return;
-  }
-  const verifyOnDisk = scenario.verifyOnDisk || null;
-  const verifyInMemory = scenario.loaded
-    ? (scenario.loaded.obligations?.find(item => item.id === 'verify') || null)
-    : verifyOnDisk;
-  const diagnosticSeen = String(scenario.stderr).includes('withhold-persist-failed')
-    || (Array.isArray(scenario.reportDiagnostics) && scenario.reportDiagnostics.includes('withhold-persist-failed'));
-  record(scenario.panicked === null ? 'PASS' : 'FAIL', `${tag}.no-escape`,
-    scenario.panicked ? `exception escaped unresolvedObligations: ${scenario.panicked.message}` : '');
-  record(scenario.context.workflow.state === 'running' ? 'PASS' : 'FAIL', `${tag}.state-running`,
-    `workflow.state ${JSON.stringify(scenario.context.workflow.state)} where "running" desired`);
-  record(Array.isArray(scenario.unresolved) && scenario.unresolved.includes('step:' + VERIFY_STEP_ID + ':pending') ? 'PASS' : 'FAIL',
-    `${tag}.step-pending-reported`,
-    `unresolved ${JSON.stringify(scenario.unresolved)} lacks step:${VERIFY_STEP_ID}:pending`);
-  record(verifyInMemory?.status === 'pending' ? 'PASS' : 'FAIL', `${tag}.verify-pending`,
-    `verify obligation ${JSON.stringify(verifyInMemory?.status)} where "pending" desired`);
-  if (mode !== 'control') {
-    record(diagnosticSeen ? 'PASS' : 'FAIL', `${tag}.persist-failed-diagnostic`,
-      'withhold-persist-failed diagnostic absent from stderr and pilot report');
-  }
-}
-
-console.log('=== #325 PR #351 review P2: withholding persistence applied in memory first (RED) ===');
-
-const switchSaved = process.env[SWITCH];
-const harnessEnvSaved = {};
-for (const key of Object.keys(process.env)) {
-  if (key.startsWith('HARNESS_') && key !== SWITCH) {
-    harnessEnvSaved[key] = process.env[key];
-    delete process.env[key];
-  }
-}
-process.env[SWITCH] = '1';
-
-try {
-  for (const leg of LEGS) {
-    for (const mode of ['fail-write', 'control']) {
-      let scenario = null;
-      try {
-        scenario = runLegScenario(leg, mode);
-      } catch (error) {
-        record('INFRA', `${leg.id}.${mode}.scenario`, error.message.split('\n')[0]);
-        continue;
-      }
-      diagnosePersistence(leg, mode, scenario);
-    }
-  }
-} finally {
-  if (switchSaved === undefined) delete process.env[SWITCH];
-  else process.env[SWITCH] = switchSaved;
-  for (const [key, value] of Object.entries(harnessEnvSaved)) process.env[key] = value;
-}
-
-const persistenceCounts = { passed, failed, infra };
-
-console.log(`\nP2 persistence review summary: ${persistenceCounts.passed} PASS, ${persistenceCounts.failed} FAIL, ${persistenceCounts.infra} INFRA across ${LEGS.length} legs (pilotCredit: false)`);
-
-// ---- R1f section: "Unwritable session store (PR #351 follow-up)" — integration through the real Stop entry point ----
-//
-// Both obligations and SaveWorkflow persistence are made to fail for one Stop invocation, by preloading
-// fail-session-writes.js onto the real stop-gate child through a real argv element (`node --require <path>`).
-// The preload makes every
-// write/rename/open-for-write/unlink inside that run's session directory throw EACCES (patching fs synchron,
-// fs.promises and the callback wrappers) without chmod, and nothing else. Contract (docs table):
-// Stop exits 0, the Unresolved-workflow-evidence reminder with step:<verify>:pending and a
-// withhold-persist-failed diagnostic are still emitted after the failed saveWorkflow, no uncaught exception
-// text appears, the stored files stay byte-identical (the write really failed), and the stored satisfied/PASS
-// is never confused for credit by an ON disposition attempt. Only a completely unwritable store is under test:
-// the in-memory downgrade is explicitly not counted as durable invalidation.
-//
-// R1g (PR #351 re-review, "Scope of the recovery") addenda in this section:
-//   - P2a legacy oracle: with the switch OFF (satisfied workflow, legacy pending token) and for a
-//     Fable-strategy workflow ON (unsupported ⇒ legacy path), a failing saveWorkflow() must keep the
-//     pre-S1 Stop behaviour: the same exit code and stderr as the pre-PR Stop file run over the same
-//     scenario, and no withhold-persist-failed diagnostic.
-//   - P2b oracle gap: the exit-2 disposition probe is renamed legacy-closed-guard-exit-2 so it is no
-//     longer counted as pilot evidence; a pilot-specific ON-Stop-rerun oracle plus an OFF negative
-//     control carry the pilot claim instead.
+// ---- Retained Stop controls: closed-workflow guard, OFF/Fable legacy behavior and OFF negative control ----
 
 const { spawnSync: r1fSpawnSync } = require('child_process');
 const R1F_PRELOAD = path.join(ROOT, 'ci', 'fixtures', 'doc-obligations', 'reconciliation-s1', 'fail-session-writes.js');
@@ -427,186 +175,26 @@ function r1fStoredWorkflow(sessionDir) {
   return readJsonOrNull(path.join(sessionDir, R1F_WORKFLOW_FILE));
 }
 
-// One integration scenario: seed OFF, run the real Stop entry point (child) with the switch ON.
-function r1fRunScenario(leg, mode) {
-  const tag = `${leg.id}.${mode === 'fail' ? 'unwritable' : 'writable-control'}`;
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-325b1-r1f-'));
-  const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-325b1-r1f-state-'));
-  const sessionId = 's1-review-r1f-' + leg.id;
+// Closed-workflow control through the real source or packaged CLI. The switch is set to 1 for the final
+// attempt, but a completed workflow remains closed by the ordinary workflow contract.
+function r1fRunClosedWorkflowGuard(leg) {
+  const tag = `${leg.id}.legacy-closed-guard-exit-2`;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-325b1-closed-'));
+  const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-325b1-closed-state-'));
+  const sessionId = 's1-review-closed-' + leg.id;
   const tokens = [dir, stateHome];
-  let spacedPreloadDirForCleanup = null;
   try {
-    if (!fs.existsSync(R1F_PRELOAD)) {
-      record('INFRA', `${tag}.preload`, 'fail-session-writes.js preload not found at ' + R1F_PRELOAD);
-      return;
-    }
     r1fBuildWorkspace(dir);
     const seeded = r1fSeedSatisfied(leg, dir, stateHome, sessionId);
     if (seeded.fault) {
       record('INFRA', `${tag}.scenario`, 'seed failed: ' + r1fScrub(seeded.fault, tokens));
       return;
     }
-    const sessionDir = r1fFindSessionDir(stateHome, sessionId);
-    if (!sessionDir) {
-      record('INFRA', `${tag}.scenario`, 'the OFF-seeded session directory was not found (expected exactly one)');
-      return;
-    }
-    const stored = r1fStoredWorkflow(sessionDir);
-    const storedObligations = readJsonOrNull(path.join(sessionDir, OBLIGATION_FILE));
-    if (!stored || stored.state !== 'satisfied'
-      || storedObligations?.obligations?.find(item => item.id === 'verify')?.status !== 'pass') {
-      record('INFRA', `${tag}.scenario`,
-        `seed did not leave stored satisfied/verify-pass (workflow ${JSON.stringify(stored?.state)}, verify ${JSON.stringify(storedObligations?.obligations?.find(item => item.id === 'verify')?.status)})`);
-      return;
-    }
-    const before = {
-      run: fs.readFileSync(path.join(sessionDir, R1F_WORKFLOW_FILE), 'utf8'),
-      obligations: fs.readFileSync(path.join(sessionDir, OBLIGATION_FILE), 'utf8'),
-    };
-    const stopResult = r1fSpawn(leg, leg.stopGate, [], dir, stateHome, {
-      pilot: 1,
-      preload: mode === 'fail',
-      sessionDirectory: mode === 'fail' ? sessionDir : undefined,
-      input: { session_id: sessionId, cwd: dir, hook_event_name: 'Stop' },
-    });
-    const stderr = stopResult.stderr || '';
-    record(stopResult.status === 0 ? 'PASS' : 'FAIL', `${tag}.stop-exit-0`,
-      stopResult.status === 0 ? '' : `exit ${stopResult.status} where 0 desired`);
-    if (mode === 'fail') {
-      record(stderr.includes('Unresolved workflow evidence') ? 'PASS' : 'FAIL', `${tag}.reminder-unresolved-evidence`,
-        stderr.includes('Unresolved workflow evidence') ? '' : 'the Unresolved workflow evidence reminder is missing after the failed saveWorkflow');
-      record(stderr.includes('step:' + VERIFY_STEP_ID + ':pending') ? 'PASS' : 'FAIL', `${tag}.reminder-step-pending`,
-        stderr.includes('step:' + VERIFY_STEP_ID + ':pending') ? '' : 'step:req-verify:pending absent from the Stop reminder');
-      record(stderr.includes('withhold-persist-failed') ? 'PASS' : 'FAIL', `${tag}.persist-failed-diagnostic`,
-        stderr.includes('withhold-persist-failed') ? '' : 'withhold-persist-failed diagnostic absent from Stop stderr');
-      const exceptionText = stderr.includes('EACCES') || stderr.includes('simulated session store');
-      record(exceptionText ? 'FAIL' : 'PASS', `${tag}.no-exception-text`,
-        exceptionText ? 'exception text reached stderr: ' + r1fScrub(stderr.trim().split('\n').find(line => line.includes('EACCES') || line.includes('simulated session store')) || '', tokens) : '');
-      const afterBytes = {
-        run: fs.readFileSync(path.join(sessionDir, R1F_WORKFLOW_FILE), 'utf8'),
-        obligations: fs.readFileSync(path.join(sessionDir, OBLIGATION_FILE), 'utf8'),
-      };
-      record(afterBytes.run === before.run && afterBytes.obligations === before.obligations ? 'PASS' : 'FAIL',
-        `${tag}.stored-bytes-identical`,
-        afterBytes.run === before.run && afterBytes.obligations === before.obligations
-          ? '' : 'the unwritable session store changed: the failed write is not proven');
-      // P3 preload-path portability: copy the preload into a temp directory whose name contains a space
-      // and run one fail-mode Stop child through the same spawn helper. The preload must still load —
-      // writes fail (reminder text and the withheld decision are on stderr) and the stored files stay
-      // byte-identical — instead of an infrastructure `Cannot find module` failure. The preload path is
-      // passed as a real argv element (see r1fSpawnPreloadArgs), which needs no quoting.
-      const spacedPreloadDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness preload space-'));
-      spacedPreloadDirForCleanup = spacedPreloadDir;
-      const spacedPreload = path.join(spacedPreloadDir, 'fail-session-writes.js');
-      fs.copyFileSync(R1F_PRELOAD, spacedPreload);
-      const spaceStop = r1fSpawn(leg, leg.stopGate, [], dir, stateHome, {
-        pilot: 1,
-        preload: spacedPreload,
-        sessionDirectory: sessionDir,
-        input: { session_id: sessionId, cwd: dir, hook_event_name: 'Stop' },
-      });
-      const spaceStderr = spaceStop.stderr || '';
-      record(spaceStop.status === 0 ? 'PASS' : 'FAIL', `${tag}.preload-space.stop-exit-0`,
-        spaceStop.status === 0 ? '' : `exit ${spaceStop.status} where 0 desired; stderr ${r1fScrub(spaceStderr.trim(), [spacedPreloadDir]).slice(0, 140)}`);
-      const spaceLoaded = spaceStderr.includes('Unresolved workflow evidence')
-        && spaceStderr.includes('step:' + VERIFY_STEP_ID + ':pending')
-        && spaceStderr.includes('withhold-persist-failed');
-      record(spaceLoaded ? 'PASS' : 'FAIL', `${tag}.preload-space.reminder-and-diagnostic`,
-        spaceLoaded ? '' : `preloaded child did not run the withheld path: ${r1fScrub(spaceStderr.trim(), [spacedPreloadDir]).slice(0, 160)}`);
-      const spaceBytes = {
-        run: fs.readFileSync(path.join(sessionDir, R1F_WORKFLOW_FILE), 'utf8'),
-        obligations: fs.readFileSync(path.join(sessionDir, OBLIGATION_FILE), 'utf8'),
-      };
-      record(spaceBytes.run === before.run && spaceBytes.obligations === before.obligations ? 'PASS' : 'FAIL',
-        `${tag}.preload-space.stored-bytes-identical`,
-        spaceBytes.run === before.run && spaceBytes.obligations === before.obligations ? '' : 'the spaced-preload child did not fail its session writes: the preload did not load');
-    } else {
-      record(stderr.includes('Unresolved workflow evidence') && stderr.includes('step:' + VERIFY_STEP_ID + ':pending') ? 'PASS' : 'FAIL',
-        `${tag}.reminder-present`,
-        stderr.includes('Unresolved workflow evidence') && stderr.includes('step:' + VERIFY_STEP_ID + ':pending') ? '' : 'reminder or pending token missing on the writable control');
-    }
-    // ON disposition attempt with the switch on, no preload. Over the fail mode, the stored files still
-    // say satisfied/verify:pass (the writes failed); over the control, Stop persisted the downgrade.
     const disposition = r1fSpawn(leg, leg.controller, [
-      'step', '--session-id', sessionId, '--step-id', VERIFY_STEP_ID, '--disposition', 'pass', '--evidence', 'attempt over stored state',
+      'step', '--session-id', sessionId, '--step-id', VERIFY_STEP_ID, '--disposition', 'pass', '--evidence', 'attempt over closed state',
     ], dir, stateHome, { pilot: 1 });
-    // P2b oracle-gap fix: this probe proves only the legacy closed-workflow guard (the CLI's OPEN_STATES
-    // rule and updateStep's active-step rules over a closed/finished plan); it is NOT pilot evidence and
-    // is not counted as such. The pilot-specific oracle below carries that claim instead.
-    record(disposition.status === 2 ? 'PASS' : 'FAIL', `${tag}.legacy-closed-guard-exit-2`,
+    record(disposition.status === 2 ? 'PASS' : 'FAIL', tag,
       disposition.status === 2 ? `refused: ${r1fScrub((disposition.stderr || '').trim(), tokens).slice(0, 120)}` : `exit ${disposition.status} where 2 desired`);
-    if (mode === 'fail') {
-      // P2b pilot-specific oracle: after the failed ON Stop, restore write access and run the real Stop
-      // entry point ON again. The ON re-read must re-derive the withheld decision from scratch: reminder
-      // with step:<verify>:pending, the stored workflow becomes running, and the runtime pilot report
-      // carries pilotCredit false with a non-empty unsatisfied list (never trust stored PASS as credit).
-      const rerun = r1fSpawn(leg, leg.stopGate, [], dir, stateHome, {
-        pilot: 1,
-        input: { session_id: sessionId, cwd: dir, hook_event_name: 'Stop' },
-      });
-      const rerunStderr = rerun.stderr || '';
-      record(rerun.status === 0 && rerunStderr.includes('Unresolved workflow evidence') && rerunStderr.includes('step:' + VERIFY_STEP_ID + ':pending') ? 'PASS' : 'FAIL',
-        `${leg.id}.p2b-on-rerun.reminder-pending`,
-        rerun.status === 0 && rerunStderr.includes('Unresolved workflow evidence') && rerunStderr.includes('step:' + VERIFY_STEP_ID + ':pending') ? '' : `exit ${rerun.status}, stderr ${r1fScrub(rerunStderr.trim(), tokens).slice(0, 140)} where reminder step:req-verify:pending desired`);
-      const rerunStored = r1fStoredWorkflow(sessionDir);
-      record(rerunStored?.state === 'running' ? 'PASS' : 'FAIL', `${leg.id}.p2b-on-rerun.stored-running`,
-        rerunStored?.state === 'running' ? '' : `stored workflow.state ${JSON.stringify(rerunStored?.state)} where "running" desired`);
-      const rerunReport = readJsonOrNull(path.join(sessionDir, PILOT_REPORT_FILE));
-      record(rerunReport && rerunReport.reportOrigin === 'runtime' && rerunReport.pilotCredit === false ? 'PASS' : 'FAIL',
-        `${leg.id}.p2b-on-rerun.pilot-credit-false`,
-        rerunReport && rerunReport.reportOrigin === 'runtime' && rerunReport.pilotCredit === false ? '' : `pilot report ${JSON.stringify(rerunReport ? { origin: rerunReport.reportOrigin, credit: rerunReport.pilotCredit } : null)} where {origin runtime, credit false} desired`);
-      record(rerunReport && Array.isArray(rerunReport.unsatisfied) && rerunReport.unsatisfied.length > 0 ? 'PASS' : 'FAIL',
-        `${leg.id}.p2b-on-rerun.unsatisfied-nonempty`,
-        rerunReport && Array.isArray(rerunReport.unsatisfied) && rerunReport.unsatisfied.length > 0 ? '' : `unsatisfied ${JSON.stringify(rerunReport?.unsatisfied)} where a non-empty list desired`);
-      return;
-    }
-    // Writable control: the durable downgrade is persisted and claimed (already passing at this head).
-    const reread = r1fStoredWorkflow(sessionDir);
-    record(reread?.state === 'running' ? 'PASS' : 'FAIL', `${tag}.stored-running`,
-      reread?.state === 'running' ? '' : `stored workflow.state ${JSON.stringify(reread?.state)} where "running" desired`);
-  } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
-    fs.rmSync(stateHome, { recursive: true, force: true });
-    if (spacedPreloadDirForCleanup) fs.rmSync(spacedPreloadDirForCleanup, { recursive: true, force: true });
-  }
-}
-
-// Item 4, observable-report form: ON verification-step PASS through the real disposition CLI over a seeded
-// running workflow (its stored verify step still pending), so the pilot assess runs and writes the runtime
-// pilot report; assert exit 2 with pilotCredit false. On this head both item-4 probes already pass.
-function r1fRunOnVerifyRefusal(leg) {
-  const tag = `${leg.id}.on-verify-refusal`;
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-325b1-r1f-refusal-'));
-  const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-325b1-r1f-refusal-state-'));
-  const sessionId = 's1-review-r1f-verify-' + leg.id;
-  const tokens = [dir, stateHome];
-  try {
-    r1fBuildWorkspace(dir);
-    let result = r1fSpawn(leg, leg.kernel, [], dir, stateHome, {
-      input: { session_id: sessionId, cwd: dir, prompt: 'Fix this checkout bug and add a regression test.' },
-    });
-    if (result.status !== 0) return record('INFRA', `${tag}.scenario`, 'route: ' + r1fScrub((result.stderr || '').split('\n')[0], tokens));
-    result = r1fSpawn(leg, leg.controller, [
-      'plan', '--session-id', sessionId,
-      '--requirements-json', REQUIREMENTS, '--strategy', 'iterative-single',
-      '--evidence', 'two dependent requirements fit a bounded documentation loop',
-    ], dir, stateHome);
-    if (result.status !== 0) return record('INFRA', `${tag}.scenario`, 'plan: ' + r1fScrub((result.stderr || '').split('\n')[0], tokens));
-    result = r1fSpawn(leg, leg.controller, ['start', '--session-id', sessionId], dir, stateHome);
-    if (result.status !== 0) return record('INFRA', `${tag}.scenario`, 'start: ' + r1fScrub((result.stderr || '').split('\n')[0], tokens));
-    result = r1fSpawn(leg, leg.controller, ['binding', '--session-id', sessionId, '--step-id', 'req-docs', '--binding-id', 'tdd', '--disposition', 'loaded', '--evidence', 'located'], dir, stateHome);
-    if (result.status !== 0) return record('INFRA', `${tag}.scenario`, 'binding: ' + r1fScrub((result.stderr || '').split('\n')[0], tokens));
-    result = r1fSpawn(leg, leg.controller, ['step', '--session-id', sessionId, '--step-id', 'req-docs', '--disposition', 'pass', '--evidence', 'added'], dir, stateHome);
-    if (result.status !== 0) return record('INFRA', `${tag}.scenario`, 'step: ' + r1fScrub((result.stderr || '').split('\n')[0], tokens));
-    result = r1fSpawn(leg, leg.controller, ['binding', '--session-id', sessionId, '--step-id', VERIFY_STEP_ID, '--binding-id', 'verification-loop', '--disposition', 'loaded', '--evidence', 'located'], dir, stateHome);
-    if (result.status !== 0) return record('INFRA', `${tag}.scenario`, 'binding2: ' + r1fScrub((result.stderr || '').split('\n')[0], tokens));
-    result = r1fSpawn(leg, leg.controller, ['step', '--session-id', sessionId, '--step-id', VERIFY_STEP_ID, '--disposition', 'pass', '--evidence', 'objective check attempted'], dir, stateHome, { pilot: 1 });
-    record(result.status === 2 ? 'PASS' : 'FAIL', `${tag}.exit-2`,
-      result.status === 2 ? `refused: ${r1fScrub((result.stderr || '').trim(), tokens).slice(0, 120)}` : `exit ${result.status} where 2 desired`);
-    const sessionDir = r1fFindSessionDir(stateHome, sessionId);
-    const report = sessionDir ? readJsonOrNull(path.join(sessionDir, PILOT_REPORT_FILE)) : null;
-    record(report && report.pilotCredit === false && report.reportOrigin === 'runtime' ? 'PASS' : 'FAIL', `${tag}.pilot-credit-false`,
-      report && report.pilotCredit === false && report.reportOrigin === 'runtime' ? '' : `pilot report ${JSON.stringify(report ? { origin: report.reportOrigin, credit: report.pilotCredit } : null)} where {origin runtime, credit false} desired`);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
     fs.rmSync(stateHome, { recursive: true, force: true });
@@ -742,10 +330,8 @@ function r1gRunLegacyOracle(leg, variant) {
   }
 }
 
-// P2b negative control: the ON oracle's exact sequence with the switch OFF throughout. OFF keeps legacy
-// state: both Stop runs exit 0, the stored workflow stays satisfied, no withhold-persist-failed diagnostic
-// is emitted in either run, and no pilot report ever appears — so the ON rerun result provably comes from
-// the pilot, not from the recovery itself.
+// OFF negative control: both Stop runs exit 0, the stored workflow stays satisfied, no
+// withhold-persist-failed diagnostic is emitted, and no pilot report is written.
 function r1gRunOffNegative(leg) {
   const tag = `${leg.id}.p2b-off-negative`;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-325b1-r1g-neg-'));
@@ -782,19 +368,12 @@ function r1gRunOffNegative(leg) {
   }
 }
 
-function runR1fSection() {
+function runRetainedStopControls() {
   for (const leg of R1F_LEGS) {
-    for (const mode of ['fail', 'control']) {
-      try {
-        r1fRunScenario(leg, mode);
-      } catch (error) {
-        record('INFRA', `${leg.id}.${mode}.crash`, error.message.split('\n')[0]);
-      }
-    }
     try {
-      r1fRunOnVerifyRefusal(leg);
+      r1fRunClosedWorkflowGuard(leg);
     } catch (error) {
-      record('INFRA', `${leg.id}.on-verify-refusal.crash`, error.message.split('\n')[0]);
+      record('INFRA', `${leg.id}.closed-workflow.crash`, error.message.split('\n')[0]);
     }
     for (const variant of ['off-pending', 'fable-on']) {
       try {
@@ -811,20 +390,14 @@ function runR1fSection() {
   }
 }
 
-runR1fSection();
+runRetainedStopControls();
 
-const r1fCounts = {
-  passed: passed - persistenceCounts.passed,
-  failed: failed - persistenceCounts.failed,
-  infra: infra - persistenceCounts.infra,
-};
-console.log(`\nR1f/R1g unwritable-session-store summary: ${r1fCounts.passed} PASS, ${r1fCounts.failed} FAIL, ${r1fCounts.infra} INFRA across ${R1F_LEGS.length} legs (pilotCredit: false)`);
-console.log(`\nReview file summary (both sections): ${passed} PASS, ${failed} FAIL, ${infra} INFRA (pilotCredit: false)`);
+console.log(`\nReview retained controls summary: ${passed} PASS, ${failed} FAIL, ${infra} INFRA across ${R1F_LEGS.length} legs`);
 if (infra > 0) {
   console.error('S1 review suite: infrastructure faults present; these are not assertion results.');
   process.exitCode = 2;
 } else if (failed > 0) {
-  console.error('S1 review suite: assertion FAIL present (expected on the RED base; GREEN must clear every FAIL).');
+  console.error('S1 review suite: retained assertion FAIL present.');
   process.exitCode = 1;
 } else {
   console.log('S1 review suite: all assertions PASS.');

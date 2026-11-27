@@ -1,15 +1,11 @@
 #!/usr/bin/env node
 'use strict';
 
-// #325 Phase 3b S1 strict suite: switch, trusted scope and fail-closed no-credit gate (RED).
+// #325 Phase 3b S1 workflow controls across source/package and legacy switch values.
 //
-// Every assertion in reconciliation-s1/cases.json is a strict S1 contract assertion, run against the real CLI, hook and
-// Stop entry points on both legs (source and packaged) and both modes (OFF and ON with the switch set to exactly "1").
-// Each assertion is tagged s1Kind:
-//   retired    one of the 26 S1 retire IDs in docs/doc-workflow-reconciliation.md; expected to FAIL on the current base
-//   control    behaviour that must PASS now and after GREEN (P06, P07u, P02d, OFF legacy, Stop exit 0, switch values)
-//   additional a named S1 contract case beyond the retire table (governed scope, direct aggregate, OFF-seeded, ON->OFF->ON)
-// This suite grants no pilot credit and never consults the prep registry: a FAIL here is a real gap, not a qualified one.
+// Retained assertions in reconciliation-s1/cases.json run through the real CLI, hook and Stop entry points on both legs
+// (source and packaged) and both modes (OFF and ON with the legacy switch set to "1"). E1-only pilot decisions are
+// retired; remaining assertions cover ordinary workflow behavior and controls that remain meaningful after unhooking.
 // Infrastructure faults (spawn error, deadline, output bound, exit outside the declared policy, malformed output) are
 // reported as INFRA and are distinct from assertion FAIL. Exit 1 means at least one assertion FAILED; exit 2 means
 // infrastructure. The suite cannot pass until GREEN lands; that is the RED contract.
@@ -22,24 +18,8 @@ const corpus = fx.readCaseCorpus(CORPUS_FILE);
 const LEGS = ['source', 'packaged'];
 const MODES = ['off', 'on'];
 const ALLOWED_OPERATORS = new Set(['equals', 'notEquals', 'includes', 'absent']);
-const S1_KINDS = new Set(['retired', 'control', 'additional']);
+const S1_KINDS = new Set(['control', 'additional']);
 const REQUIRED_CASE_FIELDS = ['id', 'family', 'description', 'topology', 'requirements', 'input', 'actions', 'expectations'];
-
-// The doc's "S1 retire" table: 26 IDs × 2 legs, by case. Any drift between this list and the corpus is a failure.
-const RETIRED_BY_CASE = {
-  P01: ['verify-exit-refused', 'verify-obligation-pending', 'stop-unsatisfied', 'stop-reports-verification'],
-  P04: ['direct-execute-refused', 'direct-verify-refused', 'verify-obligation-pending'],
-  P02a: ['verify-pass-exit', 'stop-state', 'stop-reports'],
-  P02b: ['verify-pass-exit', 'stop-state', 'stop-reports'],
-  P02c: ['verify-pass-exit', 'stop-state', 'stop-reports'],
-  P02g: ['verify-pass-exit', 'stop-state', 'stop-reports'],
-  P02f: ['verify-pass-exit', 'stop-state', 'stop-reports'],
-  P03: ['verify-pass-exit'],
-  'P07-fable-staged': ['pilot-status-unavailable'],
-  'P07-fable-parallel': ['pilot-status-unavailable'],
-  'P07-fable-multi-agent-workspace': ['pilot-status-unavailable']
-};
-const RETIRED_COUNT = Object.values(RETIRED_BY_CASE).reduce((total, ids) => total + ids.length, 0);
 
 let passed = 0;
 let failed = 0;
@@ -88,9 +68,9 @@ function comparable(root) {
   return fx.normalize(Object.fromEntries([...entries, ['$final', root.state]]));
 }
 
-console.log('=== #325 3b S1: strict switch, trusted scope and fail-closed no-credit suite (RED) ===');
+console.log('=== #325 3b S1: retained workflow controls ===');
 
-// ---- Inventory: the corpus is well formed and marks exactly the doc's retire table -----------------------------
+// ---- Inventory: retained corpus rows are well formed ----------------------------------------------------------
 {
   const problems = [];
   const caseIds = corpus.cases.map(item => item.id);
@@ -117,19 +97,8 @@ console.log('=== #325 3b S1: strict switch, trusted scope and fail-closed no-cre
       }
     }
   }
-  const retired = [];
-  for (const item of corpus.cases) {
-    for (const assertion of item.expectations.on) {
-      if (assertion.s1Kind === 'retired') retired.push(`${item.id}:${assertion.id}`);
-    }
-  }
-  const expected = Object.entries(RETIRED_BY_CASE).flatMap(([caseId, ids]) => ids.map(id => `${caseId}:${id}`));
-  const missing = expected.filter(entry => !retired.includes(entry));
-  const extra = retired.filter(entry => !expected.includes(entry));
-  if (missing.length || extra.length) problems.push(`retired set differs from the doc table: missing ${show(missing)} extra ${show(extra)}`);
-  if (expected.length !== RETIRED_COUNT || RETIRED_COUNT !== 26) problems.push(`the doc table names ${RETIRED_COUNT} IDs, not 26`);
-  if (problems.length) record('FAIL', 'inventory: corpus is well formed and marks the 26 S1 retire IDs', problems.join('; '));
-  else record('PASS', `inventory: corpus is well formed and marks the ${RETIRED_COUNT} S1 retire IDs`);
+  if (problems.length) record('FAIL', 'inventory: retained corpus rows are well formed', problems.join('; '));
+  else record('PASS', 'inventory: retained corpus rows are well formed');
 }
 
 // ---- Replays: every case, both legs, both modes ----------------------------------------------------------------
@@ -181,7 +150,7 @@ if (infra > 0) {
   console.error('S1 suite: infrastructure faults present; these are not assertion results.');
   process.exitCode = 2;
 } else if (failed > 0) {
-  console.error('S1 suite: assertion FAIL present (expected on the RED base; GREEN must clear every FAIL).');
+  console.error('S1 suite: retained assertion FAIL present.');
   process.exitCode = 1;
 } else {
   console.log('S1 suite: all assertions PASS.');

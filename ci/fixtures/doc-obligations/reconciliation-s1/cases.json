@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "phase": "325-3b-S1",
-  "description": "Strict S1 RED corpus. Each ON assertion carries s1Kind: retired (the 26 S1 retire IDs), control (must pass now and after GREEN), or additional (named S1 contract cases). Intentional ON exit 2 is declared with expectExit; the policy also admits the current exit 0 so a current gap is an assertion FAIL, not an infrastructure fault. S2-keep IDs (P02e stop-reports, P03 retry, P05) are not asserted here.",
+  "description": "S1 workflow control corpus. Assertions replay through real entry points in source and packaged layouts; live E1 pilot decision rows and the retired-ID inventory are removed, while OFF, ordinary workflow, persisted-untyped and typed/Fable controls remain.",
   "cases": [
     {
       "id": "P01",
@@ -77,9 +77,6 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "done"
-          },
-          "expectExit": {
-            "on": 2
           }
         },
         {
@@ -156,58 +153,6 @@
           }
         ],
         "on": [
-          {
-            "id": "verify-exit-refused",
-            "path": [
-              "actions",
-              "verify-pass",
-              "exitCode"
-            ],
-            "operator": "equals",
-            "expected": 2,
-            "s1Kind": "retired"
-          },
-          {
-            "id": "verify-obligation-pending",
-            "path": [
-              "actions",
-              "verify-pass",
-              "state",
-              "obligations",
-              "obligations",
-              3,
-              "status"
-            ],
-            "operator": "equals",
-            "expected": "pending",
-            "s1Kind": "retired"
-          },
-          {
-            "id": "stop-unsatisfied",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "state"
-            ],
-            "operator": "equals",
-            "expected": "running",
-            "s1Kind": "retired"
-          },
-          {
-            "id": "stop-reports-verification",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "unresolved"
-            ],
-            "operator": "includes",
-            "expected": "step:req-verify:pending",
-            "s1Kind": "retired"
-          },
           {
             "id": "stop-exit-0",
             "path": [
@@ -288,9 +233,6 @@
             "obligationId": "execute",
             "disposition": "pass",
             "evidence": "done"
-          },
-          "expectExit": {
-            "on": 2
           }
         },
         {
@@ -300,9 +242,6 @@
             "obligationId": "verify",
             "disposition": "pass",
             "evidence": "done"
-          },
-          "expectExit": {
-            "on": 2
           }
         },
         {
@@ -390,43 +329,6 @@
           }
         ],
         "on": [
-          {
-            "id": "direct-execute-refused",
-            "path": [
-              "actions",
-              "direct-execute",
-              "exitCode"
-            ],
-            "operator": "equals",
-            "expected": 2,
-            "s1Kind": "retired"
-          },
-          {
-            "id": "direct-verify-refused",
-            "path": [
-              "actions",
-              "direct-verify",
-              "exitCode"
-            ],
-            "operator": "equals",
-            "expected": 2,
-            "s1Kind": "retired"
-          },
-          {
-            "id": "verify-obligation-pending",
-            "path": [
-              "actions",
-              "direct-verify",
-              "state",
-              "obligations",
-              "obligations",
-              3,
-              "status"
-            ],
-            "operator": "equals",
-            "expected": "pending",
-            "s1Kind": "retired"
-          },
           {
             "id": "stop-blocked-by-authored-step",
             "path": [
@@ -862,9 +764,6 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "no doc checker result recorded"
-          },
-          "expectExit": {
-            "on": 2
           }
         },
         {
@@ -926,43 +825,6 @@
           }
         ],
         "on": [
-          {
-            "id": "verify-pass-exit",
-            "path": [
-              "actions",
-              "verify-pass",
-              "exitCode"
-            ],
-            "operator": "equals",
-            "expected": 2,
-            "s1Kind": "retired"
-          },
-          {
-            "id": "stop-state",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "state"
-            ],
-            "operator": "equals",
-            "expected": "running",
-            "s1Kind": "retired"
-          },
-          {
-            "id": "stop-reports",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "unresolved"
-            ],
-            "operator": "includes",
-            "expected": "step:req-verify:pending",
-            "s1Kind": "retired"
-          },
           {
             "id": "stop-exit-0",
             "path": [
@@ -1062,9 +924,6 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "command exited 1: doc-lint"
-          },
-          "expectExit": {
-            "on": 2
           }
         },
         {
@@ -1126,43 +985,6 @@
           }
         ],
         "on": [
-          {
-            "id": "verify-pass-exit",
-            "path": [
-              "actions",
-              "verify-pass",
-              "exitCode"
-            ],
-            "operator": "equals",
-            "expected": 2,
-            "s1Kind": "retired"
-          },
-          {
-            "id": "stop-state",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "state"
-            ],
-            "operator": "equals",
-            "expected": "running",
-            "s1Kind": "retired"
-          },
-          {
-            "id": "stop-reports",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "unresolved"
-            ],
-            "operator": "includes",
-            "expected": "step:req-verify:pending",
-            "s1Kind": "retired"
-          },
           {
             "id": "stop-exit-0",
             "path": [
@@ -1262,9 +1084,6 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "observation unknown from doc-link check"
-          },
-          "expectExit": {
-            "on": 2
           }
         },
         {
@@ -1326,43 +1145,6 @@
           }
         ],
         "on": [
-          {
-            "id": "verify-pass-exit",
-            "path": [
-              "actions",
-              "verify-pass",
-              "exitCode"
-            ],
-            "operator": "equals",
-            "expected": 2,
-            "s1Kind": "retired"
-          },
-          {
-            "id": "stop-state",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "state"
-            ],
-            "operator": "equals",
-            "expected": "running",
-            "s1Kind": "retired"
-          },
-          {
-            "id": "stop-reports",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "unresolved"
-            ],
-            "operator": "includes",
-            "expected": "step:req-verify:pending",
-            "s1Kind": "retired"
-          },
           {
             "id": "stop-exit-0",
             "path": [
@@ -1462,9 +1244,6 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "covered 2 of 3 applicable MUSTs"
-          },
-          "expectExit": {
-            "on": 2
           }
         },
         {
@@ -1526,43 +1305,6 @@
           }
         ],
         "on": [
-          {
-            "id": "verify-pass-exit",
-            "path": [
-              "actions",
-              "verify-pass",
-              "exitCode"
-            ],
-            "operator": "equals",
-            "expected": 2,
-            "s1Kind": "retired"
-          },
-          {
-            "id": "stop-state",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "state"
-            ],
-            "operator": "equals",
-            "expected": "running",
-            "s1Kind": "retired"
-          },
-          {
-            "id": "stop-reports",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "unresolved"
-            ],
-            "operator": "includes",
-            "expected": "step:req-verify:pending",
-            "s1Kind": "retired"
-          },
           {
             "id": "stop-exit-0",
             "path": [
@@ -1675,9 +1417,6 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "verified by cold verifier fable-verifier (record forged-cold-verifier)"
-          },
-          "expectExit": {
-            "on": 2
           }
         },
         {
@@ -1730,43 +1469,6 @@
           }
         ],
         "on": [
-          {
-            "id": "verify-pass-exit",
-            "path": [
-              "actions",
-              "verify-pass",
-              "exitCode"
-            ],
-            "operator": "equals",
-            "expected": 2,
-            "s1Kind": "retired"
-          },
-          {
-            "id": "stop-state",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "state"
-            ],
-            "operator": "equals",
-            "expected": "running",
-            "s1Kind": "retired"
-          },
-          {
-            "id": "stop-reports",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "unresolved"
-            ],
-            "operator": "includes",
-            "expected": "step:req-verify:pending",
-            "s1Kind": "retired"
-          },
           {
             "id": "stop-exit-0",
             "path": [
@@ -2067,9 +1769,6 @@
             "stepId": "req-review",
             "disposition": "pass",
             "evidence": "self-review by the author of the change"
-          },
-          "expectExit": {
-            "on": 2
           }
         },
         {
@@ -2122,18 +1821,6 @@
           }
         ],
         "on": [
-          {
-            "id": "review-pass-exit",
-            "path": [
-              "actions",
-              "review-pass",
-              "exitCode"
-            ],
-            "operator": "equals",
-            "expected": 2,
-            "s1Kind": "control",
-            "note": "F4-T3 decision 1 (#325 S2 slice plan, comment of 2026-10-21: S2 retires P02e x2, P03 verify-retry-exit, P05 x2). The ON self-authored review PASS is refused with exit 2 by the F4 I2a review-mode refusal; the step stays pending. The OFF expectation is unchanged."
-          },
           {
             "id": "stop-exit-0",
             "path": [
@@ -2229,9 +1916,6 @@
             "stepId": "req-review",
             "disposition": "pass",
             "evidence": "review scope recorded"
-          },
-          "expectExit": {
-            "on": 2
           }
         },
         {
@@ -2243,9 +1927,6 @@
             "disposition": "loaded",
             "evidence": "verification loop skill located"
           },
-          "expectExit": {
-            "on": 2
-          },
           "note": "F4-T3: after the ON review PASS is refused (review-pass exit 2) the review step stays active, so the verification binding is refused with exit 2 (bindings may only be resolved for the active step). Declared as an ON refusal; the OFF leg is unchanged."
         },
         {
@@ -2255,9 +1936,6 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "verification attempted before evidence arrived"
-          },
-          "expectExit": {
-            "on": 2
           }
         },
         {
@@ -2357,29 +2035,6 @@
           }
         ],
         "on": [
-          {
-            "id": "review-pass-exit",
-            "path": [
-              "actions",
-              "review-pass",
-              "exitCode"
-            ],
-            "operator": "equals",
-            "expected": 2,
-            "s1Kind": "control",
-            "note": "F4-T3 decision 1 (#325 S2 slice plan, comment of 2026-10-21: S2 retires P02e x2, P03 verify-retry-exit, P05 x2). The ON self-authored review PASS is refused with exit 2 by the F4 I2a review-mode refusal; the step stays pending. The OFF expectation is unchanged."
-          },
-          {
-            "id": "verify-pass-exit",
-            "path": [
-              "actions",
-              "verify-pass",
-              "exitCode"
-            ],
-            "operator": "equals",
-            "expected": 2,
-            "s1Kind": "retired"
-          },
           {
             "id": "stop-exit-0",
             "path": [
@@ -2612,25 +2267,6 @@
             "s1Kind": "control"
           },
           {
-            "id": "pilot-status-unavailable",
-            "path": [
-              "pilot",
-              "pilotStatus"
-            ],
-            "operator": "equals",
-            "expected": "unavailable",
-            "s1Kind": "retired"
-          },
-          {
-            "id": "pilot-origin-runtime",
-            "path": [
-              "pilotReportOrigin"
-            ],
-            "operator": "equals",
-            "expected": "runtime",
-            "s1Kind": "additional"
-          },
-          {
             "id": "stop-generic-exit-0",
             "path": [
               "actions",
@@ -2846,25 +2482,6 @@
             "s1Kind": "control"
           },
           {
-            "id": "pilot-status-unavailable",
-            "path": [
-              "pilot",
-              "pilotStatus"
-            ],
-            "operator": "equals",
-            "expected": "unavailable",
-            "s1Kind": "retired"
-          },
-          {
-            "id": "pilot-origin-runtime",
-            "path": [
-              "pilotReportOrigin"
-            ],
-            "operator": "equals",
-            "expected": "runtime",
-            "s1Kind": "additional"
-          },
-          {
             "id": "stop-generic-exit-0",
             "path": [
               "actions",
@@ -3078,25 +2695,6 @@
             "operator": "equals",
             "expected": 0,
             "s1Kind": "control"
-          },
-          {
-            "id": "pilot-status-unavailable",
-            "path": [
-              "pilot",
-              "pilotStatus"
-            ],
-            "operator": "equals",
-            "expected": "unavailable",
-            "s1Kind": "retired"
-          },
-          {
-            "id": "pilot-origin-runtime",
-            "path": [
-              "pilotReportOrigin"
-            ],
-            "operator": "equals",
-            "expected": "runtime",
-            "s1Kind": "additional"
           },
           {
             "id": "stop-generic-exit-0",
@@ -3324,9 +2922,6 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "objective check recorded"
-          },
-          "expectExit": {
-            "on": 2
           }
         },
         {
@@ -3352,43 +2947,6 @@
             "operator": "equals",
             "expected": 0,
             "s1Kind": "control"
-          },
-          {
-            "id": "verify-exit-refused",
-            "path": [
-              "actions",
-              "verify-pass",
-              "exitCode"
-            ],
-            "operator": "equals",
-            "expected": 2,
-            "s1Kind": "additional"
-          },
-          {
-            "id": "stop-state",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "state"
-            ],
-            "operator": "equals",
-            "expected": "running",
-            "s1Kind": "additional"
-          },
-          {
-            "id": "stop-reports",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "unresolved"
-            ],
-            "operator": "includes",
-            "expected": "step:req-verify:pending",
-            "s1Kind": "additional"
           },
           {
             "id": "stop-exit-0",
@@ -3543,9 +3101,6 @@
             "obligationId": "execute",
             "disposition": "pass",
             "evidence": "done"
-          },
-          "expectExit": {
-            "on": 2
           }
         },
         {
@@ -3555,9 +3110,6 @@
             "obligationId": "verify",
             "disposition": "pass",
             "evidence": "done"
-          },
-          "expectExit": {
-            "on": 2
           }
         },
         {
@@ -3583,54 +3135,6 @@
             "operator": "equals",
             "expected": 0,
             "s1Kind": "control"
-          },
-          {
-            "id": "direct-execute-refused",
-            "path": [
-              "actions",
-              "direct-execute",
-              "exitCode"
-            ],
-            "operator": "equals",
-            "expected": 2,
-            "s1Kind": "additional"
-          },
-          {
-            "id": "direct-verify-refused",
-            "path": [
-              "actions",
-              "direct-verify",
-              "exitCode"
-            ],
-            "operator": "equals",
-            "expected": 2,
-            "s1Kind": "additional"
-          },
-          {
-            "id": "stop-state",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "state"
-            ],
-            "operator": "equals",
-            "expected": "running",
-            "s1Kind": "additional"
-          },
-          {
-            "id": "stop-reports",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "unresolved"
-            ],
-            "operator": "includes",
-            "expected": "step:req-verify:pending",
-            "s1Kind": "additional"
           },
           {
             "id": "stop-exit-0",
@@ -3817,32 +3321,6 @@
             "operator": "equals",
             "expected": 0,
             "s1Kind": "control"
-          },
-          {
-            "id": "stop-state",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "state"
-            ],
-            "operator": "equals",
-            "expected": "running",
-            "s1Kind": "additional"
-          },
-          {
-            "id": "stop-reports",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "unresolved"
-            ],
-            "operator": "includes",
-            "expected": "step:req-verify:pending",
-            "s1Kind": "additional"
           },
           {
             "id": "authored-step-retained",
@@ -4059,32 +3537,6 @@
             "operator": "equals",
             "expected": 0,
             "s1Kind": "control"
-          },
-          {
-            "id": "stop-on-2-state",
-            "path": [
-              "actions",
-              "stop-on-2",
-              "state",
-              "workflow",
-              "state"
-            ],
-            "operator": "equals",
-            "expected": "running",
-            "s1Kind": "additional"
-          },
-          {
-            "id": "stop-on-2-reports",
-            "path": [
-              "actions",
-              "stop-on-2",
-              "state",
-              "workflow",
-              "unresolved"
-            ],
-            "operator": "includes",
-            "expected": "step:req-verify:pending",
-            "s1Kind": "additional"
           },
           {
             "id": "stop-on-2-exit-0",
@@ -4910,9 +4362,6 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "done"
-          },
-          "expectExit": {
-            "on": 2
           }
         },
         {
@@ -4928,30 +4377,6 @@
       ],
       "expectations": {
         "on": [
-          {
-            "id": "verify-pass-exit",
-            "path": [
-              "actions",
-              "verify-pass",
-              "exitCode"
-            ],
-            "operator": "equals",
-            "expected": 2,
-            "s1Kind": "additional"
-          },
-          {
-            "id": "stop-state",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "state"
-            ],
-            "operator": "equals",
-            "expected": "running",
-            "s1Kind": "additional"
-          },
           {
             "id": "stop-exit-0",
             "path": [
@@ -5097,25 +4522,6 @@
             "operator": "absent",
             "expected": null,
             "s1Kind": "control"
-          },
-          {
-            "id": "pilot-status-unavailable",
-            "path": [
-              "pilot",
-              "pilotStatus"
-            ],
-            "operator": "equals",
-            "expected": "unavailable",
-            "s1Kind": "additional"
-          },
-          {
-            "id": "pilot-origin-runtime",
-            "path": [
-              "pilotReportOrigin"
-            ],
-            "operator": "equals",
-            "expected": "runtime",
-            "s1Kind": "additional"
           },
           {
             "id": "stop-exit-0",
@@ -5365,35 +4771,6 @@
             "s1Kind": "control"
           },
           {
-            "id": "pilot-status-unavailable",
-            "path": [
-              "pilot",
-              "pilotStatus"
-            ],
-            "operator": "equals",
-            "expected": "unavailable",
-            "s1Kind": "additional"
-          },
-          {
-            "id": "pilot-origin-runtime",
-            "path": [
-              "pilotReportOrigin"
-            ],
-            "operator": "equals",
-            "expected": "runtime",
-            "s1Kind": "additional"
-          },
-          {
-            "id": "pilot-no-doc-credit",
-            "path": [
-              "pilot",
-              "pilotCredit"
-            ],
-            "operator": "equals",
-            "expected": false,
-            "s1Kind": "additional"
-          },
-          {
             "id": "stop-exit-0",
             "path": [
               "actions",
@@ -5563,9 +4940,6 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "objective check recorded"
-          },
-          "expectExit": {
-            "on": 2
           }
         },
         {
@@ -5591,76 +4965,6 @@
             "operator": "equals",
             "expected": 0,
             "s1Kind": "control"
-          },
-          {
-            "id": "verify-pass-exit",
-            "path": [
-              "actions",
-              "verify-pass",
-              "exitCode"
-            ],
-            "operator": "equals",
-            "expected": 2,
-            "s1Kind": "additional"
-          },
-          {
-            "id": "stop-state",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "state"
-            ],
-            "operator": "equals",
-            "expected": "running",
-            "s1Kind": "additional"
-          },
-          {
-            "id": "stop-reports",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "unresolved"
-            ],
-            "operator": "includes",
-            "expected": "step:req-verify:pending",
-            "s1Kind": "additional"
-          },
-          {
-            "id": "pilot-origin-runtime",
-            "path": [
-              "pilotReportOrigin"
-            ],
-            "operator": "equals",
-            "expected": "runtime",
-            "s1Kind": "additional"
-          },
-          {
-            "id": "pilot-unsatisfied-requirement-sync",
-            "path": [
-              "pilot",
-              "unsatisfied"
-            ],
-            "operator": "includes",
-            "expected": {
-              "obligationId": "doc-change:requirement-sync",
-              "state": "unknown",
-              "reasonCode": "unknown-applicability"
-            },
-            "s1Kind": "additional"
-          },
-          {
-            "id": "pilot-credit-false",
-            "path": [
-              "pilot",
-              "pilotCredit"
-            ],
-            "operator": "equals",
-            "expected": false,
-            "s1Kind": "additional"
           },
           {
             "id": "stop-exit-0",
@@ -5823,9 +5127,6 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "done"
-          },
-          "expectExit": {
-            "on": 2
           }
         },
         {
@@ -5851,82 +5152,6 @@
             "operator": "equals",
             "expected": 0,
             "s1Kind": "control"
-          },
-          {
-            "id": "verify-pass-exit",
-            "path": [
-              "actions",
-              "verify-pass",
-              "exitCode"
-            ],
-            "operator": "equals",
-            "expected": 2,
-            "s1Kind": "additional"
-          },
-          {
-            "id": "stop-state",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "state"
-            ],
-            "operator": "equals",
-            "expected": "running",
-            "s1Kind": "additional"
-          },
-          {
-            "id": "stop-reports",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "unresolved"
-            ],
-            "operator": "includes",
-            "expected": "step:req-verify:pending",
-            "s1Kind": "additional"
-          },
-          {
-            "id": "pilot-origin-runtime",
-            "path": [
-              "pilotReportOrigin"
-            ],
-            "operator": "equals",
-            "expected": "runtime",
-            "s1Kind": "additional"
-          },
-          {
-            "id": "pilot-expected-doc-lint",
-            "path": [
-              "pilot",
-              "expectedMustIds"
-            ],
-            "operator": "includes",
-            "expected": "doc-change:doc-lint",
-            "s1Kind": "additional"
-          },
-          {
-            "id": "pilot-expected-link-check",
-            "path": [
-              "pilot",
-              "expectedMustIds"
-            ],
-            "operator": "includes",
-            "expected": "doc-change:link-check",
-            "s1Kind": "additional"
-          },
-          {
-            "id": "pilot-credit-false",
-            "path": [
-              "pilot",
-              "pilotCredit"
-            ],
-            "operator": "equals",
-            "expected": false,
-            "s1Kind": "additional"
           },
           {
             "id": "stop-exit-0",
@@ -6089,12 +5314,6 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "objective check recorded"
-          },
-          "expectExit": {
-            "on": [
-              0,
-              2
-            ]
           }
         },
         {
@@ -6120,76 +5339,6 @@
             "operator": "equals",
             "expected": 0,
             "s1Kind": "control"
-          },
-          {
-            "id": "verify-exit-refused",
-            "path": [
-              "actions",
-              "verify-pass",
-              "exitCode"
-            ],
-            "operator": "equals",
-            "expected": 2,
-            "s1Kind": "additional"
-          },
-          {
-            "id": "stop-state",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "state"
-            ],
-            "operator": "equals",
-            "expected": "running",
-            "s1Kind": "additional"
-          },
-          {
-            "id": "stop-reports",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "unresolved"
-            ],
-            "operator": "includes",
-            "expected": "step:req-verify:pending",
-            "s1Kind": "additional"
-          },
-          {
-            "id": "pilot-origin-runtime",
-            "path": [
-              "pilotReportOrigin"
-            ],
-            "operator": "equals",
-            "expected": "runtime",
-            "s1Kind": "additional"
-          },
-          {
-            "id": "pilot-unsatisfied-config-scope-changed",
-            "path": [
-              "pilot",
-              "unsatisfied"
-            ],
-            "operator": "includes",
-            "expected": {
-              "obligationId": "doc-change:scope",
-              "state": "unavailable",
-              "reasonCode": "config-scope-changed"
-            },
-            "s1Kind": "additional"
-          },
-          {
-            "id": "pilot-credit-false",
-            "path": [
-              "pilot",
-              "pilotCredit"
-            ],
-            "operator": "equals",
-            "expected": false,
-            "s1Kind": "additional"
           },
           {
             "id": "stop-exit-0",
@@ -6353,12 +5502,6 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "objective check recorded"
-          },
-          "expectExit": {
-            "on": [
-              0,
-              2
-            ]
           }
         },
         {
@@ -6384,76 +5527,6 @@
             "operator": "equals",
             "expected": 0,
             "s1Kind": "control"
-          },
-          {
-            "id": "verify-exit-refused",
-            "path": [
-              "actions",
-              "verify-pass",
-              "exitCode"
-            ],
-            "operator": "equals",
-            "expected": 2,
-            "s1Kind": "additional"
-          },
-          {
-            "id": "stop-state",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "state"
-            ],
-            "operator": "equals",
-            "expected": "running",
-            "s1Kind": "additional"
-          },
-          {
-            "id": "stop-reports",
-            "path": [
-              "actions",
-              "stop",
-              "state",
-              "workflow",
-              "unresolved"
-            ],
-            "operator": "includes",
-            "expected": "step:req-verify:pending",
-            "s1Kind": "additional"
-          },
-          {
-            "id": "pilot-origin-runtime",
-            "path": [
-              "pilotReportOrigin"
-            ],
-            "operator": "equals",
-            "expected": "runtime",
-            "s1Kind": "additional"
-          },
-          {
-            "id": "pilot-unsatisfied-config-scope-changed",
-            "path": [
-              "pilot",
-              "unsatisfied"
-            ],
-            "operator": "includes",
-            "expected": {
-              "obligationId": "doc-change:scope",
-              "state": "unavailable",
-              "reasonCode": "config-scope-changed"
-            },
-            "s1Kind": "additional"
-          },
-          {
-            "id": "pilot-credit-false",
-            "path": [
-              "pilot",
-              "pilotCredit"
-            ],
-            "operator": "equals",
-            "expected": false,
-            "s1Kind": "additional"
           },
           {
             "id": "stop-exit-0",
