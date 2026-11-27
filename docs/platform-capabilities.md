@@ -306,18 +306,18 @@ The editorial doc check (`harness-everything/scripts/doc-check.js`, F1) is reach
 
 **Historical (retired E1 pilot):** PR-B added a dedicated `outline-confirmation` evidence lane for Claude captures with separate B/O/D checks, a coordinator-sealed pre-dispatch handoff, pinned-inventory row binding, and an independent exact-O review. A separate sanitized capture qualified the **observed Claude Code 2.1.312 run8 profile**, recorded at main baseline `1bd0f805031c5577a6e7f72a9bc5b41618b71fc1`. This remains retained field-mapping evidence, not runtime version enforcement or an E1 qualifying cycle. OpenCode, Codex and other Claude Code versions received no outline qualification. Missing or ambiguous capture stayed unresolved and host tools remained fail-open. The outline result did not replace the aggregate B→D MUST result or the existing exact-D `quality-review` contract.
 
-**Historical (retired E1 pilot):** W3/W6 added only the closed workflow-state operations named in [the reconciliation contract](doc-workflow-reconciliation.md#writer-policy-phase-aware): plan/start and inventory before O, one seal after the approved O review, then three ordered dispositions after worker closure and final review. The installed producer exposed only `inventory` and `seal`, both now refusing with the retirement line and exit 2 under #553 (see below); previously, the real Pre/Post hook journal and provider validated invocation identity, phase, exact destinations, schema and transition, and `state-persist` used that same decision so verified state-only calls did not appear as task edits or verification evidence. The outline mechanism suite exercised source and packaged paths; this is deterministic mechanism/package evidence only. No live W6 host cycle or E1 qualification is claimed.
+**Historical (retired E1 pilot):** W3/W6 added only the closed workflow-state operations named in [the reconciliation contract](doc-workflow-reconciliation.md#writer-policy-phase-aware): plan/start and inventory before O, one seal after the approved O review, then three ordered dispositions after worker closure and final review. The installed producer exposed only `inventory` and `seal`, which have since been removed under #553 (see below); previously, the real Pre/Post hook journal and provider validated invocation identity, phase, exact destinations, schema and transition, and `state-persist` used that same decision so verified state-only calls did not appear as task edits or verification evidence. The outline mechanism suite exercised source and packaged paths; this is deterministic mechanism/package evidence only. No live W6 host cycle or E1 qualification is claimed.
 
 ### E1 pilot retirement and retained document controls (#553)
 
-The E1 reconciliation pilot is retired. Under the retirement contract every
-`HARNESS_DOC_RECONCILIATION_PILOT` value is ignored, ordinary hooks print no flag warning, and the
-W6 `inventory`/`seal` CLI exits 2 with `[W6 State Operation] E1 pilot retired. Finish on the
-previous release or start a new session.` before reading workspace/session state, loading the E1
-provider or writing files. Workflow credit and Stop no longer load the E1 provider (#553); generic verification, required bindings and Fable correlation are unchanged, and a
-legacy doc-only verification no longer satisfies Stop. In-flight E1 work belongs to the previous
-release; after upgrading, end the old session and open a new one to redo review/verify. Recorded
-journals, reports and outline artifacts stay in place. Issues
+The E1 reconciliation pilot is retired, and its runtime modules and W6 `inventory`/`seal` CLI
+(`hooks/scripts/w6-state-operations.js`) have been removed (#553). Under the retirement contract
+every `HARNESS_DOC_RECONCILIATION_PILOT` value is ignored, ordinary hooks print no flag warning,
+and workflow credit and Stop no longer load the E1 provider (#553); generic verification, required
+bindings and Fable correlation are unchanged, and a legacy doc-only verification no longer
+satisfies Stop. In-flight E1 work belongs to the previous release; after upgrading, end the old
+session and open a new one to redo review/verify. Recorded journals, reports and outline artifacts
+stay in place. Issues
 [#325](https://github.com/dyphn1/Harness-everything/issues/325) and
 [#350](https://github.com/dyphn1/Harness-everything/issues/350) remain open failure markers.
 

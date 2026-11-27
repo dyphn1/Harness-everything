@@ -10,9 +10,10 @@ status: active
 > baselines of the previous release — source-traced at `dba4708`, `5f9726c` and `8903435`, plus
 > the captured Claude Code 2.1.308/2.1.312 field-availability runs — and is not a description of
 > the current entrypoints. **Current entrypoints** are the ordinary workflow/handoff and OpenCode
-> V2 paths: workflow credit and Stop no longer load the E1 provider (#553), and the W6
-> `inventory`/`seal` CLI now exits 2 with a retirement line (#553). Under the retirement contract every
-> `HARNESS_DOC_RECONCILIATION_PILOT` value is ignored and normal hooks print no flag warning.
+> V2 paths: workflow credit and Stop no longer load the E1 provider, and the E1 runtime modules and
+> W6 `inventory`/`seal` CLI (`hooks/scripts/w6-state-operations.js`) have been removed (#553). Under
+> the retirement contract every `HARNESS_DOC_RECONCILIATION_PILOT` value is ignored and normal hooks
+> print no flag warning.
 > Finish in-flight E1 work on the previous release, or end it and open a new session to redo
 > review/verify on the current path; recorded journals, reports and outline artifacts stay in
 > place. Issues [#325](https://github.com/dyphn1/Harness-everything/issues/325) and
