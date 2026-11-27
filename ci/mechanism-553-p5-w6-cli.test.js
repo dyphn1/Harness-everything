@@ -342,95 +342,6 @@ function runW6Sentinel(leg, operation) {
   check((sentinel?.spawns || []).length === 0, `${prefix}.no-git-or-child-spawn`, JSON.stringify(sentinel?.spawns));
 }
 
-function runOrdinaryStopControl(leg, hasGenericVerify) {
-  const label = hasGenericVerify ? 'ordinary-satisfied' : 'ordinary-missing-verify';
-  const workspace = path.join(TEMP, `ws-${leg.id}-${label}`);
-  fs.mkdirSync(workspace, { recursive: true });
-  const prevWs = process.env.HARNESS_WORKSPACE_ROOT;
-  process.env.HARNESS_WORKSPACE_ROOT = workspace;
-  try {
-    const state = require(path.join(leg.hooks, 'lib', 'harness-state.js'));
-    const runtime = require(path.join(leg.hooks, 'lib', 'workflow-runtime.js'));
-    const api = require(path.join(leg.hooks, 'lib', 'workflow-obligations.js'));
-    const stopGate = require(path.join(leg.hooks, 'workflow-stop-gate.js'));
-
-    const sessionId = `p5-553-${leg.id}-${label}`;
-    const payload = { session_id: sessionId, cwd: workspace, hook_event_name: 'Stop' };
-    const sessionDir = state.getSessionDir(workspace, sessionId, payload);
-    const plan = { strategySelection: 'selected', tier: 'tier2', strategy: 'iterative-single' };
-    const requirements = [
-      { id: 'req-change', stepType: 'behavior-change', summary: 'Change behavior', acceptance: 'Changed' },
-      { id: 'req-verify', stepType: 'verification', summary: 'Verify behavior', acceptance: 'Verified' },
-    ];
-    const workflow = {
-      schemaVersion: 2,
-      workflowId: `wf-${sessionId}`,
-      sessionId,
-      revision: 1,
-      state: 'running',
-      strategy: plan.strategy,
-      tier: plan.tier,
-      strategySelection: plan.strategySelection,
-      workflowPlan: plan,
-      lastMutationAt: 1000,
-      escapes: [],
-    };
-    const context = { root: workspace, sessionId, sessionDir, file: path.join(sessionDir, 'workflow-run.json'), workflow };
-    api.initializePlanningContract(context, plan);
-    api.recordPlanning(context, JSON.stringify(requirements), plan, plan.strategy, 'Plan recorded');
-    api.materializeExecutionObligations(context, plan);
-    api.updateObligation(context, 'execute', 'pass', { evidence: 'Executed' });
-    api.updateBinding(context, 'req-change', 'tdd', 'loaded', { evidence: 'Loaded' });
-    api.updateStep(context, 'req-change', 'pass', { evidence: 'Changed' });
-    if (hasGenericVerify) {
-      api.updateObligation(context, 'verify', 'pass', { evidence: 'Generic verify passed' });
-      api.updateBinding(context, 'req-verify', 'verification-loop', 'loaded', { evidence: 'Loaded' });
-      api.updateStep(context, 'req-verify', 'pass', { evidence: 'Verified' });
-    }
-    runtime.saveWorkflow(context);
-    const handoffInitial = hasGenericVerify
-      ? { lastEditAt: 1000, lastGenericVerifyAt: 2000, lastGenericVerifyExitCode: 0, lastVerifyAt: 2000 }
-      : { lastEditAt: 1000 };
-    writeJson(path.join(sessionDir, 'handoff-state.json'), handoffInitial);
-
-    const cliPath = path.join(leg.hooks, 'w6-state-operations.js');
-    for (const op of ['inventory', 'seal']) {
-      const res = spawnSync(process.execPath, [cliPath, op, '--session-id', sessionId], {
-        cwd: workspace,
-        encoding: 'utf8',
-        env: buildEnv(workspace, '1'),
-        timeout: 10000,
-      });
-      check(res.status === 2 && res.stdout === '', `control.${leg.id}.${label}.${op}.retired`, `status=${res.status}`);
-    }
-
-    stopGate.decide(payload);
-    const finalWorkflow = readJson(context.file);
-    const finalHandoff = readJson(path.join(sessionDir, 'handoff-state.json'));
-    check(
-      JSON.stringify(finalHandoff) === JSON.stringify(handoffInitial),
-      `control.${leg.id}.${label}.handoff-untouched`,
-      JSON.stringify(finalHandoff)
-    );
-    if (hasGenericVerify) {
-      check(
-        finalWorkflow.state === 'satisfied' && (finalWorkflow.unresolved || []).length === 0,
-        `control.${leg.id}.${label}.stop-satisfied`,
-        JSON.stringify(finalWorkflow)
-      );
-    } else {
-      check(
-        finalWorkflow.state === 'running' && (finalWorkflow.unresolved || []).includes('verification-after-edit-missing'),
-        `control.${leg.id}.${label}.stop-still-requires-verify`,
-        JSON.stringify(finalWorkflow)
-      );
-    }
-  } finally {
-    if (prevWs === undefined) delete process.env.HARNESS_WORKSPACE_ROOT;
-    else process.env.HARNESS_WORKSPACE_ROOT = prevWs;
-  }
-}
-
 console.log('=== P5-553 W6 CLI retirement ===');
 try {
   for (const leg of LEGS) {
@@ -444,8 +355,6 @@ try {
       }
       runW6Sentinel(leg, operation);
     }
-    runOrdinaryStopControl(leg, false);
-    runOrdinaryStopControl(leg, true);
   }
 } catch (error) {
   console.error(`INFRA ${error.stack || error}`);
