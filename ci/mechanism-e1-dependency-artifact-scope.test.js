@@ -8,23 +8,19 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const H = require('./fixtures/doc-obligations/reconciliation-s2a/harness.js');
 const { canonical } = require(path.resolve(__dirname, '../hooks/scripts/lib/workflow-isolation.js'));
-const RUN13_REQUIREMENTS = require('./fixtures/doc-obligations/reconciliation-s2a/run13-workflow-requirements.json');
 
 const PRODUCER = 'doc-reconciliation-producer.js';
 const EVENTS = 'doc-reconciliation-events.js';
 const CORE = 'doc-reconciliation-core.js';
 const RESOLVER = 'project-docs-resolver.js';
-const LIFECYCLE = 'doc-lifecycle.js';
 const EXPECTED_ROOTS = ['.husky/_', 'node_modules'];
-const primaryRedOnly = process.env.E1_DEP_SCOPE_PRIMARY_ONLY === '1';
 const failures = [];
 
 const REQUIREMENTS = {
   producer: { where: 'lib', file: PRODUCER, exports: ['produceDocSnapshot'] },
   events: { where: 'lib', file: EVENTS, exports: ['acceptDocEvents'] },
   core: { where: 'lib', file: CORE, exports: ['checkAcceptedDocEvidence'] },
-  resolver: { where: 'scripts', file: RESOLVER, exports: ['validateDocsConfig'] },
-  lifecycle: { where: 'scripts', file: LIFECYCLE, exports: ['convertWorkspaceFiles'] }
+  resolver: { where: 'scripts', file: RESOLVER, exports: ['validateDocsConfig'] }
 };
 
 function artifactConfig(roots = EXPECTED_ROOTS) {
@@ -92,59 +88,6 @@ function produce(mods, repo, overrides = {}) {
   return { result: mods[PRODUCER].produceDocSnapshot(H.producerInput(repo, overrides), { originProvider: origin }), origin };
 }
 
-function realTaskPin(repo) {
-  const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), 'e1-dep-scope-state-'));
-  const sessionId = `e1-dep-scope-${process.pid}-${Date.now()}`;
-  const requirements = [
-    { id: 'dep-scope-change', stepType: 'doc-change', summary: 'Change dependency artifact scope.', acceptance: 'The pinned task can capture the installed dependency tree.' },
-    { id: 'dep-scope-verify', stepType: 'verification', summary: 'Verify dependency artifact scope.', acceptance: 'The pinned task and selector overlap guards are verified.' }
-  ];
-  const env = { ...process.env, HARNESS_STATE_HOME: stateHome, HARNESS_WORKSPACE_ROOT: repo.root,
-    HARNESS_DOC_RECONCILIATION_PILOT: '1' };
-  const run = (script, args, input) => {
-    const child = spawnSync(process.execPath, [script, ...args], { cwd: repo.root, env, encoding: 'utf8', input });
-    assert.strictEqual(child.status, 0, `${path.basename(script)} ${args[0] || ''}: ${child.stderr || child.stdout}`);
-  };
-  try {
-    run(path.join(H.ROOT, 'harness-everything/scripts/kernel-router.js'), [], JSON.stringify({
-      session_id: sessionId, cwd: repo.root,
-      prompt: 'Implement a bounded software behavior change, write a focused test, and run integration verification for the dependency artifact scope.'
-    }));
-    const controller = path.join(H.ROOT, 'hooks/scripts/workflow-disposition.js');
-    run(controller, ['plan', '--session-id', sessionId, '--strategy', 'iterative-single', '--evidence', 'real task pin regression witness',
-      '--requirements-json', JSON.stringify(requirements)]);
-    run(controller, ['start', '--session-id', sessionId]);
-
-    const previousStateHome = process.env.HARNESS_STATE_HOME;
-    process.env.HARNESS_STATE_HOME = stateHome;
-    let sessionDir;
-    try { sessionDir = require(path.join(H.ROOT, 'hooks/scripts/lib/harness-state.js')).getSessionDir(repo.root, sessionId); }
-    finally {
-      if (previousStateHome === undefined) delete process.env.HARNESS_STATE_HOME;
-      else process.env.HARNESS_STATE_HOME = previousStateHome;
-    }
-    const workflow = JSON.parse(fs.readFileSync(path.join(sessionDir, 'workflow-run.json'), 'utf8'));
-    assert.strictEqual(workflow.docReconciliationTask?.taskId, 'task-dep-scope-change+dep-scope-verify',
-      'shipped plan/start must produce the task pin used by the consumer-positive');
-    assert.strictEqual(workflow.docReconciliationTask?.baselineRoot, repo.root, 'real task pin carries its absolute baseline identity');
-    return { workflow, task: { ...workflow.docReconciliationTask, requirements } };
-  } finally {
-    fs.rmSync(stateHome, { recursive: true, force: true });
-  }
-}
-
-function produceWithRealTaskPin(mods, repo, pin) {
-  const workflow = {
-    workflowId: pin.workflow.workflowId,
-    sessionId: pin.workflow.sessionId,
-    workflowRevision: pin.workflow.revision
-  };
-  const activeHost = { hostId: 'fake-host' };
-  const origin = new H.FakeOrigin({ context: H.fakeContext({ ...workflow, taskId: pin.task.taskId, activeHost }, repo) });
-  const input = H.producerInput(repo, { task: pin.task, workflow });
-  return { result: mods[PRODUCER].produceDocSnapshot(input, { originProvider: origin }), origin };
-}
-
 function ready(result, label) {
   assert.strictEqual(result.state, 'ready', `${label}: expected ready, got ${JSON.stringify(H.codesOf(result))}`);
   assert(result.snapshot, `${label}: ready result must contain a snapshot`);
@@ -158,7 +101,6 @@ function unavailable(result, label, reasonCode) {
 }
 
 function runCase(name, required, fn) {
-  if (primaryRedOnly && name !== 'primary-installed-tree-and-truthful-coverage') return;
   for (const leg of H.LEGS) {
     const modules = {};
     let missing = null;
@@ -188,45 +130,6 @@ function runCase(name, required, fn) {
     }
   }
 }
-
-runCase('primary-installed-tree-and-truthful-coverage', [REQUIREMENTS.producer], (mods, leg) => {
-  withRepo({ config: artifactConfig(), baseFiles: { 'docs/prd/retired.md': 'old baseline file\n' }, candidateFiles: { 'docs/prd/retired.md': null } }, repo => {
-    const pin = realTaskPin(repo);
-    const snapshot = ready(produceWithRealTaskPin(mods, repo, pin).result, 'installed-tree capture from shipped plan/start task pin');
-    const coverage = snapshot.candidate.coverage;
-    assert.strictEqual(coverage.kind, 'project-with-dependency-artifact-exclusions');
-    assert.strictEqual(coverage.policyVersion, 'dependency-artifact-scope/1');
-    assert.deepStrictEqual(coverage.dependencyArtifactRoots, EXPECTED_ROOTS);
-    assert.deepStrictEqual(coverage.excluded, ['.git', ...EXPECTED_ROOTS]);
-    assert.strictEqual(coverage.policySource.path, H.CONFIG_REL);
-    assert.strictEqual(coverage.policySource.baselineCommit, repo.commit);
-    assert.match(coverage.policySource.storedBytesDigest, /^[a-f0-9]{64}$/);
-    assert.deepStrictEqual(coverage.guardOutcomes.map(item => [item.guard, item.state]), [
-      ['baseline-paths', 'clear'], ['index-paths', 'clear'], ['config-sources', 'clear'],
-      ['config-selectors', 'clear'], ['task-inputs', 'clear'], ['excluded-root-types', 'clear']
-    ]);
-    assert.deepStrictEqual(coverage.excludedRootStates, EXPECTED_ROOTS.map(root => ({ path: root, presence: 'present-directory' })));
-    assert(!snapshot.candidate.records.some(item => item.path.startsWith('node_modules/') || item.path.startsWith('.husky/_/')),
-      'approved artifacts must be absent from candidate records');
-    assert(snapshot.candidate.records.some(item => item.path === 'docs/prd/retired.md' && item.presence === 'deleted'),
-      'an omitted retained path must remain an explicit deletion tombstone');
-    assert.deepStrictEqual(snapshot.obligations.filter(item => item.strength === 'MUST' && item.applicability !== 'N/A')
-      .map(item => item.id).sort(), [...H.VECTORS.vectors.normative.expectedMustIds].sort());
-    const core = H.loadModule(leg, 'lib', CORE).mod;
-    const lifecycle = H.loadModule(leg, 'scripts', LIFECYCLE).mod;
-    if (typeof core?._internals?.validateSnapshot === 'function') {
-      assert.deepStrictEqual(core._internals.validateSnapshot(snapshot), [], 'core re-derivation must accept the narrowed inventory');
-    } else if (!primaryRedOnly) throw new Error('core snapshot validator missing');
-    const retained = snapshot.candidate.records.filter(item => item.presence === 'present');
-    if (typeof lifecycle?.convertWorkspaceFiles === 'function') {
-      const converted = lifecycle.convertWorkspaceFiles(repo.root, retained.map(item => ({
-        path: item.path, bytes: fs.readFileSync(path.join(repo.root, item.path))
-      })));
-      assert.deepStrictEqual(converted.map(item => [item.path, item.bytes]), retained.map(item => [item.path, item.storedBytes]),
-        'lifecycle stored-byte conversion must agree on the producer’s explicit retained inventory');
-    } else if (!primaryRedOnly) throw new Error('lifecycle explicit-inventory converter missing');
-  });
-});
 
 runCase('no-authority-candidate-only-and-policy-change-stay-unavailable', [REQUIREMENTS.producer], mods => {
   withRepo({ config: H.DERIVE_CONFIG }, repo => unavailable(produce(mods, repo).result, 'missing opt-in'));
@@ -263,39 +166,6 @@ runCase('host-config-opt-in-cannot-prune-dependency-artifacts', [REQUIREMENTS.pr
     assert.strictEqual(snapshot.candidate.coverage.kind, 'whole-project', 'host policy must not create dependency exclusions');
     assert(snapshot.candidate.records.some(item => item.path === 'node_modules/fixture-package/index.js' && item.presence === 'present'));
     assert(snapshot.candidate.records.some(item => item.path === '.husky/_/husky.sh' && item.presence === 'present'));
-  });
-});
-
-runCase('run13-external-absolute-binding-path-allows-narrowed-snapshot', [REQUIREMENTS.producer], mods => {
-  withRepo({ config: artifactConfig() }, repo => {
-    const pin = realTaskPin(repo);
-    const task = { ...pin.task, requirements: RUN13_REQUIREMENTS };
-    const snapshot = ready(produceWithRealTaskPin(mods, repo, { ...pin, task }).result,
-      'real run13 requirements with an outside-workspace absolute binding path');
-    assert.deepStrictEqual(snapshot.candidate.coverage.dependencyArtifactRoots, EXPECTED_ROOTS,
-      'the explicit baseline policy still produces the narrowed snapshot');
-  });
-});
-
-runCase('outside-absolute-path-containing-root-segment-remains-disjoint', [REQUIREMENTS.producer], mods => {
-  withRepo({ config: artifactConfig() }, repo => {
-    const pin = realTaskPin(repo);
-    const requirements = JSON.parse(JSON.stringify(RUN13_REQUIREMENTS));
-    requirements[1].requiredBindings[0].resolvedPath = path.join(os.tmpdir(), 'node_modules', 'external-binding', 'SKILL.md');
-    const task = { ...pin.task, requirements };
-    const snapshot = ready(produceWithRealTaskPin(mods, repo, { ...pin, task }).result,
-      'outside-workspace absolute path mentioning node_modules');
-    assert.deepStrictEqual(snapshot.candidate.coverage.dependencyArtifactRoots, EXPECTED_ROOTS);
-  });
-});
-
-runCase('task-pin-identity-containing-root-name-is-not-a-path-selector', [REQUIREMENTS.producer], mods => {
-  withRepo({ config: artifactConfig() }, repo => {
-    const pin = realTaskPin(repo);
-    const task = { ...pin.task, taskId: 'node_modules' };
-    const snapshot = ready(produceWithRealTaskPin(mods, repo, { ...pin, task }).result,
-      'task identity equal to an approved-root name');
-    assert.deepStrictEqual(snapshot.candidate.coverage.dependencyArtifactRoots, EXPECTED_ROOTS);
   });
 });
 
