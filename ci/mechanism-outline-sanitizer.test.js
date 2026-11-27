@@ -6,7 +6,6 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { _internals: providerInternals } = require('../hooks/scripts/lib/doc-reconciliation-provider');
 
 const ROOT = path.resolve(__dirname, '..');
 const SANITIZER = path.join(ROOT, 'benchmarks/results/live-host/claude-341-outline-dispatch-2026-10-28/sanitize-outline-capture.js');
@@ -66,13 +65,6 @@ try {
   assert.ok(mapped.every(token => token.length > 0 && !/\s/.test(token)), 'synthetic marker tokens must be nonempty and whitespace-free');
   assert.equal(mapped[0], mapped[1], 'equal originals must map to equal placeholders');
   assert.notEqual(mapped[0], mapped[2], 'different originals must map to distinct placeholders');
-  for (const record of records) {
-    for (const value of [record.tool_input?.prompt, record.tool_response?.stdout].filter(Boolean)) {
-      for (const line of value.split(/\r?\n/).filter(line => line.startsWith('HARNESS_OUTLINE_DISPATCH_V1 '))) {
-        assert.ok(providerInternals.parseOutlineDispatchPrompt(line), 'sanitized marker must retain the production parser grammar');
-      }
-    }
-  }
   console.log('PASS sanitizer replaces repeated and overlapping marker tokens in nested exported strings');
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });

@@ -29,7 +29,6 @@ const SHARED_FILES = [
   ['hooks/scripts/lib/workflow-obligations.js', 'plugins/harness-everything/hooks/scripts/lib/workflow-obligations.js'],
   ['hooks/scripts/workflow-disposition.js', 'plugins/harness-everything/hooks/scripts/workflow-disposition.js'],
   ['hooks/scripts/workflow-stop-gate.js', 'plugins/harness-everything/hooks/scripts/workflow-stop-gate.js'],
-  ['hooks/scripts/lib/doc-reconciliation-pilot.js', 'plugins/harness-everything/hooks/scripts/lib/doc-reconciliation-pilot.js'],
 ];
 
 let failed = 0;

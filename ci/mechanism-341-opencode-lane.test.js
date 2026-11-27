@@ -1,7 +1,6 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -294,7 +293,7 @@ test('session idle finally releases the controller across all four early returns
   }, { pilotFlag: '1' });
 });
 
-test('pilot flag values, no-workflow, and Claude host controls stay unhooked and fail-closed', async () => {
+test('pilot flag values and no-workflow stay unhooked and fail-closed', async () => {
   await withV2DocFixture(async d => {
     for (const [label, pilotFlag] of [['pilot-1', '1'], ['pilot-0', '0'], ['pilot-unset', undefined]]) {
       if (pilotFlag === undefined) delete process.env.HARNESS_DOC_RECONCILIATION_PILOT;
@@ -318,137 +317,6 @@ test('pilot flag values, no-workflow, and Claude host controls stay unhooked and
     await d.settled({ quietMs: 150 });
     assert.equal(fs.existsSync(path.join(noWorkflowDir, 'doc-reconciliation-pilot.json')), false, 'no workflow must not write a pilot report');
     assert.equal(fs.existsSync(path.join(noWorkflowDir, 'workflow-run.json')), false, 'no workflow must not create a workflow file');
-
-    const { createClaudeOriginProvider } = require(path.join(ROOT, 'hooks/scripts/lib/doc-reconciliation-provider.js'));
-    const claudeProvider = createClaudeOriginProvider({ hostId: 'opencode', sessionId: 'native-host-control' });
-    const claudeContext = claudeProvider.resolveContext({ workspaceRoot: d.workspace });
-    assert.equal(claudeContext.status, 'unavailable', 'OpenCode must not enter through Claude provider semantics');
-    assert.ok(claudeContext.diagnostics.some(item => item.code === 'unsupported-host'));
   }, { pilotFlag: '1' });
 });
 
-const OPENCODE_SESSION = 'provider-session';
-const OPENCODE_QUALIFICATION = {
-  source: 'fake-test-fixture', faked: true, toolUseIdPopulated: true, agentIdPopulated: true,
-};
-
-function opencodeCapture(overrides = {}) {
-  return {
-    schema: 'opencode-capture-record/1', hostId: 'opencode', session_id: OPENCODE_SESSION,
-    call_id: 'provider-call', tool: 'bash', command: 'npm test', cwd: ROOT,
-    status: 'completed', exit: 0, result_digest: 'a'.repeat(64), result_bytes: 1,
-    observedIdentity: { workflowId: 'provider-workflow', workflowRevision: 3, baselinePin: null },
-    ...overrides,
-  };
-}
-
-function opencodeProvider(captures, overrides = {}) {
-  const { createOpencodeOriginProvider } = require(path.join(ROOT, 'hooks/scripts/lib/doc-reconciliation-provider.js'));
-  return createOpencodeOriginProvider({
-    hostId: 'opencode', sessionId: OPENCODE_SESSION, workspaceRoot: ROOT,
-    workflowId: 'provider-workflow', workflowRevision: 3, taskId: 'provider-task',
-    principals: { author: 'provider-author', executors: ['provider-executor'] },
-    qualification: OPENCODE_QUALIFICATION, captures,
-    ...overrides,
-  });
-}
-
-function diagnosticCode(result) { return result.diagnostics?.[0]?.code; }
-
-test('fake-DI OpenCode origin accepts the complete native execution record shape', () => {
-  const provider = opencodeProvider([opencodeCapture({ unrecognizedPrivateField: 'must-not-leak' })]);
-  const context = provider.resolveContext({ workspaceRoot: ROOT });
-  const result = provider.resolveEvent({
-    reference: 'provider-call',
-    identity: { workspaceId: 'ws-provider', sessionId: OPENCODE_SESSION, workflowId: 'provider-workflow', workflowRevision: 3 },
-  });
-  assert.equal(context.status, 'accepted');
-  assert.match(context.originRef, /^origin:\/\/opencode\//);
-  assert.equal(context.context.activeHost, 'opencode');
-  assert.equal(result.status, 'accepted');
-  assert.equal(result.originRef, context.originRef);
-  assert.equal(result.event.originRef, context.originRef);
-  assert.deepEqual(Object.keys(result.event).sort(), [
-    'argv', 'artifactDigests', 'captured', 'capability', 'command', 'cwd', 'endIdentity', 'eventId',
-    'exitCode', 'identity', 'kind', 'originRef', 'paths', 'principalId', 'producerId', 'provenance', 'resultRef',
-    'signal', 'startIdentity', 'toolCorrelationId',
-  ].sort());
-  assert.equal(result.event.producerId, 'opencode-origin-provider');
-  assert.equal(result.event.capability, 'shell-command');
-  assert.equal(result.event.kind, 'execution');
-  assert.equal(result.event.exitCode, 0);
-  assert.equal(result.event.cwd, ROOT);
-  assert.equal(result.event.toolCorrelationId, 'provider-call');
-  assert.equal(result.event.captured.responseDigest, 'a'.repeat(64));
-  assert.deepEqual(result.correlation, { toolCorrelationId: 'provider-call', resultRef: result.event.resultRef });
-
-  const emptyResultDigest = crypto.createHash('sha256').update('').digest('hex');
-  const minimum = opencodeProvider([opencodeCapture({ call_id: 'empty-result', result_digest: emptyResultDigest, result_bytes: 0 })])
-    .resolveEvent({ reference: 'empty-result', identity: { workflowId: 'provider-workflow' } });
-  assert.equal(minimum.status, 'accepted', 'zero result bytes are the valid minimum boundary');
-  assert.equal(minimum.event.captured.responseDigest, emptyResultDigest);
-});
-
-test('production OpenCode qualification remains unmet with otherwise valid origin input', () => {
-  const provider = opencodeProvider([opencodeCapture()], { qualification: undefined });
-  const context = provider.resolveContext({ workspaceRoot: ROOT });
-  const result = provider.resolveEvent({ reference: 'provider-call', identity: { workflowId: 'provider-workflow' } });
-  assert.equal(context.status, 'unavailable');
-  assert.equal(diagnosticCode(context), 'live-gate-unmet');
-  assert.equal(result.status, 'unavailable');
-  assert.equal(diagnosticCode(result), 'live-gate-unmet');
-});
-
-test('OpenCode provider rejects native error, incomplete outcome, and missing cwd', () => {
-  const cases = [
-    ['native-error', { error: { name: 'Error', message: 'failed' } }, 'failure-not-credited', 'provider-call'],
-    ['missing-status', { status: undefined }, 'outcome-ambiguous', 'provider-call'],
-    ['empty-status', { status: '' }, 'outcome-ambiguous', 'provider-call'],
-    ['null-status', { status: null }, 'outcome-ambiguous', 'provider-call'],
-    ['wrong-type-status', { status: 1 }, 'outcome-ambiguous', 'provider-call'],
-    ['ambiguous-status', { status: 'running' }, 'outcome-ambiguous', 'provider-call'],
-    ['missing-process-exit', { exit: undefined }, 'outcome-ambiguous', 'provider-call'],
-    ['negative-result-bytes', { result_bytes: -1 }, 'stdout-withheld', 'provider-call'],
-    ['missing-doc-check-cwd', { cwd: undefined, command: 'node harness-everything/scripts/doc-check.js' }, 'unregistered-command', 'provider-call#doc-lint'],
-  ];
-  for (const [name, changes, expected, reference] of cases) {
-    const result = opencodeProvider([opencodeCapture(changes)]).resolveEvent({ reference, identity: { workflowId: 'provider-workflow' } });
-    assert.equal(result.status, 'rejected', `${name}: ${JSON.stringify(result)}`);
-    assert.equal(diagnosticCode(result), expected, name);
-  }
-});
-
-test('OpenCode provider rejects malformed references and unsupported host input', () => {
-  const invalidReference = opencodeProvider([opencodeCapture()]).resolveEvent({ reference: '' });
-  assert.equal(invalidReference.status, 'unavailable');
-  assert.equal(diagnosticCode(invalidReference), 'invalid-input');
-
-  const unsupportedContext = opencodeProvider([], { hostId: 'codex' }).resolveContext({ workspaceRoot: ROOT });
-  assert.equal(unsupportedContext.status, 'unavailable');
-  assert.equal(diagnosticCode(unsupportedContext), 'unsupported-host');
-
-  const unsupportedEvent = opencodeProvider([], { hostId: 'claude-code' }).resolveEvent({ reference: 'provider-call' });
-  assert.equal(unsupportedEvent.status, 'unavailable');
-  assert.equal(diagnosticCode(unsupportedEvent), 'unsupported-host');
-});
-
-test('OpenCode provider rejects stale, replayed, and Claude-origin records', () => {
-  const identity = { workflowId: 'provider-workflow', workflowRevision: 3 };
-  const stale = opencodeCapture({ observedIdentity: { workflowId: 'provider-workflow', workflowRevision: 2, baselinePin: null } });
-  assert.equal(diagnosticCode(opencodeProvider([stale]).resolveEvent({ reference: stale.call_id, identity })), 'identity-mismatch');
-
-  const first = opencodeCapture({ call_id: 'first-call' });
-  const replay = opencodeCapture({ call_id: 'replayed-call' });
-  const replayProvider = opencodeProvider([first, replay]);
-  assert.equal(diagnosticCode(replayProvider.resolveEvent({ reference: replay.call_id, identity })), 'replayed-record');
-
-  const claudeRecord = opencodeCapture({ hostId: 'claude-code' });
-  assert.equal(diagnosticCode(opencodeProvider([claudeRecord]).resolveEvent({ reference: claudeRecord.call_id, identity })), 'record-origin-mismatch');
-});
-
-test('OpenCode quality-review record is refused when reviewer equals the author', () => {
-  const record = opencodeCapture({ agent_id: 'provider-author' });
-  const result = opencodeProvider([record]).resolveEvent({ reference: `${record.call_id}#quality-review` });
-  assert.equal(result.status, 'rejected');
-  assert.equal(diagnosticCode(result), 'reviewer-not-independent');
-});

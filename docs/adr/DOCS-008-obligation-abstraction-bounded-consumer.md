@@ -20,8 +20,8 @@ status: accepted
 
 ## Evidence
 
-- Implementation: [doc-reconciliation-core.js](../../hooks/scripts/lib/doc-reconciliation-core.js), [doc-obligations.js](../../harness-everything/scripts/doc-obligations.js) (the obligation table consumed by the doc path).
-- Consumer tests (exercise `doc-reconciliation-core.js` consuming `deriveDocObligations`): [mechanism-325-3b-s2a-core.test.js](../../ci/mechanism-325-3b-s2a-core.test.js), [mechanism-325-3b-s2b-wiring.test.js](../../ci/mechanism-325-3b-s2b-wiring.test.js).
+- Implementation: [doc-reconciliation-core.js](https://github.com/dyphn1/Harness-everything/blob/fa73c41aa6a611ff1f7eea573c80e87d23f756fe/hooks/scripts/lib/doc-reconciliation-core.js), [doc-obligations.js](../../harness-everything/scripts/doc-obligations.js) (the obligation table consumed by the doc path).
+- Consumer tests (exercise `doc-reconciliation-core.js` consuming `deriveDocObligations`): [mechanism-325-3b-s2a-core.test.js](https://github.com/dyphn1/Harness-everything/blob/fa73c41aa6a611ff1f7eea573c80e87d23f756fe/ci/mechanism-325-3b-s2a-core.test.js), [mechanism-325-3b-s2b-wiring.test.js](../../ci/mechanism-325-3b-s2b-wiring.test.js).
 - Fail-closed controls (not evidence of the consumer): [mechanism-325-3b-preparation.test.js](../../ci/mechanism-325-3b-preparation.test.js), [mechanism-325-3b-s1-review.test.js](../../ci/mechanism-325-3b-s1-review.test.js), [mechanism-341-opencode-lane.test.js](../../ci/mechanism-341-opencode-lane.test.js).
 
 ## Open gates
