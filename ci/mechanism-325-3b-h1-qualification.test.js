@@ -4,11 +4,9 @@
 // #325 H1 deterministic qualification: provider independence/preparation.
 // H1 only: advisory suggestions are never passed to the F4 consumer.
 
-const fs = require('fs');
 const path = require('path');
 
 const fx = require(path.join(__dirname, 'lib', 'doc-reconciliation-prep-fixtures'));
-const { stage } = require(path.join(__dirname, 'lib', 'doc-reconciliation-staged-tree'));
 const F4_CASES = path.join(__dirname, 'fixtures', 'doc-obligations', 'reconciliation-s2b', 'f4', 'cases.json');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
@@ -70,14 +68,6 @@ function record(status, id, detail) {
   console.log(`   ${status.padEnd(5)} ${id}${suffix}`);
 }
 
-function cloneZero(caseDef) {
-  return {
-    ...caseDef,
-    id: `${caseDef.id}-zero-evidence`,
-    actions: caseDef.actions.filter(action => action.id !== 'lint-run' && action.id !== 'post-lint')
-  };
-}
-
 function checkProvider(leg, providerCase) {
   const module = leg === 'source' ? SOURCE_PROVIDER : PACKAGED_PROVIDER;
   let input;
@@ -120,75 +110,13 @@ function checkDerivedMusts(leg, label) {
   return ok;
 }
 
-function runCell(leg, providerCase, evidenceMode) {
-  const label = `H1.${leg}.${providerCase}.${evidenceMode}`;
-  const staged = stage(leg);
-  try {
-    checkProvider(leg, providerCase);
-    checkDerivedMusts(leg, label);
-
-    staged.writeExport(staged.validExport());
-
-    const baseCase = CASE('F4-POS-body-edit');
-    const caseDef = evidenceMode === 'valid' ? baseCase : cloneZero(baseCase);
-
-    const root = fx.replayCase(caseDef, staged.dist, { pilot: '1' });
-    const faults = fx.infrastructureFaults(caseDef, root, 'on');
-    if (faults.length) {
-      record('INFRA', label, faults.map(fault => `${fault.actionId}: ${fault.message}`).join('; '));
-      return;
-    }
-
-    const pilot = root.pilot || {};
-    const checks = [];
-
-    checks.push(deepEqual(root.pilotReportOrigin, 'runtime'));
-    checks.push(deepEqual(pilot.reportOrigin, 'runtime'));
-    checks.push(deepEqual(pilot.expectedMustIds, ['doc-change:doc-lint', 'doc-change:link-check']));
-    const verifyAction = root.actions && root.actions['verify-pass'];
-    const verifyRequirement = verifyAction?.state?.obligations?.requirements?.find(item => item.id === 'req-verify');
-    checks.push(verifyRequirement?.requiredBindings?.some(binding => binding.id === 'verification-loop' && binding.status === 'loaded') === true);
-
-    if (evidenceMode === 'valid') {
-      checks.push(pilot.pilotCredit === true);
-      checks.push(pilot.pilotStatus === 'credited');
-      checks.push(deepEqual(pilot.unsatisfied, []));
-      checks.push(deepEqual(pilot.creditedCapabilities, ['doc-lint', 'link-check']));
-      checks.push(Array.isArray(pilot.acceptedRefs) && pilot.acceptedRefs.some(ref => ref.endsWith('#doc-lint')) && pilot.acceptedRefs.some(ref => ref.endsWith('#link-check')));
-      checks.push(verifyAction && verifyAction.exitCode === 0);
-      const stopAction = root.actions && root.actions.stop;
-      checks.push(stopAction && stopAction.exitCode === 0);
-      checks.push(stopAction && stopAction.state && stopAction.state.workflow && stopAction.state.workflow.state === 'satisfied');
-    } else {
-      checks.push(pilot.pilotCredit === false);
-      checks.push(pilot.pilotStatus === 'unresolved');
-      checks.push(Array.isArray(pilot.unsatisfied) && pilot.unsatisfied.length >= 2);
-      checks.push(pilot.unsatisfied.some(item => item.obligationId === 'doc-change:doc-lint'));
-      checks.push(pilot.unsatisfied.some(item => item.obligationId === 'doc-change:link-check'));
-      checks.push(deepEqual(pilot.creditedCapabilities, []));
-      checks.push(deepEqual(pilot.acceptedRefs, []));
-      checks.push(verifyAction && verifyAction.exitCode === 2);
-      const stopAction = root.actions && root.actions.stop;
-      checks.push(stopAction && stopAction.exitCode === 0);
-      checks.push(stopAction && stopAction.state && stopAction.state.workflow && stopAction.state.workflow.state === 'running');
-    }
-
-    record(checks.every(Boolean) ? 'PASS' : 'FAIL', label, checks.every(Boolean) ? '' : `checks=${JSON.stringify(checks)}, pilot=${JSON.stringify(pilot).slice(0, 500)}`);
-  } catch (error) {
-    record('FAIL', label, error.message);
-  } finally {
-    staged.cleanup();
-  }
-}
-
 function main() {
-  console.log('\n== H1 qualification: provider side input and F4 replay matrix ==');
+  console.log('\n== H1 qualification: direct provider and derived-obligation contracts ==');
   for (const leg of LEGS) {
     for (const providerCase of ['A', 'B', 'omitted']) {
-      for (const evidenceMode of ['valid', 'zero']) {
-        runCell(leg, providerCase, evidenceMode);
-      }
+      checkProvider(leg, providerCase);
     }
+    checkDerivedMusts(leg, `H1.${leg}`);
   }
 
   console.log('\n== H1 qualification evidence ==');

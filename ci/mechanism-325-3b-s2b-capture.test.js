@@ -569,40 +569,8 @@ runner.run('R2C1-LIVE-GATE-NO-ENV-OR-FLAG-BYPASS', PROVIDER_REQ, (_mods, leg) =>
   }
 });
 
-// ---- Item 7: Claude manifest declares SubagentStart/SubagentStop ---------------
-
-runner.run('R2C1-MANIFEST-SUBAGENT-HOOKS', [], (_mods, leg) => {
-  const manifest = JSON.parse(fs.readFileSync(leg.hooksManifest, 'utf8'));
-  const hooks = (manifest && manifest.hooks) || {};
-  if (leg.name === 'source') {
-    // The source manifest is Claude's capture surface; the packaged Codex plugin
-    // keeps its own host-specific SubagentStart/Stop adapters below.
-    const hasStatePersist = group => ((group && group.hooks) || []).some(handler =>
-      handler.type === 'command' && /state-persist\.js/.test(handler.command || ''));
-    for (const route of [
-      { event: 'PreToolUse', matcher: 'Bash|PowerShell|Task|Agent|Write|Edit|apply_patch' },
-      { event: 'PostToolUse', matcher: 'Task|Agent' },
-      { event: 'SubagentStart' },
-      { event: 'SubagentStop' },
-    ]) {
-      const groups = hooks[route.event];
-      if (!Array.isArray(groups) || !groups.some(group => group.matcher === route.matcher && hasStatePersist(group))) {
-        throw new Error(route.event + ' state-persist route is missing or narrowed');
-      }
-    }
-  }
-  for (const event of ['SubagentStart', 'SubagentStop']) {
-    const groups = hooks[event];
-    if (!Array.isArray(groups) || !groups.length) throw new Error(`hooks/hooks.json does not declare ${event}`);
-    for (const group of groups) {
-      const handlers = (group && group.hooks) || [];
-      if (!handlers.length) throw new Error(`${event} matcher group has no handlers`);
-      for (const handler of handlers) {
-        if (handler.type !== 'command') throw new Error(`${event} handler must be a command hook, got ${handler.type}`);
-      }
-    }
-  }
-});
+// Manifest route ownership is covered by mechanism-553-p2a-claude-hooks.test.js;
+// this suite keeps capture behavior and legacy callback compatibility.
 
 // ---- Summary ------------------------------------------------------------------
 

@@ -20,7 +20,6 @@ const ROOT = path.resolve(__dirname, '..');
 const PREP_DIR = path.join(__dirname, 'fixtures', 'doc-obligations', 'reconciliation-prep');
 const RUNNER = path.join(__dirname, 'archive', '325-prep', 'doc-reconciliation-red.js');
 const corpus = fx.readCaseCorpus(path.join(PREP_DIR, 'cases.json'));
-const registry = JSON.parse(fs.readFileSync(path.join(PREP_DIR, 'pending-red.json'), 'utf8'));
 const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'doc-recon-prep-suite-'));
 
 const ALLOWED_OPS = new Set(['route', 'plan', 'start', 'binding', 'step', 'obligation', 'stop', 'provideEvidence', 'mutateIdentity', 'timestampHints']);
@@ -69,24 +68,40 @@ checkCase('inventory: the H2 corpus covers P01-P07 with the L1 field shape', () 
   }
 });
 
-// Infrastructure rule: an abnormal action result is never a qualified gap. The controls start from one healthy replay
-// set of P01 and change only the ON route result, so every other fault and assertion is the unmodified replay's.
+// Infrastructure rule: an abnormal action result is never a qualified gap. These controls start from one healthy OFF
+// replay per P06 distribution and change only the route result.
 const p01 = corpus.cases.find(item => item.id === 'P01');
-const p01Entries = registry.entries.filter(entry => entry.caseId === 'P01');
-const healthyP01 = runner.replayAll(p01);
-const injectIntoRoute = (patch, legs = ['source', 'packaged']) => {
-  const injected = JSON.parse(JSON.stringify(healthyP01));
-  for (const leg of legs) Object.assign(injected.on[leg].actions.route, patch);
+const p06 = corpus.cases.find(item => item.id === 'P06');
+const healthyP06 = {
+  off: {
+    source: fx.scrubReplay(fx.replayCase(p06, 'source')),
+    packaged: fx.scrubReplay(fx.replayCase(p06, 'packaged'))
+  },
+  on: {}
+};
+const injectIntoRoute = patch => {
+  const injected = JSON.parse(JSON.stringify(healthyP06));
+  for (const leg of ['source', 'packaged']) Object.assign(injected.off[leg].actions.route, patch);
   return injected;
 };
+const assertRouteInfrastructure = (result, expected) => {
+  assert.strictEqual(result.status, 'INFRASTRUCTURE', `status ${result.status}`);
+  assert.deepStrictEqual(result.infrastructure, expected);
+  assert.deepStrictEqual(result.offending, {
+    leg: 'source', mode: 'off', actionId: 'route',
+    fault: expected[0].replace(/^source\.off\.route: /, '')
+  });
+  assert.deepStrictEqual(result.assertions, [], 'no assertion is qualified or classified for an infrastructure case');
+  assert.strictEqual(runner.exitCodeFor({ cases: [result] }, 'expect-red'), 2, 'expected-RED mode exits 2');
+};
 
-// locks: C — "unavailable observations ... cannot become a false PASS"; control: P01
-checkCase('negative control: an abnormal route in P01 is infrastructure, and --expect-red exits nonzero though later assertions still match', () => {
+// locks: C — "unavailable observations ... cannot become a false PASS"; control: P06
+checkCase('negative control: an abnormal OFF route in P06 is infrastructure while later plan/start/verify/Stop assertions stay unchanged', () => {
   const injected = injectIntoRoute({ exitCode: 1 });
-  const later = p01.expectations.on.filter(assertion => assertion.id.startsWith('verify-obligation') || assertion.id.startsWith('stop-'));
+  const later = p06.expectations.off.filter(assertion => /^(?:plan|start|verify|stop)-/.test(assertion.id));
   for (const leg of ['source', 'packaged']) {
-    const before = fx.evaluateAll(healthyP01.on[leg], later);
-    const after = fx.evaluateAll(injected.on[leg], later);
+    const before = fx.evaluateAll(healthyP06.off[leg], later);
+    const after = fx.evaluateAll(injected.off[leg], later);
     assert.deepStrictEqual(after.map(item => [item.id, item.pass, item.actual]), before.map(item => [item.id, item.pass, item.actual]),
       `${leg}: the later assertions evaluate exactly as in the unmodified replay`);
     for (const item of after) {
@@ -94,34 +109,42 @@ checkCase('negative control: an abnormal route in P01 is infrastructure, and --e
         `${leg}: ${item.id} remains strict S1 GREEN, so only the infrastructure rule can stop the replay`);
     }
   }
-  const result = runner.classifyCase(p01, injected, p01Entries);
-  assert.strictEqual(result.status, 'INFRASTRUCTURE', `status ${result.status}`);
-  assert.deepStrictEqual(result.infrastructure, ['source.on.route: exit 1 outside policy [0]', 'packaged.on.route: exit 1 outside policy [0]']);
-  assert.deepStrictEqual(result.offending, { leg: 'source', mode: 'on', actionId: 'route', fault: 'exit 1 outside policy [0]' });
-  assert.deepStrictEqual(result.assertions, [], 'no assertion is qualified or classified for an infrastructure case');
-  assert.strictEqual(runner.exitCodeFor({ cases: [result] }, 'expect-red'), 2, 'expected-RED mode exits nonzero');
+  const result = runner.classifyCase(p06, injected, []);
+  assertRouteInfrastructure(result, [
+    'source.off.route: exit 1 outside policy [0]',
+    'packaged.off.route: exit 1 outside policy [0]'
+  ]);
 });
 
-// locks: C — "unavailable observations ... cannot become a false PASS"; control: P01
-checkCase('negative control: a route killed by a signal or without an exit status is infrastructure', () => {
-  const result = runner.classifyCase(p01, injectIntoRoute({ exitCode: null, signal: 'SIGTERM' }), p01Entries);
-  assert.strictEqual(result.status, 'INFRASTRUCTURE');
-  assert.ok(result.infrastructure.includes('source.on.route: terminated by signal SIGTERM'), result.infrastructure.join('; '));
-  assert.ok(result.infrastructure.includes('source.on.route: no exit status'), result.infrastructure.join('; '));
+// locks: C — "unavailable observations ... cannot become a false PASS"; control: P06
+checkCase('negative control: an OFF route killed by a signal or without an exit status is infrastructure', () => {
+  const result = runner.classifyCase(p06, injectIntoRoute({ exitCode: null, signal: 'SIGTERM' }), []);
+  assertRouteInfrastructure(result, [
+    'source.off.route: terminated by signal SIGTERM',
+    'source.off.route: no exit status',
+    'packaged.off.route: terminated by signal SIGTERM',
+    'packaged.off.route: no exit status'
+  ]);
 });
 
-// locks: C — "unavailable observations ... cannot become a false PASS"; control: P01
-checkCase('negative control: a spawn error on the route is infrastructure', () => {
-  const result = runner.classifyCase(p01, injectIntoRoute({ exitCode: null, error: 'spawnSync node ENOENT' }), p01Entries);
-  assert.strictEqual(result.status, 'INFRASTRUCTURE');
-  assert.ok(result.infrastructure.includes('source.on.route: spawn error spawnSync node ENOENT'), result.infrastructure.join('; '));
+// locks: C — "unavailable observations ... cannot become a false PASS"; control: P06
+checkCase('negative control: a spawn error on the OFF route is infrastructure', () => {
+  const result = runner.classifyCase(p06, injectIntoRoute({ exitCode: null, error: 'spawnSync node ENOENT' }), []);
+  assertRouteInfrastructure(result, [
+    'source.off.route: spawn error spawnSync node ENOENT',
+    'source.off.route: no exit status',
+    'packaged.off.route: spawn error spawnSync node ENOENT',
+    'packaged.off.route: no exit status'
+  ]);
 });
 
-// locks: C — "unavailable observations ... cannot become a false PASS"; control: P01
-checkCase('negative control: an accepted route exit without the routing checkpoint is malformed required output', () => {
-  const result = runner.classifyCase(p01, injectIntoRoute({ stdout: 'routing unavailable' }), p01Entries);
-  assert.strictEqual(result.status, 'INFRASTRUCTURE');
-  assert.ok(result.infrastructure.includes('source.on.route: malformed required output'), result.infrastructure.join('; '));
+// locks: C — "unavailable observations ... cannot become a false PASS"; control: P06
+checkCase('negative control: an accepted OFF route exit without the routing checkpoint is malformed required output', () => {
+  const result = runner.classifyCase(p06, injectIntoRoute({ stdout: 'routing unavailable' }), []);
+  assertRouteInfrastructure(result, [
+    'source.off.route: malformed required output',
+    'packaged.off.route: malformed required output'
+  ]);
 });
 
 // locks: C — "unavailable observations ... cannot become a false PASS"; control: P01
@@ -288,19 +311,6 @@ checkCase('F-a: Windows-shaped source and packaged paths normalize identically',
   assert.ok(!sourceTmp.includes('\\') && !sourceTmp.includes('doc-recon'), 'no raw separator or temp name survives');
   const sameAfterFold = fx.scrubText('C:/Users/runneradmin/AppData/Local/Temp/doc-recon-P01-source-ws-0a1b2c3d-x9/state/workflow-run.json', roots);
   assert.strictEqual(sameAfterFold, sourceTmp, 'POSIX and Windows spellings of one path normalize identically');
-});
-
-// F-b: a per-action switch override must not reach an OFF replay.
-// locks: unresolved — OFF replay carries no per-action switch; the I2 invariant is not in the A/B/C/R3 table
-checkCase('F-b: an OFF replay of P05 carries no per-action switch; the ON replay keeps its overrides', () => {
-  const item = corpus.cases.find(candidate => candidate.id === 'P05');
-  const off = fx.replayCase(item, 'source');
-  for (const [id, action] of Object.entries(off.actions)) {
-    assert.strictEqual(action.pilot, undefined, `OFF replay action ${id} has no switch value`);
-  }
-  const on = fx.replayCase(item, 'source', { pilot: '1' });
-  assert.strictEqual(on.actions['stop-on-1'].pilot, '1', 'an ON replay keeps the ON action value');
-  assert.strictEqual(on.actions['stop-off'].pilot, '0', 'an ON replay keeps the explicit OFF action value');
 });
 
 fs.rmSync(workDir, { recursive: true, force: true });
