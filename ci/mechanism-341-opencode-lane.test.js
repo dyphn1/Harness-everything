@@ -11,8 +11,7 @@ const { createV2Driver } = require('./lib/opencode-v2-driver');
 
 const ROOT = path.resolve(__dirname, '..');
 const STOP_GATE = path.join(ROOT, 'hooks/scripts/workflow-stop-gate.js');
-const PILOT = path.join(ROOT, 'hooks/scripts/lib/doc-reconciliation-pilot.js');
-const savedEnv = Object.fromEntries(['HOME', 'HARNESS_STATE_HOME', 'HARNESS_WORKSPACE_ROOT', 'HARNESS_DOC_RECONCILIATION_PILOT'].map(key => [key, process.env[key]]));
+const savedEnv = Object.fromEntries(['HOME', 'USERPROFILE', 'HARNESS_STATE_HOME', 'HARNESS_WORKSPACE_ROOT', 'HARNESS_DOC_RECONCILIATION_PILOT', 'HARNESS_TELEMETRY'].map(key => [key, process.env[key]]));
 
 function git(cwd, args) {
   const env = { ...process.env, GIT_AUTHOR_NAME: 'Harness test', GIT_AUTHOR_EMAIL: 'harness@example.invalid', GIT_COMMITTER_NAME: 'Harness test', GIT_COMMITTER_EMAIL: 'harness@example.invalid' };
@@ -88,7 +87,6 @@ function seedWorkflow(rootOrFixture, sessionId) {
     { id: 'verify-doc', stepType: 'verification', summary: 'Verify the governed retry change', acceptance: 'the objective checks are recorded' },
   ]), plan, plan.strategy, 'fixture workflow for the OpenCode reconciliation path');
   obligations.materializeExecutionObligations(context, plan);
-  require(PILOT).captureBaseline(context);
   require(path.join(ROOT, 'hooks/scripts/lib/workflow-runtime.js')).saveWorkflow(context);
   return { sessionDir, payload };
 }
@@ -107,13 +105,15 @@ function writeEditState(sessionDir, values) {
   }));
 }
 
-async function withV2DocFixture(fn) {
-  const d = await createV2Driver();
-  const pilotSaved = Object.fromEntries(['HARNESS_WORKSPACE_ROOT', 'HARNESS_DOC_RECONCILIATION_PILOT'].map(key => [key, process.env[key]]));
+async function withV2DocFixture(fn, options = {}) {
+  const d = await createV2Driver(options);
+  const pilotSaved = Object.fromEntries(['HARNESS_WORKSPACE_ROOT', 'HARNESS_DOC_RECONCILIATION_PILOT', 'HARNESS_TELEMETRY'].map(key => [key, process.env[key]]));
   try {
     initWorkspace(d.workspace);
     process.env.HARNESS_WORKSPACE_ROOT = d.workspace;
-    process.env.HARNESS_DOC_RECONCILIATION_PILOT = '1';
+    process.env.HARNESS_TELEMETRY = 'local';
+    if (options.pilotFlag === undefined) delete process.env.HARNESS_DOC_RECONCILIATION_PILOT;
+    else process.env.HARNESS_DOC_RECONCILIATION_PILOT = options.pilotFlag;
     return await fn(d);
   } finally {
     for (const [key, value] of Object.entries(pilotSaved)) {
@@ -124,10 +124,19 @@ async function withV2DocFixture(fn) {
   }
 }
 
-function canonicalJson(value) {
-  if (Array.isArray(value)) return value.map(canonicalJson);
-  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonicalJson(value[key])]));
-  return value;
+function readJson(file) {
+  return JSON.parse(fs.readFileSync(file, 'utf8'));
+}
+
+function readTelemetryEvents(sessionDir) {
+  const file = path.join(path.dirname(path.dirname(sessionDir)), 'telemetry', 'events.jsonl');
+  if (!fs.existsSync(file)) return [];
+  return fs.readFileSync(file, 'utf8').trim().split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
+}
+
+function readObservationRecords(observationsDir) {
+  const file = path.join(observationsDir, 'observations-index.json');
+  return fs.existsSync(file) ? readJson(file).records : [];
 }
 
 function restoreEnv() {
@@ -137,182 +146,185 @@ function restoreEnv() {
   }
 }
 
-test('existing Stop consumer writes a refused report without qualification', () => {
-  const fixture = makeFixture();
-  try {
-    const control = seedWorkflow(fixture, 'stop-positive-control');
-    const result = runJson(STOP_GATE, fixture.root, control.payload);
-    const reportPath = path.join(control.sessionDir, 'doc-reconciliation-pilot.json');
-    const report = fs.existsSync(reportPath) ? JSON.parse(fs.readFileSync(reportPath, 'utf8')) : null;
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(report?.pilotStatus, 'unresolved');
-    assert.equal(report?.pilotCredit, false);
-    assert.ok(report?.diagnostics?.length, 'existing consumer must retain a refusal diagnostic');
-  } finally {
-    fixture.cleanup();
-    restoreEnv();
+test('existing Stop consumer runs ordinary workflow Stop without writing an E1 pilot report', () => {
+  for (const [label, pilotFlag] of [['pilot-1', '1'], ['pilot-unset', undefined]]) {
+    const fixture = makeFixture();
+    try {
+      if (pilotFlag === undefined) delete process.env.HARNESS_DOC_RECONCILIATION_PILOT;
+      else process.env.HARNESS_DOC_RECONCILIATION_PILOT = pilotFlag;
+      const control = seedWorkflow(fixture, `stop-positive-control-${label}`);
+      const result = runJson(STOP_GATE, fixture.root, control.payload);
+      const reportPath = path.join(control.sessionDir, 'doc-reconciliation-pilot.json');
+      const workflow = readJson(path.join(control.sessionDir, 'workflow-run.json'));
+      assert.equal(result.status, 0, `${label}: ${result.stderr}`);
+      assert.match(result.stderr, /\[Workflow Reminder\] Unresolved workflow evidence:/, `${label}: ordinary Stop reminder still fires`);
+      assert.ok(Array.isArray(workflow.unresolved) && workflow.unresolved.length > 0, `${label}: ordinary Stop records unresolved obligations`);
+      assert.equal(fs.existsSync(reportPath), false, `${label}: Stop must not write doc-reconciliation-pilot.json`);
+    } finally {
+      fixture.cleanup();
+      restoreEnv();
+    }
   }
 });
 
-test('OpenCode capture → idle Stop whole path is refused without live qualification', async () => {
-  const findings = [];
-  const pilot = require(PILOT);
-  const originalAssess = pilot.assess;
-  const assessmentSessions = [];
-  pilot.assess = function (context, ...args) {
-    assessmentSessions.push(context?.sessionId);
-    return originalAssess.call(this, context, ...args);
-  };
-  try {
+test('V2 execute.after writes no E1 journal while ordinary telemetry, edit, observation, and Stop remain active', async () => {
+  for (const [label, pilotFlag] of [['pilot-1', '1'], ['pilot-unset', undefined]]) {
     await withV2DocFixture(async d => {
-      const sessionId = 'native-v2-whole-path';
+      const sessionId = `native-v2-unhooked-${label}`;
       const { sessionDir } = seedWorkflow(d.workspace, sessionId);
-      const nativeResult = { output: 'private-result-body', metadata: { exit: 0 } };
-      await d.toolHook('execute.after')({
-        tool: 'edit', sessionID: sessionId, id: 'call-1', messageID: 'message-1',
-        status: 'completed', result: nativeResult,
+      const observationsDir = process.env.HARNESS_OBSERVATIONS_DIR;
+
+      await d.sessionHook('prompt')({
+        sessionID: sessionId,
+        messageID: `turn-${label}`,
+        prompt: { text: 'update retry doc and verify' },
+      });
+
+      const skillEvent = { tool: 'skill', sessionID: sessionId, id: 'call-skill', messageID: 'msg-skill', input: { skill: 'tdd' } };
+      await d.toolHook('execute.before')(skillEvent);
+      await d.toolHook('execute.after')({ ...skillEvent, status: 'completed', result: { output: 'loaded' } });
+
+      const editEvent = {
+        tool: 'edit', sessionID: sessionId, id: 'call-edit', messageID: 'msg-edit',
         input: { filePath: path.join(d.workspace, 'docs/adr/GRPH-001.md') },
-      });
-      await d.toolHook('execute.after')({
-        tool: 'bash', sessionID: sessionId, id: 'call-2', messageID: 'message-2',
-        status: 'completed', error: { name: 'NativeError', message: 'native command error', code: 'NATIVE_FAILURE' },
+      };
+      await d.toolHook('execute.before')(editEvent);
+      await d.toolHook('execute.after')({ ...editEvent, status: 'completed', result: { output: 'ok', metadata: { exit: 0 } } });
+
+      const bashEvent = {
+        tool: 'bash', sessionID: sessionId, id: 'call-bash', messageID: 'msg-bash',
         input: { command: 'doc-check' },
+      };
+      await d.toolHook('execute.before')(bashEvent);
+      await d.toolHook('execute.after')({
+        ...bashEvent, status: 'completed',
+        error: { name: 'NativeError', message: 'native command error', code: 'NATIVE_FAILURE' },
       });
 
+      // Path-specific sentinel: E1 host capture journal must not be created.
       const journal = path.join(sessionDir, 'opencode-captures.jsonl');
-      let records = [];
-      if (fs.existsSync(journal)) {
-        const lines = fs.readFileSync(journal, 'utf8').trim().split(/\r?\n/);
-        records = lines.map(line => JSON.parse(line));
-      }
-      const canonical = JSON.stringify(canonicalJson(nativeResult));
-      const record = records[0];
-      const errorRecord = records[1];
-      if (records.length !== 2 || !record || record.hostId !== 'opencode' || record.session_id !== sessionId || record.call_id !== 'call-1' ||
-          record.message_id !== 'message-1' || record.status !== 'completed' || record.exit !== 0 ||
-          record.cwd !== undefined || record.result_digest !== crypto.createHash('sha256').update(canonical).digest('hex') ||
-          record.result_bytes !== Buffer.byteLength(canonical) || fs.readFileSync(journal, 'utf8').includes('private-result-body')) {
-        findings.push(`native result was not retained as one host-labelled digest-only record: ${JSON.stringify(record)}`);
-      }
-      if (!errorRecord || errorRecord.hostId !== 'opencode' || errorRecord.call_id !== 'call-2' ||
-          errorRecord.error?.name !== 'NativeError' || errorRecord.error?.message !== 'native command error' ||
-          errorRecord.error?.code !== 'NATIVE_FAILURE' || errorRecord.exit === 0) {
-        findings.push(`native error was not preserved as failure without fabricated exit zero: ${JSON.stringify(errorRecord)}`);
-      }
+      assert.equal(fs.existsSync(journal), false, `${label}: V2 execute.after must not write opencode-captures.jsonl`);
 
-      const reportPath = path.join(sessionDir, 'doc-reconciliation-pilot.json');
+      // Positive controls: ordinary edit state, compliance, and telemetry remain active.
+      const editState = readJson(path.join(sessionDir, 'edit-state.json'));
+      const compliance = readJson(path.join(sessionDir, 'compliance.json'));
+      assert.equal(editState.verificationPending, true, `${label}: edit marks verificationPending`);
+      assert.equal(editState.editsSinceVerification, 1, `${label}: edit increments editsSinceVerification`);
+      assert.equal(compliance.totalEdits, 1, `${label}: compliance records totalEdits`);
+      const preIdleTelemetry = readTelemetryEvents(sessionDir).map(item => item.event);
+      assert.ok(preIdleTelemetry.includes('skill.invoke'), `${label}: telemetry records skill.invoke`);
+      assert.ok(preIdleTelemetry.includes('skill.loaded'), `${label}: telemetry records skill.loaded`);
+      assert.ok(preIdleTelemetry.includes('tool.observed'), `${label}: telemetry records tool.observed`);
+
+      // Completion triggers ordinary verification, observation closure, telemetry close, and Stop without E1 report.
+      const workflowFile = path.join(sessionDir, 'workflow-run.json');
       d.emit('session.execution.succeeded', sessionId);
       await d.waitFor(
-        () => assessmentSessions.filter(id => id === sessionId).length === 1 && fs.existsSync(reportPath),
-        { label: 'V2 completion Stop assessment and pilot report', timeoutMs: 8000 },
+        () => readObservationRecords(observationsDir).length === 1
+          && readJson(path.join(sessionDir, 'edit-state.json')).verificationPending === false
+          && Array.isArray(readJson(workflowFile).unresolved)
+          && readJson(workflowFile).unresolved.length > 0,
+        { label: `${label}: observation, verification, and ordinary Stop completion`, timeoutMs: 8000 },
       );
-      const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-      if (assessmentSessions.filter(id => id === sessionId).length !== 1) {
-        findings.push(`idle Stop dispatch count=${assessmentSessions.filter(id => id === sessionId).length}, expected exactly one`);
-      }
-      if (!report || report.pilotCredit !== false || report.pilotStatus !== 'unresolved' || !report.diagnostics?.length) {
-        findings.push(`idle did not write the actual refused/unavailable report: ${JSON.stringify(report)}`);
-      }
-      assert.deepEqual(findings, []);
-    });
-  } finally {
-    pilot.assess = originalAssess;
+
+      const [obsRecord] = readObservationRecords(observationsDir);
+      assert.equal(obsRecord.host, 'opencode', `${label}: observation host is opencode`);
+      assert.equal(obsRecord.writer.sessionId, sessionId, `${label}: observation session matches`);
+      assert.equal(obsRecord.behavior.filesWritten, 1, `${label}: observation counted the edit`);
+      const postIdleTelemetry = readTelemetryEvents(sessionDir).map(item => item.event);
+      assert.ok(postIdleTelemetry.includes('skill.complete'), `${label}: telemetry closes active skill on idle`);
+      assert.equal(fs.existsSync(journal), false, `${label}: opencode-captures.jsonl remains absent after idle`);
+      assert.equal(fs.existsSync(path.join(sessionDir, 'doc-reconciliation-pilot.json')), false, `${label}: no E1 pilot report after idle`);
+    }, { observations: 'on', pilotFlag });
   }
 });
 
-test('session idle dispatches the real consumer once across every existing early return', async () => {
-  const findings = [];
-  const pilot = require(PILOT);
-  const originalAssess = pilot.assess;
-  const assessmentSessions = [];
-  pilot.assess = function (context, ...args) {
-    assessmentSessions.push(context?.sessionId);
-    return originalAssess.call(this, context, ...args);
-  };
-  try {
-    await withV2DocFixture(async d => {
-      const cases = [
-        ['follow-up-pending', { followUpPending: true }],
-        ['follow-up-delivery-pending', { followUpDeliveryPending: true, followUpMessage: 'deliver once' }],
-        ['no-verification-pending', { verificationPending: false, editsSinceVerification: 0 }],
-        ['verification-succeeds', { verificationPending: true, editsSinceVerification: 1 }],
-      ];
-      for (const [suffix, state] of cases) {
-        const sessionId = `idle-${suffix}`;
-        const { sessionDir } = seedWorkflow(d.workspace, sessionId);
-        writeEditState(sessionDir, state);
-        const reportPath = path.join(sessionDir, 'doc-reconciliation-pilot.json');
-        d.emit('session.execution.succeeded', sessionId);
-        await d.waitFor(
-          () => assessmentSessions.filter(id => id === sessionId).length === 1 && fs.existsSync(reportPath),
-          { label: `${suffix} V2 completion Stop assessment`, timeoutMs: 8000 },
-        );
-        const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-        if (assessmentSessions.filter(id => id === sessionId).length !== 1) {
-          findings.push(`${suffix}: consumer assessment count=${assessmentSessions.filter(id => id === sessionId).length}, expected exactly one`);
-        }
-        if (!report || report.pilotCredit !== false || report.pilotStatus !== 'unresolved') {
-          findings.push(`${suffix}: expected one refused/unavailable report, received ${JSON.stringify(report)}`);
-        }
-      }
-      const cleanupSession = 'idle-no-verification-pending';
-      d.emit('session.execution.succeeded', cleanupSession);
-      await d.waitFor(
-        () => assessmentSessions.filter(id => id === cleanupSession).length === 2,
-        { label: 'second V2 completion Stop assessment after cleanup' },
-      );
-      if (assessmentSessions.filter(id => id === cleanupSession).length !== 2) {
-        findings.push(`finally did not release the per-session idle guard for a second event: ${assessmentSessions.filter(id => id === cleanupSession).length} assessments`);
-      }
-      assert.deepEqual(findings, []);
-    });
-  } finally {
-    pilot.assess = originalAssess;
-  }
-});
-
-test('V1/no-status, pilot-OFF, no-workflow, and Claude host controls stay fail-closed', async () => {
+test('session idle finally releases the controller across all four early returns and completes ordinary Stop/verification/reminder paths', async () => {
   await withV2DocFixture(async d => {
-    const positiveSession = 'v2-positive-control';
-    const { sessionDir: positiveDir } = seedWorkflow(d.workspace, positiveSession);
-    await d.toolHook('execute.after')({
-      tool: 'edit', sessionID: positiveSession, id: 'pos-call', status: 'completed',
-      result: { output: 'ok', metadata: { exit: 0 } },
-      input: { filePath: path.join(d.workspace, 'docs/adr/GRPH-001.md') },
-    });
-    assert.equal(fs.existsSync(path.join(positiveDir, 'opencode-captures.jsonl')), true, 'positive control: V2 execute.after with status creates a native capture');
-    const positiveReport = path.join(positiveDir, 'doc-reconciliation-pilot.json');
-    d.emit('session.execution.succeeded', positiveSession);
-    await d.waitFor(() => fs.existsSync(positiveReport), { label: 'positive control pilot report', timeoutMs: 8000 });
+    const cases = [
+      ['follow-up-pending', { followUpPending: true }],
+      ['follow-up-delivery-pending', { followUpDeliveryPending: true, followUpMessage: 'deliver once' }],
+      ['no-verification-pending', { verificationPending: false, editsSinceVerification: 0 }],
+      ['verification-succeeds', { verificationPending: true, editsSinceVerification: 1 }],
+    ];
+    for (const [suffix, state] of cases) {
+      const sessionId = `idle-${suffix}`;
+      const { sessionDir } = seedWorkflow(d.workspace, sessionId);
+      const workflowFile = path.join(sessionDir, 'workflow-run.json');
+      const editStateFile = path.join(sessionDir, 'edit-state.json');
+      writeEditState(sessionDir, state);
 
-    const v1Session = 'v1-no-status';
-    const { sessionDir: v1Dir } = seedWorkflow(d.workspace, v1Session);
-    await d.toolHook('execute.after')({
-      tool: 'edit', sessionID: v1Session, id: 'v1-call', input: { filePath: path.join(d.workspace, 'docs/adr/GRPH-001.md') },
-    });
-    await d.settled({ quietMs: 100 });
-    assert.equal(fs.existsSync(path.join(v1Dir, 'opencode-captures.jsonl')), false, 'V1/no-status output must not create a native capture');
+      const promptsBefore = d.prompts.length;
+      d.emit('session.execution.succeeded', sessionId);
+      await d.waitFor(
+        () => Array.isArray(readJson(workflowFile).unresolved) && readJson(workflowFile).unresolved.length > 0,
+        { label: `${suffix}: ordinary Stop ran on first idle`, timeoutMs: 8000 },
+      );
+
+      const afterFirst = readJson(editStateFile);
+      if (suffix === 'follow-up-pending') {
+        assert.equal(d.prompts.length, promptsBefore, `${suffix}: no duplicate prompt sent`);
+      } else if (suffix === 'follow-up-delivery-pending') {
+        assert.equal(d.prompts.length, promptsBefore + 1, `${suffix}: pending reminder prompt delivered`);
+        assert.equal(d.prompts.at(-1).sessionID, sessionId);
+        assert.equal(d.prompts.at(-1).text, 'deliver once');
+        assert.equal(afterFirst.followUpPending, true);
+        assert.equal(afterFirst.followUpDeliveryPending, false);
+      } else if (suffix === 'no-verification-pending') {
+        assert.equal(d.prompts.length, promptsBefore, `${suffix}: no prompt sent without pending verification`);
+      } else if (suffix === 'verification-succeeds') {
+        assert.equal(afterFirst.verificationPending, false, `${suffix}: passing verification clears verificationPending`);
+        assert.equal(afterFirst.editsSinceVerification, 0, `${suffix}: passing verification resets editsSinceVerification`);
+        assert.equal(readJson(path.join(sessionDir, 'compliance.json')).verifiedEdits, 1, `${suffix}: compliance increments verifiedEdits`);
+      }
+
+      assert.equal(fs.existsSync(path.join(sessionDir, 'doc-reconciliation-pilot.json')), false, `${suffix}: no E1 pilot report`);
+      assert.equal(fs.existsSync(path.join(sessionDir, 'opencode-captures.jsonl')), false, `${suffix}: no E1 capture journal`);
+
+      // Prove finally released the per-session controller: clear workflow.unresolved and fire a second idle.
+      const wf = readJson(workflowFile);
+      wf.unresolved = [];
+      fs.writeFileSync(workflowFile, JSON.stringify(wf, null, 2));
+      d.emit('session.execution.succeeded', sessionId);
+      await d.waitFor(
+        () => Array.isArray(readJson(workflowFile).unresolved) && readJson(workflowFile).unresolved.length > 0,
+        { label: `${suffix}: second idle runs after finally releases controller`, timeoutMs: 8000 },
+      );
+    }
+  }, { pilotFlag: '1' });
+});
+
+test('pilot flag values, no-workflow, and Claude host controls stay unhooked and fail-closed', async () => {
+  await withV2DocFixture(async d => {
+    for (const [label, pilotFlag] of [['pilot-1', '1'], ['pilot-0', '0'], ['pilot-unset', undefined]]) {
+      if (pilotFlag === undefined) delete process.env.HARNESS_DOC_RECONCILIATION_PILOT;
+      else process.env.HARNESS_DOC_RECONCILIATION_PILOT = pilotFlag;
+      const sessionId = `flag-control-${label}`;
+      const { sessionDir } = seedWorkflow(d.workspace, sessionId);
+      await d.toolHook('execute.after')({
+        tool: 'edit', sessionID: sessionId, id: `call-${label}`, status: 'completed',
+        result: { output: 'ok', metadata: { exit: 0 } },
+        input: { filePath: path.join(d.workspace, 'docs/adr/GRPH-001.md') },
+      });
+      assert.equal(fs.existsSync(path.join(sessionDir, 'edit-state.json')), true, `${label}: positive control edit-state written`);
+      assert.equal(fs.existsSync(path.join(sessionDir, 'opencode-captures.jsonl')), false, `${label}: V2 execute.after must not write opencode-captures.jsonl`);
+    }
 
     const noWorkflow = 'no-workflow';
     const { getSessionDir } = require(path.join(ROOT, 'hooks/scripts/lib/harness-state.js'));
     const noWorkflowDir = getSessionDir(d.workspace, noWorkflow, { session_id: noWorkflow, cwd: d.workspace, host_id: 'opencode' });
+    process.env.HARNESS_DOC_RECONCILIATION_PILOT = '1';
     d.emit('session.execution.succeeded', noWorkflow);
     await d.settled({ quietMs: 150 });
     assert.equal(fs.existsSync(path.join(noWorkflowDir, 'doc-reconciliation-pilot.json')), false, 'no workflow must not write a pilot report');
-
-    const offSession = 'pilot-off';
-    const { sessionDir: offDir } = seedWorkflow(d.workspace, offSession);
-    process.env.HARNESS_DOC_RECONCILIATION_PILOT = '0';
-    d.emit('session.execution.succeeded', offSession);
-    await d.settled({ quietMs: 150 });
-    assert.equal(fs.existsSync(path.join(offDir, 'doc-reconciliation-pilot.json')), false, 'pilot OFF must not write a reconciliation report');
+    assert.equal(fs.existsSync(path.join(noWorkflowDir, 'workflow-run.json')), false, 'no workflow must not create a workflow file');
 
     const { createClaudeOriginProvider } = require(path.join(ROOT, 'hooks/scripts/lib/doc-reconciliation-provider.js'));
     const claudeProvider = createClaudeOriginProvider({ hostId: 'opencode', sessionId: 'native-host-control' });
     const claudeContext = claudeProvider.resolveContext({ workspaceRoot: d.workspace });
     assert.equal(claudeContext.status, 'unavailable', 'OpenCode must not enter through Claude provider semantics');
     assert.ok(claudeContext.diagnostics.some(item => item.code === 'unsupported-host'));
-  });
+  }, { pilotFlag: '1' });
 });
 
 const OPENCODE_SESSION = 'provider-session';
