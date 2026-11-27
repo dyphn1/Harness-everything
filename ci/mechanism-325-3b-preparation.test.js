@@ -43,6 +43,33 @@ function checkCase(name, runCase) {
 function runRunner(args) {
   return spawnSync(process.execPath, [RUNNER, ...args], { cwd: ROOT, encoding: 'utf8' });
 }
+const SCRATCH_COPY_PATHS = ['ci', 'hooks', 'harness-everything', 'plugins/harness-everything', 'scripts', '.agents/plugins', 'package.json'];
+function copyScratchTree(destination) {
+  fs.mkdirSync(destination, { recursive: true });
+  for (const relative of SCRATCH_COPY_PATHS) {
+    const source = path.join(ROOT, relative);
+    const target = path.join(destination, relative);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.cpSync(source, target, { recursive: true, dereference: true });
+  }
+}
+function scratchTreeSnapshot(root) {
+  const files = [];
+  const walk = dir => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else files.push([path.relative(root, full).split(path.sep).join('/'), crypto.createHash('sha256').update(fs.readFileSync(full)).digest('hex')]);
+    }
+  };
+  walk(root);
+  return files;
+}
+function runScratchRunner(root, args) {
+  return spawnSync(process.execPath, [path.join(root, 'ci', 'archive', '325-prep', 'doc-reconciliation-red.js'), ...args], {
+    cwd: root, encoding: 'utf8', timeout: 90000, killSignal: 'SIGKILL'
+  });
+}
 
 console.log('=== #325 3b preparation: corpus, legacy controls and infrastructure bounds (H1+H2) ===');
 
@@ -156,6 +183,129 @@ checkCase('--expect-red exits nonzero from the CLI when a real route exit falls 
   const run = runRunner(['--expect-red', '--case', 'P01', '--cases', file]);
   assert.strictEqual(run.status, 2, `an infrastructure fault exits 2: ${run.stdout} ${run.stderr}`);
   assert.ok(run.stdout.includes('INFRASTRUCTURE'), run.stdout);
+});
+
+// The scratch tree contains copied real source/package entries, not stubbed runtime modules. Missing only the retired
+// pilot fingerprint file must still reach the replay child and the original infrastructure/classification path.
+checkCase('the archived runner reaches real replay and fault classification when its retired pilot fingerprint is absent', () => {
+  const scratchRoot = path.join(workDir, 'missing-pilot-tree');
+  copyScratchTree(scratchRoot);
+  const scratchPrepDir = path.join(scratchRoot, 'ci', 'fixtures', 'doc-obligations', 'reconciliation-prep');
+  const casesFile = path.join(scratchPrepDir, 'scratch-cases.json');
+  const timeoutCasesFile = path.join(scratchPrepDir, 'scratch-timeout-cases.json');
+  const registryFile = path.join(scratchPrepDir, 'scratch-registry.json');
+  const stopOnly = {
+    ...p01,
+    actions: [{ id: 'stop', op: 'stop' }],
+    expectations: {
+      off: [{ id: 'stop-exit', path: ['actions', 'stop', 'exitCode'], operator: 'equals', expected: 0 }],
+      on: [{ id: 'stop-exit', path: ['actions', 'stop', 'exitCode'], operator: 'equals', expected: 1 }]
+    }
+  };
+  const timeoutStopOnly = { ...stopOnly, childLimits: { timeoutMs: 1 } };
+  const historicalRegistry = JSON.parse(fs.readFileSync(path.join(PREP_DIR, 'pending-red.json'), 'utf8'));
+  const scratchRegistry = {
+    schemaVersion: 1,
+    baselineSha: historicalRegistry.baselineSha,
+    runtimeFingerprint: '0'.repeat(64), // syntactically valid scratch-only pin; the historical registry is untouched
+    entries: ['source', 'packaged'].map(distribution => ({
+      caseId: 'P01', assertionId: 'P01.on.stop-exit', distribution,
+      baselineSha: historicalRegistry.baselineSha, actual: 0, desired: 1,
+      blocker: '#341 E0', reasonCode: 'scratch-stop-control'
+    }))
+  };
+  fs.writeFileSync(casesFile, JSON.stringify({ cases: [stopOnly] }), 'utf8');
+  fs.writeFileSync(timeoutCasesFile, JSON.stringify({ cases: [timeoutStopOnly] }), 'utf8');
+  fs.writeFileSync(registryFile, JSON.stringify(scratchRegistry), 'utf8');
+
+  const sourcePilot = path.join(scratchRoot, 'hooks', 'scripts', 'lib', 'doc-reconciliation-pilot.js');
+  const packagedPilot = path.join(scratchRoot, 'plugins', 'harness-everything', 'hooks', 'scripts', 'lib', 'doc-reconciliation-pilot.js');
+  const sourceStopGate = path.join(scratchRoot, 'hooks', 'scripts', 'workflow-stop-gate.js');
+  const packagedStopGate = path.join(scratchRoot, 'plugins', 'harness-everything', 'hooks', 'scripts', 'workflow-stop-gate.js');
+  assert.deepStrictEqual(fs.readFileSync(sourceStopGate), fs.readFileSync(path.join(ROOT, 'hooks', 'scripts', 'workflow-stop-gate.js')));
+  assert.deepStrictEqual(fs.readFileSync(packagedStopGate), fs.readFileSync(path.join(ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'workflow-stop-gate.js')));
+  fs.rmSync(sourcePilot, { force: true });
+  fs.rmSync(packagedPilot, { force: true });
+  assert.ok(!fs.existsSync(sourcePilot) && !fs.existsSync(packagedPilot), 'both retired pilot files are absent in the scratch tree');
+  const beforeRuns = scratchTreeSnapshot(scratchRoot);
+  const args = ['--expect-red', '--json', '--cases', path.relative(scratchRoot, casesFile), '--registry', path.relative(scratchRoot, registryFile)];
+
+  const first = runScratchRunner(scratchRoot, args);
+  const second = runScratchRunner(scratchRoot, args);
+  for (const [index, run] of [first, second].entries()) {
+    assert.ok(!run.error, `run ${index + 1} spawned: ${run.error}`);
+    assert.strictEqual(run.signal, null, `run ${index + 1} exited without a signal`);
+    assert.strictEqual(run.status, 1, `run ${index + 1} fails closed after the real replay: status=${run.status}; stdout=${run.stdout.replace(/\s+/g, ' ')}; stderr=${run.stderr}`);
+    const report = JSON.parse(run.stdout);
+    const result = report.cases[0];
+    assert.strictEqual(report.runtimeFingerprintAvailable, false);
+    assert.strictEqual(report.runtimeFingerprintMatches, false);
+    assert.strictEqual(report.replaysRun, 4, 'source and packaged Stop-gate children ran in both modes');
+    assert.strictEqual(result.assertions.length, 4, 'the real Stop-gate action was classified in every replay');
+    assert.ok(result.assertions.every(entry => entry.actual === 0), 'all source/package Stop-gate children returned their real exit code');
+    assert.strictEqual(result.status, 'FAIL');
+    assert.strictEqual(result.qualifiedGaps, 0, 'the scratch registry entries cannot qualify without a fingerprint');
+    assert.strictEqual(result.parity, 'match', 'the un-stubbed source and packaged Stop gates agree');
+    assert.strictEqual(result.reason, 'runtime fingerprint unavailable because the retired pilot file is missing');
+    assert.ok(!result.assertions.some(entry => entry.status === 'gap-qualified'));
+    assert.strictEqual(result.assertions.filter(entry => entry.status === 'gap-unqualified').length, 2);
+    assert.strictEqual(report.pilotCredit, false);
+    assert.strictEqual(Object.hasOwn(report, 'recaptureCommand'), false, 'unavailable is not a recapture invitation');
+    assert.ok(!/recapture/i.test(run.stderr), run.stderr);
+    assert.deepStrictEqual(scratchTreeSnapshot(scratchRoot), beforeRuns, 'replays leave the scratch tree unchanged');
+  }
+  assert.deepStrictEqual(JSON.parse(second.stdout), JSON.parse(first.stdout), 'two clean equivalent replays have identical reports');
+
+  const faultArgs = [...args];
+  faultArgs[faultArgs.indexOf(path.relative(scratchRoot, casesFile))] = path.relative(scratchRoot, timeoutCasesFile);
+  const faultFirst = runScratchRunner(scratchRoot, faultArgs);
+  const faultSecond = runScratchRunner(scratchRoot, faultArgs);
+  for (const [index, run] of [faultFirst, faultSecond].entries()) {
+    assert.ok(!run.error, `fault run ${index + 1} spawned: ${run.error}`);
+    assert.strictEqual(run.signal, null, `fault run ${index + 1} exited without a signal`);
+    assert.strictEqual(run.status, 2, `fault run ${index + 1} is classified as infrastructure: ${run.stdout} ${run.stderr}`);
+    const report = JSON.parse(run.stdout);
+    const result = report.cases[0];
+    assert.strictEqual(report.replaysRun, 1, 'the real timed-out Stop-gate child is recorded');
+    assert.strictEqual(result.status, 'INFRASTRUCTURE');
+    assert.strictEqual(result.actionsRun, 1);
+    assert.deepStrictEqual(result.offending, {
+      leg: 'source', mode: 'off', actionId: 'stop', fault: 'timed out at the child deadline (ETIMEDOUT)'
+    });
+    assert.strictEqual(result.qualifiedGaps, 0);
+    assert.strictEqual(Object.hasOwn(report, 'recaptureCommand'), false);
+    assert.ok(!/recapture/i.test(run.stderr), run.stderr);
+    assert.deepStrictEqual(scratchTreeSnapshot(scratchRoot), beforeRuns, 'faulted replays leave the scratch tree unchanged');
+  }
+  assert.deepStrictEqual(JSON.parse(faultSecond.stdout), JSON.parse(faultFirst.stdout), 'two clean equivalent fault runs have identical reports');
+
+  const malformedRegistry = JSON.parse(JSON.stringify(scratchRegistry));
+  delete malformedRegistry.entries[0].reasonCode;
+  const malformedRegistryFile = path.join(scratchPrepDir, 'scratch-malformed-registry.json');
+  fs.writeFileSync(malformedRegistryFile, JSON.stringify(malformedRegistry), 'utf8');
+  const malformedArgs = [...args];
+  malformedArgs[malformedArgs.indexOf(path.relative(scratchRoot, registryFile))] = path.relative(scratchRoot, malformedRegistryFile);
+  const malformed = runScratchRunner(scratchRoot, malformedArgs);
+  assert.strictEqual(malformed.status, 2, 'malformed registry remains an infrastructure error');
+  assert.strictEqual(malformed.stdout, '', 'malformed registry fails before replay');
+  assert.ok(malformed.stderr.includes('must have exactly the keys'), malformed.stderr);
+
+  const candidateFile = path.join(scratchPrepDir, 'scratch-candidate.json');
+  const recapture = runScratchRunner(scratchRoot, [
+    '--recapture-candidate', path.relative(scratchRoot, candidateFile),
+    '--baseline-sha', historicalRegistry.baselineSha,
+    '--cases', path.relative(scratchRoot, casesFile)
+  ]);
+  assert.strictEqual(recapture.status, 2, 'candidate recapture is refused without the fingerprint');
+  assert.ok(recapture.stderr.includes('runtime fingerprint unavailable'), recapture.stderr);
+  assert.ok(!fs.existsSync(candidateFile), 'no candidate registry is written');
+
+  const otherFingerprintFile = path.join(scratchRoot, 'hooks', 'scripts', 'lib', 'workflow-obligations.js');
+  fs.rmSync(otherFingerprintFile);
+  const otherIo = runScratchRunner(scratchRoot, args);
+  assert.strictEqual(otherIo.status, 2, 'a missing non-pilot fingerprint file remains an infrastructure error');
+  assert.strictEqual(otherIo.stdout, '', 'other fingerprint I/O errors fail before replay');
+  assert.ok(otherIo.stderr.includes('workflow-obligations.js') && otherIo.stderr.includes('ENOENT'), otherIo.stderr);
 });
 
 // Real process boundary: a substituted child (hung or flooding) under a short deadline runs through the CLI. The

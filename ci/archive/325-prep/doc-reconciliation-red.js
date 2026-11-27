@@ -37,11 +37,13 @@ const ENTRY_KEYS = ['caseId', 'assertionId', 'distribution', 'baselineSha', 'act
 // Shared runtime files whose bytes define what the registry describes. Every P01-P08 replay loads the first
 // three (verified by a preload probe, see h3.md). doc-evidence.js is not loaded by any replay, so it is excluded:
 // #341 0B refactors it, and including it would turn this suite red for an unrelated reason.
+// R2 retires the pilot module; only its absence is tolerated by this historical runner.
+const RETIRED_PILOT_FINGERPRINT_FILE = 'hooks/scripts/lib/doc-reconciliation-pilot.js';
 const FINGERPRINT_FILES = [
   'hooks/scripts/lib/workflow-obligations.js',
   'hooks/scripts/workflow-disposition.js',
   'hooks/scripts/workflow-stop-gate.js',
-  'hooks/scripts/lib/doc-reconciliation-pilot.js'
+  RETIRED_PILOT_FINGERPRINT_FILE
 ];
 const CANDIDATE_FILE = 'ci/fixtures/doc-obligations/reconciliation-prep/pending-red.candidate.json';
 const UNREVIEWED_REASON = 'needs-reason';
@@ -50,12 +52,23 @@ class RegistryError extends Error {}
 
 function fingerprint() {
   const hash = crypto.createHash('sha256');
+  let unavailable = false;
   for (const rel of FINGERPRINT_FILES) {
     hash.update(`${rel}\0`);
-    hash.update(fs.readFileSync(path.join(ROOT, rel)));
+    let bytes;
+    try {
+      bytes = fs.readFileSync(path.join(ROOT, rel));
+    } catch (error) {
+      if (rel === RETIRED_PILOT_FINGERPRINT_FILE && error.code === 'ENOENT') {
+        unavailable = true;
+        continue;
+      }
+      throw error;
+    }
+    hash.update(bytes);
     hash.update('\0');
   }
-  return hash.digest('hex');
+  return unavailable ? null : hash.digest('hex');
 }
 
 // Read-only: the commit named in the re-capture command. Falls back to a visible placeholder.
@@ -272,13 +285,16 @@ function run(args) {
   const registry = loadRegistry(args.registryFile);
   validateRegistry(registry, corpus);
   const runtime = fingerprint();
+  const runtimeFingerprintAvailable = runtime !== null;
+  const runtimeFingerprintMatches = runtimeFingerprintAvailable && registry.runtimeFingerprint === runtime;
   const cases = corpus.cases.filter(item => args.cases.length === 0 || args.cases.includes(item.id));
   if (args.cases.length && cases.length !== args.cases.length) throw new RegistryError('a --case names no corpus case');
   const report = {
     schemaVersion: 1,
     mode: args.mode,
     baselineSha: registry.baselineSha,
-    runtimeFingerprintMatches: registry.runtimeFingerprint === runtime,
+    runtimeFingerprintAvailable,
+    runtimeFingerprintMatches,
     pilotCredit: false,
     replaysRun: 0,
     cases: []
@@ -286,8 +302,14 @@ function run(args) {
   for (const [index, item] of cases.entries()) {
     const replays = replayAll(item);
     report.replaysRun += countReplays(replays);
-    const result = classifyCase(item, replays, registry.entries.filter(entry => entry.caseId === item.id));
-    if (registry.runtimeFingerprint !== runtime && result.status !== 'INFRASTRUCTURE') {
+    const entries = runtimeFingerprintAvailable
+      ? registry.entries.filter(entry => entry.caseId === item.id)
+      : [];
+    const result = classifyCase(item, replays, entries);
+    if (!runtimeFingerprintAvailable && result.status !== 'INFRASTRUCTURE') {
+      result.status = 'FAIL';
+      result.reason = 'runtime fingerprint unavailable because the retired pilot file is missing';
+    } else if (!runtimeFingerprintMatches && result.status !== 'INFRASTRUCTURE') {
       result.status = 'FAIL';
       result.reason = 'runtime fingerprint differs from the registry capture';
     }
@@ -298,7 +320,7 @@ function run(args) {
       break;
     }
   }
-  if (!report.runtimeFingerprintMatches) report.recaptureCommand = recaptureCommand(currentCommit());
+  if (runtimeFingerprintAvailable && !runtimeFingerprintMatches) report.recaptureCommand = recaptureCommand(currentCommit());
   return report;
 }
 
@@ -306,6 +328,10 @@ function run(args) {
 // Reason codes carry over by identity; a gap that is new to the registry gets the unreviewed marker.
 function recapture(args) {
   const corpus = fx.readCaseCorpus(args.casesFile);
+  const runtimeFingerprint = fingerprint();
+  if (runtimeFingerprint === null) {
+    throw new RegistryError('runtime fingerprint unavailable because the retired pilot file is missing');
+  }
   const existing = fs.existsSync(args.registryFile) ? loadRegistry(args.registryFile).entries || [] : [];
   const known = new Map(existing.map(entry => [`${entry.assertionId}|${entry.distribution}`, entry.reasonCode]));
   const entries = [];
@@ -338,7 +364,7 @@ function recapture(args) {
   if (problems.length) return { ok: false, problems };
   return {
     ok: true,
-    candidate: { schemaVersion: 1, phase: '325-3b-H2', baselineSha: args.baselineSha, runtimeFingerprint: fingerprint(), entries }
+    candidate: { schemaVersion: 1, phase: '325-3b-H2', baselineSha: args.baselineSha, runtimeFingerprint, entries }
   };
 }
 
