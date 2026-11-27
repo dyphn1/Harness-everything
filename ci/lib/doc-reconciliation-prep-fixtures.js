@@ -31,8 +31,6 @@ const CONTROLLER_OPS = new Set(['plan', 'start', 'binding', 'stageBinding', 'ste
 // host payload through the real hook entry (state-persist.js). Neither writes a journal or accepted record itself.
 const HOST_OPS = new Set(['hostRun', 'hookDeliver']);
 const ALL_OPS = new Set(['route', 'stop', 'stopGeneric', ...CONTROLLER_OPS, ...FIXTURE_OPS, ...HOST_OPS]);
-// CI-only qualification preloader. Passed as `node --require <file>` to every child of a replay that asks for it.
-const QUALIFICATION_PRELOAD = path.join(__dirname, 'doc-reconciliation-qualification-preload.js');
 const CAPTURE_JOURNAL_FILE = 'doc-reconciliation-capture.json';
 // The only session files a case may seed, and only inside its own temporary state home.
 const SEEDABLE_FILES = new Set(['workflow-stages.json']);
@@ -137,11 +135,9 @@ function disposeSession(handle) {
   fs.rmSync(handle.stateHome, { recursive: true, force: true });
 }
 
-// The preloader is a test-driver argument only: a replay with `preload: true` adds it to every child it launches.
 function runScript(handle, script, args, stdin, pilot) {
-  const preload = handle.preload ? ['--require', QUALIFICATION_PRELOAD] : [];
-  // Test-only extra arguments (for example a file-access spy). They come before the preloader, so the spy sees everything.
-  return spawnSync(process.execPath, [...(handle.nodeArgs || []), ...preload, script, ...args], {
+  // Test-only extra arguments (for example a file-access spy).
+  return spawnSync(process.execPath, [...(handle.nodeArgs || []), script, ...args], {
     cwd: handle.workspace,
     encoding: 'utf8',
     input: stdin === undefined ? undefined : JSON.stringify(stdin),
@@ -499,12 +495,11 @@ function runtimePilotOf(handle) {
 // Replays one case through one distribution. Actions run in order and the replay stops at its first infrastructure
 // fault: the faulted action is recorded, no later action runs, and the temporary directories are still removed.
 // A crash is recorded, not hidden.
-// `options.preload: true` adds the CI-only qualification preloader to every child (F4 test transport). Production
-// replays never set it, so the production gate stays unmet.
+// Test-only `options.nodeArgs` lets a file-access spy run before the child's entry.
 function replayCase(caseDef, distribution, options = {}) {
   const limits = limitsFor(caseDef);
   const mode = options.pilot === undefined ? 'off' : 'on';
-  const handle = { ...createSession(distribution, caseDef.id, options.pilot), limits, preload: options.preload === true, nodeArgs: Array.isArray(options.nodeArgs) ? options.nodeArgs : [] };
+  const handle = { ...createSession(distribution, caseDef.id, options.pilot), limits, nodeArgs: Array.isArray(options.nodeArgs) ? options.nodeArgs : [] };
   try {
     materialiseInput(handle, caseDef.input);
     const actions = {};
