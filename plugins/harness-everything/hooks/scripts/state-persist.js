@@ -61,14 +61,8 @@ function isSuccessfulMetadataStep(command, cwd) {
     && (disposition === 'pass' ? reason === undefined : /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(unquote(reason)));
 }
 
-// S2b doc-reconciliation pilot capture (docs/doc-workflow-reconciliation.md
-// § S2b "Activation and pilot-only scope", "Claude capture and origin-provider
-// contract"): pilot-only, fail-open to the host, and gated on the exact
-// switch value `1` before any collector logic runs. OFF must return to the
-// existing legacy path before pilot collection; capture never executes a
-// command, verifier or generator and never blocks a tool or Stop.
-const PILOT_CAPTURE_EVENT_NAMES = ['PreToolUse', 'PostToolUse', 'PostToolUseFailure', 'SubagentStart', 'SubagentStop'];
-// Task/Agent results were never routed here before S2b, so they stay capture-only: the legacy handoff path does not run for them.
+// Old Claude manifests may still route retired E1 capture callbacks here.
+// Ignore them before state resolution or any provider work.
 const CAPTURE_ONLY_TOOLS = ['Task', 'Agent'];
 let inputData = '';
 const timeout = setTimeout(() => processState(null), 200);
@@ -82,25 +76,11 @@ function processState(payload) {
     const captureOnly = captureEventName === 'SubagentStart' || captureEventName === 'SubagentStop'
       || captureEventName === 'PreToolUse'
       || (captureEventName === 'PostToolUse' && CAPTURE_ONLY_TOOLS.indexOf(captureToolName) !== -1);
-    if (captureOnly && process.env.HARNESS_DOC_RECONCILIATION_PILOT !== '1') {
+    if (captureOnly) {
       process.exit(0);
       return;
     }
     const root = getWorkspaceRoot(payload);
-    // SubagentStart/SubagentStop were never routed to this script before S2b.
-    // They are capture-only events: the legacy handoff state path stays
-    // untouched for them, so wiring them while OFF adds no writes at all.
-    if (captureEventName === 'SubagentStart' || captureEventName === 'SubagentStop') {
-      persistPilotCapture(payload, captureEventName, sessionId, root);
-      process.exit(0);
-      return;
-    }
-    // Pre-tool launch capture and Task/Agent result capture: capture-only, no legacy handoff state is written.
-    if (captureEventName === 'PreToolUse' || (captureEventName === 'PostToolUse' && CAPTURE_ONLY_TOOLS.indexOf(captureToolName) !== -1)) {
-      persistPilotCapture(payload, captureEventName, sessionId, root);
-      process.exit(0);
-      return;
-    }
     const stateFile = path.join(getSessionDir(root, sessionId), 'handoff-state.json');
     let state = { status: 'idle', timestamp: new Date().toISOString() };
     if (fs.existsSync(stateFile)) { try { state = JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch (_) {} }
@@ -127,8 +107,6 @@ function processState(payload) {
       : agy ? (!isFailed && exitCode === 0)
       : !isFailed && (isSuccessEvent || exitCode === 0);
     const toolName = payload.tool_name || payload.tool || 'command';
-    let editAfterCapture = false;
-    let stateOnlyCandidate = false;
     if (isFailed) {
       let output = (stderrSignal ? stderr : stdout) || (typeof payload.output === 'string' ? payload.output : '');
       if (output.length > 500) output = '...' + output.slice(-500);
@@ -155,92 +133,26 @@ function processState(payload) {
         command === '$PSVersionTable.PSVersion; Get-Command pwsh -ErrorAction SilentlyContinue'
         || /^git grep (?:-n )?(?:"[\w][\w.-]*"|'[\w][\w.-]*'|[\w][\w.-]*)(?: --(?: [\w.][\w./-]*)+)?$/.test(command)
       );
-      const pilotEnabled = process.env.HARNESS_DOC_RECONCILIATION_PILOT === '1';
-      const docCheck = pilotEnabled ? require('./lib/doc-reconciliation-provider') : null;
-      stateOnlyCandidate = Boolean(docCheck && typeof payload.cwd === 'string' && payload.cwd
-        && docCheck.isW6StateCommand(command, payload.cwd, root,
-        { toolName, sessionId, agentId: payload.agent_id }));
-      const metadataStep = !stateOnlyCandidate && verifiedSuccess
+      const metadataStep = verifiedSuccess
         && isSuccessfulMetadataStep(command, cwdOf(payload, root));
       // The host-specific outcome must confirm success before verification advances.
-      // Pilot ON only: a registered, argv-validated doc-check that resolves to this install's own runtime is the document
-      // verification evidence, and only at the shipped pin (R3-02). Any other path earns no verification evidence. OFF stays legacy.
-      const installedCheck = docCheck && docCheck.registeredInstalledCheck(command, cwdOf(payload, root));
-      const docCheckCandidate = installedCheck && installedCheck.kind !== 'not-candidate';
-      const pinCheckable = installedCheck && installedCheck.installed
-        && (installedCheck.kind === 'accepted' || installedCheck.reason === 'implementation-pin-mismatch');
-      // A non-candidate that is compound or names the checker is not generic verification (trustRisk); the scanner miss does not clear it.
-      const verifies = stateOnlyCandidate ? false : docCheckCandidate
-        ? Boolean(pinCheckable) && docCheck.fileDigest(installedCheck.installed) === docCheck.SHIPPED_DOC_CHECK_DIGEST
-        : !(pilotEnabled && docCheck.trustRisk(command)) && isVerificationShell(command, { cwd: cwdOf(payload, root), root });
+      // Retired document-check evidence no longer changes generic handoff verification.
+      const verifies = isVerificationShell(command, { cwd: cwdOf(payload, root), root });
       // On AGY hosts that omit shell error/exitCode, an unconfirmed verification-only command must not advance lastEditAt
       // and defeat agy-stop.js's bounded continuation fingerprint.
       const agyUnknownOutcomeVerify = agy && !verifiedSuccess && !isFailed && verifies;
       if (!metadataStep && !agyUnknownOutcomeVerify && !agyReadOnlyProbe && commandClass !== 'read-only' && commandClass !== 'worktree-setup') {
-        if (stateOnlyCandidate) editAfterCapture = true;
-        else state.lastEditAt = Date.now();
+        state.lastEditAt = Date.now();
       }
       if (verifiedSuccess && verifies) {
         const verifiedAt = Date.now();
         const verifiedExitCode = exitCode ?? null;
         state.lastVerifyAt = verifiedAt;
         state.lastVerifyExitCode = verifiedExitCode;
-        if (pilotEnabled) {
-          const source = docCheckCandidate ? 'Doc' : 'Generic';
-          state[`last${source}VerifyAt`] = verifiedAt;
-          state[`last${source}VerifyExitCode`] = verifiedExitCode;
-        }
       }
     }
     fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
     observeTool(payload);
-    persistPilotCapture(payload, captureEventName, sessionId, root);
-    if (editAfterCapture) {
-      const pilotEnabled = process.env.HARNESS_DOC_RECONCILIATION_PILOT === '1';
-      const docCheck = pilotEnabled ? require('./lib/doc-reconciliation-provider') : null;
-      const captures = docCheck && docCheck.readCaptureView(getSessionDir(root, sessionId));
-      const verifiedStateOnly = stateOnlyCandidate && docCheck && captures && !captures.tampered
-        && docCheck.isVerifiedW6StateOperation(captures.records, getSessionDir(root, sessionId), payload.tool_use_id);
-      if (!verifiedStateOnly) {
-        state.lastEditAt = Date.now();
-        fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
-      }
-    }
   } catch (_) {}
   process.exit(0);
-}
-
-// Pilot-only capture journaling. Every guard is placed before any collector
-// work; any failure is swallowed (fail-open), and the hook output/exit is
-// never changed by capture.
-function persistPilotCapture(payload, eventName, sessionId, root) {
-  try {
-    if (!payload || process.env.HARNESS_DOC_RECONCILIATION_PILOT !== '1') return;
-    if (PILOT_CAPTURE_EVENT_NAMES.indexOf(eventName) === -1) return;
-    const provider = require('./lib/doc-reconciliation-provider');
-    const sessionDir = getSessionDir(root, sessionId);
-    const entry = provider.buildCaptureRecord(payload, eventName, root, { sessionDir });
-    if (!entry) return;
-    // Observation-time identity: the workflow and pin in force when the host event was captured.
-    const observed = provider.observedIdentityFor(sessionDir);
-    if (observed) entry.observedIdentity = observed;
-    // #341 step 1: O's identity is taken at launch records, so a reviewer's identity predates its review.
-    if (eventName === 'SubagentStart') {
-      const outlineIdentity = provider.captureOutlineStartIdentity({ sessionDir });
-      if (outlineIdentity) entry.outlineIdentity = outlineIdentity;
-    }
-    if (eventName === 'PreToolUse' && (entry.tool_name === 'Agent' || entry.tool_name === 'Task')) {
-      try {
-        const existing = provider.readCaptureView(sessionDir);
-        entry.outlineDispatch = existing.tampered
-          ? { schema: 'harness.outline-dispatch.v1', state: 'unresolved', reasons: ['capture-view-tampered'] }
-          : provider.captureOutlineDispatch({ payload, capture: entry, sessionDir, workspaceRoot: root, captures: existing.records });
-      } catch {
-        entry.outlineDispatch = { schema: 'harness.outline-dispatch.v1', state: 'unresolved', reasons: ['dispatch-capture-failed'] };
-      }
-    }
-    // Each capture is one exclusively created event file; the compatibility journal is rebuilt from them (not tamper-proof).
-    provider.writeImmutableEvent(sessionDir, entry);
-    provider.rebuildJournalView(sessionDir);
-  } catch (_) { /* fail-open: capture failures never reach the host */ }
 }
