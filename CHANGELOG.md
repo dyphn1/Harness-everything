@@ -294,6 +294,10 @@ Claude-Session: https://claude.ai/code/session_01RPz4xUrN12wGoL19istZUE
 
 ## [Unreleased]
 
+### E1 pilot retirement
+
+* **e1:** the E1 doc-reconciliation pilot is retired (#553). Every `HARNESS_DOC_RECONCILIATION_PILOT` value is now ignored, and W6 `inventory`/`seal` exit 2 with a retirement notice. Finish in-flight E1 work on the previous release, or end it and open a new session to redo review and verification. Recorded evidence stays in place; `doc-check` and document governance are unchanged.
+
 ### BREAKING CHANGES
 
 * **opencode:** support OpenCode V2 plugin API only; OpenCode 1.x / V1 is unsupported (#453). Removed the public `HarnessEnforcement` named V1 factory export, host `session.idle`, and legacy session-id event fallbacks; the V2 default export (`{ id, setup(ctx) }`) is now the only public surface. Historical OpenCode 1.18.31 evidence is retained for provenance only and does not establish V2 support.
