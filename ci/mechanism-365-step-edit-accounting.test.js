@@ -27,8 +27,8 @@ function mustRun(command, args, cwd, env, input) {
   return result;
 }
 
-function startContext(runtimeRoot, packaged, pilot) {
-  const label = `${packaged ? 'packaged' : 'source'}-${pilot ? 'pilot-on' : 'pilot-off'}`;
+function startContext(runtimeRoot, packaged) {
+  const label = packaged ? 'packaged' : 'source';
   const repo = path.join(tempRoot, label, 'repo');
   const stateHome = path.join(tempRoot, label, 'state');
   const fakeHome = path.join(tempRoot, label, 'home');
@@ -38,7 +38,6 @@ function startContext(runtimeRoot, packaged, pilot) {
   const env = {
     HARNESS_STATE_HOME: stateHome,
     HARNESS_WORKSPACE_ROOT: repo,
-    HARNESS_DOC_RECONCILIATION_PILOT: pilot ? '1' : '0',
     HARNESS_365_EVIDENCE: 'expanded',
     HOME: fakeHome,
     USERPROFILE: fakeHome,
@@ -258,8 +257,8 @@ function nonStepEscapeControl(context, runtimeRoot, packaged) {
     context.label + ': non-step operation leaves unresolved Fable evidence visible');
 }
 
-function checkTrace(runtimeRoot, packaged, pilot) {
-  const context = startContext(runtimeRoot, packaged, pilot);
+function checkTrace(runtimeRoot, packaged) {
+  const context = startContext(runtimeRoot, packaged);
   const first = verifyFresh(context, runtimeRoot, 'initial-edit');
 
   const readOnly = shell(context, 'git status --short');
@@ -387,7 +386,7 @@ function checkTrace(runtimeRoot, packaged, pilot) {
 try {
   for (const packaged of [false, true]) {
     const runtimeRoot = packaged ? path.join(ROOT, 'plugins/harness-everything') : ROOT;
-    for (const pilot of [false, true]) checkTrace(runtimeRoot, packaged, pilot);
+    checkTrace(runtimeRoot, packaged);
   }
   console.log('PASS #365 step edit-accounting mechanism test');
 } finally {
