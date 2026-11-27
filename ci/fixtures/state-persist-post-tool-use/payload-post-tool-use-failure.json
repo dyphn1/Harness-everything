@@ -1,0 +1,11 @@
+{
+  "session_id": "r2c1-sess-a",
+  "cwd": "/tmp/r2c1-ws",
+  "hook_event_name": "PostToolUseFailure",
+  "tool_name": "Bash",
+  "tool_input": { "command": "npm test" },
+  "tool_use_id": "toolu_r2c1_b",
+  "error": "Exit code 2\nnpm ERR! r2c1 simulated failure",
+  "is_interrupt": false,
+  "duration_ms": 4187
+}

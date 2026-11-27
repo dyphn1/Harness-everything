@@ -1,0 +1,13 @@
+{
+  "session_id": "r2c1-sess-a",
+  "prompt_id": "550e8400-e29b-41d4-a716-446655440000",
+  "transcript_path": "/tmp/r2c1/transcript-a.jsonl",
+  "cwd": "/tmp/r2c1-ws",
+  "permission_mode": "default",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Bash",
+  "tool_input": { "command": "npm test", "description": "Run test suite" },
+  "tool_response": { "stdout": "ok", "stderr": "", "interrupted": false, "isImage": false },
+  "tool_use_id": "toolu_r2c1_a",
+  "duration_ms": 12
+}
