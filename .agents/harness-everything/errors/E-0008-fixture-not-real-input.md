@@ -88,6 +88,19 @@ episodes:
         change: "d0e91ef9: label object kept opaque in readiness (advisor answer 3)"
         review: "review RV + hosted CI"
         result: "merged as PR #499; episode closed"
+  - episode: 544-466-agy-quota-regex-not-live-trace
+    feature: "#466 / PR #547 and PR #551 (#544)"
+    date: 2026-11-26
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "review R-466 F2 (P2) and the live owner-capture probe on PR #547"
+        result: "The D-agy quota matcher was built from the remembered fixture-only shape (`429 RESOURCE_EXHAUSTED … Resets in`) rather than a live trace. Real agy 1.5.18 quota lines (exit 0, then a separated-stream exit-3 capture) did not match it: readiness returned 12 NOT_READY and execution 15 RUN_FAILED instead of 13."
+      - round: 1
+        change: "af1b5104: one anchored two-line recognizer shared by readiness and execution; sanitized live captures committed as fixtures with provenance; the fixture-only single-line matcher retired to a rejection control"
+        review: "independent review R544 (50/50 executed probes, no findings) and hosted CI; coordinator re-run 202/202 rows"
+        result: "Live quota pair maps to 13 RUNNER_QUOTA at both phases; merged as PR #551, #544 reduced to the deferred exit-0 attribution slice. Episode closed."
 ---
 
 ## Cue
@@ -125,3 +138,5 @@ A one-shot runner template's `--self-test` passed while the first real dispatch 
 
 The C7 report said the pinned real-slice check passed. The coordinator re-ran it from the C2 worktree and got exit 1, because the checker inspected its own repository (`__dirname`) and that worktree's untracked files — a claim that held only in the reporter's own checkout. The C7b repair (`bcf3c577`) removed that dependence and RC7 found no blocker. This also touches E-0005 (a review claim that could not be reproduced from the evidence).
 - PR #499: commits `6e3bcc2f`, `b41a9662`, `d0e91ef9`; three real host shapes found only by live runs.
+- PR #547 / #544 (2026-11-26): the D-agy quota matcher came from the remembered fixture-only shape, not a live trace; real agy 1.5.18 output missed it in both phases.
+- PR #551 / #544: `af1b5104` replaced it with the live two-line pair and committed sanitized live fixtures with provenance (`ci/fixtures/468-dispatch/agy-quota-*`, `ci/fixtures/468-dispatch/agy-quota-PROVENANCE.md`); independent review R544 found no findings.
