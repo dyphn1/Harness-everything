@@ -1183,17 +1183,26 @@ test('V2 consumers β1: failed next-prompt identity cannot reuse the previous wo
     await f.sessionHooks.get('prompt')({ sessionID, messageID: 'user-turn-a', prompt: { text: 'first turn in A' } });
     await sendEdit(f, sessionID, 'turn-a-edit');
     const editFile = editStateArtifact(f.workspace, sessionID);
-    const captureFile = path.join(stateDir(f.workspace, sessionID), 'opencode-captures.jsonl');
+    const complianceFile = path.join(stateDir(f.workspace, sessionID), 'compliance.json');
+    const routerFile = routerArtifact(f.workspace, sessionID);
     const observationFile = path.join(f.store, 'sessions', `${observations.sha(sessionID, 32)}.json`);
     const serverEnforcementFiles = [
       editStateArtifact(serverWorkspace, sessionID),
       path.join(stateDir(serverWorkspace, sessionID), 'compliance.json'),
-      path.join(stateDir(serverWorkspace, sessionID), 'opencode-captures.jsonl'),
     ];
+    assert.deepEqual({
+      editRevision: readJson(editFile).editRevision,
+      totalEdits: readJson(complianceFile).totalEdits,
+      observationCwd: readJson(observationFile).pending?.cwd,
+    }, {
+      editRevision: 1,
+      totalEdits: 1,
+      observationCwd: observations.sha(f.workspace, 16),
+    }, 'valid first-turn binding writes surviving edit, compliance and observation state in workspace A');
     const before = {
       edit: fs.readFileSync(editFile, 'utf8'),
-      compliance: fs.readFileSync(path.join(stateDir(f.workspace, sessionID), 'compliance.json'), 'utf8'),
-      capture: fs.readFileSync(captureFile, 'utf8'),
+      compliance: fs.readFileSync(complianceFile, 'utf8'),
+      router: fs.readFileSync(routerFile, 'utf8'),
       observation: fs.readFileSync(observationFile, 'utf8'),
     };
 
@@ -1201,21 +1210,28 @@ test('V2 consumers β1: failed next-prompt identity cannot reuse the previous wo
     const context = { sessionID, kind: 'primary', system: [], messages: [] };
     await f.sessionHooks.get('context')(context);
     await sendEdit(f, sessionID, 'turn-b-edit');
-    f.push(v2Event('session.execution.succeeded', sessionID));
+    await f.push(v2Event('session.execution.succeeded', sessionID));
     await new Promise(resolve => setTimeout(resolve, 100));
 
     const actual = {
       noStaleContext: context.system.length === 0,
-      workspaceAUnchanged: fs.readFileSync(editFile, 'utf8') === before.edit
-        && fs.readFileSync(path.join(stateDir(f.workspace, sessionID), 'compliance.json'), 'utf8') === before.compliance,
-      noStaleCapture: fs.readFileSync(captureFile, 'utf8') === before.capture,
+      workspaceAEditUnchanged: fs.readFileSync(editFile, 'utf8') === before.edit,
+      workspaceAComplianceUnchanged: fs.readFileSync(complianceFile, 'utf8') === before.compliance,
+      workspaceARouterUnchanged: fs.readFileSync(routerFile, 'utf8') === before.router,
       noStaleObservation: fs.readFileSync(observationFile, 'utf8') === before.observation,
+      noCompletedObservation: recordList(f.store).length === 0,
       noServerEnforcementState: serverEnforcementFiles.every(file => !fs.existsSync(file)),
       noServerWorkspaceState: !fs.existsSync(routerArtifact(serverWorkspace, sessionID)),
     };
     assert.deepEqual(actual, {
-      noStaleContext: true, workspaceAUnchanged: true, noStaleCapture: true, noStaleObservation: true,
-      noServerEnforcementState: true, noServerWorkspaceState: true,
+      noStaleContext: true,
+      workspaceAEditUnchanged: true,
+      workspaceAComplianceUnchanged: true,
+      workspaceARouterUnchanged: true,
+      noStaleObservation: true,
+      noCompletedObservation: true,
+      noServerEnforcementState: true,
+      noServerWorkspaceState: true,
     }, `failed P2 identity must skip workspace-dependent work; actual=${JSON.stringify(actual)}`);
   } finally {
     if (dispose) await dispose();
@@ -1244,23 +1260,35 @@ test('V2 consumers β1 control: a resolved next prompt binds tools only to works
     await f.sessionHooks.get('prompt')({ sessionID, messageID: 'resolved-turn-a', prompt: { text: 'first turn in A' } });
     await sendEdit(f, sessionID, 'resolved-turn-a-edit');
     const editA = editStateArtifact(f.workspace, sessionID);
+    const complianceA = path.join(stateDir(f.workspace, sessionID), 'compliance.json');
     const beforeA = fs.readFileSync(editA, 'utf8');
+    const beforeComplianceA = fs.readFileSync(complianceA, 'utf8');
 
     await f.sessionHooks.get('prompt')({ sessionID, messageID: 'resolved-turn-b', prompt: { text: 'second turn in B' } });
     await sendEdit(f, sessionID, 'resolved-turn-b-edit');
     const pendingFile = path.join(f.store, 'sessions', `${observations.sha(sessionID, 32)}.json`);
+    const serverEnforcementFiles = [
+      editStateArtifact(serverWorkspace, sessionID),
+      path.join(stateDir(serverWorkspace, sessionID), 'compliance.json'),
+    ];
     const actual = {
       workspaceAUnchanged: fs.readFileSync(editA, 'utf8') === beforeA,
+      workspaceAComplianceUnchanged: fs.readFileSync(complianceA, 'utf8') === beforeComplianceA,
       workspaceBRevision: readJson(editStateArtifact(workspaceB, sessionID)).editRevision,
+      workspaceBTotalEdits: readJson(path.join(stateDir(workspaceB, sessionID), 'compliance.json')).totalEdits,
       observationCwd: readJson(pendingFile).pending.cwd,
       expectedObservationCwd: observations.sha(workspaceB, 16),
+      noServerEnforcementState: serverEnforcementFiles.every(file => !fs.existsSync(file)),
       noServerWorkspaceState: !fs.existsSync(routerArtifact(serverWorkspace, sessionID)),
     };
     assert.deepEqual(actual, {
       workspaceAUnchanged: true,
+      workspaceAComplianceUnchanged: true,
       workspaceBRevision: 1,
+      workspaceBTotalEdits: 1,
       observationCwd: observations.sha(workspaceB, 16),
       expectedObservationCwd: observations.sha(workspaceB, 16),
+      noServerEnforcementState: true,
       noServerWorkspaceState: true,
     }, `resolved P2 identity binds only to B; actual=${JSON.stringify(actual)}`);
   } finally {
@@ -1271,7 +1299,7 @@ test('V2 consumers β1 control: a resolved next prompt binds tools only to works
 });
 
 test('V2 consumers β2: a pending identity makes prior-turn tool events safely skip', { concurrency: false }, async () => {
-  const f = fixture('off');
+  const f = fixture();
   const sessionID = 'pending-next-prompt';
   const serverWorkspace = makeWorkspace(f, 'pending-server-c');
   const originalCwd = process.cwd();
@@ -1293,20 +1321,125 @@ test('V2 consumers β2: a pending identity makes prior-turn tool events safely s
     await f.sessionHooks.get('prompt')({ sessionID, messageID: 'user-turn-a', prompt: { text: 'first turn in A' } });
     await sendEdit(f, sessionID, 'pending-turn-a-edit');
     const editFile = editStateArtifact(f.workspace, sessionID);
-    const captureFile = path.join(stateDir(f.workspace, sessionID), 'opencode-captures.jsonl');
-    const beforeEdit = fs.readFileSync(editFile, 'utf8');
-    const beforeCapture = fs.readFileSync(captureFile, 'utf8');
+    const complianceFile = path.join(stateDir(f.workspace, sessionID), 'compliance.json');
+    const routerFile = routerArtifact(f.workspace, sessionID);
+    const observationFile = path.join(f.store, 'sessions', `${observations.sha(sessionID, 32)}.json`);
+    const serverEnforcementFiles = [
+      editStateArtifact(serverWorkspace, sessionID),
+      path.join(stateDir(serverWorkspace, sessionID), 'compliance.json'),
+    ];
+    assert.deepEqual({
+      editRevision: readJson(editFile).editRevision,
+      totalEdits: readJson(complianceFile).totalEdits,
+      observationCwd: readJson(observationFile).pending?.cwd,
+    }, {
+      editRevision: 1,
+      totalEdits: 1,
+      observationCwd: observations.sha(f.workspace, 16),
+    }, 'valid first-turn binding writes surviving edit, compliance and observation state in workspace A');
+    const before = {
+      edit: fs.readFileSync(editFile, 'utf8'),
+      compliance: fs.readFileSync(complianceFile, 'utf8'),
+      router: fs.readFileSync(routerFile, 'utf8'),
+      observation: fs.readFileSync(observationFile, 'utf8'),
+    };
 
     pendingPrompt = f.sessionHooks.get('prompt')({ sessionID, messageID: 'user-turn-b', prompt: { text: 'identity remains pending' } });
     assert.equal(await waitUntil(() => lookupStarted), true, 'P2 lookup is pending');
     await sendEdit(f, sessionID, 'ambiguous-assistant-tool');
+    await f.push(v2Event('session.execution.succeeded', sessionID));
+    await new Promise(resolve => setTimeout(resolve, 100));
     const actual = {
-      workspaceAUnchanged: fs.readFileSync(editFile, 'utf8') === beforeEdit,
-      noStaleCapture: fs.readFileSync(captureFile, 'utf8') === beforeCapture,
+      workspaceAEditUnchanged: fs.readFileSync(editFile, 'utf8') === before.edit,
+      workspaceAComplianceUnchanged: fs.readFileSync(complianceFile, 'utf8') === before.compliance,
+      workspaceARouterUnchanged: fs.readFileSync(routerFile, 'utf8') === before.router,
+      noStaleObservation: fs.readFileSync(observationFile, 'utf8') === before.observation,
+      noCompletedObservation: recordList(f.store).length === 0,
+      noServerEnforcementState: serverEnforcementFiles.every(file => !fs.existsSync(file)),
       noServerWorkspaceState: !fs.existsSync(routerArtifact(serverWorkspace, sessionID)),
     };
-    assert.deepEqual(actual, { workspaceAUnchanged: true, noStaleCapture: true, noServerWorkspaceState: true },
-      `an uncorrelated tool messageID cannot select the old binding; actual=${JSON.stringify(actual)}`);
+    assert.deepEqual(actual, {
+      workspaceAEditUnchanged: true,
+      workspaceAComplianceUnchanged: true,
+      workspaceARouterUnchanged: true,
+      noStaleObservation: true,
+      noCompletedObservation: true,
+      noServerEnforcementState: true,
+      noServerWorkspaceState: true,
+    }, `an uncorrelated tool or completion event cannot select the old binding while identity is pending; actual=${JSON.stringify(actual)}`);
+  } finally {
+    if (resolvePending) resolvePending({});
+    if (pendingPrompt) await pendingPrompt;
+    if (dispose) await dispose();
+    process.chdir(originalCwd);
+    f.restore();
+  }
+});
+
+test('V2 consumers β2 control: once a pending identity resolves to workspace B, surviving state writes there only', { concurrency: false }, async () => {
+  const f = fixture();
+  const sessionID = 'pending-then-resolved';
+  const workspaceB = makeWorkspace(f, 'pending-session-b');
+  const serverWorkspace = makeWorkspace(f, 'pending-control-server-c');
+  const originalCwd = process.cwd();
+  let lookupCount = 0;
+  let resolvePending;
+  let lookupStarted = false;
+  f.ctx.location = undefined;
+  f.ctx.directory = undefined;
+  f.setSessionLookup(async () => {
+    lookupCount++;
+    if (lookupCount === 1) return { id: sessionID, location: { directory: f.workspace } };
+    return new Promise(resolve => { resolvePending = resolve; lookupStarted = true; });
+  });
+  process.chdir(serverWorkspace);
+  let dispose;
+  let pendingPrompt;
+  try {
+    dispose = await install(f);
+    await f.sessionHooks.get('prompt')({ sessionID, messageID: 'pending-ctrl-turn-a', prompt: { text: 'first turn in A' } });
+    await sendEdit(f, sessionID, 'pending-ctrl-turn-a-edit');
+    const editA = editStateArtifact(f.workspace, sessionID);
+    const complianceA = path.join(stateDir(f.workspace, sessionID), 'compliance.json');
+    const observationFile = path.join(f.store, 'sessions', `${observations.sha(sessionID, 32)}.json`);
+    const beforeEditA = fs.readFileSync(editA, 'utf8');
+    const beforeComplianceA = fs.readFileSync(complianceA, 'utf8');
+
+    pendingPrompt = f.sessionHooks.get('prompt')({ sessionID, messageID: 'pending-ctrl-turn-b', prompt: { text: 'second turn resolves to B' } });
+    assert.equal(await waitUntil(() => lookupStarted), true, 'P2 lookup is pending');
+    await sendEdit(f, sessionID, 'pending-ctrl-skipped-edit');
+    assert.equal(fs.readFileSync(editA, 'utf8'), beforeEditA, 'pending edit does not mutate workspace A');
+    assert.equal(fs.existsSync(editStateArtifact(workspaceB, sessionID)), false, 'pending edit does not pre-create workspace B');
+
+    resolvePending({ id: sessionID, location: { directory: workspaceB } });
+    await pendingPrompt;
+    pendingPrompt = null;
+    await sendEdit(f, sessionID, 'pending-ctrl-turn-b-edit');
+
+    const serverEnforcementFiles = [
+      editStateArtifact(serverWorkspace, sessionID),
+      path.join(stateDir(serverWorkspace, sessionID), 'compliance.json'),
+    ];
+    const actual = {
+      workspaceAEditUnchanged: fs.readFileSync(editA, 'utf8') === beforeEditA,
+      workspaceAComplianceUnchanged: fs.readFileSync(complianceA, 'utf8') === beforeComplianceA,
+      workspaceBRevision: readJson(editStateArtifact(workspaceB, sessionID)).editRevision,
+      workspaceBTotalEdits: readJson(path.join(stateDir(workspaceB, sessionID), 'compliance.json')).totalEdits,
+      observationCwd: readJson(observationFile).pending.cwd,
+      expectedObservationCwd: observations.sha(workspaceB, 16),
+      noServerEnforcementState: serverEnforcementFiles.every(file => !fs.existsSync(file)),
+      noServerWorkspaceState: !fs.existsSync(routerArtifact(serverWorkspace, sessionID)),
+    };
+    assert.deepEqual(actual, {
+      workspaceAEditUnchanged: true,
+      workspaceAComplianceUnchanged: true,
+      workspaceBRevision: 1,
+      workspaceBTotalEdits: 1,
+      observationCwd: observations.sha(workspaceB, 16),
+      expectedObservationCwd: observations.sha(workspaceB, 16),
+      noServerEnforcementState: true,
+      noServerWorkspaceState: true,
+    }, `resolved pending identity binds surviving state only to B; actual=${JSON.stringify(actual)}`);
   } finally {
     if (resolvePending) resolvePending({});
     if (pendingPrompt) await pendingPrompt;
