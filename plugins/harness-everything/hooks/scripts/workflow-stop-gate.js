@@ -9,6 +9,14 @@ const STEP_TYPE_REGISTRY_UNAVAILABLE = 'STEP_TYPE_REGISTRY_UNAVAILABLE';
 
 function warn(message) { console.error('[Workflow Reminder] ' + message); }
 
+function lastGenericVerificationAt(handoff) {
+  if (!Number.isFinite(handoff?.lastDocVerifyAt)) return handoff?.lastVerifyAt || 0;
+  const genericAt = Number.isFinite(handoff.lastGenericVerifyAt) ? handoff.lastGenericVerifyAt : 0;
+  const newerAggregateAt = Number.isFinite(handoff.lastVerifyAt) && handoff.lastVerifyAt > handoff.lastDocVerifyAt
+    ? handoff.lastVerifyAt : 0;
+  return Math.max(genericAt, newerAggregateAt);
+}
+
 function decide(payload) {
   if (!payload) return;
   try {
@@ -18,7 +26,7 @@ function decide(payload) {
     const { workflow, sessionDir } = context;
     if (!workflow || workflow.state === 'deferred') return;
     const handoffFile = path.join(sessionDir, 'handoff-state.json');
-    let handoff = readJson(handoffFile);
+    const handoff = readJson(handoffFile);
     const unresolved = [];
     const diagnostics = [];
     let requiredFault = false;
@@ -38,17 +46,18 @@ function decide(payload) {
 
     required(() => planningUnresolved(context));
     if (String(workflow.strategy || '').startsWith('fable-')) {
-      if (!unresolved.length) {
-        require('./lib/doc-reconciliation-pilot').assess(context, null);
-      }
       const match = matchingRun(context);
       unresolved.push(...(match ? unresolvedStages(match, workflow, handoff?.lastEditAt || 0) : ['correlated-run-missing']));
     } else {
       required(() => unresolvedObligations(context));
-      // Assessment can withdraw stale document verification; read the current aggregate afterward.
-      handoff = readJson(handoffFile);
       const lastEdit = Math.max(workflow.lastMutationAt || 0, handoff?.lastEditAt || 0);
-      if (lastEdit && (handoff?.lastVerifyAt || 0) < lastEdit) unresolved.push('verification-after-edit-missing');
+      if (lastEdit && lastGenericVerificationAt(handoff) < lastEdit) {
+        unresolved.push('verification-after-edit-missing');
+        if (Number.isFinite(handoff?.lastDocVerifyAt) && workflow.state === 'satisfied') {
+          workflow.state = 'running';
+          delete workflow.resolvedAt;
+        }
+      }
     }
 
     const pending = [...new Set(unresolved)];
@@ -59,29 +68,7 @@ function decide(payload) {
       // A failed required validation leaves the workflow file as recorded; it is never marked satisfied.
       if (!requiredFault) {
         workflow.unresolved = pending;
-        // PR #351 follow-up (unwritable session store): persisting the pending downgrade is
-        // best-effort. A failing saveWorkflow() must not swallow the decision or leak exception
-        // text: record the withhold-persist-failed diagnostic on the shared context diagnostics
-        // (also when the earlier obligations write already failed) and still emit the reminder
-        // below. Stop stays non-blocking: exit 0, no retry loop, no lock.
-        // Scope of the recovery (PR #351 re-review): the local recovery and the
-        // withhold-persist-failed diagnostic apply only when this Stop run made an actual ON,
-        // supported, withheld pilot decision (`withholdPilotVerification` sets the transient
-        // per-run marker on the context). On switch-OFF, Fable and persisted-untyped paths the
-        // marker is never set, so the error is rethrown and reaches Stop's outer handler exactly
-        // as the pre-S1 legacy reference: same stderr, same exit 0, no pilot diagnostic.
-        try {
-          saveWorkflow(context);
-        } catch (error) {
-          if (context.docReconciliationWithheldRun !== true) throw error;
-          if (!Array.isArray(context.workflow.docReconciliationDiagnostics)) {
-            context.workflow.docReconciliationDiagnostics = [];
-          }
-          if (!context.workflow.docReconciliationDiagnostics.includes('withhold-persist-failed')) {
-            context.workflow.docReconciliationDiagnostics.push('withhold-persist-failed');
-          }
-          warn('Pending-workflow persistence failed (withhold-persist-failed); the unresolved evidence below is still binding.');
-        }
+        saveWorkflow(context);
       }
       warn('Unresolved workflow evidence: ' + pending.join(', ') + '. Resolve/verify before claiming completion.');
       return;
