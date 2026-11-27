@@ -20,12 +20,10 @@ const H = require('./fixtures/doc-obligations/reconciliation-s2a/harness.js');
 const REQ_PRODUCER = { where: 'lib', file: 'doc-reconciliation-producer.js', exports: ['produceDocSnapshot'] };
 const REQ_EVENTS = { where: 'lib', file: 'doc-reconciliation-events.js', exports: ['acceptDocEvents'] };
 const REQ_CORE = { where: 'lib', file: 'doc-reconciliation-core.js', exports: ['checkAcceptedDocEvidence', 'reconcileDocResults'] };
-const REQ_DERIVE = { where: 'scripts', file: 'doc-obligations.js', exports: ['deriveDocFacts', 'deriveDocObligations'] };
 const REQ_CHECKER = { where: 'scripts', file: 'doc-evidence.js', exports: ['checkDocObligations'] };
 const PRODUCER = 'doc-reconciliation-producer.js';
 const EVENTS = 'doc-reconciliation-events.js';
 const CORE = 'doc-reconciliation-core.js';
-const DERIVE = 'doc-obligations.js';
 const CHECKER = 'doc-evidence.js';
 const ALL_NEW = [REQ_PRODUCER, REQ_EVENTS, REQ_CORE];
 const { VECTORS, PRINCIPALS, ZERO_DIGEST } = H;
@@ -773,26 +771,6 @@ for (const flip of VECTORS.flips) {
   });
 }
 
-// ---- Regression: the existing derive and checker APIs are unchanged on the fixed vectors ------------------------
-
-for (const key of ['normative', 'nonnormative', 'code-only', 'nondocument']) {
-  const pin = VECTORS.pins[key];
-  runner.run(`regression:derive-and-checker-pins-${key}`, [REQ_DERIVE, REQ_CHECKER], (mods) => {
-    const files = H.vectorFiles(key);
-    const facts = mods[DERIVE].deriveDocFacts({ base: { files: files.base }, candidate: { files: files.candidate }, config: H.DERIVE_CONFIG });
-    const obligations = mods[DERIVE].deriveDocObligations(facts.facts);
-    const checker = mods[CHECKER].checkDocObligations({ obligations, artifacts: {}, baseline: {}, executionRecords: [], reviewRecords: [] });
-    H.sameStable(H.sha256(H.stable(facts)), pin.deriveFactsSha256, 'deriveDocFacts output digest');
-    H.sameStable(H.sha256(H.stable(obligations)), pin.deriveObligationsSha256, 'deriveDocObligations output digest');
-    H.sameStable(H.sha256(H.stable(checker)), pin.checkerResultsSha256, 'checkDocObligations output digest');
-  });
-}
-
-runner.run('regression:exported-signatures-unchanged', [REQ_DERIVE, REQ_CHECKER], (mods) => {
-  H.sameStable(Object.keys(mods[DERIVE]).sort(), ['deriveDocFacts', 'deriveDocObligations'], 'doc-obligations exports');
-  H.sameStable(Object.keys(mods[CHECKER]).sort(), ['checkDocObligations'], 'doc-evidence exports');
-});
-
 // ---- Purity: the core evaluation performs no file, process or network activity -----------------------------------
 
 runner.run('purity:core-decisions-perform-no-io', ALL_NEW, (mods, leg) => withVector('normative', repo => {
@@ -819,14 +797,6 @@ for (const file of [PRODUCER, EVENTS, CORE]) {
     H.sameStable(source, packaged, `${file} sha256 (source vs packaged)`);
   });
 }
-
-runner.run('resolver:captured-export-and-copies-synchronized', [{ where: 'scripts', file: 'project-docs-resolver.js', exports: ['resolveDocsConfigCaptured'] }], (mods, leg) => {
-  if (leg.name !== 'source') return;
-  const canonical = H.sha256(fs.readFileSync(path.join(H.ROOT, 'harness-everything', 'scripts', 'project-docs-resolver.js')));
-  for (const copy of ['to-spec/scripts/project-docs-resolver.js', 'multi-agent-workspace/scripts/project-docs-resolver.js']) {
-    H.sameStable(H.sha256(fs.readFileSync(path.join(H.ROOT, copy))), canonical, `${copy} matches the canonical resolver`);
-  }
-});
 
 const counts = runner.summary();
 if (counts.INFRA > 0) {

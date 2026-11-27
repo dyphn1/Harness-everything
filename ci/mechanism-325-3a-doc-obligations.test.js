@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('assert');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const helper = require('./test-helper');
@@ -738,5 +739,65 @@ checkCase('325-3a C1 coverage: title-only rename of a REQ-citing test with the s
   assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'N/A',
     'a title-only rename does not trigger requirement-sync');
 });
+
+// Moved from 325-3b-s2a-core (#553 T2-D): regression pins and exported-signature controls on both source and packaged legs.
+
+const REGRESSION_PINS = JSON.parse(fs.readFileSync(path.join(fixtureDir, 'regression-pins.json'), 'utf8'));
+const REGRESSION_LEGS = [
+  {
+    name: 'source',
+    scripts: path.join(__dirname, '..', 'harness-everything', 'scripts')
+  },
+  {
+    name: 'packaged',
+    scripts: path.join(__dirname, '..', 'plugins', 'harness-everything', 'skills', 'harness-everything', 'scripts')
+  }
+];
+
+function stableJson(value) {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function sha256Hex(text) {
+  return crypto.createHash('sha256').update(text).digest('hex');
+}
+
+function loadPinnedVector(key) {
+  const vec = REGRESSION_PINS.vectors[key];
+  if (!vec) throw new Error(`unknown regression pin vector ${key}`);
+  if (vec.deriveCase) return loadCase(vec.deriveCase);
+  return {
+    base: { files: JSON.parse(JSON.stringify(vec.files.base)) },
+    candidate: { files: JSON.parse(JSON.stringify(vec.files.candidate)) }
+  };
+}
+
+for (const leg of REGRESSION_LEGS) {
+  for (const key of ['normative', 'nonnormative', 'code-only', 'nondocument']) {
+    const pin = REGRESSION_PINS.pins[key];
+    checkCase(`regression:derive-and-checker-pins-${key} [${leg.name}]`, () => {
+      const deriveMod = require(path.join(leg.scripts, 'doc-obligations.js'));
+      const checkerMod = require(path.join(leg.scripts, 'doc-evidence.js'));
+      const input = loadPinnedVector(key);
+      const facts = deriveMod.deriveDocFacts({ base: input.base, candidate: input.candidate, config: CONFIG });
+      const obligations = deriveMod.deriveDocObligations(facts.facts);
+      const checker = checkerMod.checkDocObligations({ obligations, artifacts: {}, baseline: {}, executionRecords: [], reviewRecords: [] });
+      assert.strictEqual(sha256Hex(stableJson(facts)), pin.deriveFactsSha256, 'deriveDocFacts output digest');
+      assert.strictEqual(sha256Hex(stableJson(obligations)), pin.deriveObligationsSha256, 'deriveDocObligations output digest');
+      assert.strictEqual(sha256Hex(stableJson(checker)), pin.checkerResultsSha256, 'checkDocObligations output digest');
+    });
+  }
+
+  checkCase(`regression:exported-signatures-unchanged [${leg.name}]`, () => {
+    const deriveMod = require(path.join(leg.scripts, 'doc-obligations.js'));
+    const checkerMod = require(path.join(leg.scripts, 'doc-evidence.js'));
+    assert.deepStrictEqual(Object.keys(deriveMod).sort(), ['deriveDocFacts', 'deriveDocObligations'], 'doc-obligations exports');
+    assert.deepStrictEqual(Object.keys(checkerMod).sort(), ['checkDocObligations'], 'doc-evidence exports');
+  });
+}
 
 helper.finish();

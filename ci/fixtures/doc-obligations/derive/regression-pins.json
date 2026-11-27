@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 1,
+  "description": "Fixed regression pins for unchanged deriveDocFacts, deriveDocObligations and checkDocObligations outputs across the four canonical vectors (moved from reconciliation-s2a/vectors.json in #553 T2-D without recapturing digests).",
+  "deriveConfig": "ci/fixtures/doc-obligations/derive/config.json",
+  "vectors": {
+    "normative": {
+      "deriveCase": "missing-approval"
+    },
+    "nonnormative": {
+      "deriveCase": "docs-only"
+    },
+    "code-only": {
+      "deriveCase": "code-only"
+    },
+    "nondocument": {
+      "files": {
+        "base": {
+          "assets/notes.txt": "Release notes draft.\n"
+        },
+        "candidate": {
+          "assets/notes.txt": "Release notes draft, revised.\n"
+        }
+      }
+    }
+  },
+  "pins": {
+    "normative": {
+      "deriveFactsSha256": "c78d208ccba00c5e47bd5d72abc595b05f7f340a005da0a14b598cd5c4743437",
+      "deriveObligationsSha256": "5ff5fcfe1edaf939a2b8b526b2bff131de1253319f3cbe97b3c4c60f75480deb",
+      "checkerResultsSha256": "3a55b457ee4f8eb918fcfeda1f12236e57817d0fd4db185799ffb73b9c162b9a",
+      "mustApplicability": [
+        [
+          "doc-change:doc-lint",
+          "applicable"
+        ],
+        [
+          "doc-change:link-check",
+          "applicable"
+        ],
+        [
+          "doc-change:derived-regenerate",
+          "N/A"
+        ],
+        [
+          "doc-change:quality-review",
+          "applicable"
+        ],
+        [
+          "doc-change:conflict-check",
+          "applicable"
+        ],
+        [
+          "doc-change:requirement-sync",
+          "N/A"
+        ]
+      ]
+    },
+    "nonnormative": {
+      "deriveFactsSha256": "72659ade94266aa542198aed0ada2dfa243297520f70e40b86b5896592d8a457",
+      "deriveObligationsSha256": "ece5929fd7bec6d836312dbc2b90c4c8eabc7f82fc1b49605f7f342b9eb7071d",
+      "checkerResultsSha256": "74a20d2e250c40c7dfad7025bfcad080345667e7d558a33f615452c40597854d",
+      "mustApplicability": [
+        [
+          "doc-change:doc-lint",
+          "applicable"
+        ],
+        [
+          "doc-change:link-check",
+          "applicable"
+        ],
+        [
+          "doc-change:derived-regenerate",
+          "N/A"
+        ],
+        [
+          "doc-change:quality-review",
+          "N/A"
+        ],
+        [
+          "doc-change:conflict-check",
+          "N/A"
+        ],
+        [
+          "doc-change:requirement-sync",
+          "N/A"
+        ]
+      ]
+    },
+    "code-only": {
+      "deriveFactsSha256": "1134fae14ea8f888f12f5dff1bd32b8a2788ba09e91299e7ce3d2a9dc81d0d1f",
+      "deriveObligationsSha256": "b8ece9008764bad6e015d99252dd73570164684b768449d89d4ff0de98def44e",
+      "checkerResultsSha256": "3080bfcaafb7f330f4d26f4087a60a9a76c7a5154b7581209fc26e365333edcb",
+      "mustApplicability": [
+        [
+          "doc-change:doc-lint",
+          "N/A"
+        ],
+        [
+          "doc-change:link-check",
+          "N/A"
+        ],
+        [
+          "doc-change:derived-regenerate",
+          "N/A"
+        ],
+        [
+          "doc-change:quality-review",
+          "N/A"
+        ],
+        [
+          "doc-change:conflict-check",
+          "N/A"
+        ],
+        [
+          "doc-change:requirement-sync",
+          "unknown"
+        ]
+      ]
+    },
+    "nondocument": {
+      "deriveFactsSha256": "5ba5a35c74165a94deff0e935799f93b7d5efa1eb554e4fad9717560e0828d43",
+      "deriveObligationsSha256": "0cfb1cbd5ebb220a3c174d716dcba67c46b0d58e87bfebf0a930e8e0be9f843b",
+      "checkerResultsSha256": "25026cdafe353e58bdc3a74e8b1db6feb1a2f180f9cce04f81527e96d57c251a",
+      "mustApplicability": [
+        [
+          "doc-change:doc-lint",
+          "N/A"
+        ],
+        [
+          "doc-change:link-check",
+          "N/A"
+        ],
+        [
+          "doc-change:derived-regenerate",
+          "N/A"
+        ],
+        [
+          "doc-change:quality-review",
+          "N/A"
+        ],
+        [
+          "doc-change:conflict-check",
+          "N/A"
+        ],
+        [
+          "doc-change:requirement-sync",
+          "N/A"
+        ]
+      ]
+    }
+  },
+  "pinNote": "sha256 of stable JSON (sorted keys) of the current unchanged outputs; recorded at R2a RED."
+}

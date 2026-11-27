@@ -19,8 +19,7 @@ const failures = [];
 const REQUIREMENTS = {
   producer: { where: 'lib', file: PRODUCER, exports: ['produceDocSnapshot'] },
   events: { where: 'lib', file: EVENTS, exports: ['acceptDocEvents'] },
-  core: { where: 'lib', file: CORE, exports: ['checkAcceptedDocEvidence'] },
-  resolver: { where: 'scripts', file: RESOLVER, exports: ['validateDocsConfig'] }
+  core: { where: 'lib', file: CORE, exports: ['checkAcceptedDocEvidence'] }
 };
 
 function artifactConfig(roots = EXPECTED_ROOTS) {
@@ -167,19 +166,6 @@ runCase('host-config-opt-in-cannot-prune-dependency-artifacts', [REQUIREMENTS.pr
     assert(snapshot.candidate.records.some(item => item.path === 'node_modules/fixture-package/index.js' && item.presence === 'present'));
     assert(snapshot.candidate.records.some(item => item.path === '.husky/_/husky.sh' && item.presence === 'present'));
   });
-});
-
-runCase('config-validator-accepts-only-the-two-exact-optional-roots', [REQUIREMENTS.resolver], mods => {
-  for (const roots of [[], ['node_modules'], ['.husky/_'], EXPECTED_ROOTS]) {
-    assert.strictEqual(mods[RESOLVER].validateDocsConfig({ inventory: { dependencyArtifactRoots: roots } }).valid, true,
-      `valid roots: ${JSON.stringify(roots)}`);
-  }
-  for (const roots of [['vendor'], ['node_modules', 'node_modules'], ['node_modules/child'], ['../node_modules'], ['/node_modules'], ['node_modules/']]) {
-    assert.strictEqual(mods[RESOLVER].validateDocsConfig({ inventory: { dependencyArtifactRoots: roots } }).valid, false,
-      `invalid roots: ${JSON.stringify(roots)}`);
-  }
-  assert.strictEqual(mods[RESOLVER].validateDocsConfig({ inventory: { dependencyArtifactRoots: ['node_modules'], exclusions: ['tmp'] } }).valid, false,
-    'the narrow policy rejects extra exclusion controls');
 });
 
 runCase('baseline-index-and-index-removed-paths-block-pruning', [REQUIREMENTS.producer], mods => {

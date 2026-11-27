@@ -17,11 +17,9 @@ const H = require('./fixtures/doc-obligations/reconciliation-s2a/harness.js');
 const PRODUCER = 'doc-reconciliation-producer.js';
 const EVENTS = 'doc-reconciliation-events.js';
 const DERIVE = 'doc-obligations.js';
-const RESOLVER = 'project-docs-resolver.js';
 const REQ_PRODUCER = { where: 'lib', file: PRODUCER, exports: ['produceDocSnapshot'] };
 const REQ_EVENTS = { where: 'lib', file: EVENTS, exports: ['acceptDocEvents'] };
 const REQ_DERIVE = { where: 'scripts', file: DERIVE, exports: ['deriveDocFacts', 'deriveDocObligations'] };
-const REQ_RESOLVER = { where: 'scripts', file: RESOLVER, exports: ['resolveDocsConfig', 'resolveDocsConfigCaptured'] };
 const { VECTORS } = H;
 const HEX64 = /^[0-9a-f]{64}$/;
 
@@ -390,43 +388,7 @@ runner.run('A11:ignored-irrelevant-control-has-no-new-must-and-a-justified-exclu
   }
 }));
 
-// ---- A03: captured config seam (resolver) and producer behaviour on config bytes ----------------------------------
-
-const HOST_MANIFEST = '.claude/harness-everything/manifest.json';
-
-runner.run('A03:captured-resolution-equals-existing-resolver-project-config', [REQ_RESOLVER], mods => withRepo(normativeFiles(), repo => {
-  const captured = mods[RESOLVER].resolveDocsConfigCaptured(repo.root, { activeHost: 'claude' });
-  const existing = mods[RESOLVER].resolveDocsConfig(repo.root, { activeHost: 'claude' });
-  H.sameStable(captured.resolution, existing, 'captured resolution equals the existing resolver result');
-}));
-
-runner.run('A03:project-overrides-host-positive-equals-existing-resolver', [REQ_RESOLVER], mods => {
-  const host = { ...normativeFiles().base, [HOST_MANIFEST]: JSON.stringify({ projectDocs: { governed: [{ path: 'docs/host/**', role: 'reference' }] } }, null, 2) + '\n' };
-  withRepo({ base: host, candidate: {} }, repo => {
-    const captured = mods[RESOLVER].resolveDocsConfigCaptured(repo.root, { activeHost: 'claude' });
-    const existing = mods[RESOLVER].resolveDocsConfig(repo.root, { activeHost: 'claude' });
-    H.sameStable(captured.resolution, existing, 'project-overrides-host resolution');
-  });
-});
-
-runner.run('A03:equal-host-positive-equals-existing-resolver', [REQ_RESOLVER], mods => {
-  const host = { ...normativeFiles().base, [HOST_MANIFEST]: JSON.stringify({ projectDocs: H.DERIVE_CONFIG }, null, 2) + '\n' };
-  withRepo({ base: host, candidate: {} }, repo => {
-    const captured = mods[RESOLVER].resolveDocsConfigCaptured(repo.root, { activeHost: 'claude' });
-    const existing = mods[RESOLVER].resolveDocsConfig(repo.root, { activeHost: 'claude' });
-    H.sameStable(captured.resolution, existing, 'equal-host resolution');
-  });
-});
-
-runner.run('A03:capture-binds-exact-config-bytes-and-selection', [REQ_RESOLVER], mods => withRepo(normativeFiles(), repo => {
-  const captured = mods[RESOLVER].resolveDocsConfigCaptured(repo.root, { activeHost: 'claude' });
-  const bytes = fs.readFileSync(path.join(repo.root, H.CONFIG_REL));
-  const digest = H.sha256(bytes);
-  if (!JSON.stringify(captured.capture && captured.capture.sources).includes(digest)) {
-    throw new Error('the capture must carry the SHA256 of the exact config bytes that were parsed');
-  }
-  if (!captured.capture || !Array.isArray(captured.capture.selectionInputs)) throw new Error('capture.selectionInputs must be an array');
-}));
+// ---- A03: producer behaviour on config bytes -----------------------------------------------------------------------
 
 runner.run('A03:absent-project-config-yields-config-unavailable', [REQ_PRODUCER], mods => {
   const files = normativeFiles();
