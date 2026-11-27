@@ -10,6 +10,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 const { getWorkspaceKey } = require('../scripts/lib/workspace');
+const { canonical } = require('../hooks/scripts/lib/workflow-isolation');
 
 const ROOT = path.resolve(__dirname, '..');
 const TEMP = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-553-stop-'));
@@ -182,11 +183,97 @@ function genericStop(testCase) {
   });
 }
 
-function normaliseWriteFailure(stderr, directory) {
-  return String(stderr || '').replaceAll(directory, '<session>').replace(/workflow-run\.json\.\d+\.\d+\.tmp/g, 'workflow-run.json.tmp').trim();
+function stripTrailingSeparators(value, isWin32) {
+  return String(value).replace(isWin32 ? /[\\/]+$/ : /\/+$/, '');
+}
+
+function normaliseWriteFailure(stderr, directory, options = {}) {
+  const platform = options.platform || process.platform;
+  const isWin32 = platform === 'win32';
+  const pathApi = isWin32 ? path.win32 : path.posix;
+  const resolveCanonical = options.canonical || (platform === process.platform ? canonical : value => pathApi.resolve(value));
+  const matchKey = value => (isWin32
+    ? value.replace(/\\/g, '/').replace(/[A-Z]/g, ch => ch.toLowerCase())
+    : value);
+
+  const rawCandidates = [directory, pathApi.resolve(directory), resolveCanonical(directory)];
+  const seen = new Set();
+  const candidates = [];
+  for (const candidate of rawCandidates) {
+    if (typeof candidate !== 'string' || !candidate) continue;
+    const trimmed = stripTrailingSeparators(candidate, isWin32);
+    if (!trimmed) continue;
+    const needle = matchKey(trimmed);
+    if (seen.has(needle)) continue;
+    seen.add(needle);
+    candidates.push(needle);
+  }
+  candidates.sort((a, b) => b.length - a.length);
+
+  let text = String(stderr || '');
+  for (const needle of candidates) {
+    const searchText = matchKey(text);
+    let cursor = 0;
+    let output = '';
+    while (cursor < text.length) {
+      const idx = searchText.indexOf(needle, cursor);
+      if (idx === -1) break;
+      const after = idx + needle.length;
+      const sep = text[after];
+      const validLead = idx === 0 || /\s/.test(text[idx - 1]);
+      const validSep = sep === '/' || (isWin32 && sep === '\\');
+      if (!validLead || !validSep) {
+        output += text.slice(cursor, idx + 1);
+        cursor = idx + 1;
+        continue;
+      }
+      let end = after + 1;
+      while (end < text.length && !/[\s)]/.test(text[end])) end++;
+      const tail = text.slice(after + 1, end);
+      const normalisedTail = isWin32 ? tail.replace(/\\/g, '/') : tail;
+      output += `${text.slice(cursor, idx)}<session>/${normalisedTail}`;
+      cursor = end;
+    }
+    output += text.slice(cursor);
+    text = output;
+  }
+
+  return text.replace(/workflow-run\.json\.\d+\.\d+\.tmp/g, 'workflow-run.json.tmp').trim();
 }
 
 const EXPECTED_WRITE_FAILURE = '[Workflow Reminder] EACCES: permission denied, write <session>/workflow-run.json.tmp (simulated session store write failure)';
+
+function runNormaliseWriteFailureUnitChecks() {
+  const shortDir = 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\harness-553-stop-JFe9HP\\state\\source-off-pending-failure-3\\workspaces\\ws-key\\state\\sessions\\stop553-source-off-pending-failure-3';
+  const longDir = 'C:\\Users\\runneradmin\\AppData\\Local\\Temp\\harness-553-stop-JFe9HP\\state\\source-off-pending-failure-3\\workspaces\\ws-key\\state\\sessions\\stop553-source-off-pending-failure-3';
+  const wrongDir = 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\harness-553-stop-OTHER1\\state\\source-off-pending-failure-3\\workspaces\\ws-key\\state\\sessions\\stop553-source-off-pending-failure-3';
+  const winOptions = { platform: 'win32', canonical: () => longDir };
+
+  const shortStderr = `[Workflow Reminder] EACCES: permission denied, write ${shortDir}\\workflow-run.json.4321.1700000000000.tmp (simulated session store write failure)\n`;
+  const shortNormalised = normaliseWriteFailure(shortStderr, shortDir, winOptions);
+  check(shortNormalised === EXPECTED_WRITE_FAILURE,
+    'unit.normalise-write-failure.win32-short-path-positive', shortNormalised);
+
+  const longStderr = `[Workflow Reminder] EACCES: permission denied, write ${longDir.toLowerCase()}\\workflow-run.json.4321.1700000000000.tmp (simulated session store write failure)\n`;
+  const longNormalised = normaliseWriteFailure(longStderr, shortDir, winOptions);
+  check(longNormalised === EXPECTED_WRITE_FAILURE,
+    'unit.normalise-write-failure.win32-canonical-case-positive', longNormalised);
+
+  const wrongStderr = `[Workflow Reminder] EACCES: permission denied, write ${wrongDir}\\workflow-run.json.4321.1700000000000.tmp (simulated session store write failure)\n`;
+  const wrongNormalised = normaliseWriteFailure(wrongStderr, shortDir, winOptions);
+  check(wrongNormalised !== EXPECTED_WRITE_FAILURE && wrongNormalised.includes(wrongDir),
+    'unit.normalise-write-failure.win32-wrong-dir-negative', wrongNormalised);
+
+  const siblingStderr = `[Workflow Reminder] EACCES: permission denied, write ${shortDir}-other\\workflow-run.json.4321.1700000000000.tmp (simulated session store write failure)\n`;
+  const siblingNormalised = normaliseWriteFailure(siblingStderr, shortDir, winOptions);
+  check(siblingNormalised !== EXPECTED_WRITE_FAILURE && siblingNormalised.includes(`${shortDir}-other`),
+    'unit.normalise-write-failure.win32-sibling-prefix-negative', siblingNormalised);
+
+  const outsideBackslashStderr = `[Workflow Reminder] EACCES: permission denied, write ${shortDir}\\workflow-run.json.4321.1700000000000.tmp (simulated\\session store write failure)\n`;
+  const outsideBackslashNormalised = normaliseWriteFailure(outsideBackslashStderr, shortDir, winOptions);
+  check(outsideBackslashNormalised !== EXPECTED_WRITE_FAILURE && outsideBackslashNormalised.includes('simulated\\session'),
+    'unit.normalise-write-failure.win32-preserves-outside-backslash-negative', outsideBackslashNormalised);
+}
 
 function seedSatisfied(testCase) {
   routeAndPlan(testCase);
@@ -323,6 +410,7 @@ function runOrdinaryStopControl(leg, hasGenericVerify) {
 
 try {
   console.log('=== T2-S generic Stop controls ===');
+  runNormaliseWriteFailureUnitChecks();
   for (const leg of LEGS) {
     runClosedWorkflowControl(leg);
     runOffPendingWriteFailure(leg);
