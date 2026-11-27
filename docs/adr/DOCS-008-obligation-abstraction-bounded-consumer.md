@@ -7,7 +7,7 @@ status: accepted
 
 ## Decision
 
-- The doc workflow reconciliation consumes the workflow obligation abstraction in a bounded way: the documentation path only, under the DOCS-006 gate.
+- In the previous release, the doc workflow reconciliation consumed the workflow obligation abstraction in a bounded way: the documentation path only, under the [DOCS-006](DOCS-006-reconciliation-pilot.md) gate. That E1 reconciliation pilot has since been retired ([#553](https://github.com/dyphn1/Harness-everything/issues/553); see the historical note in [DOCS-006](DOCS-006-reconciliation-pilot.md)).
 - Broad promotion of the abstraction to generic workflow use is not approved. It is gated on the Phase 3c H1–H4 paired-task evidence and owner sign-off.
 
 ## Context

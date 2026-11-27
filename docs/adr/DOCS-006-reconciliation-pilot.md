@@ -5,6 +5,8 @@ status: accepted
 
 # DOCS-006 — Doc reconciliation pilot (S1 default-OFF, F4 limited credit)
 
+> **Historical note ([#553](https://github.com/dyphn1/Harness-everything/issues/553)):** This decision records the previous release's E1 reconciliation pilot, which #553 retired; current releases ignore every `HARNESS_DOC_RECONCILIATION_PILOT` value (see [E1 pilot retirement and retained document controls](../platform-capabilities.md#e1-pilot-retirement-and-retained-document-controls-553) and the [historical reconciliation guide](../doc-workflow-reconciliation.md)).
+
 ## Decision
 
 - The S1 runtime is default OFF. It runs only when `HARNESS_DOC_RECONCILIATION_PILOT=1`.
