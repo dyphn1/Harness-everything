@@ -219,6 +219,15 @@ episodes:
         change: null
         review: coordinator
         result: 'A coordinator runner script for the 24-arm paired run used "${a[@]}" on an empty array under `set -u` in macOS bash 3.2 (`a[@]: unbound variable`); two of three parallel streams (16 arms) never started while the third reported success and the aggregate waiter exited 0. Fixed with ${a[@]+"${a[@]}"} and reran; episode closed. Same class as `553-zsh-unsplit-var-list` (shell array/word-split portability).'
+  - episode: 552-coordinator-cat-without-input
+    feature: "#552 paired-run close-out comments (PR #559)"
+    date: 2026-11-28
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: 'A coordinator shell line began with a stray `cat > <file>` that had no heredoc or stdin; the command blocked until the 2-minute tool timeout and the two `gh issue comment` calls after it never ran. Killed and re-run without the stray line, with `< /dev/null` on `gh`; episode closed. Same stdin-wait class as the one-shot `< /dev/null` lesson.'
 ---
 
 ## Cue
@@ -240,6 +249,7 @@ Dispatch one-shot `codex exec` with a TMPDIR outside every repository and stdin 
 - For headless `agy -p` one-shot runs, pass `--settings '{"permissions":{"allow":["command(*)","read_file(*)"]}}'` so required tools are not auto-denied. Treat exit code 0 without a report as a failed run; only the report's terminal `STATUS:` line counts (see also E-0002, E-0024).
 - A host plugin can append a line after a one-shot's readiness line or terminal line. Launch one-shots with the host plugin's output mode off for that run only, through the per-run env (for example `PONYTAIL_DEFAULT_MODE=off`), not through config. Related: E-0002 (a host line after the terminal STATUS).
 - A multi-stream runner must count expected vs finished units, not trust the aggregate waiter's exit code: an empty-array expansion under `set -u` stopped two of three streams while the third reported success and the waiter exited 0. Same class as the zsh unsplit-var-list episode (shell array/word-split portability).
+- A stray `cat > <file>` with no heredoc or stdin blocks until the tool timeout and skips every later command. Close stdin (`< /dev/null`) on `gh` and other commands that might read it, per the one-shot stdin lesson above.
 
 ## Stage 2 read-only review scratch (#396, 2026-11-07)
 
@@ -268,3 +278,4 @@ The default free runners `opencode/glm-5.3-flash-free` (deprecated) and `nvidia/
 - PR #521 (merged as `ae7a0260`, 2026-11-25): #516 packets P516-A and P516-A2 each ran ~65+ min because P516-A2 ran `verify:all -- --fast` inside the sandbox past the 45-minute limit and reported `STATUS: BLOCKED` despite the fix being RED->GREEN.
 - #498 packets P498-A/P498-F (2026-11-25): sandbox fast-gate loopback EPERM again; coordinator re-ran it outside the sandbox, 5 PASS / 0 FAIL in both cases.
 - PR #559 / #552 (2026-11-28): an empty-array `"${a[@]}"` under `set -u` in macOS bash 3.2 stopped two of three parallel streams (16 arms) while the waiter exited 0; fixed with the `${a[@]+"${a[@]}"}` form and rerun.
+- PR #559 / #552 (2026-11-28): a stray `cat > <file>` with no heredoc blocked a coordinator shell line for the full 2-minute tool timeout and skipped two `gh issue comment` calls; reran without it and with `< /dev/null` on `gh`.
