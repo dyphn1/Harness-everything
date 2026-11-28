@@ -86,7 +86,7 @@ test('OpenCode context probe strips baseline fragment and passes treatment fragm
     const out = path.join(root, `${arm}-out`);
     fs.mkdirSync(out);
     installOpenCodeCarrierProbe(setup, out, arm);
-    const pluginPath = path.join(setup.repo, '.opencode/plugins/zz-ledger-probe.mjs');
+    const pluginPath = path.join(setup.repo, '.opencode/plugins/zz-ledger-probe.js');
     const { default: plugin } = await import(`${pathToFileURL(pluginPath).href}?arm=${arm}`);
     let contextHook;
     let toolHook;

@@ -86,7 +86,7 @@ function commandPlan(args, fixture, env) {
     };
   }
   if (args.runner === 'opencode') {
-    const pluginPath = path.join(fixture.repo, '.opencode', 'plugins', 'harness-enforcement.mjs');
+    const pluginPath = path.join(fixture.repo, '.opencode', 'plugins', 'harness-enforcement.js');
     fs.mkdirSync(path.dirname(pluginPath), { recursive: true });
     fs.writeFileSync(pluginPath, `export { default } from ${JSON.stringify(path.join(REPO, 'opencode-plugin/index.mjs'))};\n`);
     fs.appendFileSync(path.join(fixture.repo, '.git', 'info', 'exclude'), '\n.opencode/\n');
@@ -124,6 +124,9 @@ async function ephemeralPort() {
   return port;
 }
 
+// 200k cap (owner: post-hoc measurement) counts uncached input + output + reasoning; cache reads are retained separately.
+function usageTotal(u) { return u ? Math.max(0, u.inputTokens - (u.inputIncludesCache ? u.cachedTokens : 0)) + u.outputTokens + u.reasoningTokens : 0; }
+
 function parseUsage(stdout) {
   const totals = { inputTokens: 0, outputTokens: 0, reasoningTokens: 0, cachedTokens: 0, totalTokens: 0 };
   let found = false;
@@ -131,6 +134,12 @@ function parseUsage(stdout) {
     if (!value || typeof value !== 'object') return;
     for (const [key, child] of Object.entries(value)) {
       const target = ({ total_tokens: 'totalTokens', tokens: 'totalTokens', input_tokens: 'inputTokens', prompt_tokens: 'inputTokens', output_tokens: 'outputTokens', completion_tokens: 'outputTokens', reasoning_tokens: 'reasoningTokens', cached_input_tokens: 'cachedTokens', cached_tokens: 'cachedTokens' })[key];
+      // opencode --format json nests usage as tokens:{input,output,reasoning,cache:{read}}.
+      if (key === 'tokens' && child && typeof child === 'object') {
+        for (const [k, t] of [['input', 'inputTokens'], ['output', 'outputTokens'], ['reasoning', 'reasoningTokens']]) if (Number.isFinite(child[k])) { totals[t] += child[k]; found = true; }
+        if (Number.isFinite(child.cache?.read)) { totals.cachedTokens += child.cache.read; found = true; }
+        continue;
+      }
       if (target && Number.isFinite(child)) { totals[target] += child; found = true; }
       else if (child && typeof child === 'object') visit(child);
     }
@@ -161,7 +170,7 @@ function runPreparedCommit(repo, env) {
   if (staged.status !== 0 || !fs.existsSync(messagePath) || stagedFiles.length !== 1 || stagedFiles[0] !== 'src/sample.js') return { accepted: false, stagedFiles, failure: 'prepared-commit-missing-message-or-unexpected-stage', output: staged.stderr, diagnostics: [] };
   const commit = spawnSync('git', ['-C', repo, 'commit', '-F', messagePath], { encoding: 'utf8', env });
   const output = `${commit.stdout || ''}${commit.stderr || ''}`;
-  const diagnostics = ['subject-case', 'header-max-length'].filter(diagnostic => output.includes(`[${diagnostic}]`));
+  const diagnostics = ['subject-case', 'header-max-length', 'type-empty', 'subject-empty'].filter(diagnostic => output.includes(`[${diagnostic}]`));
   return { accepted: commit.status === 0, stagedFiles, output, diagnostics };
 }
 
@@ -204,7 +213,7 @@ function installCodexCarrierProbe(env, out, arm) {
 }
 
 function installOpenCodeCarrierProbe(fixture, out, arm) {
-  const pluginPath = path.join(fixture.repo, '.opencode', 'plugins', 'zz-ledger-probe.mjs');
+  const pluginPath = path.join(fixture.repo, '.opencode', 'plugins', 'zz-ledger-probe.js');
   const receiptFile = path.join(out, 'receipt.jsonl');
   fs.mkdirSync(path.dirname(pluginPath), { recursive: true });
   fs.writeFileSync(pluginPath, `import fs from 'node:fs';\nimport path from 'node:path';\nconst filter=${filterCarrierContext.toString()};\nconst receipt=${JSON.stringify(receiptFile)};\nconst root=${JSON.stringify(fixture.repo)};\nconst baseline=${JSON.stringify(arm === 'baseline')};\nconst write=x=>fs.appendFileSync(receipt,JSON.stringify(x)+'\\n',{mode:0o600});\nconst fragment=()=>{const record=fs.readFileSync(path.join(root,'.agents/harness-everything/errors/E-0003-commitlint-subject.md'),'utf8');const section=n=>{const m=record.match(new RegExp('^## '+n+'\\\\s*\\\\n([\\\\s\\\\S]*?)(?=^## |$)','m'));return m?m[1].trim():''};return 'Cue:\\n'+section('Cue')+'\\nLesson:\\n'+section('Lesson')};\nconst toolReceipt=(phase,event)=>{const command=typeof event.input?.command==='string'?event.input.command:'';const kind=/&&|\\|\\||\\n/.test(command)?'compound':/^\\s*git\\s+commit\\b/.test(command)?'direct':'other';write({phase,requestId:event.messageID||event.messageId||null,kind,containsGitCommit:/\\bgit\\s+commit\\b/i.test(command)})};\nexport default {id:'fixture.ledger-probe',async setup(ctx){await ctx.session.hook('context',event=>{const exact=fragment();const system=Array.isArray(event.system)?event.system:[];for(const part of system){if(typeof part?.text!=='string')continue;const filtered=filter(part.text,exact,baseline);if(!filtered.matched)continue;write({phase:'context',requestId:event.messageID||event.messageId||null,matched:true,stripped:filtered.stripped});if(filtered.stripped)part.text=filtered.text}});await ctx.tool.hook('execute.before',event=>toolReceipt('tool.execute.before',event));await ctx.tool.hook('execute.after',event=>toolReceipt('tool.execute.after',event))}};\n`);
@@ -236,7 +245,7 @@ async function runArm(args) {
   if (args.dryRun) return { out, manifest };
 
   if (args.runner === 'codex') {
-    const install = await runProcess({ command: process.execPath, args: [path.join(REPO, 'scripts/codex-hooks-compat.js'), 'install', '--codex-home', env.CODEX_HOME], cwd: REPO }, env, 60000, path.join(out, 'hook-install.log'));
+    const install = await runProcess({ command: process.execPath, args: [path.join(REPO, 'scripts/codex-hooks-compat.js'), 'install', '--codex-home', env.CODEX_HOME, '--allow-unreleased-source'], cwd: REPO }, env, 60000, path.join(out, 'hook-install.log'));
     if (install.code !== 0) throw new Error(`isolated Codex hook install failed; see ${path.join(out, 'hook-install.log')}`);
     installCodexCarrierProbe(env, out, args.arm);
   }
@@ -278,7 +287,7 @@ async function runArm(args) {
   const finalSource = fs.readFileSync(path.join(fixture.repo, 'src/sample.js'), 'utf8');
   const test = spawnSync(process.execPath, ['test.js'], { cwd: fixture.repo, encoding: 'utf8' });
   const diagnostics = [];
-  for (const diagnostic of ['subject-case', 'header-max-length']) {
+  for (const diagnostic of ['subject-case', 'header-max-length', 'type-empty', 'subject-empty']) {
     const count = (log.match(new RegExp(`\\[${diagnostic}\\]`, 'g')) || []).length;
     for (let i = 0; i < count; i += 1) diagnostics.push(diagnostic);
   }
@@ -308,10 +317,13 @@ async function runArm(args) {
   events.push({ kind: 'test', passed: test.status === 0 });
   for (const line of log.split(/\r?\n/)) if (/--no-verify|HUSKY\s*=\s*0/i.test(line)) events.push({ kind: 'bypass', value: line });
   const workingTree = git(fixture.repo, ['status', '--short']).stdout.trim();
+  // codex input_tokens already include cached_input_tokens; opencode input excludes cache reads.
+  const usage = parseUsage(result.stdout);
+  if (usage && args.runner === 'codex') usage.inputIncludesCache = true;
   const record = {
     runner: args.runner, arm: args.arm, pair: args.pair, action: plan.action, startedAt, endedAt,
     elapsedMs: Date.parse(endedAt) - Date.parse(startedAt), tokenCapEnforcement: plan.tokenCapEnforcement,
-    usage: parseUsage(result.stdout), overCap: (parseUsage(result.stdout)?.totalTokens || 0) > 200000, events,
+    usage, overCap: usageTotal(usage) > 200000, events,
     initialFiles: { 'src/sample.js': "'use strict';\n\nmodule.exports = () => '';\n" },
     finalFiles: { 'src/sample.js': finalSource },
     manualIntervention: 0,
