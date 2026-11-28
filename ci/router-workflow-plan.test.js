@@ -339,23 +339,39 @@ for (const prompt of [
     check(JSON.stringify(lookup.contract) === JSON.stringify(repeat.contract), `${prompt}: lookup contract is deterministic`);
   }
 }
+// A profile lookup followed by an independent task must route exactly like the task alone.
+for (const [prompt, taskOnly] of [
+  ['Explain fable on opus and then implement a repository-wide migration.', 'Implement a repository-wide migration.'],
+  ['Explain fable on sonnet and analyze the authentication design.', 'Analyze the authentication design.'],
+  ['Explain fable on sonnet; then send the findings to Slack.', 'Send the findings to Slack.'],
+  ['Explain fable on sonnet and update README.', 'Update README.'],
+  ['Explain fable on haiku, add a regression test.', 'Add a regression test.'],
+  ['Explain fable on opus and commit the documentation change.', 'Commit the documentation change.'],
+  ['說明 fable on sonnet 並更新 README。', '更新 README。'],
+  ['解釋 fable on haiku，新增回歸測試。', '新增回歸測試。'],
+  ['解析 fable on opus 並刪除過期文件。', '刪除過期文件。'],
+  ['Explain fable on sonnet before updating README.', 'updating README.'],
+  ['Explain fable on sonnet; return JSON after updating README.', 'after updating README.'],
+  ["Explain fable on sonnet before updating README.md to change 'Instalation' to 'Installation'.", "updating README.md to change 'Instalation' to 'Installation'."],
+  ['解釋 fable on sonnet 後更新 README。', '更新 README。'],
+]) {
+  const withMention = runTier(prompt);
+  const withoutMention = runTier(taskOnly);
+  if (validContract(withMention, 'profile mention plus independent task') &&
+      validContract(withoutMention, 'task without profile mention')) {
+    const actual = withMention.contract.workflowPlan;
+    const control = withoutMention.contract.workflowPlan;
+    check(!actual.reasonCodes.includes('fable-profile-lookup'), `${prompt}: mixed task is not a bounded lookup`);
+    check(actual.tier === control.tier, `${prompt}: tier matches the task-only real-entry control`);
+    check(actual.strategy === control.strategy, `${prompt}: strategy matches the task-only real-entry control`);
+    check(actual.requiredInvariants.includes('isolated-worktree-before-mutation') ===
+      control.requiredInvariants.includes('isolated-worktree-before-mutation'),
+    `${prompt}: isolation obligation matches the task-only real-entry control`);
+  }
+}
+
+// Mixed, unknown-continuation and negation-then-action inputs never become lookups.
 for (const prompt of [
-  'Use fable on sonnect to implement a multi-stage architecture migration.',
-  'Explain fable on opus and then implement a repository-wide migration.',
-  'Explain how to run fable-staged across all modules.',
-  'Explain fable on sonnet then run it to analyze security.',
-  'Explain fable on sonnet and analyze the authentication design.',
-  'Explain fable on sonnet; then send the findings to Slack.',
-  'Explain fable on sonnet and update README.',
-  'Explain fable on haiku, add a regression test.',
-  'Explain fable on opus and commit the documentation change.',
-  '說明 fable on sonnet 並更新 README。',
-  '解釋 fable on haiku，新增回歸測試。',
-  '解析 fable on opus 並刪除過期文件。',
-  'Explain fable on sonnet before updating README.',
-  'Explain fable on sonnet; return JSON after updating README.',
-  "Explain fable on sonnet before updating README.md to change 'Instalation' to 'Installation'.",
-  '解釋 fable on sonnet 後更新 README。',
   'Explain fable on sonnet; no delegation before deleting stale files.',
   'Explain fable on sonnet; return JSON with requestedProfile, update README.',
   'Explain fable on sonnet; output JSON with requestedProfile and then publish the result.',
@@ -364,7 +380,6 @@ for (const prompt of [
   'Explain fable on sonnet; provide a profile result while running the tests.',
   'Explain fable on sonnet; return JSON with unknownField.',
   'Explain fable on sonnet; some unknown continuation.',
-  // A negation scopes only its own noun list; affirmative actions after it execute.
   'Explain fable on sonnet; no delegation, do execution.',
   'Explain fable on sonnet; no delegation, switch model.',
   'Explain fable on sonnet; no delegation and stage execution.',
@@ -374,11 +389,36 @@ for (const prompt of [
   '解釋 fable on sonnet，不要委派，切換模型。',
 ]) {
   const execution = runTier(prompt);
-  if (validContract(execution, 'Fable execution boundary')) {
-    check(execution.contract.workflowPlan.strategy === 'fable-staged', 'execution/macro scope preserves staged topology');
-    check(!execution.contract.workflowPlan.reasonCodes.includes('fable-profile-lookup'), 'mixed execution never records the bounded lookup reason');
-    check(execution.contract.workflowPlan.requiredInvariants.includes('isolated-worktree-before-mutation'), 'execution retains isolation obligation');
+  if (validContract(execution, 'mixed Fable lookup/action boundary')) {
+    check(!execution.contract.workflowPlan.reasonCodes.includes('fable-profile-lookup'),
+      `${prompt}: mixed action is not a bounded lookup`);
   }
+}
+
+// Explicit Fable, structural Tier 3 and the one unambiguous linked continuation keep staged routing.
+for (const prompt of [
+  'Use fable on sonnect to implement a multi-stage architecture migration.',
+  'Explain how to run fable-staged across all modules.',
+  'Explain fable on sonnet then run it to analyze security.',
+]) {
+  const execution = runTier(prompt);
+  if (validContract(execution, 'true Fable execution boundary')) {
+    check(execution.contract.workflowPlan.strategy === 'fable-staged', `${prompt}: staged topology remains`);
+    check(!execution.contract.workflowPlan.reasonCodes.includes('fable-profile-lookup'), `${prompt}: execution is not a lookup`);
+    check(execution.contract.workflowPlan.requiredInvariants.includes('isolated-worktree-before-mutation'),
+      `${prompt}: execution retains isolation obligation`);
+    if (prompt === 'Explain fable on sonnet then run it to analyze security.') {
+      check(execution.result.stdout.includes('REQUESTED FABLE PROFILE: sonnet'),
+        'profile-linked continuation preserves the selected sonnet profile');
+    }
+  }
+}
+const ambiguousLinkedProfile = runTier('Explain fable on opus or sonnet then run it to analyze security.');
+if (validContract(ambiguousLinkedProfile, 'ambiguous profile continuation')) {
+  check(ambiguousLinkedProfile.contract.workflowPlan.strategy !== 'fable-staged',
+    'ambiguous profile continuation follows normal routing');
+  check(!ambiguousLinkedProfile.result.stdout.includes('REQUESTED FABLE PROFILE'),
+    'ambiguous profile continuation does not choose a profile');
 }
 
 const explicitOverride = runTier('Use iterative-single to audit the entire repository architecture.');

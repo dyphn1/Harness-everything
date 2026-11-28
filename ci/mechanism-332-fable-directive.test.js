@@ -67,4 +67,73 @@ assert.equal(route('What is fable on sonnet? Return only JSON.').strategy, 'dire
   'profile lookup remains a lookup');
 assert.equal(route('改 README 錯字').tier, 'unclassified', 'Chinese typo stays bounded without new Tier 1 recognition');
 
+for (const prompt of [
+  'Never use fable, fix a typo in README.md',
+  'Never use fable-mode, fix a typo in README.md',
+  'Cannot use fable, fix a typo in README.md',
+  "Can't use fable, fix a typo in README.md",
+  'Not use fable, fix a typo in README.md',
+  '別用 fable，改 README 錯字',
+  '別用 fable-mode，改 README 錯字',
+  '請勿使用 fable，改 README 錯字',
+  '勿用 fable，改 README 錯字',
+  '避免用 fable，改 README 錯字',
+  '停止使用 fable，改 README 錯字',
+]) {
+  const plan = route(prompt);
+  assert.notEqual(plan.strategy, 'fable-staged', `${prompt}: prohibition is not a request`);
+  assert.ok(!plan.reasonCodes.includes('explicit-strategy-request'), `${prompt}: no explicit request`);
+  assert.notEqual(plan.fallback.disposition, 'blocked', `${prompt}: prohibition is not a conflict`);
+}
+
+for (const prefix of ['Please', "Let's", 'Now', '請', '幫我', '改用', '麻煩']) {
+  for (const verb of ['use fable', 'run fable', 'enter fable', '使用 fable', '用 fable', '啟用 fable', '進入 fable', '執行 fable']) {
+    assert.equal(route(`${prefix} ${verb} to redesign the repository architecture`).strategy, 'fable-staged',
+      `${prefix} + ${verb}: clause-leading request selects Fable`);
+  }
+}
+
+for (const prefix of ['please', "let's", 'now', '請', '幫我', '改用', '麻煩']) {
+  const plan = route(`${prefix} maybe use fable to fix a typo in README.md`);
+  assert.ok(!plan.reasonCodes.includes('explicit-strategy-request'), `${prefix}: unknown modifier is not explicit`);
+  assert.notEqual(plan.fallback.disposition, 'blocked', `${prefix}: unknown modifier is not a conflict`);
+}
+
+for (const prompt of [
+  'Never use fable; redesign the architecture across the repository',
+  '請勿使用 fable；重構整個 repository architecture',
+]) {
+  const plan = route(prompt);
+  assert.equal(plan.tier, 'tier3', `${prompt}: structural tier remains`);
+  assert.equal(plan.strategy, 'iterative-single', `${prompt}: prohibition downgrades topology`);
+  assert.ok(plan.reasonCodes.includes('user-prohibited-fable'), `${prompt}: prohibition reason is visible`);
+}
+
+for (const prompt of [
+  'Redesign the architecture across the entire repository',
+  '重構整個 repository architecture',
+]) {
+  const plan = route(prompt);
+  assert.equal(plan.tier, 'tier3', `${prompt}: structural tier remains without prohibition`);
+  assert.equal(plan.strategy, 'fable-staged', `${prompt}: positive control retains the Tier 3 default`);
+}
+
+for (const prompt of [
+  'Do not use fable; use fable-parallel for this task',
+  'Use fable-parallel; do not use fable for this task',
+  'Cannot use fable on opus; fable on sonnet for this task',
+  'Fable on sonnet; do not use fable for this task',
+]) {
+  const plan = route(prompt);
+  assert.equal(plan.fallback.disposition, 'blocked', `${prompt}: real contradiction remains blocked`);
+}
+
+assert.notEqual(route('I remember fable-staged; fix a typo in README.md').strategy, 'fable-staged');
+const laterProfile = route('I remember fable on opus; use fable on sonnet for this task');
+assert.equal(laterProfile.strategy, 'fable-staged');
+assert.ok(laterProfile.routerOutput.includes('REQUESTED FABLE PROFILE: sonnet'));
+const quotedSeparator = route('Use “fable; use fable on opus” as an example');
+assert.notEqual(quotedSeparator.strategy, 'fable-staged');
+assert.ok(!quotedSeparator.reasonCodes.includes('explicit-strategy-request'));
+
 console.log('PASS: #332 Fable directive real-entry controls');
