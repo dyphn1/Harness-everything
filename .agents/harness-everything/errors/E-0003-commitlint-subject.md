@@ -174,6 +174,19 @@ episodes:
         change: null
         review: "commitlint (husky commit-msg)"
         result: "A commit subject containing uppercase `MEMORY.md` was rejected by `subject-case` during #486 work. PR #546 merged with all five final subjects lower-case; the rejected subject, its SHA and the corrected re-commit are not in the public PR history, so those details stay unknown."
+  - episode: 553-helper-body-footer-over-100
+    feature: "#553 E1 runtime retirement (PR #556)"
+    date: 2026-11-27
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: "commitlint (husky commit-msg)"
+        result: "2026-11-27/28: a commit message built by a helper had a body or footer line over 100 characters, and commitlint rejected it."
+      - round: 1
+        change: "Wrapped the helper's lines at 72 characters"
+        review: unknown
+        result: "Fixed by wrapping; the packet does not record commit acceptance."
 ---
 
 ## Cue
@@ -223,3 +236,4 @@ A coordinator `git merge --no-ff -m` message had no conventional type and was re
 - PR #517 (2026-11-24): `subject-case` rejected uppercase acronyms (`AGENTS`, `OpenCode V2`) twice; lower-cased to `opencode v2` / `agents` and merged as `cf0cad07`.
 - Why the #394 lesson did not prevent the #517 repeat: the matcher skips piped/redirected commands (`git commit … 2>&1 | tail`), the usual coordinator shape; tracked in #518.
 - PR #546 / #486 (2026-11-26): a subject containing uppercase `MEMORY.md` was rejected by `subject-case`; the rejected subject and its SHA are not in the merged PR history. The five final subjects are lower-case and the PR merged; the corrected re-commit is unconfirmed, so that episode stays open with `unknown` details.
+- #553 (2026-11-27/28, PR #556): a helper-built commit message had a body or footer line over 100 characters; commitlint rejected it and it was fixed by wrapping at 72. Same class as 394-commit-body-line-length.

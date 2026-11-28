@@ -7,6 +7,7 @@ sites:
   - ci/mechanism-e1-dependency-artifact-scope.test.js
   - ci/mechanism-prb-outline-review.test.js
   - ci/fixtures/doc-obligations/reconciliation-s2a/harness.js
+  - ci/mechanism-553-stop.test.js
 violates: 'AGENTS.md: "CI runs Node.js 24 on Ubuntu/Windows/macOS"'
 scope: in
 status: lesson
@@ -55,6 +56,19 @@ episodes:
         change: "`3fbff51f` canonicalized Windows paths in the tests"
         review: "hosted Windows self-regression green"
         result: "episode closed"
+  - episode: 553-stop-stderr-normaliser-windows
+    feature: "#553 E1 runtime retirement (PR #556)"
+    date: 2026-11-28
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "hosted Windows CI on PR #556"
+        result: "Packet T2-S's new stderr normaliser in `ci/mechanism-553-stop.test.js` used `/` separators and no 8.3 canonicalisation, so Windows hosted CI went red."
+      - round: 1
+        change: "WINfix packet, commit `a658af63`: normalise Windows session paths in the write-failure assertion"
+        review: "hosted CI"
+        result: "Windows green on hosted CI"
 ---
 
 ## Cue
@@ -76,3 +90,4 @@ The shared `makeRepo` in `ci/fixtures/doc-obligations/reconciliation-s2a/harness
 - `341-outline-windows-short-path` (2026-10-28): fix `c508e431`.
 - #396: fix `8e597549`; hosted Windows self-regression green at `2514056f`.
 - PR #493 (2026-11-20): raw cwd comparison despite the packet naming E-0011; fixed in `3fbff51f`.
+- #553 (2026-11-28, PR #556): the T2-S stderr normaliser in `ci/mechanism-553-stop.test.js` used `/` separators and no 8.3 canonicalisation; Windows hosted CI went red. Fixed in `a658af63` (WINfix); Windows green on hosted CI. Re-violation of this record's canonicaliser lesson.
