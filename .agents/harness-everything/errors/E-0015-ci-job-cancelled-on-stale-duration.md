@@ -29,6 +29,19 @@ episodes:
         change: null
         review: coordinator
         result: "The first merge waiter exited before hosted CI finished, because it polled gh pr checks for pending, which exits early on a cancelled run. This repeats the waiter rule in the Lesson below: poll gh run view <id> --json status until completed."
+  - episode: 552-ci-waiter-awk-on-spaced-job-names
+    feature: "#552 paired-run CI waiter (PR #559)"
+    date: 2026-11-28
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "The coordinator's background waiter for PR #559 parsed `gh pr checks` with `awk '$2==\"pending\"'`; job names contain spaces (`self-regression (windows-latest)`), so column 2 was never the state. The loop exited at once and reported done while three self-regression jobs were still pending."
+      - round: 1
+        change: "Poll `gh pr checks --json name,state` and count non-terminal states"
+        review: coordinator
+        result: "The waiter then waited for all pending jobs; episode closed."
 ---
 
 ## Cue
@@ -47,11 +60,14 @@ Before calling a CI job hung, compare its elapsed time with the same job's durat
 
 Wait for a run with `gh run view <id> --json status` until it is `completed`. A waiter that polls `gh pr checks` for `pending` exits early when a run is cancelled.
 
+Never parse `gh pr checks` text columns: job names contain spaces (for example `self-regression (windows-latest)`), so column 2 is not the state. Poll `gh pr checks --json name,state` and count non-terminal states; this pairs with the rule above to poll `gh run view <id> --json status` until `completed`.
+
 ## Evidence
 
 - PR #430; Windows `self-regression` cancelled at 41 minutes on 2026-11-11, then rerun.
 - Corrections posted on #349 (CI duration) and #392 (test-environment watch list).
 - `.github/workflows/ci.yml`: the `self-regression` job has no `timeout-minutes` (checked 2026-11-11).
+- PR #559 / #552 (2026-11-28): an `awk '$2=="pending"'` waiter on `gh pr checks` text exited immediately on spaced job names while three `self-regression` jobs were still pending; fixed by polling `gh pr checks --json name,state` and counting non-terminal states.
 
 ## Episode 2 (2026-11-12)
 

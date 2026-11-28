@@ -24,6 +24,19 @@ episodes:
         change: "`8da983a0` runs the signal row only where POSIX signals exist"
         review: "hosted CI green on three OSes; owner merge"
         result: "episode closed"
+  - episode: 552-posix-fixture-hook-on-windows
+    feature: "#552 ledger-pairs fixture hook (PR #559)"
+    date: 2026-11-28
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "hosted Windows self-regression, run 46114230887"
+        result: "The `prepared-commit driver accepts and rejects through the fixture hook` case in `ci/mechanism-552-ledger-pairs.test.js` drives a POSIX shell husky hook and commitlint shim; on hosted Windows `self-regression` the accept case returned `accepted: false` (run 46114230887), the only red job of PR #559."
+      - round: 1
+        change: "Skip that one case on win32 with a `shortcut:` comment (commit `5a0134ba`); the paired run is macOS-only evidence tooling"
+        review: "hosted CI"
+        result: "Windows job green; episode closed."
 ---
 
 ## Cue
@@ -37,8 +50,10 @@ macOS and Linux passed locally; only the hosted Windows leg showed that a self-S
 ## Lesson
 
 - Gate signal rows on `process.platform !== 'win32'` (or assert the Windows exit shape separately) when writing them, not after CI.
+- A test that runs a repository shell hook end to end is POSIX-only unless it ports the hook; mark it at authoring time (gate it on `process.platform !== 'win32'`) instead of discovering it on hosted Windows.
 - Packets that add process-lifecycle tests name this record next to E-0011.
 
 ## Evidence
 
 - PR #493: hosted run 44843275644, fix `8da983a0`.
+- PR #559 / #552 (2026-11-28): the ledger-pairs fixture-hook accept case returned `accepted: false` on hosted Windows `self-regression` (run 46114230887); commit `5a0134ba` skips the case on win32 with a `shortcut:` comment.
