@@ -101,6 +101,15 @@ episodes:
         change: "af1b5104: one anchored two-line recognizer shared by readiness and execution; sanitized live captures committed as fixtures with provenance; the fixture-only single-line matcher retired to a rejection control"
         review: "independent review R544 (50/50 executed probes, no findings) and hosted CI; coordinator re-run 202/202 rows"
         result: "Live quota pair maps to 13 RUNNER_QUOTA at both phases; merged as PR #551, #544 reduced to the deferred exit-0 attribution slice. Episode closed."
+  - episode: 552-ledger-pairs-dry-run-only-harness
+    feature: "#552 paired-experiment harness first live preflight (PR #559)"
+    date: 2026-11-28
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "first live preflight"
+        result: 'The F1/F2 paired-experiment harness had been verified only by `--dry-run` and canned-log mechanism tests. The first live preflight found 13 launcher defects: missing `spawnSync` import, inherited coordinator env, OpenCode version regex, OpenCode auth path, `copyFileSync` mode arg, Codex effort value sent with literal quotes, OpenCode plugin files written as `.mjs` which OpenCode ignores (#127), OpenCode nested usage shape, linked-worktree compat-hook refusal, commitlint diagnostics subset, protocol file breaking tree-clean, two cap sites, and Codex sandbox cannot write `.git`. Fixes landed in PR #559 (`f4df4d66`, `07b55c44`); episode closed.'
 ---
 
 ## Cue
@@ -114,6 +123,8 @@ The deterministic positive for a live-path feature loads a real artifact from th
 Episode 3 adds: a self-test is not evidence for the real path unless it calls the same entry point the dispatch uses. A self-test that skips `validate_inputs` passes while the first real dispatch exits 1 silently under `set -e`.
 
 Episode 4 adds: a worker's "the real-slice check passed" claim is not reproducible from a different worktree if the checker inspects its own repository (`__dirname`) and untracked files. The coordinator re-run from the C2 worktree is the check that counts, not the reporter's local success.
+
+Episode 552 adds: a harness that launches real hosts needs one cheap live smoke per runner in its own verification, not only `--dry-run` and canned-log mechanism tests. The first live preflight of the F1/F2 paired harness found 13 launcher defects that deterministic tests could not see.
 
 ## Evidence
 
@@ -140,3 +151,4 @@ The C7 report said the pinned real-slice check passed. The coordinator re-ran it
 - PR #499: commits `6e3bcc2f`, `b41a9662`, `d0e91ef9`; three real host shapes found only by live runs.
 - PR #547 / #544 (2026-11-26): the D-agy quota matcher came from the remembered fixture-only shape, not a live trace; real agy 1.5.18 output missed it in both phases.
 - PR #551 / #544: `af1b5104` replaced it with the live two-line pair and committed sanitized live fixtures with provenance (`ci/fixtures/468-dispatch/agy-quota-*`, `ci/fixtures/468-dispatch/agy-quota-PROVENANCE.md`); independent review R544 found no findings.
+- #552 / PR #559 (2026-11-28): the F1/F2 paired harness was dry-run-only until its first live preflight found 13 launcher defects; fixes `f4df4d66`, `07b55c44`.

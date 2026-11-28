@@ -145,6 +145,19 @@ episodes:
         change: "da046171: runtime reads rules only from the generated index row, checked by a generated frontmatter binding; the runtime YAML parser is removed"
         review: "closing re-review RV2 (executed)"
         result: "quoted rules select in both phases; episode closed"
+  - episode: 552-ledger-pairs-cap-two-sites
+    feature: "#552 paired-experiment token cap (PR #559)"
+    date: 2026-11-28
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "The 200k token cap was decided at two sites: the arm launcher counted uncached input+output+reasoning tokens, while the scorer counted all tokens including cache reads. The scorer therefore invalidated 5 arms the launcher had accepted."
+      - round: 1
+        change: "Scorer reads the launcher's `overCap` (commit `07b55c44`)"
+        review: coordinator
+        result: "One cap decision is shared by launcher and scorer; episode closed."
 ---
 
 ## Cue
@@ -186,3 +199,4 @@ The owner's round-2 review of PR #448 found two P1s: the V2 lifecycle event and 
 
 R3 found late publication after plugin disposal — the second blocker on PR #448 after the repair budget. D1 (`a0f8204a`) fixed publication across all await sites; the independent review RD1 then found that disposal still awaits an unresolved host `session.context()` read. Episode open; owner decision pending.
 - PR #501: review finding 1, fix `da046171`. Same session: three separate harness-label parsers (dispatch readiness, dispatch status read, report writer) were each patched in PR #499; unifying them is open.
+- #552 / PR #559 (2026-11-28): the 200k token cap was decided independently at the arm launcher and the scorer; the scorer invalidated 5 accepted arms. Commit `07b55c44` made the scorer read the launcher's `overCap`.

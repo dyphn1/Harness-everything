@@ -210,6 +210,15 @@ episodes:
         change: "Build the list with arrays or python"
         review: coordinator
         result: "2026-11-28: the same unquoted-list failure recurred in a packet list; fixed with arrays / python. No closing check is stated."
+  - episode: 552-bash-empty-array-set-u
+    feature: "#552 paired-run launcher (PR #559)"
+    date: 2026-11-28
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: 'A coordinator runner script for the 24-arm paired run used "${a[@]}" on an empty array under `set -u` in macOS bash 3.2 (`a[@]: unbound variable`); two of three parallel streams (16 arms) never started while the third reported success and the aggregate waiter exited 0. Fixed with ${a[@]+"${a[@]}"} and reran; episode closed. Same class as `553-zsh-unsplit-var-list` (shell array/word-split portability).'
 ---
 
 ## Cue
@@ -230,6 +239,7 @@ Dispatch one-shot `codex exec` with a TMPDIR outside every repository and stdin 
 - Avoid bash-only parameter expansions such as `${p^^}` in coordinator zsh launcher scripts (use zsh `${(U)p}` or `tr`); a "bad substitution" error in a background launcher silently starts no worker. Verify that the expected worker log appears right after launch.
 - For headless `agy -p` one-shot runs, pass `--settings '{"permissions":{"allow":["command(*)","read_file(*)"]}}'` so required tools are not auto-denied. Treat exit code 0 without a report as a failed run; only the report's terminal `STATUS:` line counts (see also E-0002, E-0024).
 - A host plugin can append a line after a one-shot's readiness line or terminal line. Launch one-shots with the host plugin's output mode off for that run only, through the per-run env (for example `PONYTAIL_DEFAULT_MODE=off`), not through config. Related: E-0002 (a host line after the terminal STATUS).
+- A multi-stream runner must count expected vs finished units, not trust the aggregate waiter's exit code: an empty-array expansion under `set -u` stopped two of three streams while the third reported success and the waiter exited 0. Same class as the zsh unsplit-var-list episode (shell array/word-split portability).
 
 ## Stage 2 read-only review scratch (#396, 2026-11-07)
 
@@ -257,3 +267,4 @@ The default free runners `opencode/glm-5.3-flash-free` (deprecated) and `nvidia/
 - #453 packet P0 attempt 1 (2026-11-24): `agy -p` exited 0 with no report after headless auto-deny on `read_file`; fixed with `--settings '{"permissions":{"allow":["command(*)","read_file(*)"]}}'`.
 - PR #521 (merged as `ae7a0260`, 2026-11-25): #516 packets P516-A and P516-A2 each ran ~65+ min because P516-A2 ran `verify:all -- --fast` inside the sandbox past the 45-minute limit and reported `STATUS: BLOCKED` despite the fix being RED->GREEN.
 - #498 packets P498-A/P498-F (2026-11-25): sandbox fast-gate loopback EPERM again; coordinator re-ran it outside the sandbox, 5 PASS / 0 FAIL in both cases.
+- PR #559 / #552 (2026-11-28): an empty-array `"${a[@]}"` under `set -u` in macOS bash 3.2 stopped two of three parallel streams (16 arms) while the waiter exited 0; fixed with the `${a[@]+"${a[@]}"}` form and rerun.

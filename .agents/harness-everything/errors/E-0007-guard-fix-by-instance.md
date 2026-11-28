@@ -125,6 +125,27 @@ episodes:
         change: "Advisor answer 6 recorded the gap as a caller-inventory gap of this record and added in-scope packet T1e"
         review: "packet T1e"
         result: "`0 DONE`"
+  - episode: 552-332-fable-directive-by-instance
+    feature: "#332 Fable directive lexicon fixes (PR #559)"
+    date: 2026-11-28
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: "PR #332 fix round R1"
+        result: "Ten unlisted negations still selected Fable: `Never`, `Cannot`, `Not`, `別用`, `勿用`, `請勿使用`, `避免用`, `停止使用`."
+      - round: 1
+        change: "Added the enumerated negation spellings"
+        review: "PR #332 fix round R2"
+        result: "`改用` was both a stripped politeness prefix and the only verb, so it was dropped; `Could you use` was also dropped."
+      - round: 2
+        change: "Added the missed verb and politeness forms"
+        review: "PR #332 fix round R3"
+        result: "CJK quote glyphs `「」『』《》` were missing from the quote set and `改用` was missing from the prohibition verbs."
+      - round: 3
+        change: "PR #559 commits `3b8b3710`, `000dbb16`, `0e488da1`"
+        review: unknown
+        result: "Remaining lexicon classes are tracked in #558 as owner-accepted known exceptions; no closing review is recorded, so the episode stays open."
 ---
 
 ## Cue
@@ -140,6 +161,8 @@ Re-violated 2026-11-08 (#412): after the second round on the same decision, swit
 Re-violated 2026-11-11 (#425): the same class on a repair packet — it named two seams instead of the class. Lesson addition: a repair packet for a decision class must require a pre/post caller inventory of the shared helper, pasted in the report.
 
 Re-violated 2026-11-15 (#442): a five-site version-manifest contract (`package.js`, `install.js`, `provider.js`, `score.py`, `system-one-curves.js`) was repaired per failing site; `system-one-curves.js` escaped two fixes until an independent review (R1) found it. The successful correction (commit `1c0d8fcf`) removed the class by reducing every site to one shared source.
+
+Episode 552 adds: when the decision is a lexicon — prefixes, verbs, quote glyphs — test the class as a generated matrix against the shared set, with each token in exactly one role, rather than as a list of witnesses. Fixing one enumerated spelling per review round leaves sibling spellings unowned; the remaining classes are tracked in #558 as accepted known exceptions.
 
 ## Status and promotion
 
@@ -157,3 +180,4 @@ Re-violated 2026-11-15 (#442): a five-site version-manifest contract (`package.j
 - #442 (2026-11-15): version-manifest fix-by-site; R1 independent review; fix commit `1c0d8fcf`.
 - PR #494 (2026-11-20): inventory gaps fixed in `535c7ba6`, `b28c0c24`.
 - #553 (2026-11-27, E1 retirement): the advisor's round-5 plan missed the H1 qualification and preparation replays, surfaced at G1; advisor answer 6 and packet T1e (`0 DONE`). Packet D1's write-set missed the lifecycle doc tied to `ci/mechanism-2ax-doc-lifecycle.test.js`. Re-violation of the retirement-inventory lesson from episode 394-retirement-inventory.
+- #332 / #558 / PR #559 (2026-11-28): three consecutive #332 review rounds found unlisted negations, a verb that was both a stripped prefix and the only verb, then missing CJK quote glyphs; commits `3b8b3710`, `000dbb16`, `0e488da1`. Remaining classes tracked in #558.
