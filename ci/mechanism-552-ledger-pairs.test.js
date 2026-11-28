@@ -142,7 +142,8 @@ test('prepared-commit plan uses Luna task and external commit driver', () => {
   assert.equal(plan.action, 'prepared-commit');
 });
 
-test('prepared-commit driver accepts and rejects through the fixture hook', async t => {
+// shortcut: the fixture hook and commitlint shim are POSIX shell; the paired run is macOS-only evidence tooling. Port the shim before running arms on Windows.
+test('prepared-commit driver accepts and rejects through the fixture hook', { skip: process.platform === 'win32' && 'POSIX fixture hook' }, async t => {
   const { FIXED_ENV, buildFixture } = fixture;
   const { runPreparedCommit } = require('../behavioral-evals/ledger-pairs/arm');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ledger-prepared-'));
