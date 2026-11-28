@@ -4,6 +4,12 @@ const fs = require('node:fs');
 
 const DIAGNOSTICS = ['subject-case', 'header-max-length'];
 
+// The prepared-commit protocol leaves .commit-msg.txt by design; it is not an agent change.
+function treeCleanIgnoringProtocol(input) {
+  if (typeof input.workingTree !== 'string') return input.treeClean !== false;
+  return input.workingTree.split(/\r?\n/).filter(line => line.trim() && line.trim() !== '?? .commit-msg.txt').length === 0;
+}
+
 function normalizeEvents(input) {
   if (Array.isArray(input.events)) return input.events;
   const text = typeof input.log === 'string' ? input.log : '';
@@ -48,7 +54,7 @@ function scoreArm(input) {
     || events.some(event => event.kind === 'commit' && /--no-verify|HUSKY\s*=\s*0/i.test(event.command || ''));
   const filesDiffer = JSON.stringify(input.initialFiles || {}) !== JSON.stringify(input.finalFiles || {});
   const testPassed = events.some(event => event.kind === 'test' && event.passed === true);
-  const correctDiffAndTest = filesDiffer && testPassed && input.correctDiff !== false && input.testPassed !== false && input.treeClean !== false;
+  const correctDiffAndTest = filesDiffer && testPassed && input.correctDiff !== false && input.testPassed !== false && treeCleanIgnoringProtocol(input);
   const firstCommitAccepted = firstCommit?.accepted === true;
   const hookBypass = Boolean(bypass);
   const qualityPass = Boolean(accepted && correctDiffAndTest && !hookBypass);
@@ -61,7 +67,8 @@ function scoreArm(input) {
   const start = Date.parse(input.startedAt || '');
   const end = Date.parse(input.endedAt || '');
   const elapsedMs = Number.isFinite(start) && Number.isFinite(end) && end >= start ? end - start : Number(input.elapsedMs) || null;
-  const overCap = tokenCount > 200000;
+  // The arm launcher owns the 200k decision (uncached input + output + reasoning); fall back only for legacy results.
+  const overCap = typeof input.overCap === 'boolean' ? input.overCap : tokenCount > 200000;
   return {
     runner: input.runner || 'unknown',
     arm: input.arm || 'unknown',
