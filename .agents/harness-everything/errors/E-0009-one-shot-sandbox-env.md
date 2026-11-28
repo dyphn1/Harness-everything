@@ -184,6 +184,32 @@ episodes:
         change: null
         review: coordinator
         result: "Two packets asked sandboxed Codex workers to run `npm run verify:all -- --fast`; System One tests cannot bind 127.0.0.1 in the sandbox (EPERM). P498-A marked the gate UNCHECKED; P498-F reported `STATUS: BLOCKED` only because of that gate although its fix was RED->GREEN. The coordinator re-ran the gate outside the sandbox (5 PASS / 0 FAIL) in both cases."
+  - episode: 553-ponytail-stop-line-after-ready
+    feature: "#553 E1 runtime retirement (PR #556)"
+    date: 2026-11-27
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: "dispatch exit status (managed dispatch C8)"
+        result: "Packet P1 attempt 1 (codex gpt-6-luna xhigh): a host plugin (ponytail) Stop hook appended a line after the worker's `READY`, so the dispatch exited `12 NOT_READY`."
+      - round: 1
+        change: "Re-dispatched fresh with the per-run env `PONYTAIL_DEFAULT_MODE=off` (no config change)"
+        review: "dispatch exit status"
+        result: "`0 DONE`"
+  - episode: 553-zsh-unsplit-var-list
+    feature: "#553 E1 runtime retirement (PR #556)"
+    date: 2026-11-27
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: coordinator
+        result: "2026-11-27: a coordinator-generated `git rm $files` in zsh did not word-split an unquoted `$var` list, so the whole string was treated as one path."
+      - round: 1
+        change: "Build the list with arrays or python"
+        review: coordinator
+        result: "2026-11-28: the same unquoted-list failure recurred in a packet list; fixed with arrays / python. No closing check is stated."
 ---
 
 ## Cue
@@ -203,6 +229,7 @@ Dispatch one-shot `codex exec` with a TMPDIR outside every repository and stdin 
 - zsh does not word-split unquoted parameter expansions by default (bash does). A coordinator monitor loop `for x in "a b c"; do set -- $x` never split, so the check hung and was killed (2026-11-17); it was replaced with a per-agent function.
 - Avoid bash-only parameter expansions such as `${p^^}` in coordinator zsh launcher scripts (use zsh `${(U)p}` or `tr`); a "bad substitution" error in a background launcher silently starts no worker. Verify that the expected worker log appears right after launch.
 - For headless `agy -p` one-shot runs, pass `--settings '{"permissions":{"allow":["command(*)","read_file(*)"]}}'` so required tools are not auto-denied. Treat exit code 0 without a report as a failed run; only the report's terminal `STATUS:` line counts (see also E-0002, E-0024).
+- A host plugin can append a line after a one-shot's readiness line or terminal line. Launch one-shots with the host plugin's output mode off for that run only, through the per-run env (for example `PONYTAIL_DEFAULT_MODE=off`), not through config. Related: E-0002 (a host line after the terminal STATUS).
 
 ## Stage 2 read-only review scratch (#396, 2026-11-07)
 
@@ -219,6 +246,8 @@ After the known permission failure, do not rerun the same fixture commands in th
 
 - #341 stage 1-2 packet reports.
 - #396 review-5, review-6 and review-7 reports (repeated observations of one capability).
+- #553 P1 attempt 1 (2026-11-27, PR #556): ponytail Stop hook line after `READY` gave `12 NOT_READY`; relaunch with `PONYTAIL_DEFAULT_MODE=off` gave `0 DONE`.
+- #553 (2026-11-27/28, PR #556): unquoted zsh `$var` list did not word-split, twice; fixed with arrays / python. Repeat of 2026-11-17-monitor-script-word-split.
 
 ## Episode 11 (2026-11-18, tooling)
 

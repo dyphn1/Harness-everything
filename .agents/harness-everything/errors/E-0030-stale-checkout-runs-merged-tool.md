@@ -36,6 +36,19 @@ episodes:
         change: "killed the worker; recreated the clone on the explicit SHA of the source checkout's `origin/main` after `git fetch`"
         review: coordinator inspection
         result: "worker saw E-0001..E-0032 and completed"
+  - episode: 553-clone-origin-stale-local-main
+    feature: "#553 E1 runtime retirement (PR #556)"
+    date: 2026-11-27
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: "G3 gate"
+        result: "Local clones of the main checkout had `origin` set to the stale local main, so the first G3 gate ran on the wrong base."
+      - round: 1
+        change: "Fetch the GitHub URL explicitly or pin the SHA, then re-run G3"
+        review: unknown
+        result: unknown
 ---
 
 ## Cue
@@ -50,3 +63,4 @@ Pull the checkout you run the tool from (or run it from the merged worktree) bef
 
 - PR #499 merge `8fc5205c`; HC2/HO2 first dispatch logs (local).
 - Episode 2026-11-25: in a `git clone --local` throwaway clone, `origin/main` is the source checkout's local `main`, not the remote. Base worker clones on an explicit fetched SHA (`git -C <source> rev-parse origin/main` after `git fetch`).
+- #553 (2026-11-27): second occurrence after episode 1125-clone-local-stale-main. Local clones of the main checkout had a stale `origin`, so the first G3 gate ran on the wrong base. Round 1 fetches the GitHub URL explicitly or pins the SHA, then re-runs G3.

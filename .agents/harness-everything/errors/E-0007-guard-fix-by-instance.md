@@ -112,6 +112,19 @@ episodes:
         change: "`535c7ba6` finished packaged hooks, tests and platform docs; `b28c0c24` replaced count-triggered wording in tdd and shell rules"
         review: "RV2 / RV3 independent review; owner merge of PR #494"
         result: "Closed. Lesson: inventory a retired concept by every spelling and by every owner of each site, not by a glob assumption."
+  - episode: 553-advisor-plan-caller-inventory-gap
+    feature: "#553 E1 runtime retirement (PR #556)"
+    date: 2026-11-27
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: "G1 gate"
+        result: "The advisor's round-5 plan for the E1 retirement missed callers. Packet P1 broke the H1 qualification and preparation replays (`ci/mechanism-325-3b-h1-qualification.test.js`, `ci/mechanism-325-3b-preparation.test.js`), surfaced at G1. Packet D1's write-set also missed the lifecycle doc tied to `ci/mechanism-2ax-doc-lifecycle.test.js`."
+      - round: 1
+        change: "Advisor answer 6 recorded the gap as a caller-inventory gap of this record and added in-scope packet T1e"
+        review: "packet T1e"
+        result: "`0 DONE`"
 ---
 
 ## Cue
@@ -143,3 +156,4 @@ Re-violated 2026-11-15 (#442): a five-site version-manifest contract (`package.j
 - #396 review-9 (OpenCode): symlinked entry under a disjoint prefix; commits `bd00a796`, `2514056f`; merged at `f571ec68`.
 - #442 (2026-11-15): version-manifest fix-by-site; R1 independent review; fix commit `1c0d8fcf`.
 - PR #494 (2026-11-20): inventory gaps fixed in `535c7ba6`, `b28c0c24`.
+- #553 (2026-11-27, E1 retirement): the advisor's round-5 plan missed the H1 qualification and preparation replays, surfaced at G1; advisor answer 6 and packet T1e (`0 DONE`). Packet D1's write-set missed the lifecycle doc tied to `ci/mechanism-2ax-doc-lifecycle.test.js`. Re-violation of the retirement-inventory lesson from episode 394-retirement-inventory.
