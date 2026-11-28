@@ -141,26 +141,45 @@ function isFableProfileLookup(prompt, hasMacroSignal) {
   return true;
 }
 
-function detectExplicitStrategy(prompt, requestedFableModel) {
+const FABLE_STRATEGIES = [
+  ['fable-multi-agent-workspace', /\bfable[- ]multi[- ]agent[- ]workspace\b|\bmulti[- ]agent workspace\b/i],
+  ['fable-parallel', /\bfable[- ]parallel\b|\bparallel fable\b/i],
+  ['fable-staged', /\bfable[- ]staged\b|\bstaged fable\b/i],
+];
+const FABLE_NEGATION = /\b(?:no|without|do not|don't)\s+(?:use\s+)?fable(?:[- ]mode)?\b|(?:不要|不需要|無需|無須|不必|毋須|不用|不會|不)\s*(?:使用|用|啟用|進入|執行)?\s*fable(?:[- ]mode)?/i;
+const FABLE_REQUEST = /\b(?:use|run|enter)\s+fable(?:[- ]mode)?\b|(?:使用|用|啟用|進入|執行)\s*fable(?:[- ]mode)?/i;
+
+function detectFableDirective(prompt) {
+  const clauses = splitProfileLookupClauses(String(prompt || '').replace(/\bbut\b|但是|但/giu, ';'));
+  let strategy = null;
+  let prohibited = false;
+  for (const clause of clauses) {
+    const negated = FABLE_NEGATION.test(clause);
+    if (negated) prohibited = true;
+    if (negated || strategy) continue;
+    const named = FABLE_STRATEGIES.find(([, pattern]) => pattern.test(clause));
+    if (named) strategy = named[0];
+    else if (FABLE_REQUEST.test(clause) || FABLE_PROFILE_INVOCATION.test(clause)) strategy = 'fable-staged';
+  }
+  return { strategy, prohibited };
+}
+
+function detectExplicitStrategy(prompt) {
   if (/\bdirect[- ]single\b/i.test(prompt)) return 'direct-single';
   if (/\biterative[- ]single\b/i.test(prompt)) return 'iterative-single';
-  if (/\bfable[- ]multi[- ]agent[- ]workspace\b|\bmulti[- ]agent workspace\b/i.test(prompt)) return 'fable-multi-agent-workspace';
-  if (/\bfable[- ]parallel\b|\bparallel fable\b/i.test(prompt)) return 'fable-parallel';
-  if (/\bfable[- ]staged\b|\bstaged fable\b/i.test(prompt)) return 'fable-staged';
-  if (requestedFableModel || /\b(?:use|run|enter)\s+fable(?:[- ]mode)?\b/i.test(prompt)) return 'fable-staged';
-  return null;
+  return detectFableDirective(prompt).strategy;
 }
 
 function detectProhibitions(prompt) {
+  const fableDirective = detectFableDirective(prompt);
   const rules = [
-    ['fable', /\b(?:no|without|do not|don't)\s+(?:use\s+)?fable\b/i],
     ['subagents', /\b(?:no|without|do not|don't)\s+(?:use\s+)?subagents?\b|\bsingle[- ]agent only\b/i],
     ['parallel', /\b(?:no|without|do not|don't)\s+(?:use\s+)?parallel(?:ism| execution)?\b|\bdo not parallelize\b|\bserial only\b/i],
     ['workspace', /\b(?:no|without|do not|don't)\s+(?:use\s+)?(?:multi[- ]agent )?workspace\b/i],
     ['memory', /\b(?:no|without|do not|don't)\s+(?:use\s+)?memory\b/i],
     ['ensemble', /\b(?:no|without|do not|don't)\s+(?:use\s+)?ensemble\b/i],
   ];
-  return rules.filter(([, regex]) => regex.test(prompt)).map(([name]) => name);
+  return [...(fableDirective.prohibited ? ['fable'] : []), ...rules.filter(([, regex]) => regex.test(prompt)).map(([name]) => name)];
 }
 
 function detectMemoryPersistenceRequest(prompt) {
@@ -348,7 +367,7 @@ function run(userPrompt, context, options = {}) {
   const structuralFloor = hasMacroSignal ? 'tier3'
     : !isTrivialDocsEdit && hasMultipleTasks && hasMultipleSentences ? 'tier2' : null;
   const routeInput = { prompt: userPrompt, tier: recommendedTier, floor: structuralFloor,
-    explicit: profileLookup || Boolean(detectExplicitStrategy(userPrompt, detectFableModel(userPrompt))) };
+    explicit: profileLookup || Boolean(detectExplicitStrategy(userPrompt)) };
   const liveMode = process.env.HARNESS_SYSTEM_ONE_MODE === 'live';
   const semantic = liveMode ? routeLive(routeInput, options.systemOneResult)
     : selectTier(routeInput, process.env, options.systemOneScorer || undefined);
@@ -369,7 +388,8 @@ function run(userPrompt, context, options = {}) {
   console.log(`\n=> RECOMMENDED TIER: ${recommendedTier}`);
   console.log(`=> RATIONALE: ${rationale}`);
 
-  const requestedFableModel = detectFableModel(promptLower);
+  const requestedFableModel = (profileLookup || detectFableDirective(userPrompt).strategy)
+    ? detectFableModel(promptLower) : null;
   if (requestedFableModel) {
     console.log(`\n=> REQUESTED FABLE PROFILE: ${requestedFableModel}`);
     console.log(`=> ROUTE: fable-mode/SKILL.md`);
@@ -431,7 +451,7 @@ function run(userPrompt, context, options = {}) {
   const actionGateReasonCodes = detectActionGateReasons(userPrompt);
   const irreversibleAction = actionGateReasonCodes.includes('irreversible-action');
   const externalSideEffect = actionGateReasonCodes.includes('external-side-effect');
-  const requestedStrategy = profileLookup ? null : detectExplicitStrategy(userPrompt, requestedFableModel);
+  const requestedStrategy = profileLookup ? null : detectExplicitStrategy(userPrompt);
   const prohibitions = detectProhibitions(userPrompt);
   const plannerInputs = plannerInputsFromContext(context, promptLower);
 
