@@ -1,57 +1,53 @@
-# E-0003 paired lesson visibility experiment
+# E-0003 paired carrier experiment
 
 ## Design
 
 ```mermaid
 flowchart LR
-  F[Fixed fixture SHA] --> C[Codex and OpenCode]
-  C --> B[Baseline: E-0003 selected, Cue/Lesson withheld]
-  C --> T[Treatment: E-0003 selected, Cue/Lesson visible]
-  F --> A[AGY]
-  A --> AB[Baseline: no packet lesson]
-  A --> AT[Treatment: packet-context injection]
-  B --> S[Score each runner separately]
-  T --> S
-  AB --> S
-  AT --> S
+  F[Identical fixture files and hooks] --> P[Same E-0003 trigger]
+  P --> B[Baseline: strip exact carrier fragment]
+  P --> T[Treatment: pass carrier fragment]
+  B --> R[Receipt and next-decision evidence]
+  T --> R
+  R --> S[Score by runner; retain every assigned arm]
+  A[AGY prompt injection] --> S
 ```
 
-- Four baseline/treatment pairs per runner: 12 pairs, 24 arms total. Codex uses `gpt-6-luna` at high effort; OpenCode uses `opencode/hy4-flash-free` on V2.4.1; AGY uses `gemini-4-hydrogen-high`.
-- Each pair uses the same deterministic fixture commit, task, hooks, permissions, rubric, and runner configuration. The fixture starts at the same SHA in all arms.
-- For Codex and OpenCode, baseline changes only the E-0003 record's selected Cue/Lesson sections in the working tree to a fixed withheld marker. The E-0003 frontmatter, generated matcher row/binding, repository action, and matcher selection stay the same. Treatment uses the original Cue/Lesson. The launcher restores the fixture's record before final artifact packaging; any agent-written ledger changes invalidate that arm's quality result.
-- AGY has no repository-ledger carrier. Its pair compares no lesson with an initial-prompt packet-context injection and is labelled `agy-injection`; it cannot fill a Codex/OpenCode matcher receipt or be pooled with those runners.
-- The `commitlint` CLI is reused by absolute path from this checkout through a small fixture `.bin/commitlint` shim. The fixture copies the installed config package's transitive dependency closure, not the checkout's full `node_modules`; no network install is needed. The `commit-msg` file and rule config are copied into each fixture, and the fixture calls the hook for every task commit.
-- No runner in this setup advertises a reliable hard 200k total-token cap. Every arm records `post-hoc only`, enforces a wall-clock timeout, and the coordinator must stop/mark an arm invalid if cumulative usage reaches 200k. Include retries and reasoning tokens in that count.
-- OpenCode's lesson is delivered in the context hook after the triggering action. Keep first-commit acceptance descriptive; the receipt can only support a later decision. Report receipt timing as before, after, or unknown.
+- Four baseline/treatment pairs per runner (12 pairs, 24 arms). Score Codex/Luna, OpenCode and AGY separately; never pool runners. Verdicts are **descriptive, inconclusive**.
+- Baseline and treatment have byte-identical fixture files, initial commit, Git hook and permissions. Both can discover E-0003 in the workspace. OpenCode and Codex baseline probes strip only the exact `Cue`/`Lesson` carrier fragment after the Harness carrier appends it; treatment passes it through. This estimates the exploratory incremental effect of the carrier when the lesson is self-discoverable. Receipt files contain keyed statuses only, never command text.
+- AGY remains a separate `agy-injection` intervention: same fixture files, with packet context added only to treatment.
+- Luna's scored action is `prepared-commit`: Codex makes the source change, runs the test, stages `src/sample.js`, and writes `.commit-msg.txt`. The driver then performs `git add -A`, unstages the message file, verifies only `src/sample.js` is staged, and invokes `git commit -F` through the fixture hook. Do not pool this with direct commits from other runners.
+- Token usage is post-hoc measurement including input, output and reasoning tokens when reported (cached usage is retained). Arms over 200,000 tokens are invalid and remain in the assigned-arm denominator. Every arm has a 45-minute timeout.
+- Scoring requires an explicit correlated receipt before the matching scored decision. `unknown` remains unknown. Same-attempt diagnostics are merged; retries represent distinct attempts. File reads of the error ledger and `git log`/`git show` touching it are retained as a per-arm covariate.
 
-## Preflight and arms
+## Preflight and dry-run
 
-First run the no-model preflight. It creates a clean fixture, exercises the real copied `commit-msg` hook with uppercase rejection and lowercase acceptance, and writes `preflight.json`. It intentionally marks real host delivery `UNCHECKED`; it cannot prove model-request receipt without the coordinator's isolated live-host capture.
+Run the same no-model trigger against both fixture arms, then dry-run each runner. Keep the output directory outside the repository.
 
 ```sh
-node behavioral-evals/ledger-pairs/preflight.js --no-model --out /tmp/ledger-pairs-preflight
+node behavioral-evals/ledger-pairs/preflight.js --no-model --out "$OUT/pf"
+node behavioral-evals/ledger-pairs/arm.js --runner codex --arm baseline --pair 1 --dry-run --out "$OUT/dry"
+node behavioral-evals/ledger-pairs/arm.js --runner opencode --arm baseline --pair 1 --dry-run --out "$OUT/dry"
+node behavioral-evals/ledger-pairs/arm.js --runner agy --arm baseline --pair 1 --dry-run --out "$OUT/dry"
 ```
 
-Before arms, run a separate live receipt preflight for Codex and OpenCode. Require E-0003 in the matcher receipt for the `git commit` action and retain the next request's actual context. For Codex inspect the isolated `CODEX_HOME` user-hook compatibility runtime output and a correlated `codex exec --json` request capture. For OpenCode inspect isolated server plugin-load lines, V2 `execute.before/after`, then the next V2 `context` hook and corresponding model request; a context output alone is not proof it reached the model. Keep the raw capture private and publish a sanitized copy with IDs, paths, credentials, and unrelated prompts removed. No-model preflight and mechanism tests do not substitute for either host receipt.
+The preflight checks equal fixture bytes, matching E-0003 selection and commitlint accept/reject controls. It sends no model request and cannot establish live receipt. Review isolated live receipts before launching arms; OpenCode requires the isolated long-lived V2 server and actual next-request capture. Keep raw host captures private.
 
-Use the following balanced order: for each runner, randomly shuffle pair IDs 1–4 and assign two pairs baseline-first and two treatment-first using a recorded random seed. Run each pair's two arms consecutively in its assigned order, with an isolated HOME/XDG/TMPDIR/CODEX_HOME per arm. Copy only the relevant host auth file into the isolated profile; never copy general settings or trust state. `--auth-dir` accepts the directory containing auth files. OpenCode also needs `OPENCODE_PASSWORD` for its isolated long-lived server.
+## Balanced live order
 
-Example arm (the coordinator runs all 24 only after preflight):
+Record a seed and shuffle pair IDs `1..4` separately for each runner. Assign exactly two pairs baseline-first and two treatment-first, run each pair consecutively, and retain the resulting order. For each arm, use an isolated HOME/XDG/TMPDIR/CODEX_HOME. Supply the coordinator's auth directory to Codex/OpenCode; OpenCode also needs `OPENCODE_PASSWORD`.
 
 ```sh
-node behavioral-evals/ledger-pairs/arm.js --runner codex --arm baseline --pair 1 --out benchmarks/results/live-host/ledger-pairs-2026-11-28 --auth-dir /private/path/to/auth
+node behavioral-evals/ledger-pairs/arm.js --runner codex --arm baseline --pair 1 --out "$OUT/live" --auth-dir "$AUTH_DIR"
+node behavioral-evals/ledger-pairs/arm.js --runner codex --arm treatment --pair 1 --out "$OUT/live" --auth-dir "$AUTH_DIR"
 ```
 
-Use `--dry-run` to inspect the resolved plan without starting a model. `arm-plan.json` records the fixture SHA, selected intervention, command shape, timeout, carrier, and token-cap enforcement. Live runs retain a sanitized transcript, process exit, Git log/status, and `arm-result.json`. Sanitize and review all artifacts before sharing them.
+Run the same two commands for every assigned pair and runner in the recorded balanced order. Stop/mark an arm invalid if post-hoc usage exceeds 200,000 or elapsed time exceeds 45 minutes. Keep every assigned arm and its missing/contamination reasons.
 
-## Scoring and claim boundary
-
-Feed normalized `arm-result.json` files to the scorer:
+## Scoring
 
 ```sh
-node behavioral-evals/ledger-pairs/score.js /path/to/arm-result.json ...
+node behavioral-evals/ledger-pairs/score.js "$OUT"/*/pair-*/arm-result.json
 ```
 
-For each arm report first commit accepted, `subject-case` and `header-max-length` rejections, retries, manual intervention, correct diff plus test, hook bypass, tokens, elapsed time, failures/unknowns, and receipt status. Manual intervention is always zero only for unattended autonomous arms; if a coordinator repairs an arm, record that arm as invalid and report the intervention. Report valid pairs and paired transitions separately for each runner. Four pairs are descriptive only: every verdict must say **descriptive, inconclusive**. Do not pool runner outcomes or interpret AGY injection as proof of repository-ledger delivery.
-
-Results belong in `benchmarks/results/live-host/ledger-pairs-2026-11-28/` after sanitization. Preserve failures and unknowns alongside successful arms. Keep private raw captures outside the repository.
+Report assigned arms, valid pairs, missing/contamination reasons, commit action, first attempt, retries, correct diff/test, hook bypass, file reads, token usage, elapsed time and receipt state per runner. A no-model preflight or mechanism test is not live-host evidence.

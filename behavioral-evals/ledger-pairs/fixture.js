@@ -28,24 +28,13 @@ function run(command, args, options = {}) {
   return result.stdout.trim();
 }
 
-function replaceSection(text, heading, replacement) {
-  const marker = `## ${heading}\n`;
-  const start = text.indexOf(marker);
-  if (start < 0) throw new Error(`record has no ${heading} section`);
-  const bodyStart = start + marker.length;
-  const next = text.indexOf('\n## ', bodyStart);
-  const end = next < 0 ? text.length : next + 1;
-  return `${text.slice(0, bodyStart)}${replacement}\n${text.slice(end)}`;
-}
-
 function applyVisibility(record, arm) {
   if (!['baseline', 'treatment'].includes(arm)) throw new Error(`invalid arm: ${arm}`);
-  if (arm === 'treatment') return { ...record };
-  return { ...record, cue: '[lesson withheld by probe]', lesson: '[lesson withheld by probe]' };
+  return { ...record };
 }
 
 function visibilityFromRecord(record) {
-  return record.includes('[lesson withheld by probe]') ? 'hidden' : 'visible';
+  return record.includes('## Lesson') ? 'visible' : 'unknown';
 }
 
 function indexRow(indexText) {
@@ -71,10 +60,7 @@ function copyDependencyClosure(packageName, sourceModules, targetModules, copied
 function applyVisibilityToWorkspace(repo, arm) {
   const recordPath = path.join(repo, LEDGER, RECORD_NAME);
   const original = fs.readFileSync(recordPath, 'utf8');
-  if (arm === 'treatment') return { recordPath, visibility: 'visible' };
-  const hidden = replaceSection(replaceSection(original, 'Cue', '[lesson withheld by probe]'), 'Lesson', '[lesson withheld by probe]');
-  fs.writeFileSync(recordPath, hidden);
-  return { recordPath, visibility: 'hidden' };
+  return { recordPath, visibility: 'identical-visible', original };
 }
 
 async function buildFixture({ out, arm = 'treatment', sourceRoot = path.resolve(__dirname, '../..') } = {}) {

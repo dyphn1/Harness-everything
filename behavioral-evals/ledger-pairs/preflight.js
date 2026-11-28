@@ -26,7 +26,8 @@ function checkCommit(repo, subject, env) {
 
 async function runPreflight({ out }) {
   const target = path.resolve(out);
-  const fixture = await buildFixture({ out: target, arm: 'treatment' });
+  const baseline = await buildFixture({ out: path.join(target, 'fixture-baseline'), arm: 'baseline' });
+  const fixture = await buildFixture({ out: path.join(target, 'fixture-treatment'), arm: 'treatment' });
   const env = {
     ...process.env,
     HOME: path.join(target, 'home'),
@@ -36,24 +37,31 @@ async function runPreflight({ out }) {
   for (const key of ['HOME', 'CODEX_HOME', 'TMPDIR']) fs.mkdirSync(env[key], { recursive: true });
   const negative = checkCommit(fixture.repo, 'fix: Uppercase subject control', env);
   const positive = checkCommit(fixture.repo, 'fix: lowercase subject control', env);
-  const hookPayload = JSON.stringify({
+  const hookPayload = (repo, sessionId) => JSON.stringify({
     hook_event_name: 'PreToolUse', tool_name: 'Bash',
     tool_input: { command: 'git commit -m "fix: uppercase subject control"' },
-    cwd: fixture.repo, session_id: 'ledger-pairs-preflight',
+    cwd: repo, session_id: sessionId,
   });
-  const carrier = spawnSync(process.execPath, [path.join(REPO, 'hooks/scripts/codex-ledger-lesson.js')], {
-    input: hookPayload, encoding: 'utf8', cwd: fixture.repo, env,
+  const runCarrier = (repo, sessionId) => spawnSync(process.execPath, [path.join(REPO, 'hooks/scripts/codex-ledger-lesson.js')], {
+    input: hookPayload(repo, sessionId), encoding: 'utf8', cwd: repo, env,
   });
+  const baselineCarrier = runCarrier(baseline.repo, 'ledger-pairs-preflight-baseline');
+  const treatmentCarrier = runCarrier(fixture.repo, 'ledger-pairs-preflight-treatment');
   const matcher = require(path.join(REPO, 'hooks/scripts/lib/ledger-match.js'));
-  const matcherReceipt = matcher.peekRepoMatches({ workspaceRoot: fixture.repo, event: {
+  const trigger = {
     phase: 'action', tool: 'shell', command: 'git commit -m "fix: uppercase subject control"', outcome: { failed: 'unknown' },
-  } });
-  const codexCarrierOutputHasE3 = carrier.status === 0 && matcherReceipt.includes('E-0003')
-    && carrier.stdout.includes('Check the subject line against both rules');
+  };
+  const baselineMatcherReceipt = matcher.peekRepoMatches({ workspaceRoot: baseline.repo, event: trigger });
+  const treatmentMatcherReceipt = matcher.peekRepoMatches({ workspaceRoot: fixture.repo, event: trigger });
+  const matcherReceipt = { baseline: baselineMatcherReceipt, treatment: treatmentMatcherReceipt };
+  const codexCarrierOutputHasE3 = baselineCarrier.status === 0 && treatmentCarrier.status === 0
+    && baselineMatcherReceipt.includes('E-0003') && treatmentMatcherReceipt.includes('E-0003')
+    && baselineCarrier.stdout.includes('Check the subject line against both rules')
+    && treatmentCarrier.stdout.includes('Check the subject line against both rules');
   const report = {
     schemaVersion: 1,
     mode: 'no-model',
-    fixture: { initialSha: fixture.initialSha, repo: 'repo', commitlintResolution: fixture.commitlintResolution },
+    fixture: { initialSha: fixture.initialSha, baselineInitialSha: baseline.initialSha, recordsByteIdentical: baseline.record === fixture.record, repo: 'fixture-treatment/repo', commitlintResolution: fixture.commitlintResolution },
     positiveControls: {
       uppercaseSubjectRejected: !negative.accepted && /subject-case/.test(negative.output),
       lowercaseSubjectAccepted: positive.accepted,
@@ -61,7 +69,7 @@ async function runPreflight({ out }) {
     },
     carrierChecks: {
       codex: codexCarrierOutputHasE3 ? 'PASS: actual hook script emitted E-0003 for a git commit action; model-request receipt remains a live-host check' : 'FAIL: hook did not emit E-0003 for the fixture git commit action',
-      codexCarrierOutput: carrier.stdout.trim(),
+      codexCarrierOutput: { baseline: baselineCarrier.stdout.trim(), treatment: treatmentCarrier.stdout.trim() },
       matcherReceipt,
       opencode: 'V2 matcher path is mechanism-tested; real carrier delivery requires execute.before/after then the next context request',
       nextModelRequest: 'UNCHECKED: --no-model deliberately sends no request',

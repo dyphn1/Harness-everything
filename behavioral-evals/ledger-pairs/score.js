@@ -22,13 +22,14 @@ function normalizeEvents(input) {
 }
 
 function receiptStatus(events) {
-  const receipt = events.findIndex(event => event.kind === 'receipt');
-  if (receipt < 0) return 'unknown';
-  if (events[receipt].status === 'delivered-before-decision') return 'delivered-before-decision';
-  if (events[receipt].status === 'delivered-after-decision') return 'after';
-  const decision = events.findIndex(event => event.kind === 'decision' || event.kind === 'commit');
-  if (decision < 0) return 'unknown';
-  return receipt < decision ? 'delivered-before-decision' : 'after';
+  for (const receipt of events.filter(event => event.kind === 'receipt' && event.correlated === true && event.requestId)) {
+    const decisionIndex = events.findIndex(event => ['decision', 'commit', 'prepared-commit'].includes(event.kind) && event.requestId === receipt.requestId);
+    if (decisionIndex < 0) continue;
+    const receiptIndex = events.indexOf(receipt);
+    if (receiptIndex < decisionIndex && receipt.status === 'delivered-before-decision') return 'delivered-before-decision';
+    if (receiptIndex > decisionIndex || receipt.status === 'delivered-after-decision') return 'after';
+  }
+  return 'unknown';
 }
 
 function scoreArm(input) {
@@ -53,27 +54,34 @@ function scoreArm(input) {
   const qualityPass = Boolean(accepted && correctDiffAndTest && !hookBypass);
   const usage = input.usage && typeof input.usage === 'object' ? input.usage : {};
   const explicitTotal = Number(usage.totalTokens ?? usage.tokens);
-  const tokenCount = Number.isFinite(explicitTotal) && explicitTotal > 0 ? explicitTotal : ['inputTokens', 'outputTokens', 'reasoningTokens'].reduce((sum, key) => {
+  const tokenCount = Number.isFinite(explicitTotal) && explicitTotal > 0 ? explicitTotal : ['inputTokens', 'outputTokens', 'reasoningTokens', 'cachedTokens'].reduce((sum, key) => {
     const value = Number(usage[key]);
     return Number.isFinite(value) && value > 0 ? sum + value : sum;
   }, 0);
   const start = Date.parse(input.startedAt || '');
   const end = Date.parse(input.endedAt || '');
   const elapsedMs = Number.isFinite(start) && Number.isFinite(end) && end >= start ? end - start : Number(input.elapsedMs) || null;
+  const overCap = tokenCount > 200000;
   return {
     runner: input.runner || 'unknown',
     arm: input.arm || 'unknown',
     pair: Number.isInteger(input.pair) ? input.pair : null,
     firstCommitAccepted,
     sameClassRejections,
-    retries: rejections.length,
+    retries: new Set(rejections.map((event, index) => event.attemptId || `rejection-${index}`)).size,
     manualIntervention: Number(input.manualIntervention) || 0,
     correctDiffAndTest,
     hookBypass,
     tokens: tokenCount || null,
-    tokenCap: { limit: 200000, enforcement: input.tokenCapEnforcement || 'post-hoc only' },
+    overCap,
+    valid: !overCap,
+    invalidReasons: overCap ? ['over-200000-token-cap'] : [],
+    action: input.action || (input.runner === 'codex' ? 'prepared-commit' : 'commit'),
+    fileReads: Number(input.fileReads) || 0,
+    tokenCap: { limit: 200000, enforcement: input.tokenCapEnforcement || 'post-hoc measurement' },
     elapsedMs,
     receiptStatus: receiptStatus(events),
+    receiptOutcomes: events.filter(event => event.kind === 'receipt').map(({ status, correlated, requestId }) => ({ status: status || 'unknown', correlated: correlated === true, requestId: requestId || null })),
     qualityPass,
     failures: Array.isArray(input.failures) ? input.failures : [],
     unknowns: Array.isArray(input.unknowns) ? input.unknowns : [],
@@ -91,17 +99,25 @@ function scoreRunner(armResults) {
   }
   const transitions = { bothPass: 0, treatmentOnly: 0, baselineOnly: 0, neitherPass: 0, invalid: 0 };
   for (const pair of byPair.values()) {
-    if (!pair.baseline || !pair.treatment) { transitions.invalid += 1; continue; }
+    if (!pair.baseline || !pair.treatment || !pair.baseline.valid || !pair.treatment.valid) { transitions.invalid += 1; continue; }
     if (pair.baseline.qualityPass && pair.treatment.qualityPass) transitions.bothPass += 1;
     else if (pair.treatment.qualityPass) transitions.treatmentOnly += 1;
     else if (pair.baseline.qualityPass) transitions.baselineOnly += 1;
     else transitions.neitherPass += 1;
   }
-  const validPairs = [...byPair.values()].filter(pair => pair.baseline && pair.treatment).length;
+  const validPairs = [...byPair.values()].filter(pair => pair.baseline?.valid && pair.treatment?.valid).length;
   return {
     runner: scores[0]?.runner || 'unknown',
     armCount: scores.length,
+    assignedArms: scores.map(({ arm, pair, valid, invalidReasons }) => ({ arm, pair, valid, invalidReasons })),
     validPairs,
+    pairReasons: [...byPair].flatMap(([pair, arms]) => {
+      const reasons = [];
+      if (!arms.baseline) reasons.push('missing-baseline');
+      if (!arms.treatment) reasons.push('missing-treatment');
+      for (const [arm, score] of Object.entries(arms)) if (!score.valid) reasons.push(`${arm}:${score.invalidReasons.join(',')}`);
+      return reasons.length ? [{ pair, reasons }] : [];
+    }),
     pairedTransitions: transitions,
     verdict: 'descriptive, inconclusive',
     scores,

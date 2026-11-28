@@ -11,6 +11,12 @@ const REPO = path.resolve(__dirname, '../..');
 const LEDGER_RECORD = '.agents/harness-everything/errors/E-0003-commitlint-subject.md';
 const RUNNERS = ['codex', 'opencode', 'agy'];
 const ARMS = ['baseline', 'treatment'];
+const COMMIT_TASK_TEXT = `${TASK_TEXT.split('\n')[0]}\nRun the test and stage only src/sample.js. Write the commit subject you intend to use to .commit-msg.txt; do not run git commit. The driver will make the commit through the fixture hook.`;
+
+function filterCarrierContext(text, fragment, strip) {
+  const matched = typeof text === 'string' && typeof fragment === 'string' && text.includes(fragment);
+  return { matched, stripped: Boolean(matched && strip), text: matched && strip ? text.replace(fragment, '') : text };
+}
 
 function parseArgs(argv) {
   const args = { dryRun: false, timeoutMs: 45 * 60 * 1000 };
@@ -26,6 +32,7 @@ function parseArgs(argv) {
   if (!args.out) throw new Error('--out is required');
   args.pair = Number(args.pair);
   args.timeoutMs = Number(args.timeoutMs);
+  if (!Number.isFinite(args.timeoutMs) || args.timeoutMs < 1 || args.timeoutMs > 45 * 60 * 1000) throw new Error('--timeout-ms must be between 1 and 2700000 (the 45-minute arm cap)');
   return args;
 }
 
@@ -70,9 +77,11 @@ function commandPlan(args, fixture, env) {
   if (args.runner === 'codex') {
     return {
       command: 'codex',
-      args: ['exec', '-m', 'gpt-6-luna', '-c', 'model_reasoning_effort="high"', '-s', 'workspace-write', '-C', fixture.repo, '--json', TASK_TEXT],
+      args: ['exec', '-m', 'gpt-6-luna', '-c', 'model_reasoning_effort="high"', '-s', 'workspace-write', '-C', fixture.repo, '--json', COMMIT_TASK_TEXT],
       cwd: fixture.repo,
-      tokenCapEnforcement: 'post-hoc only',
+      taskText: COMMIT_TASK_TEXT,
+      action: 'prepared-commit',
+      tokenCapEnforcement: 'post-hoc measurement',
       carrier: 'Codex user-hook compatibility runtime installed under isolated CODEX_HOME; hooks/scripts/codex-ledger-lesson.js',
     };
   }
@@ -83,9 +92,11 @@ function commandPlan(args, fixture, env) {
     fs.appendFileSync(path.join(fixture.repo, '.git', 'info', 'exclude'), '\n.opencode/\n');
     return {
       command: 'opencode',
-      args: ['run', '--server', '<isolated-long-lived-server>', '--auto', '--model', 'opencode/hy4-flash-free', TASK_TEXT],
+      args: ['run', '--server', '<isolated-long-lived-server>', '--auto', '--model', 'opencode/hy4-flash-free', '--format', 'json', TASK_TEXT],
       cwd: fixture.repo,
-      tokenCapEnforcement: 'post-hoc only',
+      taskText: TASK_TEXT,
+      action: 'commit',
+      tokenCapEnforcement: 'post-hoc measurement',
       carrier: 'OpenCode V2 checkout plugin, one-line re-export, tool before/after to next context hook',
       server: { command: 'opencode', args: ['serve', '--hostname', '127.0.0.1', '--port', '<ephemeral>'], requiredVersion: '2.4.1', env: 'OPENCODE_PASSWORD' },
     };
@@ -97,7 +108,9 @@ function commandPlan(args, fixture, env) {
     command: 'agy',
     args: ['-p', prompt, '--model', 'gemini-4-hydrogen-high', '--mode', 'accept-edits', '--sandbox', '--settings', '{"permissions":{"allow":["command(*)","read_file(*)"]}}'],
     cwd: fixture.repo,
-    tokenCapEnforcement: 'post-hoc only',
+    taskText: prompt,
+    action: 'commit',
+    tokenCapEnforcement: 'post-hoc measurement',
     carrier: 'none; packet-context injection, reported as agy-injection only',
     isolation: 'real HOME (agy login lives in ~/.gemini); TMPDIR isolated; global agy plugins load equally in both arms',
   };
@@ -112,18 +125,20 @@ async function ephemeralPort() {
 }
 
 function parseUsage(stdout) {
-  const totals = { inputTokens: 0, outputTokens: 0, reasoningTokens: 0, cachedTokens: 0 };
+  const totals = { inputTokens: 0, outputTokens: 0, reasoningTokens: 0, cachedTokens: 0, totalTokens: 0 };
   let found = false;
   function visit(value) {
     if (!value || typeof value !== 'object') return;
     for (const [key, child] of Object.entries(value)) {
-      const target = ({ total_tokens: 'totalTokens', tokens: 'totalTokens', input_tokens: 'inputTokens', prompt_tokens: 'inputTokens', output_tokens: 'outputTokens', completion_tokens: 'outputTokens', reasoning_tokens: 'reasoningTokens', cached_input_tokens: 'cachedTokens' })[key];
+      const target = ({ total_tokens: 'totalTokens', tokens: 'totalTokens', input_tokens: 'inputTokens', prompt_tokens: 'inputTokens', output_tokens: 'outputTokens', completion_tokens: 'outputTokens', reasoning_tokens: 'reasoningTokens', cached_input_tokens: 'cachedTokens', cached_tokens: 'cachedTokens' })[key];
       if (target && Number.isFinite(child)) { totals[target] += child; found = true; }
       else if (child && typeof child === 'object') visit(child);
     }
   }
   for (const line of String(stdout || '').split(/\r?\n/)) { try { visit(JSON.parse(line)); } catch {} }
-  return found ? totals : null;
+  if (!found) return null;
+  if (!totals.totalTokens) totals.totalTokens = totals.inputTokens + totals.outputTokens + totals.reasoningTokens + totals.cachedTokens;
+  return totals;
 }
 
 function git(repo, args) {
@@ -136,6 +151,18 @@ function sanitize(text, env) {
     if (env[key]) result = result.split(env[key]).join('[REDACTED]');
   }
   return result.replace(/(sk-[A-Za-z0-9_-]{16,}|AIza[A-Za-z0-9_-]{20,})/g, '[REDACTED]');
+}
+
+function runPreparedCommit(repo, env) {
+  const messagePath = path.join(repo, '.commit-msg.txt');
+  const staged = git(repo, ['add', '-A']);
+  if (fs.existsSync(messagePath)) git(repo, ['reset', '--', '.commit-msg.txt']);
+  const stagedFiles = git(repo, ['diff', '--cached', '--name-only']).stdout.trim().split(/\r?\n/).filter(Boolean);
+  if (staged.status !== 0 || !fs.existsSync(messagePath) || stagedFiles.length !== 1 || stagedFiles[0] !== 'src/sample.js') return { accepted: false, stagedFiles, failure: 'prepared-commit-missing-message-or-unexpected-stage', output: staged.stderr, diagnostics: [] };
+  const commit = spawnSync('git', ['-C', repo, 'commit', '-F', messagePath], { encoding: 'utf8', env });
+  const output = `${commit.stdout || ''}${commit.stderr || ''}`;
+  const diagnostics = ['subject-case', 'header-max-length'].filter(diagnostic => output.includes(`[${diagnostic}]`));
+  return { accepted: commit.status === 0, stagedFiles, output, diagnostics };
 }
 
 function runProcess(plan, env, timeoutMs, logFile) {
@@ -157,6 +184,32 @@ function runProcess(plan, env, timeoutMs, logFile) {
   });
 }
 
+function installCodexCarrierProbe(env, out, arm) {
+  const hooksFile = path.join(env.CODEX_HOME, 'hooks.json');
+  const wrapper = path.join(env.CODEX_HOME, 'ledger-probe.js');
+  const receiptFile = path.join(out, 'receipt.jsonl');
+  const sourceHook = path.join(REPO, 'hooks/scripts/codex-ledger-lesson.js');
+  const source = `'use strict';\nconst fs=require('node:fs');\nconst path=require('node:path');\nconst {spawnSync}=require('node:child_process');\nconst filter=${filterCarrierContext.toString()};\nconst input=fs.readFileSync(0,'utf8');\nconst payload=JSON.parse(input||'{}');\nconst result=spawnSync(process.execPath,[${JSON.stringify(sourceHook)}],{input,encoding:'utf8',cwd:payload.cwd,env:process.env});\nconst record=fs.readFileSync(path.join(payload.cwd,'.agents/harness-everything/errors/E-0003-commitlint-subject.md'),'utf8');const section=n=>{const m=record.match(new RegExp('^## '+n+'\\\\s*\\\\n([\\\\s\\\\S]*?)(?=^## |$)','m'));return m?m[1].trim():''};const fragment='Cue:\\n'+section('Cue')+'\\nLesson:\\n'+section('Lesson');\nlet output=result.stdout||'';let matched=false;let stripped=false;\ntry{const data=JSON.parse(output||'{}');const key=data.hookSpecificOutput?.additionalContext;const filtered=filter(key,fragment,${JSON.stringify(arm === 'baseline')});matched=filtered.matched;stripped=filtered.stripped;if(stripped){data.hookSpecificOutput.additionalContext=filtered.text;output=JSON.stringify(data)}}catch{}\nconst command=payload.tool_input?.command||'';const compound=/&&|\\|\\||\\n/.test(command);fs.appendFileSync(${JSON.stringify(receiptFile)},JSON.stringify({phase:payload.hook_event_name||'unknown',requestId:payload.turn_id||payload.turnId||null,matched,stripped,kind:compound?'compound':/^\\s*git\\s+commit\\b/.test(command)?'direct':'other',containsGitCommit:/\\bgit\\s+commit\\b/i.test(command)})+'\\n',{mode:0o600});\nprocess.stdout.write(output);process.stderr.write(result.stderr||'');process.exitCode=result.status||0;\n`;
+  fs.writeFileSync(wrapper, source, { mode: 0o700 });
+  const config = JSON.parse(fs.readFileSync(hooksFile, 'utf8'));
+  let changed = false;
+  function rewrite(value) {
+    if (Array.isArray(value)) return value.map(rewrite);
+    if (!value || typeof value !== 'object') return typeof value === 'string' && value.includes('codex-ledger-lesson.js') ? (changed = true, value.replace(/[^\s"']*codex-ledger-lesson\.js/, wrapper)) : value;
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, rewrite(child)]));
+  }
+  const rewritten = rewrite(config);
+  if (!changed) throw new Error('Codex compatibility hooks did not expose codex-ledger-lesson.js for probe wrapping');
+  fs.writeFileSync(hooksFile, `${JSON.stringify(rewritten, null, 2)}\n`, { mode: 0o600 });
+}
+
+function installOpenCodeCarrierProbe(fixture, out, arm) {
+  const pluginPath = path.join(fixture.repo, '.opencode', 'plugins', 'zz-ledger-probe.mjs');
+  const receiptFile = path.join(out, 'receipt.jsonl');
+  fs.mkdirSync(path.dirname(pluginPath), { recursive: true });
+  fs.writeFileSync(pluginPath, `import fs from 'node:fs';\nimport path from 'node:path';\nconst filter=${filterCarrierContext.toString()};\nconst receipt=${JSON.stringify(receiptFile)};\nconst root=${JSON.stringify(fixture.repo)};\nconst baseline=${JSON.stringify(arm === 'baseline')};\nconst write=x=>fs.appendFileSync(receipt,JSON.stringify(x)+'\\n',{mode:0o600});\nconst fragment=()=>{const record=fs.readFileSync(path.join(root,'.agents/harness-everything/errors/E-0003-commitlint-subject.md'),'utf8');const section=n=>{const m=record.match(new RegExp('^## '+n+'\\\\s*\\\\n([\\\\s\\\\S]*?)(?=^## |$)','m'));return m?m[1].trim():''};return 'Cue:\\n'+section('Cue')+'\\nLesson:\\n'+section('Lesson')};\nconst toolReceipt=(phase,event)=>{const command=typeof event.input?.command==='string'?event.input.command:'';const kind=/&&|\\|\\||\\n/.test(command)?'compound':/^\\s*git\\s+commit\\b/.test(command)?'direct':'other';write({phase,requestId:event.messageID||event.messageId||null,kind,containsGitCommit:/\\bgit\\s+commit\\b/i.test(command)})};\nexport default {id:'fixture.ledger-probe',async setup(ctx){await ctx.session.hook('context',event=>{const exact=fragment();const system=Array.isArray(event.system)?event.system:[];for(const part of system){if(typeof part?.text!=='string')continue;const filtered=filter(part.text,exact,baseline);if(!filtered.matched)continue;write({phase:'context',requestId:event.messageID||event.messageId||null,matched:true,stripped:filtered.stripped});if(filtered.stripped)part.text=filtered.text}});await ctx.tool.hook('execute.before',event=>toolReceipt('tool.execute.before',event));await ctx.tool.hook('execute.after',event=>toolReceipt('tool.execute.after',event))}};\n`);
+}
+
 async function runArm(args) {
   const out = path.resolve(args.out, args.runner, `pair-${args.pair}-${args.arm}`);
   fs.mkdirSync(out, { recursive: true });
@@ -171,7 +224,7 @@ async function runArm(args) {
     intervention: args.runner === 'agy' ? 'agy-injection' : 'repo-ledger-context-visibility',
     visibility: fixture.visibility,
     initialSha: fixture.initialSha,
-    taskText: TASK_TEXT,
+    taskText: plan.taskText,
     carrier: plan.carrier,
     tokenLimit: { max: 200000, enforcement: plan.tokenCapEnforcement },
     timeoutMs: args.timeoutMs,
@@ -185,6 +238,7 @@ async function runArm(args) {
   if (args.runner === 'codex') {
     const install = await runProcess({ command: process.execPath, args: [path.join(REPO, 'scripts/codex-hooks-compat.js'), 'install', '--codex-home', env.CODEX_HOME], cwd: REPO }, env, 60000, path.join(out, 'hook-install.log'));
     if (install.code !== 0) throw new Error(`isolated Codex hook install failed; see ${path.join(out, 'hook-install.log')}`);
+    installCodexCarrierProbe(env, out, args.arm);
   }
 
   let server;
@@ -194,6 +248,7 @@ async function runArm(args) {
     const actualVersion = (version.stdout || '').trim();
     if (version.status !== 0 || !/(^|[^0-9.])2\.4\.1($|[^0-9])/.test(actualVersion)) throw new Error(`OpenCode must be 2.4.1 for this packet; found ${actualVersion || 'unknown'}`);
     manifest.runnerVersion = actualVersion;
+    installOpenCodeCarrierProbe(fixture, out, args.arm);
     const port = await ephemeralPort();
     server = spawn('opencode', ['serve', '--hostname', '127.0.0.1', '--port', String(port)], { cwd: fixture.repo, env, stdio: ['ignore', 'pipe', 'pipe'] });
     fs.writeFileSync(path.join(out, 'server.pid'), `${server.pid}\n`, { mode: 0o600 });
@@ -207,12 +262,16 @@ async function runArm(args) {
   const startedAt = new Date().toISOString();
   const result = await runProcess(plan, env, args.timeoutMs, path.join(out, 'transcript.log'));
   if (server) server.kill('SIGTERM');
+  let preparedCommit = null;
+  if (args.runner === 'codex') {
+    preparedCommit = runPreparedCommit(fixture.repo, { ...env, ...require('./fixture').FIXED_ENV });
+    fs.appendFileSync(path.join(out, 'transcript.log'), `\n--- prepared-commit driver ---\n${preparedCommit.output || preparedCommit.failure || ''}\n`);
+  }
   const endedAt = new Date().toISOString();
   const log = fs.readFileSync(path.join(out, 'transcript.log'), 'utf8');
   const recordPath = path.join(fixture.repo, LEDGER_RECORD);
   const recordBeforeRestore = fs.readFileSync(recordPath, 'utf8');
-  const visibilityUntouched = args.arm === 'treatment' || recordBeforeRestore === fixture.record;
-  fs.writeFileSync(recordPath, git(fixture.repo, ['show', `HEAD:${LEDGER_RECORD}`]).stdout);
+  const visibilityUntouched = recordBeforeRestore === fixture.record;
   const head = git(fixture.repo, ['rev-parse', 'HEAD']).stdout.trim();
   const commits = head && head !== fixture.initialSha ? git(fixture.repo, ['rev-list', '--reverse', `${fixture.initialSha}..HEAD`]).stdout.trim().split(/\r?\n/).filter(Boolean) : [];
   const changedFiles = head && head !== fixture.initialSha ? git(fixture.repo, ['diff', '--name-only', `${fixture.initialSha}..HEAD`]).stdout.trim().split(/\r?\n/).filter(Boolean) : [];
@@ -223,15 +282,36 @@ async function runArm(args) {
     const count = (log.match(new RegExp(`\\[${diagnostic}\\]`, 'g')) || []).length;
     for (let i = 0; i < count; i += 1) diagnostics.push(diagnostic);
   }
-  const events = diagnostics.map(diagnostic => ({ kind: 'commit', accepted: false, diagnostics: [diagnostic] }));
+  const events = diagnostics.length ? [{ kind: 'commit', accepted: false, attemptId: args.runner === 'codex' ? 'driver-commit-1' : 'unresolved-attempt-1', diagnostics: [...new Set(diagnostics)] }] : [];
+  const receiptFile = path.join(out, 'receipt.jsonl');
+  const probeRecords = fs.existsSync(receiptFile) ? fs.readFileSync(receiptFile, 'utf8').split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line)) : [];
+  const receiptEvents = [];
+  if (args.runner === 'opencode') {
+    for (const receipt of probeRecords.filter(row => row.phase === 'context')) {
+      const linkedAction = receipt.requestId && probeRecords.find(row => row.phase === 'tool.execute.before' && row.requestId === receipt.requestId && row.containsGitCommit);
+      const requestId = receipt.requestId;
+      receiptEvents.push({ kind: 'receipt', requestId, correlated: Boolean(linkedAction), status: receipt.matched && !receipt.stripped ? 'delivered-before-decision' : receipt.stripped ? 'filtered' : 'unknown' });
+      if (linkedAction) receiptEvents.push({ kind: 'decision', requestId, actionKind: linkedAction.kind });
+    }
+  } else if (args.runner === 'codex') {
+    for (const receipt of probeRecords.filter(row => row.containsGitCommit)) {
+      const requestId = receipt.requestId;
+      if (requestId) receiptEvents.push({ kind: 'decision', requestId, actionKind: receipt.kind });
+      receiptEvents.push({ kind: 'receipt', requestId, correlated: Boolean(requestId), status: 'delivered-after-decision' });
+    }
+  }
+  events.push(...receiptEvents);
+  if (preparedCommit) {
+    events.push({ kind: 'prepared-commit', accepted: preparedCommit.accepted, stagedFiles: preparedCommit.stagedFiles });
+  }
   for (const sha of commits) events.push({ kind: 'commit', accepted: true, sha, subject: git(fixture.repo, ['show', '-s', '--format=%s', sha]).stdout.trim() });
   events.push({ kind: 'test', passed: test.status === 0 });
   for (const line of log.split(/\r?\n/)) if (/--no-verify|HUSKY\s*=\s*0/i.test(line)) events.push({ kind: 'bypass', value: line });
   const workingTree = git(fixture.repo, ['status', '--short']).stdout.trim();
   const record = {
-    runner: args.runner, arm: args.arm, pair: args.pair, startedAt, endedAt,
+    runner: args.runner, arm: args.arm, pair: args.pair, action: plan.action, startedAt, endedAt,
     elapsedMs: Date.parse(endedAt) - Date.parse(startedAt), tokenCapEnforcement: plan.tokenCapEnforcement,
-    usage: parseUsage(result.stdout), events,
+    usage: parseUsage(result.stdout), overCap: (parseUsage(result.stdout)?.totalTokens || 0) > 200000, events,
     initialFiles: { 'src/sample.js': "'use strict';\n\nmodule.exports = () => '';\n" },
     finalFiles: { 'src/sample.js': finalSource },
     manualIntervention: 0,
@@ -243,6 +323,10 @@ async function runArm(args) {
     correctDiff: visibilityUntouched && changedFiles.length === 1 && changedFiles[0] === 'src/sample.js' && finalSource.includes("module.exports = () => 'hello';"),
     testPassed: test.status === 0,
     hookRejections: diagnostics,
+    preparedCommit,
+    probeRecords,
+    fileReads: (log.match(/(?:read_file|read_file_tool|git\s+(?:log|show))[^\n]*(?:\.agents\/harness-everything\/errors|E-\d{4})/gi) || []).length,
+    probeReceiptPath: fs.existsSync(path.join(out, 'receipt.jsonl')) ? 'receipt.jsonl' : 'missing',
     matcherReceipt: 'unknown; review sanitized host trace',
     contextDelivery: 'unknown; review actual next-request capture',
     workingTree,
@@ -260,4 +344,4 @@ async function main(argv) {
 
 if (require.main === module) main(process.argv.slice(2)).catch(error => { console.error(error.message); process.exitCode = 2; });
 
-module.exports = { commandPlan, isolatedEnvironment, main, parseArgs, runArm, sanitize };
+module.exports = { commandPlan, filterCarrierContext, isolatedEnvironment, installCodexCarrierProbe, installOpenCodeCarrierProbe, main, parseArgs, runArm, runPreparedCommit, sanitize };
