@@ -1,0 +1,17 @@
+{"phase":"tool.execute.before","requestId":"id1","kind":"compound","containsGitCommit":false}
+{"phase":"tool.execute.after","requestId":"id1","kind":"compound","containsGitCommit":false}
+{"phase":"tool.execute.before","requestId":"id2","kind":"compound","containsGitCommit":false}
+{"phase":"tool.execute.after","requestId":"id2","kind":"compound","containsGitCommit":false}
+{"phase":"tool.execute.before","requestId":"id3","kind":"compound","containsGitCommit":false}
+{"phase":"tool.execute.after","requestId":"id3","kind":"compound","containsGitCommit":false}
+{"phase":"tool.execute.before","requestId":"id4","kind":"compound","containsGitCommit":false}
+{"phase":"tool.execute.after","requestId":"id4","kind":"compound","containsGitCommit":false}
+{"phase":"tool.execute.before","requestId":"id5","kind":"other","containsGitCommit":false}
+{"phase":"tool.execute.after","requestId":"id5","kind":"other","containsGitCommit":false}
+{"phase":"tool.execute.before","requestId":"id6","kind":"compound","containsGitCommit":false}
+{"phase":"tool.execute.after","requestId":"id6","kind":"compound","containsGitCommit":false}
+{"phase":"tool.execute.before","requestId":"id7","kind":"compound","containsGitCommit":false}
+{"phase":"tool.execute.after","requestId":"id7","kind":"compound","containsGitCommit":false}
+{"phase":"tool.execute.before","requestId":"id8","kind":"compound","containsGitCommit":true}
+{"phase":"tool.execute.after","requestId":"id8","kind":"compound","containsGitCommit":true}
+{"phase":"context","requestId":null,"matched":true,"stripped":true}

@@ -1,0 +1,1032 @@
+{
+  "generatedAt": "2026-11-28T05:40:41.812Z",
+  "claim": "descriptive, inconclusive",
+  "runners": [
+    {
+      "runner": "agy",
+      "armCount": 8,
+      "assignedArms": [
+        {
+          "arm": "baseline",
+          "pair": 1,
+          "valid": true,
+          "invalidReasons": []
+        },
+        {
+          "arm": "treatment",
+          "pair": 1,
+          "valid": true,
+          "invalidReasons": []
+        },
+        {
+          "arm": "baseline",
+          "pair": 2,
+          "valid": true,
+          "invalidReasons": []
+        },
+        {
+          "arm": "treatment",
+          "pair": 2,
+          "valid": true,
+          "invalidReasons": []
+        },
+        {
+          "arm": "baseline",
+          "pair": 3,
+          "valid": true,
+          "invalidReasons": []
+        },
+        {
+          "arm": "treatment",
+          "pair": 3,
+          "valid": true,
+          "invalidReasons": []
+        },
+        {
+          "arm": "baseline",
+          "pair": 4,
+          "valid": true,
+          "invalidReasons": []
+        },
+        {
+          "arm": "treatment",
+          "pair": 4,
+          "valid": true,
+          "invalidReasons": []
+        }
+      ],
+      "validPairs": 4,
+      "pairReasons": [],
+      "pairedTransitions": {
+        "bothPass": 3,
+        "treatmentOnly": 1,
+        "baselineOnly": 0,
+        "neitherPass": 0,
+        "invalid": 0
+      },
+      "verdict": "descriptive, inconclusive",
+      "scores": [
+        {
+          "runner": "agy",
+          "arm": "baseline",
+          "pair": 1,
+          "firstCommitAccepted": true,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 0,
+          "manualIntervention": 0,
+          "correctDiffAndTest": true,
+          "hookBypass": false,
+          "tokens": null,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 74498,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [],
+          "qualityPass": true,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        },
+        {
+          "runner": "agy",
+          "arm": "treatment",
+          "pair": 1,
+          "firstCommitAccepted": true,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 0,
+          "manualIntervention": 0,
+          "correctDiffAndTest": true,
+          "hookBypass": false,
+          "tokens": null,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 88602,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [],
+          "qualityPass": true,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        },
+        {
+          "runner": "agy",
+          "arm": "baseline",
+          "pair": 2,
+          "firstCommitAccepted": true,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 0,
+          "manualIntervention": 0,
+          "correctDiffAndTest": true,
+          "hookBypass": false,
+          "tokens": null,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 112207,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [],
+          "qualityPass": true,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        },
+        {
+          "runner": "agy",
+          "arm": "treatment",
+          "pair": 2,
+          "firstCommitAccepted": true,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 0,
+          "manualIntervention": 0,
+          "correctDiffAndTest": true,
+          "hookBypass": false,
+          "tokens": null,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 85833,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [],
+          "qualityPass": true,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        },
+        {
+          "runner": "agy",
+          "arm": "baseline",
+          "pair": 3,
+          "firstCommitAccepted": true,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 0,
+          "manualIntervention": 0,
+          "correctDiffAndTest": true,
+          "hookBypass": false,
+          "tokens": null,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 91575,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [],
+          "qualityPass": true,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        },
+        {
+          "runner": "agy",
+          "arm": "treatment",
+          "pair": 3,
+          "firstCommitAccepted": true,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 0,
+          "manualIntervention": 0,
+          "correctDiffAndTest": true,
+          "hookBypass": false,
+          "tokens": null,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 77120,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [],
+          "qualityPass": true,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        },
+        {
+          "runner": "agy",
+          "arm": "baseline",
+          "pair": 4,
+          "firstCommitAccepted": false,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 0,
+          "manualIntervention": 0,
+          "correctDiffAndTest": false,
+          "hookBypass": false,
+          "tokens": null,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 79117,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [],
+          "qualityPass": false,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        },
+        {
+          "runner": "agy",
+          "arm": "treatment",
+          "pair": 4,
+          "firstCommitAccepted": true,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 0,
+          "manualIntervention": 0,
+          "correctDiffAndTest": true,
+          "hookBypass": false,
+          "tokens": null,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 103327,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [],
+          "qualityPass": true,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        }
+      ]
+    },
+    {
+      "runner": "codex",
+      "armCount": 8,
+      "assignedArms": [
+        {
+          "arm": "baseline",
+          "pair": 1,
+          "valid": true,
+          "invalidReasons": []
+        },
+        {
+          "arm": "treatment",
+          "pair": 1,
+          "valid": true,
+          "invalidReasons": []
+        },
+        {
+          "arm": "baseline",
+          "pair": 2,
+          "valid": true,
+          "invalidReasons": []
+        },
+        {
+          "arm": "treatment",
+          "pair": 2,
+          "valid": true,
+          "invalidReasons": []
+        },
+        {
+          "arm": "baseline",
+          "pair": 3,
+          "valid": true,
+          "invalidReasons": []
+        },
+        {
+          "arm": "treatment",
+          "pair": 3,
+          "valid": true,
+          "invalidReasons": []
+        },
+        {
+          "arm": "baseline",
+          "pair": 4,
+          "valid": true,
+          "invalidReasons": []
+        },
+        {
+          "arm": "treatment",
+          "pair": 4,
+          "valid": true,
+          "invalidReasons": []
+        }
+      ],
+      "validPairs": 4,
+      "pairReasons": [],
+      "pairedTransitions": {
+        "bothPass": 1,
+        "treatmentOnly": 0,
+        "baselineOnly": 1,
+        "neitherPass": 2,
+        "invalid": 0
+      },
+      "verdict": "descriptive, inconclusive",
+      "scores": [
+        {
+          "runner": "codex",
+          "arm": "baseline",
+          "pair": 1,
+          "firstCommitAccepted": false,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 1,
+          "manualIntervention": 0,
+          "correctDiffAndTest": false,
+          "hookBypass": false,
+          "tokens": 243323,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "prepared-commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 30076,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [],
+          "qualityPass": false,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        },
+        {
+          "runner": "codex",
+          "arm": "treatment",
+          "pair": 1,
+          "firstCommitAccepted": false,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 1,
+          "manualIntervention": 0,
+          "correctDiffAndTest": false,
+          "hookBypass": false,
+          "tokens": 214231,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "prepared-commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 39532,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [],
+          "qualityPass": false,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        },
+        {
+          "runner": "codex",
+          "arm": "baseline",
+          "pair": 2,
+          "firstCommitAccepted": false,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 1,
+          "manualIntervention": 0,
+          "correctDiffAndTest": false,
+          "hookBypass": false,
+          "tokens": 181913,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "prepared-commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 32841,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [],
+          "qualityPass": false,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        },
+        {
+          "runner": "codex",
+          "arm": "treatment",
+          "pair": 2,
+          "firstCommitAccepted": false,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 1,
+          "manualIntervention": 0,
+          "correctDiffAndTest": false,
+          "hookBypass": false,
+          "tokens": 181485,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "prepared-commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 34974,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [],
+          "qualityPass": false,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        },
+        {
+          "runner": "codex",
+          "arm": "baseline",
+          "pair": 3,
+          "firstCommitAccepted": true,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 0,
+          "manualIntervention": 0,
+          "correctDiffAndTest": true,
+          "hookBypass": false,
+          "tokens": 180930,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "prepared-commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 33599,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [],
+          "qualityPass": true,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        },
+        {
+          "runner": "codex",
+          "arm": "treatment",
+          "pair": 3,
+          "firstCommitAccepted": true,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 0,
+          "manualIntervention": 0,
+          "correctDiffAndTest": true,
+          "hookBypass": false,
+          "tokens": 196734,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "prepared-commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 35900,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [],
+          "qualityPass": true,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        },
+        {
+          "runner": "codex",
+          "arm": "baseline",
+          "pair": 4,
+          "firstCommitAccepted": true,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 0,
+          "manualIntervention": 0,
+          "correctDiffAndTest": true,
+          "hookBypass": false,
+          "tokens": 178281,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "prepared-commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 26449,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [],
+          "qualityPass": true,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        },
+        {
+          "runner": "codex",
+          "arm": "treatment",
+          "pair": 4,
+          "firstCommitAccepted": false,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 1,
+          "manualIntervention": 0,
+          "correctDiffAndTest": false,
+          "hookBypass": false,
+          "tokens": 240813,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "prepared-commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 35152,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [],
+          "qualityPass": false,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        }
+      ]
+    },
+    {
+      "runner": "opencode",
+      "armCount": 8,
+      "assignedArms": [
+        {
+          "arm": "baseline",
+          "pair": 1,
+          "valid": true,
+          "invalidReasons": []
+        },
+        {
+          "arm": "treatment",
+          "pair": 1,
+          "valid": true,
+          "invalidReasons": []
+        },
+        {
+          "arm": "baseline",
+          "pair": 2,
+          "valid": true,
+          "invalidReasons": []
+        },
+        {
+          "arm": "treatment",
+          "pair": 2,
+          "valid": true,
+          "invalidReasons": []
+        },
+        {
+          "arm": "baseline",
+          "pair": 3,
+          "valid": true,
+          "invalidReasons": []
+        },
+        {
+          "arm": "treatment",
+          "pair": 3,
+          "valid": true,
+          "invalidReasons": []
+        },
+        {
+          "arm": "baseline",
+          "pair": 4,
+          "valid": true,
+          "invalidReasons": []
+        },
+        {
+          "arm": "treatment",
+          "pair": 4,
+          "valid": true,
+          "invalidReasons": []
+        }
+      ],
+      "validPairs": 4,
+      "pairReasons": [],
+      "pairedTransitions": {
+        "bothPass": 1,
+        "treatmentOnly": 2,
+        "baselineOnly": 1,
+        "neitherPass": 0,
+        "invalid": 0
+      },
+      "verdict": "descriptive, inconclusive",
+      "scores": [
+        {
+          "runner": "opencode",
+          "arm": "baseline",
+          "pair": 1,
+          "firstCommitAccepted": true,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 0,
+          "manualIntervention": 0,
+          "correctDiffAndTest": true,
+          "hookBypass": false,
+          "tokens": 136192,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 42067,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [
+            {
+              "status": "filtered",
+              "correlated": false,
+              "requestId": null
+            }
+          ],
+          "qualityPass": true,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        },
+        {
+          "runner": "opencode",
+          "arm": "treatment",
+          "pair": 1,
+          "firstCommitAccepted": true,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 0,
+          "manualIntervention": 0,
+          "correctDiffAndTest": true,
+          "hookBypass": false,
+          "tokens": 490913,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 102870,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [],
+          "qualityPass": true,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        },
+        {
+          "runner": "opencode",
+          "arm": "baseline",
+          "pair": 2,
+          "firstCommitAccepted": true,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 0,
+          "manualIntervention": 0,
+          "correctDiffAndTest": true,
+          "hookBypass": true,
+          "tokens": 885281,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 157260,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [
+            {
+              "status": "filtered",
+              "correlated": false,
+              "requestId": null
+            }
+          ],
+          "qualityPass": false,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        },
+        {
+          "runner": "opencode",
+          "arm": "treatment",
+          "pair": 2,
+          "firstCommitAccepted": true,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 0,
+          "manualIntervention": 0,
+          "correctDiffAndTest": true,
+          "hookBypass": false,
+          "tokens": 86819,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 27729,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [
+            {
+              "status": "delivered-before-decision",
+              "correlated": false,
+              "requestId": null
+            }
+          ],
+          "qualityPass": true,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        },
+        {
+          "runner": "opencode",
+          "arm": "baseline",
+          "pair": 3,
+          "firstCommitAccepted": true,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 0,
+          "manualIntervention": 0,
+          "correctDiffAndTest": true,
+          "hookBypass": false,
+          "tokens": 160806,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 40929,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [
+            {
+              "status": "filtered",
+              "correlated": false,
+              "requestId": null
+            }
+          ],
+          "qualityPass": true,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        },
+        {
+          "runner": "opencode",
+          "arm": "treatment",
+          "pair": 3,
+          "firstCommitAccepted": false,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 0,
+          "manualIntervention": 0,
+          "correctDiffAndTest": false,
+          "hookBypass": false,
+          "tokens": 68458,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 19304,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [],
+          "qualityPass": false,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        },
+        {
+          "runner": "opencode",
+          "arm": "baseline",
+          "pair": 4,
+          "firstCommitAccepted": true,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 0,
+          "manualIntervention": 0,
+          "correctDiffAndTest": true,
+          "hookBypass": true,
+          "tokens": 1242153,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "commit",
+          "fileReads": 0,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 153419,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [
+            {
+              "status": "filtered",
+              "correlated": false,
+              "requestId": null
+            }
+          ],
+          "qualityPass": false,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        },
+        {
+          "runner": "opencode",
+          "arm": "treatment",
+          "pair": 4,
+          "firstCommitAccepted": true,
+          "sameClassRejections": {
+            "subject-case": 0,
+            "header-max-length": 0
+          },
+          "retries": 0,
+          "manualIntervention": 0,
+          "correctDiffAndTest": true,
+          "hookBypass": false,
+          "tokens": 670141,
+          "overCap": false,
+          "valid": true,
+          "invalidReasons": [],
+          "action": "commit",
+          "fileReads": 1,
+          "tokenCap": {
+            "limit": 200000,
+            "enforcement": "post-hoc measurement"
+          },
+          "elapsedMs": 97471,
+          "receiptStatus": "unknown",
+          "receiptOutcomes": [
+            {
+              "status": "delivered-before-decision",
+              "correlated": false,
+              "requestId": null
+            }
+          ],
+          "qualityPass": true,
+          "failures": [],
+          "unknowns": [
+            "matcher receipt and model-request delivery require coordinator review",
+            "manual intervention is zero only while the arm remains unattended"
+          ]
+        }
+      ]
+    }
+  ]
+}

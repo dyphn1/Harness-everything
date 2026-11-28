@@ -1,0 +1,14 @@
+{
+  "runner": "opencode",
+  "arm": "baseline",
+  "pair": 1,
+  "intervention": "repo-ledger-context-visibility",
+  "initialSha": "bdf3b6b3774849c45426b138081ba67b39b41541",
+  "carrier": "OpenCode V2 checkout plugin, one-line re-export, tool before/after to next context hook",
+  "tokenLimit": {
+    "max": 200000,
+    "enforcement": "post-hoc measurement"
+  },
+  "timeoutMs": 2700000,
+  "runnerVersion": "opencode v2.4.1"
+}

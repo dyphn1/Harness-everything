@@ -1,0 +1,34 @@
+{
+  "runner": "opencode",
+  "arm": "treatment",
+  "pair": 3,
+  "action": "commit",
+  "startedAt": "2026-11-28T05:34:28.533Z",
+  "elapsedMs": 19304,
+  "usage": {
+    "inputTokens": 14654,
+    "outputTokens": 1374,
+    "reasoningTokens": 718,
+    "cachedTokens": 51712,
+    "totalTokens": 68458
+  },
+  "overCap": false,
+  "tokenCapEnforcement": "post-hoc measurement",
+  "events": [
+    {
+      "kind": "test",
+      "passed": false
+    }
+  ],
+  "preparedCommit": null,
+  "hookRejections": [],
+  "correctDiff": false,
+  "testPassed": false,
+  "fileReads": 0,
+  "failures": [],
+  "changedFiles": [],
+  "transcriptSha256": "2b09e93138e1de5f55d8a622d5dc53439fcef17254d21b5028261ee4aad674b8",
+  "workingTree": "",
+  "treeClean": true,
+  "manualIntervention": 0
+}
