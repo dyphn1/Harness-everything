@@ -1,0 +1,26 @@
+[
+  {
+    "id": "r1",
+    "host": "opencode",
+    "session": "s2",
+    "turnId": "t3",
+    "observedAt": "2026-11-28T03:08:47.268Z",
+    "selfReport": {
+      "tier": "tier1",
+      "validity": "actionable"
+    },
+    "selfReportReason": null
+  },
+  {
+    "id": "r4",
+    "host": "opencode",
+    "session": "s2",
+    "turnId": "t5",
+    "observedAt": "2026-11-28T03:08:57.992Z",
+    "selfReport": {
+      "tier": "tier1",
+      "validity": "actionable"
+    },
+    "selfReportReason": null
+  }
+]

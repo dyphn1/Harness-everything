@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "records": 2,
+  "exported": 2,
+  "skippedBeforeSince": 0,
+  "skippedUnlabeled": 0,
+  "skippedNoText": 0,
+  "validationRows": 1,
+  "withSelfReport": 2,
+  "hostAcceptance": {
+    "population": "stored-observations",
+    "byHost": {
+      "opencode": {
+        "eligible": 2,
+        "valid": 2,
+        "invalid": 0,
+        "missing": 0,
+        "acceptanceRate": 1
+      }
+    }
+  }
+}
