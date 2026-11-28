@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.3.2](https://github.com/dyphn1/Harness-everything/compare/v1.3.1...v1.3.2) (2026-11-28)
+
+### Bug Fixes
+
+* **router:** decide fable directives by clause position and scope prohibitions ([#332](https://github.com/dyphn1/Harness-everything/issues/332)) ([000dbb1](https://github.com/dyphn1/Harness-everything/commit/000dbb16c9d4bd74612ce00791bc76a7d3f1a7e3))
+* **router:** separate politeness prefixes from fable directive verbs ([#332](https://github.com/dyphn1/Harness-everything/issues/332)) ([0e488da](https://github.com/dyphn1/Harness-everything/commit/0e488da18c705964ee6a969256c9d48cecb2ca9c))
+* **router:** treat a fable mention or negation as no fable request ([#332](https://github.com/dyphn1/Harness-everything/issues/332)) ([3b8b371](https://github.com/dyphn1/Harness-everything/commit/3b8b3710c56040347dc36f3576e1e04e4a3760ca))
+
 ## [1.3.1](https://github.com/dyphn1/Harness-everything/compare/v1.3.0...v1.3.1) (2026-11-28)
 
 ## [1.3.0](https://github.com/dyphn1/Harness-everything/compare/v1.2.2...v1.3.0) (2026-11-26)
