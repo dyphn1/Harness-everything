@@ -4,7 +4,8 @@ Historical evidence only. Nothing here is a GREEN gate.
 
 - **Not discovered:** `ci/mechanism-test.js` runs only top-level `ci/mechanism-*.test.js`, so nothing in this directory runs in `npm run test:mechanism`.
 - **Owner clause (T2, 2026-10-22):** "only archive the prep fingerprint and the RED-plan gates as historical evidence, and tag tests with `locks: <anchor clause>`. List the unmapped tests, but don't delete them."
-- **Revision of the historical results:** `0308386058ad942e2764475d48fd65a013910e1e`. The registry was captured at `c271249a8a99d7e0320288af8cb086bb03f8fa1a`.
+- **Original replay SHA (historical results):** `0308386058ad942e2764475d48fd65a013910e1e`. The registry was captured at `c271249a8a99d7e0320288af8cb086bb03f8fa1a`.
+- **T2 source-trace SHA:** `360183f49fe3e41f454cebf8671c0dc15a4d4797` (the original runner was confirmed to stop before replay when the pilot fingerprint file was missing).
 
 ## Manifest
 
@@ -24,7 +25,7 @@ Code changes against the original runner (sha256 `5e85af19…7849c`) are limited
 - The fixtures `require` path is `../../lib/doc-reconciliation-prep-fixtures`.
 - The printed re-capture command names `ci/archive/325-prep/doc-reconciliation-red.js`.
 
-The header comment also gained an archive note. Logic, the registry path and the fingerprint files are unchanged.
+The header comment also gained an archive note. At the original relocation, logic, registry path and fingerprint files were unchanged; the later T2-P compatibility adjustment is documented below.
 
 ## Commands
 
@@ -38,6 +39,12 @@ node ci/archive/325-prep/historical-qualification.test.js          # 4 FAIL, 6 P
 
 - `ci/mechanism-325-3b-preparation.test.js` still runs the archived runner, but only for its infrastructure path (exit 2, child deadline, output bound). Those checks are live.
 - The live suite no longer reads the registry for qualification.
+
+### Archived runner compatibility after pilot retirement
+
+The archive fingerprint still covers the three surviving workflow files and the historical pilot file. If and only if `hooks/scripts/lib/doc-reconciliation-pilot.js` is missing with `ENOENT`, the runner reports `runtimeFingerprintAvailable: false` and continues through the real replay and infrastructure classifier. An infrastructure result remains infrastructure; every non-infrastructure result fails with zero qualified gaps. This unavailable state does not print a recapture command, and candidate recapture is refused. Missing or unreadable files elsewhere retain the original infrastructure-error behavior. The live scratch-tree regression removes the source and packaged pilot files and exercises real source/package Stop-gate subprocesses without runtime stubs.
+
+This compatibility path keeps the archived infrastructure checks runnable after R2 removes the pilot module. It does not restore qualification as a live GREEN gate or change the recorded historical registry, hashes, fixture, or results.
 
 ## Coordinator disposition (pending)
 

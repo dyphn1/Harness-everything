@@ -5,8 +5,23 @@ status: active
 
 # Document workflow reconciliation — Phase 3b S1 runtime
 
-**Status: the runtime ships default OFF; opt in with `HARNESS_DOC_RECONCILIATION_PILOT=1`.
-With the pilot ON, F4 ([#358](https://github.com/dyphn1/Harness-everything/pull/358)) grants limited positive credit for exactly `doc-lint` and `link-check`, from a host-captured run of the installed doc-check on Claude Code 2.1.309 (live runs 4–5). S3 provider integration is pending; E1 remains OPEN with insufficient qualifying exposure. The recorded OpenCode [D1/D2 attempts](../benchmarks/results/live-host/opencode-d1-d2-2026-10-25/README.md) do not qualify as E1 cycles.**
+> **Historical document — E1 pilot retired (#553).** This page was the operation guide for the
+> retired E1 reconciliation pilot (S1/S2/S3/F4/W6). It records the design and preparation
+> baselines of the previous release — source-traced at `dba4708`, `5f9726c` and `8903435`, plus
+> the captured Claude Code 2.1.308/2.1.312 field-availability runs — and is not a description of
+> the current entrypoints. **Current entrypoints** are the ordinary workflow/handoff and OpenCode
+> V2 paths: workflow credit and Stop no longer load the E1 provider, and the E1 runtime modules and
+> W6 `inventory`/`seal` CLI (`hooks/scripts/w6-state-operations.js`) have been removed (#553). Under
+> the retirement contract every `HARNESS_DOC_RECONCILIATION_PILOT` value is ignored and normal hooks
+> print no flag warning.
+> Finish in-flight E1 work on the previous release, or end it and open a new session to redo
+> review/verify on the current path; recorded journals, reports and outline artifacts stay in
+> place. Issues [#325](https://github.com/dyphn1/Harness-everything/issues/325) and
+> [#350](https://github.com/dyphn1/Harness-everything/issues/350) **remain open failure markers**;
+> retirement does not close them.
+
+**Historical status (the retired pilot shipped default OFF and previously opted in with `HARNESS_DOC_RECONCILIATION_PILOT=1`).
+With the pilot ON, F4 ([#358](https://github.com/dyphn1/Harness-everything/pull/358)) granted limited positive credit for exactly `doc-lint` and `link-check`, from a host-captured run of the installed doc-check on Claude Code 2.1.309 (live runs 4–5). S3 provider integration remained pending; E1 remains OPEN with insufficient qualifying exposure. The recorded OpenCode [D1/D2 attempts](../benchmarks/results/live-host/opencode-d1-d2-2026-10-25/README.md) did not qualify as E1 cycles.**
 This document refines the [document lifecycle contract](document-lifecycle.md#phase-3b--narrow-integration-contract-s1-default-off-f4-limited-credit).
 The [accepted E0](https://github.com/dyphn1/Harness-everything/issues/341#issuecomment-6308604128)
 permits this limited, reversible consumer under the

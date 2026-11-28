@@ -261,6 +261,65 @@ for (const leg of LEGS) {
   }
 }
 
+// ---- H1: A / B / omitted advisory provider judgment (moved from 325-3b-h1-qualification) ------------------------------
+// Same three inputs and the same exact-array assertion as the retired H1 qualification suite.
+const H1_PROVIDER_CASES = [
+  {
+    id: 'A',
+    input: {
+      activeStep: { id: 'verify-docs', stepType: 'verification' },
+      neededCapabilities: ['doc-lint'],
+      availableProviderMetadata: [
+        { providerId: 'fixture-lint-a', capabilities: ['doc-lint'], stepTypes: ['verification'], requiresHostCapabilities: ['execution-events'], locator: { kind: 'tool', id: 'fixture-lint-a' } }
+      ],
+      hostCapabilities: ['execution-events']
+    },
+    suggestions: [{ capability: 'doc-lint', providerId: 'fixture-lint-a', availability: 'available', reason: R_OK }],
+    unavailable: []
+  },
+  {
+    id: 'B',
+    input: {
+      activeStep: { id: 'verify-docs', stepType: 'verification' },
+      neededCapabilities: ['doc-lint'],
+      availableProviderMetadata: [
+        { providerId: 'fixture-lint-b', capabilities: ['doc-lint'], stepTypes: ['verification'], requiresHostCapabilities: ['execution-events'], locator: { kind: 'tool', id: 'fixture-lint-b' } }
+      ],
+      hostCapabilities: ['execution-events']
+    },
+    suggestions: [{ capability: 'doc-lint', providerId: 'fixture-lint-b', availability: 'available', reason: R_OK }],
+    unavailable: []
+  },
+  {
+    id: 'omitted',
+    input: {
+      activeStep: { id: 'verify-docs', stepType: 'verification' },
+      neededCapabilities: ['doc-lint'],
+      availableProviderMetadata: [],
+      hostCapabilities: []
+    },
+    suggestions: [],
+    unavailable: [{ capability: 'doc-lint', reason: NO_META }]
+  }
+];
+
+for (const leg of LEGS) {
+  const { mod, error } = loadLeg(leg);
+  for (const item of H1_PROVIDER_CASES) {
+    const id = `H1.${leg.name}.${item.id}.provider-suggestion`;
+    if (error) { record('FAIL', id, leg.name, error); continue; }
+    try {
+      const out = mod.suggestDocProviders(cloneJson(item.input));
+      if (JSON.stringify(out.suggestions) !== JSON.stringify(item.suggestions) || JSON.stringify(out.unavailable) !== JSON.stringify(item.unavailable)) {
+        throw new Error(`suggestions=${stable(out.suggestions)}, unavailable=${stable(out.unavailable)}`);
+      }
+      record('PASS', id, leg.name);
+    } catch (error) {
+      record('FAIL', id, leg.name, error.message.split('\n')[0]);
+    }
+  }
+}
+
 // ---- Output shape: no channel that could remove or waive a capability -----------------------------------------------
 assertPerLeg('output:exact-key-shapes-and-no-removal-channel', suggest => {
   const outputs = [

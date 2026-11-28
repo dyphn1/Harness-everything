@@ -594,6 +594,252 @@ try {
     }
   }
 
+const crypto = require('crypto');
+
+// Retained F4 controls exercise generic verification/handoff entries directly;
+// they do not load the retired qualification tree or pilot corpus.
+const RETAINED_REQUIREMENTS = [
+  { id: 'req-change', stepType: 'behavior-change', summary: 'Make the code change', acceptance: 'The change is recorded.' },
+  { id: 'req-verify', stepType: 'verification', summary: 'Verify the change', acceptance: 'A successful generic check is recorded.' },
+];
+const RETAINED_LEGS = [
+  { id: 'source', hooks: path.join(ROOT, 'hooks', 'scripts'), kernel: path.join(ROOT, 'harness-everything', 'scripts', 'kernel-router.js') },
+  { id: 'packaged', hooks: path.join(ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts'), kernel: path.join(ROOT, 'plugins', 'harness-everything', 'skills', 'harness-everything', 'scripts', 'kernel-router.js') },
+];
+let retainedSequence = 0;
+
+function retainedCase(leg, label) {
+  retainedSequence++;
+  const workspace = path.join(temp, `retained-${leg.id}-${label}-${retainedSequence}`);
+  const stateHome = path.join(temp, `retained-state-${leg.id}-${label}-${retainedSequence}`);
+  initRepo(workspace);
+  writeJson(path.join(workspace, 'package.json'), packageScript({ test: 'node -e "process.exit(0)"' }));
+  return { leg, workspace, stateHome, sessionId: `retained-${leg.id}-${label}-${retainedSequence}` };
+}
+
+function retainedEnv(testCase) {
+  const env = { ...process.env };
+  for (const key of Object.keys(env)) if (key.startsWith('HARNESS_')) delete env[key];
+  delete env.CLAUDE_PLUGIN_ROOT;
+  delete env.PLUGIN_ROOT;
+  delete env.NODE_OPTIONS;
+  env.HARNESS_STATE_HOME = testCase.stateHome;
+  env.HARNESS_WORKSPACE_ROOT = testCase.workspace;
+  env.HARNESS_SKIP_PROJECT_CHECKS = '';
+  return env;
+}
+
+function retainedRun(testCase, script, args = [], payload) {
+  const result = spawnSync(process.execPath, [script, ...args], {
+    cwd: testCase.workspace,
+    encoding: 'utf8',
+    env: retainedEnv(testCase),
+    input: payload === undefined ? undefined : JSON.stringify(payload),
+    timeout: 60000,
+    maxBuffer: 8 * 1024 * 1024,
+  });
+  if (result.error) throw result.error;
+  return result;
+}
+
+function retainedExpectZero(result, label) {
+  assert.strictEqual(result.status, 0, `${label}: exit=${result.status}\nstdout=${result.stdout}\nstderr=${result.stderr}`);
+}
+
+function retainedSessionDir(testCase) {
+  return path.join(testCase.stateHome, 'workspaces', getWorkspaceKey(testCase.workspace), 'state', 'sessions', testCase.sessionId);
+}
+
+function retainedWorkflowFile(testCase) { return path.join(retainedSessionDir(testCase), 'workflow-run.json'); }
+function retainedHandoffFile(testCase) { return path.join(retainedSessionDir(testCase), 'handoff-state.json'); }
+function retainedReadJson(file) { return JSON.parse(fs.readFileSync(file, 'utf8')); }
+
+function retainedController(testCase, args) {
+  const result = retainedRun(testCase, path.join(testCase.leg.hooks, 'workflow-disposition.js'), args);
+  retainedExpectZero(result, `workflow-disposition ${args[0]}`);
+  return result;
+}
+
+function retainedRouteAndPlan(testCase) {
+  retainedExpectZero(retainedRun(testCase, testCase.leg.kernel, [], {
+    session_id: testCase.sessionId,
+    cwd: testCase.workspace,
+    prompt: 'Fix this checkout bug and add a regression test.',
+  }), 'kernel route');
+  retainedController(testCase, [
+    'plan', '--session-id', testCase.sessionId,
+    '--requirements-json', JSON.stringify(RETAINED_REQUIREMENTS),
+    '--strategy', 'iterative-single', '--evidence', 'two dependent code and verification requirements',
+  ]);
+}
+
+function retainedPassStep(testCase, stepId, bindingId) {
+  retainedController(testCase, [
+    'binding', '--session-id', testCase.sessionId, '--step-id', stepId,
+    '--binding-id', bindingId, '--disposition', 'loaded', '--evidence', 'the required step binding is available',
+  ]);
+  return retainedController(testCase, [
+    'step', '--session-id', testCase.sessionId, '--step-id', stepId,
+    '--disposition', 'pass', '--evidence', 'the requirement acceptance condition is met',
+  ]);
+}
+
+function retainedStart(testCase) {
+  retainedController(testCase, ['start', '--session-id', testCase.sessionId]);
+  retainedPassStep(testCase, 'req-change', 'tdd');
+}
+
+function retainedHook(testCase, name, payload) {
+  return retainedRun(testCase, path.join(testCase.leg.hooks, name), [], payload);
+}
+
+function retainedVerifyPayload(testCase, failed = false) {
+  return {
+    session_id: testCase.sessionId,
+    cwd: testCase.workspace,
+    hook_event_name: failed ? 'PostToolUseFailure' : 'PostToolUse',
+    tool_name: 'Bash',
+    tool_input: { command: 'npm test' },
+    tool_response: failed ? { stdout: '', stderr: 'fixture failure' } : { stdout: 'ok', stderr: '' },
+  };
+}
+
+function retainedMarkWorkspaceEdit(testCase) {
+  const file = path.join(testCase.workspace, 'README.md');
+  fs.appendFileSync(file, 'edited after baseline\n', 'utf8');
+  retainedExpectZero(retainedHook(testCase, 'state-persist.js', {
+    session_id: testCase.sessionId, cwd: testCase.workspace,
+    hook_event_name: 'PostToolUse', tool_name: 'Edit',
+    tool_input: { file_path: file }, tool_response: { stdout: '' },
+  }), 'record in-workspace edit');
+}
+
+function retainedExternalRuntimeEdit(testCase) {
+  const runtimeFile = path.join(temp, `runtime-${testCase.sessionId}.js`);
+  fs.writeFileSync(runtimeFile, 'module.exports = 1;\n', 'utf8');
+  fs.writeFileSync(runtimeFile, 'module.exports = 2;\n', 'utf8');
+  retainedExpectZero(retainedHook(testCase, 'state-persist.js', {
+    session_id: testCase.sessionId, cwd: testCase.workspace,
+    hook_event_name: 'PostToolUse', tool_name: 'Edit',
+    tool_input: { file_path: runtimeFile }, tool_response: { stdout: '' },
+  }), 'record external runtime edit');
+}
+
+function retainedSnapshot(directory) {
+  const files = [];
+  function walk(current) {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const file = path.join(current, entry.name);
+      if (entry.isDirectory()) walk(file);
+      else if (entry.isFile()) files.push({
+        path: path.relative(directory, file).replace(/\\/g, '/'),
+        digest: crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'),
+      });
+    }
+  }
+  walk(directory);
+  return files;
+}
+
+function retainedDigestControl() {
+  const directory = path.join(temp, 'retained-digest-control');
+  fs.mkdirSync(directory, { recursive: true });
+  const file = path.join(directory, 'handoff-state.json');
+  fs.writeFileSync(file, '{"lastVerifyAt":1}\n', 'utf8');
+  const before = retainedSnapshot(directory);
+  fs.appendFileSync(file, '{"lastVerifyAt":2}\n', 'utf8');
+  const after = retainedSnapshot(directory);
+  return before.map(item => item.path).join() === after.map(item => item.path).join()
+    && before[0].digest !== after[0].digest;
+}
+
+function runRetainedCaptureOnlyControl(leg) {
+  const testCase = retainedCase(leg, 'capture-only');
+  retainedRouteAndPlan(testCase);
+  retainedExpectZero(retainedHook(testCase, 'state-persist.js', retainedVerifyPayload(testCase)), 'seed existing handoff state');
+  const before = retainedSnapshot(retainedSessionDir(testCase));
+  const events = [
+    { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'npm test' } },
+    { hook_event_name: 'PreToolUse', tool_name: 'Task', tool_input: { command: 'task' } },
+    { hook_event_name: 'PreToolUse', tool_name: 'Agent', tool_input: { command: 'agent' } },
+    { hook_event_name: 'PostToolUse', tool_name: 'Task', tool_input: { command: 'task' } },
+    { hook_event_name: 'PostToolUse', tool_name: 'Agent', tool_input: { command: 'agent' } },
+    { hook_event_name: 'SubagentStart', tool_name: 'Agent' },
+    { hook_event_name: 'SubagentStop', tool_name: 'Agent' },
+  ];
+  for (const [index, event] of events.entries()) {
+    retainedExpectZero(retainedHook(testCase, 'state-persist.js', {
+      ...event, session_id: testCase.sessionId, cwd: testCase.workspace, tool_use_id: `capture-${index + 1}`,
+    }), `capture-only event ${index + 1}`);
+  }
+  assert.deepStrictEqual(retainedSnapshot(retainedSessionDir(testCase)), before, 'capture-only callbacks must not add or change state files');
+  assert.ok(retainedDigestControl(), 'the positive control detects an in-place write with an unchanged path list');
+  console.log(`PASS S1-I2@${leg.id}: capture-only events leave state bytes unchanged; digest control catches in-place writes`);
+}
+
+function runRetainedGenericVerificationControl(leg) {
+  const testCase = retainedCase(leg, 'generic-verification-runtime-drift');
+  retainedRouteAndPlan(testCase);
+  retainedStart(testCase);
+  retainedMarkWorkspaceEdit(testCase);
+  retainedExpectZero(retainedHook(testCase, 'state-persist.js', retainedVerifyPayload(testCase, true)), 'failed generic verification event');
+  assert.ok(!retainedReadJson(retainedHandoffFile(testCase)).lastVerifyAt, 'failed check must not set lastVerifyAt');
+  retainedExpectZero(retainedHook(testCase, 'state-persist.js', retainedVerifyPayload(testCase)), 'successful generic verification event');
+  const verified = retainedReadJson(retainedHandoffFile(testCase));
+  assert.ok(Number.isFinite(verified.lastVerifyAt), JSON.stringify(verified));
+  assert.strictEqual(verified.lastVerifyExitCode, null);
+  assert.strictEqual(retainedPassStep(testCase, 'req-verify', 'verification-loop').status, 0);
+  console.log(`PASS S8-I2@${leg.id}: verify step passes after failed then successful check`);
+  console.log(`PASS S10-I2@${leg.id}: successful generic verification records lastVerifyAt`);
+
+  retainedExternalRuntimeEdit(testCase);
+  const afterRuntimeChange = retainedReadJson(retainedHandoffFile(testCase));
+  assert.strictEqual(afterRuntimeChange.lastVerifyAt, verified.lastVerifyAt);
+  assert.strictEqual(afterRuntimeChange.lastVerifyExitCode, verified.lastVerifyExitCode);
+  console.log(`PASS S7-I1@${leg.id}: runtime-file edit preserves generic verification state`);
+  const genericStop = retainedHook(testCase, 'stop-gate.js', {
+    session_id: testCase.sessionId, cwd: testCase.workspace, hook_event_name: 'Stop',
+  });
+  assert.strictEqual(genericStop.status, 0);
+  assert.doesNotMatch(String(genericStop.stderr || ''), /Verification Reminder/i, String(genericStop.stderr));
+  assert.ok(Number.isFinite(afterRuntimeChange.lastVerifyAt), JSON.stringify(afterRuntimeChange));
+  console.log(`PASS S10-I3@${leg.id}: generic verify stays visible and generic Stop quiet after runtime drift`);
+}
+
+function runRetainedWorkflowPendingControl(leg) {
+  const testCase = retainedCase(leg, 'generic-verification-only');
+  retainedRouteAndPlan(testCase);
+  retainedStart(testCase);
+  retainedMarkWorkspaceEdit(testCase);
+  retainedExpectZero(retainedHook(testCase, 'state-persist.js', retainedVerifyPayload(testCase)), 'successful generic verification event');
+  retainedExternalRuntimeEdit(testCase);
+  const beforeHandoff = fs.readFileSync(retainedHandoffFile(testCase), 'utf8');
+  const workflowStop = retainedHook(testCase, 'workflow-stop-gate.js', {
+    session_id: testCase.sessionId, cwd: testCase.workspace, hook_event_name: 'Stop',
+  });
+  assert.strictEqual(workflowStop.status, 0);
+  const workflow = retainedReadJson(retainedWorkflowFile(testCase));
+  assert.ok(workflow.state === 'running' && (workflow.unresolved || []).includes('step:req-verify:pending'), JSON.stringify(workflow));
+  assert.match(String(workflowStop.stderr || ''), /step:req-verify:pending/i, String(workflowStop.stderr));
+  const genericStop = retainedHook(testCase, 'stop-gate.js', {
+    session_id: testCase.sessionId, cwd: testCase.workspace, hook_event_name: 'Stop',
+  });
+  assert.strictEqual(genericStop.status, 0);
+  assert.doesNotMatch(String(genericStop.stderr || ''), /Verification Reminder/i, String(genericStop.stderr));
+  assert.strictEqual(fs.readFileSync(retainedHandoffFile(testCase), 'utf8'), beforeHandoff);
+  console.log(`PASS S11-I1@${leg.id}: generic verify leaves req-verify pending while generic Stop stays quiet`);
+}
+
+function runRetainedF4Controls() {
+  for (const leg of RETAINED_LEGS) {
+    runRetainedCaptureOnlyControl(leg);
+    runRetainedGenericVerificationControl(leg);
+    runRetainedWorkflowPendingControl(leg);
+  }
+}
+
+  runRetainedF4Controls();
+
   console.log('Issue #242 verification contract: taxonomy, discovery, execution safety, multi-root scope, hook recognition, and Stop evidence verified.');
   console.log('Issue #306 host cwd wrapper: validated prelude recognition, negative chaining/injection/out-of-root cases, contract governance, canonical/packaged parity, and hook-to-Stop replay verified.');
 } finally {

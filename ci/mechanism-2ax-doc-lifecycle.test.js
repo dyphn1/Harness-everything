@@ -2315,4 +2315,136 @@ checkCase('2ax. frozen Git-object guard with bootstrap and tamper controls', () 
   });
 });
 
+// Moved from 325-3b-s2a-{core,producer} and e1-dependency-artifact-scope (#553 T2-D):
+// resolver capture/copy parity, A03 resolver-only capture controls, and narrow dependency-artifact root validation.
+
+const RESOLVER_LEGS = [
+  {
+    name: 'source',
+    file: path.join(REPOSITORY_ROOT, 'harness-everything', 'scripts', 'project-docs-resolver.js')
+  },
+  {
+    name: 'packaged',
+    file: path.join(REPOSITORY_ROOT, 'plugins', 'harness-everything', 'skills', 'harness-everything', 'scripts', 'project-docs-resolver.js')
+  }
+];
+const DERIVE_FIXTURE_ROOT = path.join(__dirname, 'fixtures', 'doc-obligations', 'derive');
+const RESOLVER_DERIVE_CONFIG = JSON.parse(fs.readFileSync(path.join(DERIVE_FIXTURE_ROOT, 'config.json'), 'utf8'));
+const RESOLVER_CONFIG_REL = '.agents/harness-everything/project-docs.json';
+const RESOLVER_HOST_MANIFEST = '.claude/harness-everything/manifest.json';
+const RESOLVER_EXPECTED_ROOTS = ['.husky/_', 'node_modules'];
+
+function readFixtureTree(root) {
+  const files = {};
+  if (!fs.existsSync(root)) return files;
+  const walk = dir => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else files[path.relative(root, full).split(path.sep).join('/')] = fs.readFileSync(full, 'utf8');
+    }
+  };
+  walk(root);
+  return files;
+}
+
+function writeResolverFixture(name, baseFiles, candidateFiles = {}) {
+  const root = workspace(`resolver-${name}-${Math.random().toString(16).slice(2, 8)}`);
+  const writeMap = files => {
+    for (const [rel, content] of Object.entries(files)) {
+      const target = path.join(root, ...rel.split('/'));
+      if (content === null) { fs.rmSync(target, { force: true }); continue; }
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, content, 'utf8');
+    }
+  };
+  writeMap({ [RESOLVER_CONFIG_REL]: `${JSON.stringify(RESOLVER_DERIVE_CONFIG, null, 2)}\n`, ...baseFiles });
+  writeMap(candidateFiles);
+  return root;
+}
+
+function normativeResolverFiles() {
+  const dir = path.join(DERIVE_FIXTURE_ROOT, 'missing-approval');
+  return {
+    base: readFixtureTree(path.join(dir, 'base')),
+    candidate: readFixtureTree(path.join(dir, 'candidate'))
+  };
+}
+
+for (const leg of RESOLVER_LEGS) {
+  checkCase(`resolver:captured-export-and-copies-synchronized [${leg.name}]`, () => {
+    const resolverMod = require(leg.file);
+    assert.strictEqual(typeof resolverMod.resolveDocsConfigCaptured, 'function', `${leg.name} resolver exports resolveDocsConfigCaptured`);
+    const canonical = crypto.createHash('sha256').update(fs.readFileSync(RESOLVER_LEGS[0].file)).digest('hex');
+    const copies = [
+      'to-spec/scripts/project-docs-resolver.js',
+      'multi-agent-workspace/scripts/project-docs-resolver.js',
+      'plugins/harness-everything/skills/harness-everything/scripts/project-docs-resolver.js'
+    ];
+    for (const copy of copies) {
+      const digest = crypto.createHash('sha256').update(fs.readFileSync(path.join(REPOSITORY_ROOT, copy))).digest('hex');
+      assert.strictEqual(digest, canonical, `${copy} matches the canonical resolver`);
+    }
+  });
+
+  checkCase(`A03:captured-resolution-equals-existing-resolver-project-config [${leg.name}]`, () => {
+    const resolverMod = require(leg.file);
+    const files = normativeResolverFiles();
+    const root = writeResolverFixture(`a03-project-${leg.name}`, files.base, files.candidate);
+    const captured = resolverMod.resolveDocsConfigCaptured(root, { activeHost: 'claude' });
+    const existing = resolverMod.resolveDocsConfig(root, { activeHost: 'claude' });
+    assert.strictEqual(sortedJson(captured.resolution), sortedJson(existing), 'captured resolution equals the existing resolver result');
+  });
+
+  checkCase(`A03:project-overrides-host-positive-equals-existing-resolver [${leg.name}]`, () => {
+    const resolverMod = require(leg.file);
+    const host = {
+      ...normativeResolverFiles().base,
+      [RESOLVER_HOST_MANIFEST]: `${JSON.stringify({ projectDocs: { governed: [{ path: 'docs/host/**', role: 'reference' }] } }, null, 2)}\n`
+    };
+    const root = writeResolverFixture(`a03-override-${leg.name}`, host);
+    const captured = resolverMod.resolveDocsConfigCaptured(root, { activeHost: 'claude' });
+    const existing = resolverMod.resolveDocsConfig(root, { activeHost: 'claude' });
+    assert.strictEqual(sortedJson(captured.resolution), sortedJson(existing), 'project-overrides-host resolution');
+  });
+
+  checkCase(`A03:equal-host-positive-equals-existing-resolver [${leg.name}]`, () => {
+    const resolverMod = require(leg.file);
+    const host = {
+      ...normativeResolverFiles().base,
+      [RESOLVER_HOST_MANIFEST]: `${JSON.stringify({ projectDocs: RESOLVER_DERIVE_CONFIG }, null, 2)}\n`
+    };
+    const root = writeResolverFixture(`a03-equal-host-${leg.name}`, host);
+    const captured = resolverMod.resolveDocsConfigCaptured(root, { activeHost: 'claude' });
+    const existing = resolverMod.resolveDocsConfig(root, { activeHost: 'claude' });
+    assert.strictEqual(sortedJson(captured.resolution), sortedJson(existing), 'equal-host resolution');
+  });
+
+  checkCase(`A03:capture-binds-exact-config-bytes-and-selection [${leg.name}]`, () => {
+    const resolverMod = require(leg.file);
+    const files = normativeResolverFiles();
+    const root = writeResolverFixture(`a03-bytes-${leg.name}`, files.base, files.candidate);
+    const captured = resolverMod.resolveDocsConfigCaptured(root, { activeHost: 'claude' });
+    const bytes = fs.readFileSync(path.join(root, RESOLVER_CONFIG_REL));
+    const digest = crypto.createHash('sha256').update(bytes).digest('hex');
+    assert.ok(JSON.stringify(captured.capture && captured.capture.sources).includes(digest),
+      'the capture must carry the SHA256 of the exact config bytes that were parsed');
+    assert.ok(captured.capture && Array.isArray(captured.capture.selectionInputs), 'capture.selectionInputs must be an array');
+  });
+
+  checkCase(`config-validator-accepts-only-the-two-exact-optional-roots [${leg.name}]`, () => {
+    const resolverMod = require(leg.file);
+    for (const roots of [[], ['node_modules'], ['.husky/_'], RESOLVER_EXPECTED_ROOTS]) {
+      assert.strictEqual(resolverMod.validateDocsConfig({ inventory: { dependencyArtifactRoots: roots } }).valid, true,
+        `valid roots: ${JSON.stringify(roots)}`);
+    }
+    for (const roots of [['vendor'], ['node_modules', 'node_modules'], ['node_modules/child'], ['../node_modules'], ['/node_modules'], ['node_modules/']]) {
+      assert.strictEqual(resolverMod.validateDocsConfig({ inventory: { dependencyArtifactRoots: roots } }).valid, false,
+        `invalid roots: ${JSON.stringify(roots)}`);
+    }
+    assert.strictEqual(resolverMod.validateDocsConfig({ inventory: { dependencyArtifactRoots: ['node_modules'], exclusions: ['tmp'] } }).valid, false,
+      'the narrow policy rejects extra exclusion controls');
+  });
+}
+
 helper.finish();

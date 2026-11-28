@@ -1,0 +1,560 @@
+{
+  "schemaVersion": 1,
+  "phase": "workflow-contract-wiring",
+  "description": "Surviving wiring workflow replay controls migrated from reconciliation-s2b/wiring/cases.json (Issue #553 T2-W). Replayed by ci/mechanism-2an-workflow-replay.test.js through real source and packaged entry points with frozen legacy-off-golden.json.",
+  "cases": [
+    {
+      "id": "W-off-legacy",
+      "family": "WCTRL",
+      "description": "OFF early-return and legacy byte-equivalence pin: the S1 trio replays to its legacy completion, no pilot runtime report is written and no baseline is captured or persisted.",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the PRD REQ text",
+          "acceptance": "normative PRD text is reviewed"
+        },
+        {
+          "id": "req-review",
+          "stepType": "review",
+          "summary": "Review the PRD change",
+          "acceptance": "reviewed scope and findings are recorded"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the PRD change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    {\n      \"path\": \"docs/prd/**\",\n      \"role\": \"prd\"\n    },\n    {\n      \"path\": \"docs/adr/**\",\n      \"role\": \"adr\"\n    },\n    {\n      \"path\": \"docs/reference/**\",\n      \"role\": \"reference\"\n    }\n  ],\n  \"domains\": [\n    \"GRPH\"\n  ],\n  \"legacy\": [\n    \"docs/adr/legacy/**\"\n  ],\n  \"derived\": [\n    {\n      \"path\": \"docs/roadmap/index.md\",\n      \"generator\": \"npm run docs:index\"\n    }\n  ],\n  \"tickets\": \"tracker\"\n}\n",
+          "docs/prd/graph.md": "---\nid: \"PRD-GRPH-001\"\nrevision: 1\nstatus: \"effective\"\ndrafted_by: \"Alice Example\"\neffective_at: \"2026-10-17T00:01:00Z\"\napproval:\n  by: \"Bob Independent\"\n  at: \"2026-10-17T00:00:00Z\"\n  ref: \"https://approvals.example.invalid/PRD-GRPH-001\"\n  role: \"human\"\n  content_digest: \"sha256:a103bf860ed9d2cf7100d93eb8f0e3c3bce322d47e0f9fd83914b5bcc264ef70\"\n---\n# Graph\n\n### REQ-GRPH-001\n\nThe router records one topology per task.\n\nAcceptance: exactly one topology is recorded.\n"
+        },
+        "candidateFiles": {
+          "docs/prd/graph.md": "---\nid: \"PRD-GRPH-001\"\nrevision: 1\nstatus: \"effective\"\ndrafted_by: \"Alice Example\"\neffective_at: \"2026-10-17T00:01:00Z\"\napproval:\n  by: \"Bob Independent\"\n  at: \"2026-10-17T00:00:00Z\"\n  ref: \"https://approvals.example.invalid/PRD-GRPH-001\"\n  role: \"human\"\n  content_digest: \"sha256:c5bc6c8aa29b39198eec91b7af210a946896d9b7975b9c72540ddd4a4bfb37ea\"\n---\n# Graph\n\n### REQ-GRPH-001\n\nThe router records one or more topologies per task.\n\nAcceptance: one or more topologies are recorded.\n"
+        }
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Update the PRD REQ text, review it, and verify it."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "three dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "PRD REQ text updated"
+          }
+        },
+        {
+          "id": "review-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-review",
+            "disposition": "pass",
+            "evidence": "review scope recorded"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "objective doc checks recorded"
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "id": "W-ctrl-nondoc-on",
+      "family": "WCTRL",
+      "description": "Ordinary non-document workflow: the complete action chain reaches its legacy satisfied state and both Stop surfaces exit 0 under the legacy switch value.",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-code",
+          "stepType": "behavior-change",
+          "summary": "Fix the checkout failure",
+          "acceptance": "the failing scenario succeeds"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the checkout change",
+          "acceptance": "objective check evidence is recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    {\n      \"path\": \"docs/prd/**\",\n      \"role\": \"prd\"\n    },\n    {\n      \"path\": \"docs/adr/**\",\n      \"role\": \"adr\"\n    },\n    {\n      \"path\": \"docs/reference/**\",\n      \"role\": \"reference\"\n    }\n  ],\n  \"domains\": [\n    \"GRPH\"\n  ],\n  \"legacy\": [\n    \"docs/adr/legacy/**\"\n  ],\n  \"derived\": [\n    {\n      \"path\": \"docs/roadmap/index.md\",\n      \"generator\": \"npm run docs:index\"\n    }\n  ],\n  \"tickets\": \"tracker\"\n}\n",
+          "assets/notes.txt": "Release notes draft.\n"
+        },
+        "candidateFiles": {
+          "assets/notes.txt": "Release notes draft, revised.\n"
+        }
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and add a regression test."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded test-fix-verify loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "direct-execute",
+          "op": "obligation",
+          "payload": {
+            "obligationId": "execute",
+            "disposition": "pass",
+            "evidence": "typed execution steps are underway"
+          }
+        },
+        {
+          "id": "tdd-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-code",
+            "bindingId": "tdd",
+            "disposition": "loaded",
+            "evidence": "tdd skill located"
+          }
+        },
+        {
+          "id": "code-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-code",
+            "disposition": "pass",
+            "evidence": "regression test added"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "objective check recorded"
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "id": "W-strict-oldpass-governed",
+      "family": "WSTRICT",
+      "description": "Retained controls: the initial non-document decision is satisfied, later actions complete, and the earlier authored code PASS remains in workflow history. E1 scope-recheck assertions are retired.",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-code",
+          "stepType": "behavior-change",
+          "summary": "Fix the checkout failure",
+          "acceptance": "the failing scenario succeeds"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the checkout change",
+          "acceptance": "objective check evidence is recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    {\n      \"path\": \"docs/prd/**\",\n      \"role\": \"prd\"\n    },\n    {\n      \"path\": \"docs/adr/**\",\n      \"role\": \"adr\"\n    },\n    {\n      \"path\": \"docs/reference/**\",\n      \"role\": \"reference\"\n    }\n  ],\n  \"domains\": [\n    \"GRPH\"\n  ],\n  \"legacy\": [\n    \"docs/adr/legacy/**\"\n  ],\n  \"derived\": [\n    {\n      \"path\": \"docs/roadmap/index.md\",\n      \"generator\": \"npm run docs:index\"\n    }\n  ],\n  \"tickets\": \"tracker\"\n}\n",
+          "assets/notes.txt": "Release notes draft.\n",
+          "docs/adr/GRPH-001.md": "# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry once.\n"
+        },
+        "candidateFiles": {}
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and add a regression test."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded test-fix-verify loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "tdd-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-code",
+            "bindingId": "tdd",
+            "disposition": "loaded",
+            "evidence": "tdd skill located"
+          }
+        },
+        {
+          "id": "code-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-code",
+            "disposition": "pass",
+            "evidence": "regression test added"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "objective check recorded"
+          }
+        },
+        {
+          "id": "stop-satisfied",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "add-governed-adr",
+          "op": "mutateIdentity",
+          "payload": {
+            "kind": "candidate",
+            "path": "docs/adr/GRPH-020.md",
+            "content": "# GRPH-020 Operator record\n\nStatus: accepted\n\nHandling MUST record the operator.\n"
+          }
+        },
+        {
+          "id": "stop-recheck",
+          "op": "stop",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "id": "W-strict-f3-pin",
+      "family": "WSTRICT",
+      "description": "Retained controls: authored document/review actions, a mid-workflow commit, and Stop complete through both real layouts. E1 baseline-pin and assessment assertions are retired.",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the PRD REQ text",
+          "acceptance": "normative PRD text is reviewed"
+        },
+        {
+          "id": "req-review",
+          "stepType": "review",
+          "summary": "Review the PRD change",
+          "acceptance": "reviewed scope and findings are recorded"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the PRD change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    {\n      \"path\": \"docs/prd/**\",\n      \"role\": \"prd\"\n    },\n    {\n      \"path\": \"docs/adr/**\",\n      \"role\": \"adr\"\n    },\n    {\n      \"path\": \"docs/reference/**\",\n      \"role\": \"reference\"\n    }\n  ],\n  \"domains\": [\n    \"GRPH\"\n  ],\n  \"legacy\": [\n    \"docs/adr/legacy/**\"\n  ],\n  \"derived\": [\n    {\n      \"path\": \"docs/roadmap/index.md\",\n      \"generator\": \"npm run docs:index\"\n    }\n  ],\n  \"tickets\": \"tracker\"\n}\n",
+          "docs/prd/graph.md": "---\nid: \"PRD-GRPH-001\"\nrevision: 1\nstatus: \"effective\"\ndrafted_by: \"Alice Example\"\neffective_at: \"2026-10-17T00:01:00Z\"\napproval:\n  by: \"Bob Independent\"\n  at: \"2026-10-17T00:00:00Z\"\n  ref: \"https://approvals.example.invalid/PRD-GRPH-001\"\n  role: \"human\"\n  content_digest: \"sha256:a103bf860ed9d2cf7100d93eb8f0e3c3bce322d47e0f9fd83914b5bcc264ef70\"\n---\n# Graph\n\n### REQ-GRPH-001\n\nThe router records one topology per task.\n\nAcceptance: exactly one topology is recorded.\n"
+        },
+        "candidateFiles": {
+          "docs/prd/graph.md": null,
+          "docs/prd/graph-renamed.md": "---\nid: \"PRD-GRPH-001\"\nrevision: 1\nstatus: \"effective\"\ndrafted_by: \"Alice Example\"\neffective_at: \"2026-10-17T00:01:00Z\"\napproval:\n  by: \"Bob Independent\"\n  at: \"2026-10-17T00:00:00Z\"\n  ref: \"https://approvals.example.invalid/PRD-GRPH-001\"\n  role: \"human\"\n  content_digest: \"sha256:c5bc6c8aa29b39198eec91b7af210a946896d9b7975b9c72540ddd4a4bfb37ea\"\n---\n# Graph\n\n### REQ-GRPH-001\n\nThe router records one or more topologies per task.\n\nAcceptance: one or more topologies are recorded.\n"
+        }
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Update the PRD REQ text, review it, and verify it."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "three dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "PRD REQ content moved to the renamed path"
+          }
+        },
+        {
+          "id": "reviewer-agent-result",
+          "op": "hookDeliver",
+          "payload": {
+            "event": "PostToolUse",
+            "toolName": "Agent",
+            "command": "Agent: repo-docs-reviewer",
+            "toolUseId": "toolu_f4_reviewer_agent_W-strict-f3-pin",
+            "response": {
+              "agentId": "agent-f4-reviewer",
+              "status": "completed"
+            }
+          }
+        },
+        {
+          "id": "reviewer-stop",
+          "op": "hookDeliver",
+          "payload": {
+            "event": "SubagentStop",
+            "agentId": "agent-f4-reviewer",
+            "agentType": "repo-docs-reviewer",
+            "lastAssistantMessage": "Review verdict: approve. The PRD change keeps its acceptance criteria consistent.\nReviewed artifact: docs/prd/graph-renamed.md sha256:4d2b4ef924ba492f4de058d00eb7a27c91f0bad64f5fcb2eab28fb36e048ec6b"
+          }
+        },
+        {
+          "id": "review-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-review",
+            "disposition": "pass",
+            "evidence": "independent host review approved the renamed PRD change"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "objective doc checks recorded"
+          }
+        },
+        {
+          "id": "commit-mid",
+          "op": "gitCommit",
+          "payload": {
+            "message": "commit the rename mid-workflow"
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "id": "W-strict-f5-gitdiag",
+      "family": "WSTRICT",
+      "description": "Retained controls: OFF and legacy-switch ON route/Stop paths run in a deliberately broken-git workspace. E1 baseline-unavailable diagnosis assertions are retired.",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the PRD REQ text",
+          "acceptance": "normative PRD text is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the PRD change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    {\n      \"path\": \"docs/prd/**\",\n      \"role\": \"prd\"\n    },\n    {\n      \"path\": \"docs/adr/**\",\n      \"role\": \"adr\"\n    },\n    {\n      \"path\": \"docs/reference/**\",\n      \"role\": \"reference\"\n    }\n  ],\n  \"domains\": [\n    \"GRPH\"\n  ],\n  \"legacy\": [\n    \"docs/adr/legacy/**\"\n  ],\n  \"derived\": [\n    {\n      \"path\": \"docs/roadmap/index.md\",\n      \"generator\": \"npm run docs:index\"\n    }\n  ],\n  \"tickets\": \"tracker\"\n}\n",
+          "docs/prd/graph.md": "---\nid: \"PRD-GRPH-001\"\nrevision: 1\nstatus: \"effective\"\ndrafted_by: \"Alice Example\"\neffective_at: \"2026-10-17T00:01:00Z\"\napproval:\n  by: \"Bob Independent\"\n  at: \"2026-10-17T00:00:00Z\"\n  ref: \"https://approvals.example.invalid/PRD-GRPH-001\"\n  role: \"human\"\n  content_digest: \"sha256:a103bf860ed9d2cf7100d93eb8f0e3c3bce322d47e0f9fd83914b5bcc264ef70\"\n---\n# Graph\n\n### REQ-GRPH-001\n\nThe router records one topology per task.\n\nAcceptance: exactly one topology is recorded.\n"
+        },
+        "candidateFiles": {
+          "docs/prd/graph.md": "---\nid: \"PRD-GRPH-001\"\nrevision: 1\nstatus: \"effective\"\ndrafted_by: \"Alice Example\"\neffective_at: \"2026-10-17T00:01:00Z\"\napproval:\n  by: \"Bob Independent\"\n  at: \"2026-10-17T00:00:00Z\"\n  ref: \"https://approvals.example.invalid/PRD-GRPH-001\"\n  role: \"human\"\n  content_digest: \"sha256:c5bc6c8aa29b39198eec91b7af210a946896d9b7975b9c72540ddd4a4bfb37ea\"\n---\n# Graph\n\n### REQ-GRPH-001\n\nThe router records one or more topologies per task.\n\nAcceptance: one or more topologies are recorded.\n"
+        }
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Update the PRD REQ text and verify it."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "PRD REQ text updated"
+          }
+        },
+        {
+          "id": "corrupt-git",
+          "op": "mutateIdentity",
+          "payload": {
+            "kind": "candidate",
+            "path": ".git/HEAD",
+            "content": "corrupted"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "objective doc checks recorded"
+          },
+          "expectExit": {
+            "off": [
+              0
+            ]
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        }
+      ]
+    }
+  ]
+}

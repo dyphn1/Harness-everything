@@ -1,0 +1,17 @@
+{
+  "governed": [
+    {
+      "path": "docs/adr/*.md",
+      "role": "adr"
+    }
+  ],
+  "domains": [
+    "EVID"
+  ],
+  "derived": [
+    {
+      "path": "docs/governed-index.md",
+      "generator": "node harness-everything/scripts/doc-lifecycle.js index --workspace . --config .agents/harness-everything/project-docs.json --all"
+    }
+  ]
+}

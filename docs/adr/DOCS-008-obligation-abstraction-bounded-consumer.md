@@ -7,7 +7,7 @@ status: accepted
 
 ## Decision
 
-- The doc workflow reconciliation consumes the workflow obligation abstraction in a bounded way: the documentation path only, under the DOCS-006 gate.
+- In the previous release, the doc workflow reconciliation consumed the workflow obligation abstraction in a bounded way: the documentation path only, under the [DOCS-006](DOCS-006-reconciliation-pilot.md) gate. That E1 reconciliation pilot has since been retired ([#553](https://github.com/dyphn1/Harness-everything/issues/553); see the historical note in [DOCS-006](DOCS-006-reconciliation-pilot.md)).
 - Broad promotion of the abstraction to generic workflow use is not approved. It is gated on the Phase 3c H1–H4 paired-task evidence and owner sign-off.
 
 ## Context
@@ -20,8 +20,8 @@ status: accepted
 
 ## Evidence
 
-- Implementation: [doc-reconciliation-core.js](../../hooks/scripts/lib/doc-reconciliation-core.js), [doc-obligations.js](../../harness-everything/scripts/doc-obligations.js) (the obligation table consumed by the doc path).
-- Consumer tests (exercise `doc-reconciliation-core.js` consuming `deriveDocObligations`): [mechanism-325-3b-s2a-core.test.js](../../ci/mechanism-325-3b-s2a-core.test.js), [mechanism-325-3b-s2b-wiring.test.js](../../ci/mechanism-325-3b-s2b-wiring.test.js).
+- Implementation: [doc-reconciliation-core.js](https://github.com/dyphn1/Harness-everything/blob/fa73c41aa6a611ff1f7eea573c80e87d23f756fe/hooks/scripts/lib/doc-reconciliation-core.js), [doc-obligations.js](../../harness-everything/scripts/doc-obligations.js) (the obligation table consumed by the doc path).
+- Consumer tests (exercise `doc-reconciliation-core.js` consuming `deriveDocObligations`): [mechanism-325-3b-s2a-core.test.js](https://github.com/dyphn1/Harness-everything/blob/fa73c41aa6a611ff1f7eea573c80e87d23f756fe/ci/mechanism-325-3b-s2a-core.test.js), [mechanism-325-3b-s2b-wiring.test.js](https://github.com/dyphn1/Harness-everything/blob/fa73c41aa6a611ff1f7eea573c80e87d23f756fe/ci/mechanism-325-3b-s2b-wiring.test.js).
 - Fail-closed controls (not evidence of the consumer): [mechanism-325-3b-preparation.test.js](../../ci/mechanism-325-3b-preparation.test.js), [mechanism-325-3b-s1-review.test.js](../../ci/mechanism-325-3b-s1-review.test.js), [mechanism-341-opencode-lane.test.js](../../ci/mechanism-341-opencode-lane.test.js).
 
 ## Open gates

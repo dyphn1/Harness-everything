@@ -1,0 +1,11 @@
+{
+  "governed": [
+    {
+      "path": "docs/a.md",
+      "role": "reference"
+    }
+  ],
+  "domains": [
+    "GRPH"
+  ]
+}

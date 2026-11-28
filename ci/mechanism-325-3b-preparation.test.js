@@ -20,7 +20,6 @@ const ROOT = path.resolve(__dirname, '..');
 const PREP_DIR = path.join(__dirname, 'fixtures', 'doc-obligations', 'reconciliation-prep');
 const RUNNER = path.join(__dirname, 'archive', '325-prep', 'doc-reconciliation-red.js');
 const corpus = fx.readCaseCorpus(path.join(PREP_DIR, 'cases.json'));
-const registry = JSON.parse(fs.readFileSync(path.join(PREP_DIR, 'pending-red.json'), 'utf8'));
 const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'doc-recon-prep-suite-'));
 
 const ALLOWED_OPS = new Set(['route', 'plan', 'start', 'binding', 'step', 'obligation', 'stop', 'provideEvidence', 'mutateIdentity', 'timestampHints']);
@@ -30,7 +29,6 @@ const SHARED_FILES = [
   ['hooks/scripts/lib/workflow-obligations.js', 'plugins/harness-everything/hooks/scripts/lib/workflow-obligations.js'],
   ['hooks/scripts/workflow-disposition.js', 'plugins/harness-everything/hooks/scripts/workflow-disposition.js'],
   ['hooks/scripts/workflow-stop-gate.js', 'plugins/harness-everything/hooks/scripts/workflow-stop-gate.js'],
-  ['hooks/scripts/lib/doc-reconciliation-pilot.js', 'plugins/harness-everything/hooks/scripts/lib/doc-reconciliation-pilot.js'],
 ];
 
 let failed = 0;
@@ -43,6 +41,33 @@ function checkCase(name, runCase) {
 }
 function runRunner(args) {
   return spawnSync(process.execPath, [RUNNER, ...args], { cwd: ROOT, encoding: 'utf8' });
+}
+const SCRATCH_COPY_PATHS = ['ci', 'hooks', 'harness-everything', 'plugins/harness-everything', 'scripts', '.agents/plugins', 'package.json'];
+function copyScratchTree(destination) {
+  fs.mkdirSync(destination, { recursive: true });
+  for (const relative of SCRATCH_COPY_PATHS) {
+    const source = path.join(ROOT, relative);
+    const target = path.join(destination, relative);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.cpSync(source, target, { recursive: true, dereference: true });
+  }
+}
+function scratchTreeSnapshot(root) {
+  const files = [];
+  const walk = dir => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else files.push([path.relative(root, full).split(path.sep).join('/'), crypto.createHash('sha256').update(fs.readFileSync(full)).digest('hex')]);
+    }
+  };
+  walk(root);
+  return files;
+}
+function runScratchRunner(root, args) {
+  return spawnSync(process.execPath, [path.join(root, 'ci', 'archive', '325-prep', 'doc-reconciliation-red.js'), ...args], {
+    cwd: root, encoding: 'utf8', timeout: 90000, killSignal: 'SIGKILL'
+  });
 }
 
 console.log('=== #325 3b preparation: corpus, legacy controls and infrastructure bounds (H1+H2) ===');
@@ -69,24 +94,40 @@ checkCase('inventory: the H2 corpus covers P01-P07 with the L1 field shape', () 
   }
 });
 
-// Infrastructure rule: an abnormal action result is never a qualified gap. The controls start from one healthy replay
-// set of P01 and change only the ON route result, so every other fault and assertion is the unmodified replay's.
+// Infrastructure rule: an abnormal action result is never a qualified gap. These controls start from one healthy OFF
+// replay per P06 distribution and change only the route result.
 const p01 = corpus.cases.find(item => item.id === 'P01');
-const p01Entries = registry.entries.filter(entry => entry.caseId === 'P01');
-const healthyP01 = runner.replayAll(p01);
-const injectIntoRoute = (patch, legs = ['source', 'packaged']) => {
-  const injected = JSON.parse(JSON.stringify(healthyP01));
-  for (const leg of legs) Object.assign(injected.on[leg].actions.route, patch);
+const p06 = corpus.cases.find(item => item.id === 'P06');
+const healthyP06 = {
+  off: {
+    source: fx.scrubReplay(fx.replayCase(p06, 'source')),
+    packaged: fx.scrubReplay(fx.replayCase(p06, 'packaged'))
+  },
+  on: {}
+};
+const injectIntoRoute = patch => {
+  const injected = JSON.parse(JSON.stringify(healthyP06));
+  for (const leg of ['source', 'packaged']) Object.assign(injected.off[leg].actions.route, patch);
   return injected;
 };
+const assertRouteInfrastructure = (result, expected) => {
+  assert.strictEqual(result.status, 'INFRASTRUCTURE', `status ${result.status}`);
+  assert.deepStrictEqual(result.infrastructure, expected);
+  assert.deepStrictEqual(result.offending, {
+    leg: 'source', mode: 'off', actionId: 'route',
+    fault: expected[0].replace(/^source\.off\.route: /, '')
+  });
+  assert.deepStrictEqual(result.assertions, [], 'no assertion is qualified or classified for an infrastructure case');
+  assert.strictEqual(runner.exitCodeFor({ cases: [result] }, 'expect-red'), 2, 'expected-RED mode exits 2');
+};
 
-// locks: C — "unavailable observations ... cannot become a false PASS"; control: P01
-checkCase('negative control: an abnormal route in P01 is infrastructure, and --expect-red exits nonzero though later assertions still match', () => {
+// locks: C — "unavailable observations ... cannot become a false PASS"; control: P06
+checkCase('negative control: an abnormal OFF route in P06 is infrastructure while later plan/start/verify/Stop assertions stay unchanged', () => {
   const injected = injectIntoRoute({ exitCode: 1 });
-  const later = p01.expectations.on.filter(assertion => assertion.id.startsWith('verify-obligation') || assertion.id.startsWith('stop-'));
+  const later = p06.expectations.off.filter(assertion => /^(?:plan|start|verify|stop)-/.test(assertion.id));
   for (const leg of ['source', 'packaged']) {
-    const before = fx.evaluateAll(healthyP01.on[leg], later);
-    const after = fx.evaluateAll(injected.on[leg], later);
+    const before = fx.evaluateAll(healthyP06.off[leg], later);
+    const after = fx.evaluateAll(injected.off[leg], later);
     assert.deepStrictEqual(after.map(item => [item.id, item.pass, item.actual]), before.map(item => [item.id, item.pass, item.actual]),
       `${leg}: the later assertions evaluate exactly as in the unmodified replay`);
     for (const item of after) {
@@ -94,34 +135,42 @@ checkCase('negative control: an abnormal route in P01 is infrastructure, and --e
         `${leg}: ${item.id} remains strict S1 GREEN, so only the infrastructure rule can stop the replay`);
     }
   }
-  const result = runner.classifyCase(p01, injected, p01Entries);
-  assert.strictEqual(result.status, 'INFRASTRUCTURE', `status ${result.status}`);
-  assert.deepStrictEqual(result.infrastructure, ['source.on.route: exit 1 outside policy [0]', 'packaged.on.route: exit 1 outside policy [0]']);
-  assert.deepStrictEqual(result.offending, { leg: 'source', mode: 'on', actionId: 'route', fault: 'exit 1 outside policy [0]' });
-  assert.deepStrictEqual(result.assertions, [], 'no assertion is qualified or classified for an infrastructure case');
-  assert.strictEqual(runner.exitCodeFor({ cases: [result] }, 'expect-red'), 2, 'expected-RED mode exits nonzero');
+  const result = runner.classifyCase(p06, injected, []);
+  assertRouteInfrastructure(result, [
+    'source.off.route: exit 1 outside policy [0]',
+    'packaged.off.route: exit 1 outside policy [0]'
+  ]);
 });
 
-// locks: C — "unavailable observations ... cannot become a false PASS"; control: P01
-checkCase('negative control: a route killed by a signal or without an exit status is infrastructure', () => {
-  const result = runner.classifyCase(p01, injectIntoRoute({ exitCode: null, signal: 'SIGTERM' }), p01Entries);
-  assert.strictEqual(result.status, 'INFRASTRUCTURE');
-  assert.ok(result.infrastructure.includes('source.on.route: terminated by signal SIGTERM'), result.infrastructure.join('; '));
-  assert.ok(result.infrastructure.includes('source.on.route: no exit status'), result.infrastructure.join('; '));
+// locks: C — "unavailable observations ... cannot become a false PASS"; control: P06
+checkCase('negative control: an OFF route killed by a signal or without an exit status is infrastructure', () => {
+  const result = runner.classifyCase(p06, injectIntoRoute({ exitCode: null, signal: 'SIGTERM' }), []);
+  assertRouteInfrastructure(result, [
+    'source.off.route: terminated by signal SIGTERM',
+    'source.off.route: no exit status',
+    'packaged.off.route: terminated by signal SIGTERM',
+    'packaged.off.route: no exit status'
+  ]);
 });
 
-// locks: C — "unavailable observations ... cannot become a false PASS"; control: P01
-checkCase('negative control: a spawn error on the route is infrastructure', () => {
-  const result = runner.classifyCase(p01, injectIntoRoute({ exitCode: null, error: 'spawnSync node ENOENT' }), p01Entries);
-  assert.strictEqual(result.status, 'INFRASTRUCTURE');
-  assert.ok(result.infrastructure.includes('source.on.route: spawn error spawnSync node ENOENT'), result.infrastructure.join('; '));
+// locks: C — "unavailable observations ... cannot become a false PASS"; control: P06
+checkCase('negative control: a spawn error on the OFF route is infrastructure', () => {
+  const result = runner.classifyCase(p06, injectIntoRoute({ exitCode: null, error: 'spawnSync node ENOENT' }), []);
+  assertRouteInfrastructure(result, [
+    'source.off.route: spawn error spawnSync node ENOENT',
+    'source.off.route: no exit status',
+    'packaged.off.route: spawn error spawnSync node ENOENT',
+    'packaged.off.route: no exit status'
+  ]);
 });
 
-// locks: C — "unavailable observations ... cannot become a false PASS"; control: P01
-checkCase('negative control: an accepted route exit without the routing checkpoint is malformed required output', () => {
-  const result = runner.classifyCase(p01, injectIntoRoute({ stdout: 'routing unavailable' }), p01Entries);
-  assert.strictEqual(result.status, 'INFRASTRUCTURE');
-  assert.ok(result.infrastructure.includes('source.on.route: malformed required output'), result.infrastructure.join('; '));
+// locks: C — "unavailable observations ... cannot become a false PASS"; control: P06
+checkCase('negative control: an accepted OFF route exit without the routing checkpoint is malformed required output', () => {
+  const result = runner.classifyCase(p06, injectIntoRoute({ stdout: 'routing unavailable' }), []);
+  assertRouteInfrastructure(result, [
+    'source.off.route: malformed required output',
+    'packaged.off.route: malformed required output'
+  ]);
 });
 
 // locks: C — "unavailable observations ... cannot become a false PASS"; control: P01
@@ -133,6 +182,129 @@ checkCase('--expect-red exits nonzero from the CLI when a real route exit falls 
   const run = runRunner(['--expect-red', '--case', 'P01', '--cases', file]);
   assert.strictEqual(run.status, 2, `an infrastructure fault exits 2: ${run.stdout} ${run.stderr}`);
   assert.ok(run.stdout.includes('INFRASTRUCTURE'), run.stdout);
+});
+
+// The scratch tree contains copied real source/package entries, not stubbed runtime modules. Missing only the retired
+// pilot fingerprint file must still reach the replay child and the original infrastructure/classification path.
+checkCase('the archived runner reaches real replay and fault classification when its retired pilot fingerprint is absent', () => {
+  const scratchRoot = path.join(workDir, 'missing-pilot-tree');
+  copyScratchTree(scratchRoot);
+  const scratchPrepDir = path.join(scratchRoot, 'ci', 'fixtures', 'doc-obligations', 'reconciliation-prep');
+  const casesFile = path.join(scratchPrepDir, 'scratch-cases.json');
+  const timeoutCasesFile = path.join(scratchPrepDir, 'scratch-timeout-cases.json');
+  const registryFile = path.join(scratchPrepDir, 'scratch-registry.json');
+  const stopOnly = {
+    ...p01,
+    actions: [{ id: 'stop', op: 'stop' }],
+    expectations: {
+      off: [{ id: 'stop-exit', path: ['actions', 'stop', 'exitCode'], operator: 'equals', expected: 0 }],
+      on: [{ id: 'stop-exit', path: ['actions', 'stop', 'exitCode'], operator: 'equals', expected: 1 }]
+    }
+  };
+  const timeoutStopOnly = { ...stopOnly, childLimits: { timeoutMs: 1 } };
+  const historicalRegistry = JSON.parse(fs.readFileSync(path.join(PREP_DIR, 'pending-red.json'), 'utf8'));
+  const scratchRegistry = {
+    schemaVersion: 1,
+    baselineSha: historicalRegistry.baselineSha,
+    runtimeFingerprint: '0'.repeat(64), // syntactically valid scratch-only pin; the historical registry is untouched
+    entries: ['source', 'packaged'].map(distribution => ({
+      caseId: 'P01', assertionId: 'P01.on.stop-exit', distribution,
+      baselineSha: historicalRegistry.baselineSha, actual: 0, desired: 1,
+      blocker: '#341 E0', reasonCode: 'scratch-stop-control'
+    }))
+  };
+  fs.writeFileSync(casesFile, JSON.stringify({ cases: [stopOnly] }), 'utf8');
+  fs.writeFileSync(timeoutCasesFile, JSON.stringify({ cases: [timeoutStopOnly] }), 'utf8');
+  fs.writeFileSync(registryFile, JSON.stringify(scratchRegistry), 'utf8');
+
+  const sourcePilot = path.join(scratchRoot, 'hooks', 'scripts', 'lib', 'doc-reconciliation-pilot.js');
+  const packagedPilot = path.join(scratchRoot, 'plugins', 'harness-everything', 'hooks', 'scripts', 'lib', 'doc-reconciliation-pilot.js');
+  const sourceStopGate = path.join(scratchRoot, 'hooks', 'scripts', 'workflow-stop-gate.js');
+  const packagedStopGate = path.join(scratchRoot, 'plugins', 'harness-everything', 'hooks', 'scripts', 'workflow-stop-gate.js');
+  assert.deepStrictEqual(fs.readFileSync(sourceStopGate), fs.readFileSync(path.join(ROOT, 'hooks', 'scripts', 'workflow-stop-gate.js')));
+  assert.deepStrictEqual(fs.readFileSync(packagedStopGate), fs.readFileSync(path.join(ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'workflow-stop-gate.js')));
+  fs.rmSync(sourcePilot, { force: true });
+  fs.rmSync(packagedPilot, { force: true });
+  assert.ok(!fs.existsSync(sourcePilot) && !fs.existsSync(packagedPilot), 'both retired pilot files are absent in the scratch tree');
+  const beforeRuns = scratchTreeSnapshot(scratchRoot);
+  const args = ['--expect-red', '--json', '--cases', path.relative(scratchRoot, casesFile), '--registry', path.relative(scratchRoot, registryFile)];
+
+  const first = runScratchRunner(scratchRoot, args);
+  const second = runScratchRunner(scratchRoot, args);
+  for (const [index, run] of [first, second].entries()) {
+    assert.ok(!run.error, `run ${index + 1} spawned: ${run.error}`);
+    assert.strictEqual(run.signal, null, `run ${index + 1} exited without a signal`);
+    assert.strictEqual(run.status, 1, `run ${index + 1} fails closed after the real replay: status=${run.status}; stdout=${run.stdout.replace(/\s+/g, ' ')}; stderr=${run.stderr}`);
+    const report = JSON.parse(run.stdout);
+    const result = report.cases[0];
+    assert.strictEqual(report.runtimeFingerprintAvailable, false);
+    assert.strictEqual(report.runtimeFingerprintMatches, false);
+    assert.strictEqual(report.replaysRun, 4, 'source and packaged Stop-gate children ran in both modes');
+    assert.strictEqual(result.assertions.length, 4, 'the real Stop-gate action was classified in every replay');
+    assert.ok(result.assertions.every(entry => entry.actual === 0), 'all source/package Stop-gate children returned their real exit code');
+    assert.strictEqual(result.status, 'FAIL');
+    assert.strictEqual(result.qualifiedGaps, 0, 'the scratch registry entries cannot qualify without a fingerprint');
+    assert.strictEqual(result.parity, 'match', 'the un-stubbed source and packaged Stop gates agree');
+    assert.strictEqual(result.reason, 'runtime fingerprint unavailable because the retired pilot file is missing');
+    assert.ok(!result.assertions.some(entry => entry.status === 'gap-qualified'));
+    assert.strictEqual(result.assertions.filter(entry => entry.status === 'gap-unqualified').length, 2);
+    assert.strictEqual(report.pilotCredit, false);
+    assert.strictEqual(Object.hasOwn(report, 'recaptureCommand'), false, 'unavailable is not a recapture invitation');
+    assert.ok(!/recapture/i.test(run.stderr), run.stderr);
+    assert.deepStrictEqual(scratchTreeSnapshot(scratchRoot), beforeRuns, 'replays leave the scratch tree unchanged');
+  }
+  assert.deepStrictEqual(JSON.parse(second.stdout), JSON.parse(first.stdout), 'two clean equivalent replays have identical reports');
+
+  const faultArgs = [...args];
+  faultArgs[faultArgs.indexOf(path.relative(scratchRoot, casesFile))] = path.relative(scratchRoot, timeoutCasesFile);
+  const faultFirst = runScratchRunner(scratchRoot, faultArgs);
+  const faultSecond = runScratchRunner(scratchRoot, faultArgs);
+  for (const [index, run] of [faultFirst, faultSecond].entries()) {
+    assert.ok(!run.error, `fault run ${index + 1} spawned: ${run.error}`);
+    assert.strictEqual(run.signal, null, `fault run ${index + 1} exited without a signal`);
+    assert.strictEqual(run.status, 2, `fault run ${index + 1} is classified as infrastructure: ${run.stdout} ${run.stderr}`);
+    const report = JSON.parse(run.stdout);
+    const result = report.cases[0];
+    assert.strictEqual(report.replaysRun, 1, 'the real timed-out Stop-gate child is recorded');
+    assert.strictEqual(result.status, 'INFRASTRUCTURE');
+    assert.strictEqual(result.actionsRun, 1);
+    assert.deepStrictEqual(result.offending, {
+      leg: 'source', mode: 'off', actionId: 'stop', fault: 'timed out at the child deadline (ETIMEDOUT)'
+    });
+    assert.strictEqual(result.qualifiedGaps, 0);
+    assert.strictEqual(Object.hasOwn(report, 'recaptureCommand'), false);
+    assert.ok(!/recapture/i.test(run.stderr), run.stderr);
+    assert.deepStrictEqual(scratchTreeSnapshot(scratchRoot), beforeRuns, 'faulted replays leave the scratch tree unchanged');
+  }
+  assert.deepStrictEqual(JSON.parse(faultSecond.stdout), JSON.parse(faultFirst.stdout), 'two clean equivalent fault runs have identical reports');
+
+  const malformedRegistry = JSON.parse(JSON.stringify(scratchRegistry));
+  delete malformedRegistry.entries[0].reasonCode;
+  const malformedRegistryFile = path.join(scratchPrepDir, 'scratch-malformed-registry.json');
+  fs.writeFileSync(malformedRegistryFile, JSON.stringify(malformedRegistry), 'utf8');
+  const malformedArgs = [...args];
+  malformedArgs[malformedArgs.indexOf(path.relative(scratchRoot, registryFile))] = path.relative(scratchRoot, malformedRegistryFile);
+  const malformed = runScratchRunner(scratchRoot, malformedArgs);
+  assert.strictEqual(malformed.status, 2, 'malformed registry remains an infrastructure error');
+  assert.strictEqual(malformed.stdout, '', 'malformed registry fails before replay');
+  assert.ok(malformed.stderr.includes('must have exactly the keys'), malformed.stderr);
+
+  const candidateFile = path.join(scratchPrepDir, 'scratch-candidate.json');
+  const recapture = runScratchRunner(scratchRoot, [
+    '--recapture-candidate', path.relative(scratchRoot, candidateFile),
+    '--baseline-sha', historicalRegistry.baselineSha,
+    '--cases', path.relative(scratchRoot, casesFile)
+  ]);
+  assert.strictEqual(recapture.status, 2, 'candidate recapture is refused without the fingerprint');
+  assert.ok(recapture.stderr.includes('runtime fingerprint unavailable'), recapture.stderr);
+  assert.ok(!fs.existsSync(candidateFile), 'no candidate registry is written');
+
+  const otherFingerprintFile = path.join(scratchRoot, 'hooks', 'scripts', 'lib', 'workflow-obligations.js');
+  fs.rmSync(otherFingerprintFile);
+  const otherIo = runScratchRunner(scratchRoot, args);
+  assert.strictEqual(otherIo.status, 2, 'a missing non-pilot fingerprint file remains an infrastructure error');
+  assert.strictEqual(otherIo.stdout, '', 'other fingerprint I/O errors fail before replay');
+  assert.ok(otherIo.stderr.includes('workflow-obligations.js') && otherIo.stderr.includes('ENOENT'), otherIo.stderr);
 });
 
 // Real process boundary: a substituted child (hung or flooding) under a short deadline runs through the CLI. The
@@ -288,19 +460,6 @@ checkCase('F-a: Windows-shaped source and packaged paths normalize identically',
   assert.ok(!sourceTmp.includes('\\') && !sourceTmp.includes('doc-recon'), 'no raw separator or temp name survives');
   const sameAfterFold = fx.scrubText('C:/Users/runneradmin/AppData/Local/Temp/doc-recon-P01-source-ws-0a1b2c3d-x9/state/workflow-run.json', roots);
   assert.strictEqual(sameAfterFold, sourceTmp, 'POSIX and Windows spellings of one path normalize identically');
-});
-
-// F-b: a per-action switch override must not reach an OFF replay.
-// locks: unresolved — OFF replay carries no per-action switch; the I2 invariant is not in the A/B/C/R3 table
-checkCase('F-b: an OFF replay of P05 carries no per-action switch; the ON replay keeps its overrides', () => {
-  const item = corpus.cases.find(candidate => candidate.id === 'P05');
-  const off = fx.replayCase(item, 'source');
-  for (const [id, action] of Object.entries(off.actions)) {
-    assert.strictEqual(action.pilot, undefined, `OFF replay action ${id} has no switch value`);
-  }
-  const on = fx.replayCase(item, 'source', { pilot: '1' });
-  assert.strictEqual(on.actions['stop-on-1'].pilot, '1', 'an ON replay keeps the ON action value');
-  assert.strictEqual(on.actions['stop-off'].pilot, '0', 'an ON replay keeps the explicit OFF action value');
 });
 
 fs.rmSync(workDir, { recursive: true, force: true });

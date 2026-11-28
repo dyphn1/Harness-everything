@@ -302,11 +302,41 @@ The editorial doc check (`harness-everything/scripts/doc-check.js`, F1) is reach
 
 `compare-derived` (`harness-everything/scripts/doc-check.js`, F3) compares a caller-captured generator output with a declared derived view, byte for byte. It runs no generator and writes no files. Its evidence is package and mechanism only: the generation status is caller-reported, and the output is ordinary command evidence. It is not trusted credit, and it makes no live-host claim.
 
-Credited reconciliation for F4 (Claude Code only, pilot ON) is **implemented, with mechanism and package evidence and one live field-availability capture**. Credit works for `doc-lint` and `link-check` through a registered `doc-check` run, and for an independent `quality-review` with bound path digests. The capture under `benchmarks/results/live-host/claude-325-3b-s2b/` proves field availability on Claude Code 2.1.308 for one session. It is not live-host credit, and no live-host credit run exists yet. Deterministic mechanism tests (replay through the real hook entry points, with a CI-only qualification preloader) prove the chain.
+**Historical (retired E1 pilot):** credited reconciliation for F4 (Claude Code only, pilot ON) was **implemented, with mechanism and package evidence and one live field-availability capture**. Credit works for `doc-lint` and `link-check` through a registered `doc-check` run, and for an independent `quality-review` with bound path digests. The capture under `benchmarks/results/live-host/claude-325-3b-s2b/` proves field availability on Claude Code 2.1.308 for one session. It is not live-host credit, and no live-host credit run exists yet. Deterministic mechanism tests (replay through the real hook entry points, with a CI-only qualification preloader) prove the chain.
 
-PR-B adds a dedicated `outline-confirmation` evidence lane for Claude captures with separate B/O/D checks, a coordinator-sealed pre-dispatch handoff, pinned-inventory row binding, and an independent exact-O review. A separate sanitized capture now qualifies the **observed Claude Code 2.1.312 run8 profile**, recorded at main baseline `1bd0f805031c5577a6e7f72a9bc5b41618b71fc1`. This is retained field-mapping evidence, not runtime version enforcement or an E1 qualifying cycle. OpenCode, Codex and other Claude Code versions receive no outline qualification. Missing or ambiguous capture stays unresolved and host tools remain fail-open. The outline result does not replace the aggregate B→D MUST result or the existing exact-D `quality-review` contract.
+**Historical (retired E1 pilot):** PR-B added a dedicated `outline-confirmation` evidence lane for Claude captures with separate B/O/D checks, a coordinator-sealed pre-dispatch handoff, pinned-inventory row binding, and an independent exact-O review. A separate sanitized capture qualified the **observed Claude Code 2.1.312 run8 profile**, recorded at main baseline `1bd0f805031c5577a6e7f72a9bc5b41618b71fc1`. This remains retained field-mapping evidence, not runtime version enforcement or an E1 qualifying cycle. OpenCode, Codex and other Claude Code versions received no outline qualification. Missing or ambiguous capture stayed unresolved and host tools remained fail-open. The outline result did not replace the aggregate B→D MUST result or the existing exact-D `quality-review` contract.
 
-W3/W6 adds only the closed workflow-state operations named in [the reconciliation contract](doc-workflow-reconciliation.md#writer-policy-phase-aware): plan/start and inventory before O, one seal after the approved O review, then three ordered dispositions after worker closure and final review. The installed producer exposes only `inventory` and `seal`; the real Pre/Post hook journal and provider validate invocation identity, phase, exact destinations, schema and transition. `state-persist` uses that same decision so verified state-only calls do not appear as task edits or verification evidence. The outline mechanism suite exercises source and packaged paths; this is deterministic mechanism/package evidence only. No live W6 host cycle or E1 qualification is claimed.
+**Historical (retired E1 pilot):** W3/W6 added only the closed workflow-state operations named in [the reconciliation contract](doc-workflow-reconciliation.md#writer-policy-phase-aware): plan/start and inventory before O, one seal after the approved O review, then three ordered dispositions after worker closure and final review. The installed producer exposed only `inventory` and `seal`, which have since been removed under #553 (see below); previously, the real Pre/Post hook journal and provider validated invocation identity, phase, exact destinations, schema and transition, and `state-persist` used that same decision so verified state-only calls did not appear as task edits or verification evidence. The outline mechanism suite exercised source and packaged paths; this is deterministic mechanism/package evidence only. No live W6 host cycle or E1 qualification is claimed.
+
+### E1 pilot retirement and retained document controls (#553)
+
+The E1 reconciliation pilot is retired, and its runtime modules and W6 `inventory`/`seal` CLI
+(`hooks/scripts/w6-state-operations.js`) have been removed (#553). Under the retirement contract
+every `HARNESS_DOC_RECONCILIATION_PILOT` value is ignored, ordinary hooks print no flag warning,
+and workflow credit and Stop no longer load the E1 provider (#553); generic verification, required
+bindings and Fable correlation are unchanged, and a legacy doc-only verification no longer
+satisfies Stop. In-flight E1 work belongs to the previous release; after upgrading, end the old
+session and open a new one to redo review/verify. Recorded journals, reports and outline artifacts
+stay in place. Issues
+[#325](https://github.com/dyphn1/Harness-everything/issues/325) and
+[#350](https://github.com/dyphn1/Harness-everything/issues/350) remain open failure markers.
+
+The document controls below remain available and are unchanged by this retirement. Each is
+package/mechanism evidence only, grants no E1 credit and makes no live-host claim:
+
+- `doc-check` editorial check (F1, `harness-everything/scripts/doc-check.js`): instruction-only,
+  no `doc-change` step binding, no host enforcement and no Stop lock; a non-empty
+  `coverage.unsupported` marks it partial.
+- `compare-derived` (F3): byte-for-byte comparison of a caller-captured generator output with a
+  declared derived view; runs no generator and writes no files. The generation status is
+  caller-reported.
+- `doc-check check --conflict-assessment`: full governed/legacy corpus conflict check that
+  requires `--base` as an exact commit SHA; accepts recorded and structural conflicts only,
+  leaves prose contradictions to independent `quality-review`, and remains refused on OpenCode.
+- `doc-governance` CI guard (PR #376): on `pull_request` it extracts
+  `scripts/doc-governance-guard.js` from the event base and runs those bytes against the exact
+  base/head SHAs, never the candidate copy; nonzero exits fail that job independently of the other
+  CI jobs. Its trust-surface and decision classes are unchanged.
 
 ### Own-repository governance guard (PR #376)
 

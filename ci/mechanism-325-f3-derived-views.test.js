@@ -830,6 +830,146 @@ if (process.argv.includes('--mutation-probes')) {
   }
 }
 
+// =====================================================================================================================
+// Appended block (packet T2-C #553) — surviving CLI --derived-view controls moved from
+// ci/mechanism-e1-derived-regenerate.test.js (wholeSeamFixture plain/derived comparison, matching
+// digests/coverage + plain-check firebreak, stale no-overwrite, unsupported no-arbitrary-execution)
+// on both source and packaged legs.
+// =====================================================================================================================
+
+const T2C_SOURCE = 'docs/adr/EVID-001-verify-all-evidence.md';
+const T2C_VIEW = 'docs/governed-index.md';
+const T2C_GENERATOR = 'node harness-everything/scripts/doc-lifecycle.js index --workspace . --config ' + CONFIG + ' --all';
+
+function t2cSha(bytes) {
+  return crypto.createHash('sha256').update(bytes).digest('hex');
+}
+
+function t2cGit(ws, args) {
+  const env = { ...process.env, GIT_CONFIG_NOSYSTEM: '1' };
+  for (const key of Object.keys(env)) if (key.startsWith('GIT_')) delete env[key];
+  const r = spawnSync('git', ['-C', ws, ...args], { env, encoding: 'utf8' });
+  if (r.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${truncate(r.stderr)}`);
+  return r.stdout.trim();
+}
+
+function t2cGenerateIndex(ws) {
+  const r = spawnSync(process.execPath, [
+    path.join(ws, 'harness-everything', 'scripts', 'doc-lifecycle.js'),
+    'index', '--workspace', ws, '--config', CONFIG, '--all'
+  ], { cwd: ws, encoding: 'utf8' });
+  if (r.status !== 0) throw new Error(`lifecycle index generation failed: ${truncate(r.stderr)}`);
+  writeDoc(ws, T2C_VIEW, r.stdout);
+}
+
+function t2cDerivedFixture(leg, generator = T2C_GENERATOR) {
+  const ws = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'f3-t2c-derived-')));
+  tmpDirs.push(ws);
+  const config = {
+    governed: [{ path: 'docs/adr/*.md', role: 'adr' }],
+    domains: ['EVID'],
+    derived: [{ path: T2C_VIEW, generator }]
+  };
+  writeDoc(ws, CONFIG, JSON.stringify(config, null, 2) + '\n');
+  writeDoc(ws, T2C_SOURCE, '---\nid: EVID-001\nrole: adr\nstatus: proposed\n---\n\n# EVID-001\n\n## Decision\n\nRetain evidence identities for generated views.\n');
+  fs.mkdirSync(path.join(ws, 'harness-everything', 'scripts'), { recursive: true });
+  fs.copyFileSync(path.join(leg.dir, 'doc-lifecycle.js'), path.join(ws, 'harness-everything', 'scripts', 'doc-lifecycle.js'));
+  fs.copyFileSync(path.join(leg.dir, 'project-docs-resolver.js'), path.join(ws, 'harness-everything', 'scripts', 'project-docs-resolver.js'));
+  t2cGenerateIndex(ws);
+  return ws;
+}
+
+function t2cWholeSeamFixture(leg) {
+  const ws = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'f3-t2c-whole-seam-')));
+  tmpDirs.push(ws);
+  const config = {
+    governed: [{ path: 'docs/adr/*.md', role: 'adr' }],
+    domains: ['EVID'],
+    derived: [{ path: T2C_VIEW, generator: T2C_GENERATOR }]
+  };
+  const source = (status, text) => `---\nid: EVID-001\nrole: adr\nstatus: ${status}\n---\n\n# EVID-001\n\n## Decision\n\n${text}\n`;
+  writeDoc(ws, CONFIG, JSON.stringify(config, null, 2) + '\n');
+  writeDoc(ws, T2C_SOURCE, source('proposed', 'Baseline evidence identity.'));
+  fs.mkdirSync(path.join(ws, 'harness-everything', 'scripts'), { recursive: true });
+  fs.copyFileSync(path.join(leg.dir, 'doc-lifecycle.js'), path.join(ws, 'harness-everything', 'scripts', 'doc-lifecycle.js'));
+  fs.copyFileSync(path.join(leg.dir, 'project-docs-resolver.js'), path.join(ws, 'harness-everything', 'scripts', 'project-docs-resolver.js'));
+  t2cGenerateIndex(ws);
+  t2cGit(ws, ['init', '-q']);
+  t2cGit(ws, ['add', '-A']);
+  t2cGit(ws, ['-c', 'user.name=e1-fixture', '-c', 'user.email=e1-fixture@invalid', '-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '-m', 'baseline']);
+  writeDoc(ws, T2C_SOURCE, source('accepted', 'Candidate evidence identity.'));
+  t2cGenerateIndex(ws);
+  return ws;
+}
+
+function t2cRunCheck(leg, ws, withView = true) {
+  const args = ['--changed-path', T2C_SOURCE];
+  if (withView) args.push('--derived-view', T2C_VIEW);
+  return spawnIt(leg.dir, 'check', ['--workspace', ws, '--config', CONFIG, ...args], { cwd: ws });
+}
+
+assertPerLeg('case-t2c-1:whole-seam-plain-and-derived-cli', leg => {
+  const ws = t2cWholeSeamFixture(leg);
+  const plain = t2cRunCheck(leg, ws, false);
+  same(plain.status, 0, 'plain-check positive control exit');
+  const plainReport = jsonOut(plain);
+  same(plainReport.capabilities['derived-regenerate'], undefined, 'plain-check omits derived-regenerate');
+
+  const checked = t2cRunCheck(leg, ws, true);
+  same(checked.status, 0, 'registered --derived-view check exit');
+  const report = jsonOut(checked);
+  const projection = report.capabilities['derived-regenerate'];
+  same(projection.state, 'pass', 'derived-regenerate state');
+  same(projection.checkedPaths, [T2C_VIEW], 'derived-regenerate checkedPaths');
+});
+
+assertPerLeg('case-t2c-2:derived-view-matching-digests-coverage-and-plain-firebreak', leg => {
+  const matching = t2cDerivedFixture(leg);
+  const matchingBytes = fs.readFileSync(path.join(matching, T2C_VIEW));
+  const matchingRun = t2cRunCheck(leg, matching, true);
+  same(matchingRun.status, 0, `matching check exit: ${truncate(matchingRun.stderr)}`);
+  const matchingReport = jsonOut(matchingRun);
+  const positive = matchingReport.capabilities['derived-regenerate'];
+  same(positive.state, 'pass', 'positive state');
+  same(positive.checkedPaths, [T2C_VIEW], 'positive checkedPaths');
+  same(positive.binding.generation.state, 'pass', 'generation state');
+  same(positive.binding.comparison.state, 'equal', 'comparison state');
+  same(positive.binding.generation.outputDigest, t2cSha(matchingBytes), 'outputDigest');
+  same(positive.binding.comparison.targetDigest, t2cSha(matchingBytes), 'targetDigest');
+  same(positive.binding.sourceCorpus.complete, true, 'sourceCorpus complete');
+  same(positive.binding.sourceCorpus.paths, [T2C_SOURCE], 'sourceCorpus paths');
+  same(positive.binding.config.digest, t2cSha(fs.readFileSync(path.join(matching, CONFIG))), 'config digest');
+  same(matchingReport.coverage.unsupported.some(item => item.path === T2C_VIEW), false, 'coverage unsupported excludes verified view');
+
+  const plain = t2cRunCheck(leg, matching, false);
+  same(plain.status, 0, `plain firebreak exit: ${truncate(plain.stderr)}`);
+  same(jsonOut(plain).capabilities['derived-regenerate'], undefined, 'plain firebreak omits derived-regenerate');
+});
+
+assertPerLeg('case-t2c-3:derived-view-stale-no-overwrite', leg => {
+  const stale = t2cDerivedFixture(leg);
+  const staleTarget = path.join(stale, T2C_VIEW);
+  fs.appendFileSync(staleTarget, '\nmanual stale edit\n');
+  const staleBefore = fs.readFileSync(staleTarget);
+  const staleRun = t2cRunCheck(leg, stale, true);
+  same(staleRun.status, 0, `stale check exit: ${truncate(staleRun.stderr)}`);
+  const staleProjection = jsonOut(staleRun).capabilities['derived-regenerate'];
+  same(staleProjection.state, 'stale', 'stale projection state');
+  same(staleProjection.binding.generation.state, 'pass', 'stale generation state');
+  same(staleProjection.binding.comparison.state, 'stale', 'stale comparison state');
+  if (!fs.readFileSync(staleTarget).equals(staleBefore)) throw new Error('stale target must not be rewritten');
+});
+
+assertPerLeg('case-t2c-4:derived-view-unsupported-no-arbitrary-exec', leg => {
+  const unsupportedMarker = 'GENERATOR_MUST_NOT_RUN';
+  const unsupportedGenerator = 'node -e ' + JSON.stringify('require("fs").writeFileSync("' + unsupportedMarker + '","ran")');
+  const unsupported = t2cDerivedFixture(leg, unsupportedGenerator);
+  const unsupportedRun = t2cRunCheck(leg, unsupported, true);
+  const unsupportedProjection = jsonOut(unsupportedRun).capabilities['derived-regenerate'];
+  same(unsupportedProjection.state, 'unsupported', 'unsupported projection state');
+  same(fs.existsSync(path.join(unsupported, unsupportedMarker)), false, 'configured text must never be executed');
+});
+
 // ---- Final summary (authoritative totals incl. the appended block) ---------------------------------------------------
 
 console.log(`\nF3 derived-views summary: ${passed} PASS, ${failed} FAIL, ${skipped} SKIP${failed ? `\nFAILED assertions (${failures.length}):\n  ${failures.join('\n  ')}` : ''}${failed === 0 && skipped > 0 ? ' (skips are environment-gated cases only)' : ''}`);
