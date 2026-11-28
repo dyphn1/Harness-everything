@@ -1,0 +1,16 @@
+[
+  {
+    "turn": 1,
+    "turnId": "t1",
+    "observedAt": "2026-11-28T03:16:29.162Z",
+    "selfReport": false,
+    "selfReportReason": "stop-missing"
+  },
+  {
+    "turn": 3,
+    "turnId": "t2",
+    "observedAt": "2026-11-28T03:17:00.415Z",
+    "selfReport": true,
+    "selfReportReason": null
+  }
+]

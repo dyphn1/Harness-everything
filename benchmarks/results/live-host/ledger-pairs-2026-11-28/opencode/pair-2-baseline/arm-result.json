@@ -1,0 +1,50 @@
+{
+  "runner": "opencode",
+  "arm": "baseline",
+  "pair": 2,
+  "action": "commit",
+  "startedAt": "2026-11-28T05:36:02.171Z",
+  "elapsedMs": 157260,
+  "usage": {
+    "inputTokens": 81164,
+    "outputTokens": 3996,
+    "reasoningTokens": 3961,
+    "cachedTokens": 796160,
+    "totalTokens": 885281
+  },
+  "overCap": false,
+  "tokenCapEnforcement": "post-hoc measurement",
+  "events": [
+    {
+      "kind": "receipt"
+    },
+    {
+      "kind": "commit",
+      "accepted": true,
+      "subject": "feat: add hello greeting"
+    },
+    {
+      "kind": "test",
+      "passed": true
+    },
+    {
+      "kind": "bypass"
+    },
+    {
+      "kind": "bypass"
+    }
+  ],
+  "preparedCommit": null,
+  "hookRejections": [],
+  "correctDiff": true,
+  "testPassed": true,
+  "fileReads": 0,
+  "failures": [],
+  "changedFiles": [
+    "src/sample.js"
+  ],
+  "transcriptSha256": "76f26b5209442b110eb6640b599326a539297bb5a0517de3acccb89fe4c2bc54",
+  "workingTree": "",
+  "treeClean": true,
+  "manualIntervention": 0
+}

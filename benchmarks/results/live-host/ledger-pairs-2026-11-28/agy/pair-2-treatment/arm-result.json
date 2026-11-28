@@ -1,0 +1,35 @@
+{
+  "runner": "agy",
+  "arm": "treatment",
+  "pair": 2,
+  "action": "commit",
+  "startedAt": "2026-11-28T05:29:35.653Z",
+  "elapsedMs": 85833,
+  "usage": null,
+  "overCap": false,
+  "tokenCapEnforcement": "post-hoc measurement",
+  "events": [
+    {
+      "kind": "commit",
+      "accepted": true,
+      "subject": "feat(sample): return hello greeting"
+    },
+    {
+      "kind": "test",
+      "passed": true
+    }
+  ],
+  "preparedCommit": null,
+  "hookRejections": [],
+  "correctDiff": true,
+  "testPassed": true,
+  "fileReads": 0,
+  "failures": [],
+  "changedFiles": [
+    "src/sample.js"
+  ],
+  "transcriptSha256": "00975ff659ce62ec1e396e98c16e7d5e1b71dd5cb0462d6dea963b0da981e188",
+  "workingTree": "",
+  "treeClean": true,
+  "manualIntervention": 0
+}

@@ -1,0 +1,13 @@
+{
+  "runner": "codex",
+  "arm": "treatment",
+  "pair": 4,
+  "intervention": "repo-ledger-context-visibility",
+  "initialSha": "bdf3b6b3774849c45426b138081ba67b39b41541",
+  "carrier": "Codex user-hook compatibility runtime installed under isolated CODEX_HOME; hooks/scripts/codex-ledger-lesson.js",
+  "tokenLimit": {
+    "max": 200000,
+    "enforcement": "post-hoc measurement"
+  },
+  "timeoutMs": 2700000
+}

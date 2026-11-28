@@ -1,0 +1,1 @@
+timestamp=2026-11-28T03:08:43.442Z level=INFO msg="loading plugin" id=<probe>/ws/.opencode/plugins/harness-enforcement.js entrypoint=file://<probe>/ws/.opencode/plugins/harness-enforcement.js http.span=363 role=server

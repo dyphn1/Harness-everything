@@ -1,0 +1,44 @@
+{
+  "runner": "opencode",
+  "arm": "baseline",
+  "pair": 1,
+  "action": "commit",
+  "startedAt": "2026-11-28T05:31:59.859Z",
+  "elapsedMs": 42067,
+  "usage": {
+    "inputTokens": 33581,
+    "outputTokens": 1729,
+    "reasoningTokens": 1042,
+    "cachedTokens": 99840,
+    "totalTokens": 136192
+  },
+  "overCap": false,
+  "tokenCapEnforcement": "post-hoc measurement",
+  "events": [
+    {
+      "kind": "receipt"
+    },
+    {
+      "kind": "commit",
+      "accepted": true,
+      "subject": "feat: return greeting from sample"
+    },
+    {
+      "kind": "test",
+      "passed": true
+    }
+  ],
+  "preparedCommit": null,
+  "hookRejections": [],
+  "correctDiff": true,
+  "testPassed": true,
+  "fileReads": 0,
+  "failures": [],
+  "changedFiles": [
+    "src/sample.js"
+  ],
+  "transcriptSha256": "9ac7957ab385fc070916d37838a01bb504ccb59ee13ece255aaf8676eba093c9",
+  "workingTree": "",
+  "treeClean": true,
+  "manualIntervention": 0
+}

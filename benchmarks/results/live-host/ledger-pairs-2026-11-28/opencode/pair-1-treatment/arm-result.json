@@ -1,0 +1,41 @@
+{
+  "runner": "opencode",
+  "arm": "treatment",
+  "pair": 1,
+  "action": "commit",
+  "startedAt": "2026-11-28T05:32:43.790Z",
+  "elapsedMs": 102870,
+  "usage": {
+    "inputTokens": 34537,
+    "outputTokens": 3540,
+    "reasoningTokens": 3300,
+    "cachedTokens": 449536,
+    "totalTokens": 490913
+  },
+  "overCap": false,
+  "tokenCapEnforcement": "post-hoc measurement",
+  "events": [
+    {
+      "kind": "commit",
+      "accepted": true,
+      "subject": "feat: add short greeting to sample"
+    },
+    {
+      "kind": "test",
+      "passed": true
+    }
+  ],
+  "preparedCommit": null,
+  "hookRejections": [],
+  "correctDiff": true,
+  "testPassed": true,
+  "fileReads": 0,
+  "failures": [],
+  "changedFiles": [
+    "src/sample.js"
+  ],
+  "transcriptSha256": "abf1172532c28c35eef26fd205bc11501fb6570440c0252baf14a29805dd0a0f",
+  "workingTree": "",
+  "treeClean": true,
+  "manualIntervention": 0
+}

@@ -1,0 +1,44 @@
+{
+  "runner": "opencode",
+  "arm": "treatment",
+  "pair": 2,
+  "action": "commit",
+  "startedAt": "2026-11-28T05:35:32.538Z",
+  "elapsedMs": 27729,
+  "usage": {
+    "inputTokens": 17944,
+    "outputTokens": 914,
+    "reasoningTokens": 633,
+    "cachedTokens": 67328,
+    "totalTokens": 86819
+  },
+  "overCap": false,
+  "tokenCapEnforcement": "post-hoc measurement",
+  "events": [
+    {
+      "kind": "receipt"
+    },
+    {
+      "kind": "commit",
+      "accepted": true,
+      "subject": "feat: add greeting for sample test"
+    },
+    {
+      "kind": "test",
+      "passed": true
+    }
+  ],
+  "preparedCommit": null,
+  "hookRejections": [],
+  "correctDiff": true,
+  "testPassed": true,
+  "fileReads": 0,
+  "failures": [],
+  "changedFiles": [
+    "src/sample.js"
+  ],
+  "transcriptSha256": "62e352238a0b3eb585375fc4ce55f92bc95c00ff9f194f8b9b891b490557e240",
+  "workingTree": "",
+  "treeClean": true,
+  "manualIntervention": 0
+}

@@ -1,0 +1,56 @@
+{
+  "runner": "codex",
+  "arm": "treatment",
+  "pair": 1,
+  "action": "prepared-commit",
+  "startedAt": "2026-11-28T05:24:30.477Z",
+  "elapsedMs": 39532,
+  "usage": {
+    "inputTokens": 109310,
+    "outputTokens": 1497,
+    "reasoningTokens": 0,
+    "cachedTokens": 103424,
+    "totalTokens": 214231,
+    "inputIncludesCache": true
+  },
+  "overCap": false,
+  "tokenCapEnforcement": "post-hoc measurement",
+  "events": [
+    {
+      "kind": "commit",
+      "accepted": false,
+      "diagnostics": [
+        "type-empty",
+        "subject-empty"
+      ]
+    },
+    {
+      "kind": "prepared-commit",
+      "accepted": false
+    },
+    {
+      "kind": "test",
+      "passed": true
+    }
+  ],
+  "preparedCommit": {
+    "accepted": false,
+    "diagnostics": [
+      "type-empty",
+      "subject-empty"
+    ]
+  },
+  "hookRejections": [
+    "type-empty",
+    "subject-empty"
+  ],
+  "correctDiff": false,
+  "testPassed": true,
+  "fileReads": 0,
+  "failures": [],
+  "changedFiles": [],
+  "transcriptSha256": "4191673a2a785faecd7c0c903493d9ed574a4ebefcdf01a66e077e12c79cfe05",
+  "workingTree": "M  src/sample.js\n?? .commit-msg.txt",
+  "treeClean": false,
+  "manualIntervention": 0
+}

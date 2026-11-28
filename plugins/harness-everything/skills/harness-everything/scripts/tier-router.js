@@ -141,26 +141,120 @@ function isFableProfileLookup(prompt, hasMacroSignal) {
   return true;
 }
 
-function detectExplicitStrategy(prompt, requestedFableModel) {
+const FABLE_STRATEGIES = [
+  ['fable-multi-agent-workspace', /\bfable[- ]multi[- ]agent[- ]workspace\b|\bmulti[- ]agent workspace\b/i],
+  ['fable-parallel', /\bfable[- ]parallel\b|\bparallel fable\b/i],
+  ['fable-staged', /\bfable[- ]staged\b|\bstaged fable\b/i],
+];
+const FABLE_PROHIBITION = /\b(?:no|without|do\s+not|don't|never|cannot|can't|not)\s+(?:use\s+)?fable(?:[- ]mode)?\b|(?:不要|不需要|無需|無須|不必|毋須|不用|別|勿|請勿|避免|停止|不)\s*(?:使用|用|啟用|進入|執行)?\s*fable(?:[- ]mode)?/i;
+const FABLE_REQUEST_PREFIX = /^(?:(?:please|let's|now|could\s+you(?:\s+please)?|would\s+you(?:\s+please)?)\s+|(?:請|幫我|麻煩)\s*)*/i;
+const FABLE_REQUEST_VERB = /^(?:use|run|enter)\s+fable(?:[- ]mode)?\b|^(?:使用|用|啟用|進入|執行|改用)\s*fable(?:[- ]mode)?/i;
+const FABLE_NAMED_REQUEST = /^(?:use|run|enter|改用)\s+(fable[- ](?:multi[- ]agent[- ]workspace|parallel|staged))\b/i;
+const FABLE_PROFILE_REQUEST = /^(?:use|run|enter|改用)\s+fable(?:[- ]mode)?\s+(?:on|with)\s+(haiku|sonnet|sonnect|opus)\b/i;
+
+function splitFableDirectiveClauses(prompt) {
+  const text = String(prompt || '');
+  const parts = [];
+  let part = '';
+  let quote = null;
+  const push = () => {
+    if (part.trim()) parts.push(part.trim());
+    part = '';
+  };
+  const wordSeparators = /^(?:and\s+then|and|then|also|plus|afterwards|additionally|but|並且|並|以及|接著|然後|另外)/iu;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (quote) {
+      if (char === quote) quote = null;
+      part += char;
+      continue;
+    }
+    if (char === '"' || char === '`' || char === '“' || char === '‘' ||
+        (char === "'" && !/[\p{L}\p{N}]/u.test(text[i - 1] || '') && /[\p{L}\p{N}]/u.test(text[i + 1] || ''))) {
+      quote = char === '“' ? '”' : char === '‘' ? '’' : char;
+      part += char;
+      continue;
+    }
+    if (/[;!?？！,，；。、…]/u.test(char) || (char === '.' && (i + 1 === text.length || /\s/u.test(text[i + 1])))) {
+      push();
+      continue;
+    }
+    const word = text.slice(i).match(wordSeparators);
+    if (word && (i === 0 || /\s/u.test(text[i - 1])) &&
+        (i + word[0].length === text.length || /\s/u.test(text[i + word[0].length]))) {
+      push();
+      i += word[0].length - 1;
+      continue;
+    }
+    part += char;
+  }
+  push();
+  return parts;
+}
+
+function detectFableRequest(clause) {
+  const directive = String(clause || '').trim().replace(FABLE_REQUEST_PREFIX, '').trim();
+  const named = FABLE_STRATEGIES.find(([, pattern]) => new RegExp(`^(?:${pattern.source})`, 'i').test(directive));
+  if (named) return { strategy: named[0], profile: null };
+  const namedRequest = directive.match(FABLE_NAMED_REQUEST);
+  if (namedRequest) {
+    const requested = FABLE_STRATEGIES.find(([strategy]) => strategy === namedRequest[1].toLowerCase().replace(/ /g, '-'));
+    if (requested) return { strategy: requested[0], profile: null };
+  }
+  const profile = directive.match(new RegExp(`^(?:${FABLE_PROFILE_INVOCATION.source})`, 'i'));
+  if (profile) return { strategy: 'fable-staged', profile: (profile[1] || profile[2]).toLowerCase() };
+  const requestedProfile = directive.match(FABLE_PROFILE_REQUEST);
+  if (requestedProfile) return { strategy: 'fable-staged', profile: requestedProfile[1].toLowerCase() };
+  if (FABLE_REQUEST_VERB.test(directive)) return { strategy: 'fable-staged', profile: null };
+  return { strategy: null, profile: null };
+}
+
+function detectFableDirective(prompt) {
+  const clauses = splitFableDirectiveClauses(prompt);
+  let strategy = null;
+  let profile = null;
+  let prohibited = false;
+  for (const clause of clauses) {
+    const negated = FABLE_PROHIBITION.test(clause);
+    if (negated) prohibited = true;
+    if (negated || strategy) continue;
+    const request = detectFableRequest(clause);
+    if (request.strategy) {
+      strategy = request.strategy;
+      profile = request.profile;
+    }
+  }
+  if (!strategy) {
+    const linkedContinuations = clauses.slice(0, -1).flatMap((clause, index) => {
+      if (!isFableProfileLookup(clause, false) || !/^run\s+it\b/i.test(clauses[index + 1])) return [];
+      const matches = clause.match(new RegExp(FABLE_PROFILE_INVOCATION.source, 'gi')) || [];
+      return matches.length === 1 ? [detectFableModel(clause)] : [];
+    });
+    if (linkedContinuations.length === 1) {
+      strategy = 'fable-staged';
+      profile = linkedContinuations[0];
+    }
+  }
+  return { strategy, prohibited, profile };
+}
+
+function detectExplicitStrategy(prompt) {
   if (/\bdirect[- ]single\b/i.test(prompt)) return 'direct-single';
   if (/\biterative[- ]single\b/i.test(prompt)) return 'iterative-single';
-  if (/\bfable[- ]multi[- ]agent[- ]workspace\b|\bmulti[- ]agent workspace\b/i.test(prompt)) return 'fable-multi-agent-workspace';
-  if (/\bfable[- ]parallel\b|\bparallel fable\b/i.test(prompt)) return 'fable-parallel';
-  if (/\bfable[- ]staged\b|\bstaged fable\b/i.test(prompt)) return 'fable-staged';
-  if (requestedFableModel || /\b(?:use|run|enter)\s+fable(?:[- ]mode)?\b/i.test(prompt)) return 'fable-staged';
-  return null;
+  return detectFableDirective(prompt).strategy;
 }
 
 function detectProhibitions(prompt) {
+  const fableDirective = detectFableDirective(prompt);
   const rules = [
-    ['fable', /\b(?:no|without|do not|don't)\s+(?:use\s+)?fable\b/i],
     ['subagents', /\b(?:no|without|do not|don't)\s+(?:use\s+)?subagents?\b|\bsingle[- ]agent only\b/i],
     ['parallel', /\b(?:no|without|do not|don't)\s+(?:use\s+)?parallel(?:ism| execution)?\b|\bdo not parallelize\b|\bserial only\b/i],
     ['workspace', /\b(?:no|without|do not|don't)\s+(?:use\s+)?(?:multi[- ]agent )?workspace\b/i],
     ['memory', /\b(?:no|without|do not|don't)\s+(?:use\s+)?memory\b/i],
     ['ensemble', /\b(?:no|without|do not|don't)\s+(?:use\s+)?ensemble\b/i],
   ];
-  return rules.filter(([, regex]) => regex.test(prompt)).map(([name]) => name);
+  return [...(fableDirective.prohibited ? ['fable'] : []), ...rules.filter(([, regex]) => regex.test(prompt)).map(([name]) => name)];
 }
 
 function detectMemoryPersistenceRequest(prompt) {
@@ -348,7 +442,7 @@ function run(userPrompt, context, options = {}) {
   const structuralFloor = hasMacroSignal ? 'tier3'
     : !isTrivialDocsEdit && hasMultipleTasks && hasMultipleSentences ? 'tier2' : null;
   const routeInput = { prompt: userPrompt, tier: recommendedTier, floor: structuralFloor,
-    explicit: profileLookup || Boolean(detectExplicitStrategy(userPrompt, detectFableModel(userPrompt))) };
+    explicit: profileLookup || Boolean(detectExplicitStrategy(userPrompt)) };
   const liveMode = process.env.HARNESS_SYSTEM_ONE_MODE === 'live';
   const semantic = liveMode ? routeLive(routeInput, options.systemOneResult)
     : selectTier(routeInput, process.env, options.systemOneScorer || undefined);
@@ -369,7 +463,7 @@ function run(userPrompt, context, options = {}) {
   console.log(`\n=> RECOMMENDED TIER: ${recommendedTier}`);
   console.log(`=> RATIONALE: ${rationale}`);
 
-  const requestedFableModel = detectFableModel(promptLower);
+  const requestedFableModel = profileLookup ? detectFableModel(promptLower) : detectFableDirective(userPrompt).profile;
   if (requestedFableModel) {
     console.log(`\n=> REQUESTED FABLE PROFILE: ${requestedFableModel}`);
     console.log(`=> ROUTE: fable-mode/SKILL.md`);
@@ -431,7 +525,7 @@ function run(userPrompt, context, options = {}) {
   const actionGateReasonCodes = detectActionGateReasons(userPrompt);
   const irreversibleAction = actionGateReasonCodes.includes('irreversible-action');
   const externalSideEffect = actionGateReasonCodes.includes('external-side-effect');
-  const requestedStrategy = profileLookup ? null : detectExplicitStrategy(userPrompt, requestedFableModel);
+  const requestedStrategy = profileLookup ? null : detectExplicitStrategy(userPrompt);
   const prohibitions = detectProhibitions(userPrompt);
   const plannerInputs = plannerInputsFromContext(context, promptLower);
 

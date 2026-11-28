@@ -1,0 +1,14 @@
+{
+  "runner": "agy",
+  "arm": "baseline",
+  "pair": 3,
+  "intervention": "agy-injection",
+  "initialSha": "bdf3b6b3774849c45426b138081ba67b39b41541",
+  "carrier": "none; packet-context injection, reported as agy-injection only",
+  "tokenLimit": {
+    "max": 200000,
+    "enforcement": "post-hoc measurement"
+  },
+  "timeoutMs": 2700000,
+  "isolation": "real HOME (agy login lives in ~/.gemini); TMPDIR isolated; global agy plugins load equally in both arms"
+}

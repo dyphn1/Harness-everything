@@ -1,0 +1,18 @@
+{
+  "sources": {
+    "live": {
+      "status": "ok"
+    },
+    "codex": {
+      "status": "ok"
+    }
+  },
+  "byHost": {
+    "opencode": {
+      "persisted": 2,
+      "duplicate": 0,
+      "ambiguous": 0,
+      "importFailure": 0
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "runner": "agy",
+  "arm": "treatment",
+  "pair": 3,
+  "action": "commit",
+  "startedAt": "2026-11-28T05:34:04.382Z",
+  "elapsedMs": 77120,
+  "usage": null,
+  "overCap": false,
+  "tokenCapEnforcement": "post-hoc measurement",
+  "events": [
+    {
+      "kind": "commit",
+      "accepted": true,
+      "subject": "feat: return hello greeting from sample"
+    },
+    {
+      "kind": "test",
+      "passed": true
+    }
+  ],
+  "preparedCommit": null,
+  "hookRejections": [],
+  "correctDiff": true,
+  "testPassed": true,
+  "fileReads": 0,
+  "failures": [],
+  "changedFiles": [
+    "src/sample.js"
+  ],
+  "transcriptSha256": "3a228f12d959d2b4c97cb1ffa2b49f9097d31b8eb6a9e534ea4d0b0ea7198220",
+  "workingTree": "",
+  "treeClean": true,
+  "manualIntervention": 0
+}
