@@ -133,6 +133,19 @@ episodes:
         change: null
         review: "report writer / coordinator"
         result: "`npm run report -- write --from-codex-output <raw> --status BLOCKED --reason <text>` refused with 'raw terminal STATUS does not match the requested status': the worker's raw `STATUS: BLOCKED: ...` line ended with two trailing spaces though the reason text was otherwise identical. The coordinator could not produce a checked report for that packet."
+  - episode: 552-g3-host-label-before-status
+    feature: "#332 fix-round continuation (PR #559)"
+    date: 2026-11-28
+    closed: true
+    rounds:
+      - round: 0
+        change: null
+        review: "managed dispatch C8"
+        result: "A Codex one-shot (#332 fix-round continuation) ended its final message with a harness-label line immediately before `STATUS: DONE`; managed C8 returned `16 REPORT_INVALID` ('host label is allowed only once at EOF') although the work was complete. The coordinator stripped the label line and reran `npm run report -- write --from-codex-output`."
+      - round: 1
+        change: "Later packets state 'Do NOT print any harness-label line' in the final message"
+        review: "managed dispatch G4/F2"
+        result: "G4/F2 passed; episode closed. This resets the #441 E-0002 20-packet window."
 ---
 
 ## Cue
@@ -148,6 +161,8 @@ Eight retained F4 packet reports (F4-I2b, F4-T5, F4-T6, F4-T7, F4-T8, F4-T9, F4-
 Every report ends with one plain column-zero `STATUS: DONE` or `STATUS: BLOCKED: <reason>` line. Keep "RED packet completed" and "product GREEN" as separate acceptance criteria rather than overriding the status ad hoc.
 
 When a host rule also requires a trailing line, the packet must state which line is terminal.
+
+Codex packets must forbid host label lines in the final message: the host injects the label contract into every turn, so a worker that prints a label before `STATUS` makes the report writer reject an otherwise complete report.
 
 ## Evidence
 
@@ -182,3 +197,4 @@ Treatment: replace hand-written terminal lines with a script that writes and che
 - #394 / #468 (2026-11-20): sed took the label as STATUS; writer rejected a blank line before the host label (R2, staged-copy workaround).
 - PR #499 review (2026-11-21): a quoted label in the body made the writer reject a valid review.
 - #498 packet P498-F (2026-11-25): two trailing spaces on the raw STATUS line blocked `--from-codex-output`.
+- PR #559 / #332 (2026-11-28): a Codex final message had the label immediately before `STATUS: DONE`; C8 returned `16 REPORT_INVALID`, the coordinator stripped the label and reran the writer, and later packets forbade label lines so G4/F2 passed. Resets the #441 E-0002 20-packet window.
