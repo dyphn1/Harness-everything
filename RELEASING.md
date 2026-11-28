@@ -44,6 +44,8 @@ A push to `main` runs the full reusable CI gate and then semantic-release. A man
 
 The SBOM is generated from the release `package.json`/`package-lock.json` as CycloneDX 1.7, the current 1.x format, to satisfy consumers and regulatory baselines requiring CycloneDX 1.6 or later. It is intentionally not committed to Git. The release publishes `sbom.cdx.json` in the npm tarball and as a GitHub Release asset, while the workflow also retains it as an Actions artifact.
 
+The release commit and tag are pushed over SSH with the `RELEASE_DEPLOY_KEY` write deploy key, because ruleset `main-protected` requires status checks on `main` and a personal repository cannot list the GitHub Actions app as a bypass actor; the deploy key is the ruleset's only always-bypass actor besides PR-merge bypass for admins (#381). `GITHUB_TOKEN` stays in use for GitHub API calls (releases, comments).
+
 Release concurrency is serialized so two updates to `main` cannot publish competing versions.
 
 ## Version ownership
