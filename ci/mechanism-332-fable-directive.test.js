@@ -24,7 +24,9 @@ assert.notEqual(mention.strategy, 'fable-staged', 'a Fable skill mention does no
 
 for (const prompt of [
   '不要用 fable，改 README 錯字',
+  '不要改用 fable 修 README 錯字',
   'Do not use fable, fix a typo in README.md',
+  'Could you not use fable to fix a typo in README.md',
 ]) {
   const plan = route(prompt);
   assert.notEqual(plan.strategy, 'fable-staged', `${prompt}: prohibition does not select Fable`);
@@ -37,6 +39,29 @@ assert.equal(englishTypo.strategy, 'direct-single');
 
 const zhExplicit = route('用 fable 跨專案實作這個功能');
 assert.equal(zhExplicit.strategy, 'fable-staged', 'explicit Chinese request selects Fable');
+
+for (const prompt of [
+  '改用 fable 修 README 錯字',
+  '幫我改用 fable 修 README 錯字',
+  '請改用 fable 修 README 錯字',
+  '麻煩改用 fable 修 README 錯字',
+  'Could you use fable to fix a typo in README.md',
+  'Would you please use fable to fix a typo in README.md',
+]) {
+  const plan = route(prompt);
+  assert.equal(plan.strategy, 'fable-staged', `${prompt}: explicit request selects Fable`);
+  assert.ok(plan.reasonCodes.includes('explicit-strategy-request'), `${prompt}: explicit request is recorded`);
+}
+
+for (const prompt of [
+  '改用 fable-staged 修 README 錯字',
+  '改用 fable on sonnet 修 README 錯字',
+]) {
+  const plan = route(prompt);
+  assert.equal(plan.strategy, 'fable-staged', `${prompt}: named strategy/profile remains selectable`);
+  assert.ok(plan.reasonCodes.includes('explicit-strategy-request'), `${prompt}: named request is recorded`);
+  if (prompt.includes('sonnet')) assert.ok(plan.routerOutput.includes('REQUESTED FABLE PROFILE: sonnet'));
+}
 
 const prohibitedMacro = route('Do not use fable; redesign the architecture across the repository');
 assert.equal(prohibitedMacro.tier, 'tier3', 'real macro workload keeps its structural tier');
@@ -86,11 +111,27 @@ for (const prompt of [
   assert.notEqual(plan.fallback.disposition, 'blocked', `${prompt}: prohibition is not a conflict`);
 }
 
-for (const prefix of ['Please', "Let's", 'Now', '請', '幫我', '改用', '麻煩']) {
-  for (const verb of ['use fable', 'run fable', 'enter fable', '使用 fable', '用 fable', '啟用 fable', '進入 fable', '執行 fable']) {
+for (const prefix of ['Please', "Let's", 'Now', 'Could you', 'Could you please', 'Would you', 'Would you please', '請', '幫我', '麻煩']) {
+  for (const verb of ['use fable', 'run fable', 'enter fable', '使用 fable', '用 fable', '啟用 fable', '進入 fable', '執行 fable', '改用 fable']) {
     assert.equal(route(`${prefix} ${verb} to redesign the repository architecture`).strategy, 'fable-staged',
       `${prefix} + ${verb}: clause-leading request selects Fable`);
   }
+}
+
+const englishNegationPrefixes = ['Do not', "Don't", 'Never', 'Cannot', "Can't", 'Not', 'No', 'Without'];
+const englishNegationTargets = ['fable', 'fable-mode', 'use fable', 'use fable-mode', 'fable to fix a typo'];
+const chineseNegationPrefixes = ['不要', '不需要', '無需', '無須', '不必', '毋須', '不用', '不會', '別', '勿', '請勿', '避免', '停止'];
+const chineseNegationTargets = ['fable', '使用 fable', '用 fable', '啟用 fable', '進入 fable', '執行 fable'];
+const negationMatrix = [
+  ...englishNegationPrefixes.flatMap(prefix => englishNegationTargets.map(target => `${prefix} ${target} to fix a typo in README.md`)),
+  ...chineseNegationPrefixes.flatMap(prefix => chineseNegationTargets.map(target => `${prefix}${target} 修 README 錯字`)),
+];
+assert.equal(negationMatrix.length, 118, 'the class-level negation matrix covers 118 inputs');
+for (const prompt of negationMatrix) {
+  const plan = route(prompt);
+  assert.notEqual(plan.strategy, 'fable-staged', `${prompt}: negation does not select Fable`);
+  assert.ok(!plan.reasonCodes.includes('explicit-strategy-request'), `${prompt}: negation is not an explicit request`);
+  assert.notEqual(plan.fallback.disposition, 'blocked', `${prompt}: negation alone is not a conflict`);
 }
 
 for (const prefix of ['please', "let's", 'now', '請', '幫我', '改用', '麻煩']) {

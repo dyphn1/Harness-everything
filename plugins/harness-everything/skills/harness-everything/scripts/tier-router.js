@@ -147,10 +147,10 @@ const FABLE_STRATEGIES = [
   ['fable-staged', /\bfable[- ]staged\b|\bstaged fable\b/i],
 ];
 const FABLE_PROHIBITION = /\b(?:no|without|do\s+not|don't|never|cannot|can't|not)\s+(?:use\s+)?fable(?:[- ]mode)?\b|(?:不要|不需要|無需|無須|不必|毋須|不用|別|勿|請勿|避免|停止|不)\s*(?:使用|用|啟用|進入|執行)?\s*fable(?:[- ]mode)?/i;
-const FABLE_REQUEST_PREFIX = /^(?:(?:please|let's|now)\s+|(?:請|幫我|改用|麻煩)\s*)*/i;
-const FABLE_REQUEST_VERB = /^(?:use|run|enter)\s+fable(?:[- ]mode)?\b|^(?:使用|用|啟用|進入|執行)\s*fable(?:[- ]mode)?/i;
-const FABLE_NAMED_REQUEST = /^(?:use|run|enter)\s+(fable[- ](?:multi[- ]agent[- ]workspace|parallel|staged))\b/i;
-const FABLE_PROFILE_REQUEST = /^(?:use|run|enter)\s+fable(?:[- ]mode)?\s+(?:on|with)\s+(haiku|sonnet|sonnect|opus)\b/i;
+const FABLE_REQUEST_PREFIX = /^(?:(?:please|let's|now|could\s+you(?:\s+please)?|would\s+you(?:\s+please)?)\s+|(?:請|幫我|麻煩)\s*)*/i;
+const FABLE_REQUEST_VERB = /^(?:use|run|enter)\s+fable(?:[- ]mode)?\b|^(?:使用|用|啟用|進入|執行|改用)\s*fable(?:[- ]mode)?/i;
+const FABLE_NAMED_REQUEST = /^(?:use|run|enter|改用)\s+(fable[- ](?:multi[- ]agent[- ]workspace|parallel|staged))\b/i;
+const FABLE_PROFILE_REQUEST = /^(?:use|run|enter|改用)\s+fable(?:[- ]mode)?\s+(?:on|with)\s+(haiku|sonnet|sonnect|opus)\b/i;
 
 function splitFableDirectiveClauses(prompt) {
   const text = String(prompt || '');
